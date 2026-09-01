@@ -31,6 +31,20 @@
 </header>
 <div class="ticker" id="ticker" aria-label="Tracked names"><div class="ticker-track" id="tickerTrack"></div></div>
 <main class="desk" id="desk"></main>
-<script src="js/board.js"></script>
+<script>
+(async function(){
+  var parts=["js/board-a.js","js/board-b.js"];
+  var s="";
+  for (var i=0;i<parts.length;i++){
+    var r=await fetch(parts[i],{cache:"no-store"});
+    if(!r.ok) throw new Error(parts[i]+" "+r.status);
+    s+=await r.text();
+    s+="\n";
+  }
+  var el=document.createElement("script");
+  el.textContent=s;
+  document.body.appendChild(el);
+})().catch(function(e){ document.body.insertAdjacentHTML("beforeend","<p>Desk JS failed: "+e+"</p>"); });
+</script>
 </body>
 </html>
