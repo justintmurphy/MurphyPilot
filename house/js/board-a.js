@@ -28,6 +28,51 @@
     ["2026-09-16", "FOMC decision ~14:00 ET"],
     ["2026-09-30", "PCE + GDP third estimate"]
   ];
+  var MIX = ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
+  var LAST_FILL = {
+    "individual|SPCX": "2026-06-25",
+    "individual|NVDA": "2026-08-26",
+    "individual|TSLA": "2026-08-25",
+    "individual|BTC": "2026-08-26",
+    "individual|XRP": "2026-08-29",
+    "auto_grok|MU": "2026-08-27",
+    "auto_grok|ARIS": "2026-08-27",
+    "auto_grok|AUGO": "2026-08-27",
+    "auto_grok|FSM": "2026-08-27",
+    "auto_grok|AVGO": "2026-08-27",
+    "auto_grok|KGC": "2026-08-27",
+    "auto_grok|CDE": "2026-08-27",
+    "auto_grok|VST": "2026-08-27",
+    "auto_grok|SNDK": "2026-08-27",
+    "auto_grok|KTOS": "2026-08-27",
+    "auto_grok|ZETA": "2026-08-27",
+    "auto_grok|AU": "2026-08-27",
+    "auto_grok|CECO": "2026-08-27",
+    "auto_grok|ASM": "2026-08-27",
+    "auto_grok|LBTYA": "2026-08-27",
+    "auto_grok|SRRK": "2026-08-27",
+    "auto_grok|EXK": "2026-08-27",
+    "auto_grok|OSCR": "2026-08-27",
+    "joint|SNDK": "2026-08-27",
+    "joint|BW": "2026-08-27",
+    "joint|MU": "2026-08-27",
+    "joint|ZETA": "2026-08-27",
+    "joint|NVDA": "2026-08-27",
+    "joint|MLTX": "2026-08-27",
+    "joint|ARIS": "2026-08-27",
+    "joint|NG": "2026-08-27",
+    "joint|RUM": "2026-08-27",
+    "joint|OPRA": "2026-08-27",
+    "joint|FRO": "2026-08-27",
+    "joint|KTOS": "2026-08-27",
+    "joint|VST": "2026-08-27",
+    "joint|ABCL": "2026-08-27",
+    "joint|PGY": "2026-08-27",
+    "joint|IOVA": "2026-08-27",
+    "joint|STRL": "2026-08-27",
+    "agentic|XLE": "2026-09-01",
+    "agentic|RTX": "2026-09-01"
+  };
   var tab = "combined";
   var snap = null;
 
@@ -43,15 +88,7 @@
     return n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
   }
   function tone(n) { n = Number(n); if (!isFinite(n) || Math.abs(n) < 0.0005) return "flat"; return n > 0 ? "go" : "stop"; }
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      if (c === "&") return "\x26amp;";
-      if (c === "<") return "\x26lt;";
-      if (c === ">") return "\x26gt;";
-      if (c === '"') return "\x26quot;";
-      return "\x26#39;";
-    });
-  }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "\u0026amp;", "<": "\u0026lt;", ">": "\u0026gt;", '"': "\u0026quot;", "'": "\u0026#39;" })[c]; }); }
   function rnd(n) { return Math.round(Number(n) * 100) / 100; }
 
   function hashTab() {
@@ -73,7 +110,7 @@
       var cost = n.cost != null ? Number(n.cost) : (avg != null && q != null ? avg * q : null);
       var pnl = value != null && cost != null ? value - cost : null;
       var pnl_pct = cost ? (pnl / cost) * 100 : (avg && last ? ((last / avg) - 1) * 100 : null);
-      return { symbol: n.symbol, name: n.name || n.symbol, kind: "equity", qty: q, avg: avg, last: last, value: value, cost: cost, pnl: pnl, pnl_pct: pnl_pct, first_fill: n.first_fill || "", next_stall: n.next_stall || "", account: "agentic", accounts: ["agentic"] };
+      return { symbol: n.symbol, name: n.name || n.symbol, kind: "equity", qty: q, avg: avg, last: last, value: value, cost: cost, pnl: pnl, pnl_pct: pnl_pct, first_fill: n.first_fill || "", last_fill: n.last_fill || LAST_FILL["agentic|" + n.symbol] || n.first_fill || "", next_stall: n.next_stall || "", account: "agentic", accounts: ["agentic"] };
     });
     return {
       id: "agentic", label: "Agentic",
@@ -105,6 +142,7 @@
         var row = JSON.parse(JSON.stringify(n));
         row.account = row.account || id;
         row.accounts = row.accounts && row.accounts.length ? row.accounts : [id];
+        row.last_fill = row.last_fill || LAST_FILL[id + "|" + row.symbol] || row.first_fill || "";
         names.push(row);
       });
     });
@@ -172,4 +210,41 @@
       if (best) break;
     }
     return best;
+  }
+
+  function jobAlert(now) {
+    var n = nextJob(now);
+    if (!n) return { n: null, eta: "\u2014", cls: "later", label: "Idle" };
+    var secs = Math.max(0, Math.floor((n.when - now) / 1000));
+    var h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+    var eta = (n.add ? n.add + "d " : "") + pad(h) + ":" + pad(m);
+    var mins = secs / 60;
+    var cls, label;
+    if (mins <= 15) { cls = "hot"; label = "Due now"; }
+    else if (mins <= 60) { cls = "soon"; label = "Soon"; }
+    else if (n.add === 0) { cls = "today"; label = "Today"; }
+    else { cls = "later"; label = n.add === 1 ? "Tomorrow" : n.add + " days"; }
+    return { n: n, eta: eta, cls: cls, label: label, mins: mins };
+  }
+
+  function donutPath(cx, cy, r0, r1, a0, a1) {
+    var large = a1 - a0 > Math.PI ? 1 : 0;
+    function p(r, a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+    var p0 = p(r1, a0), p1 = p(r1, a1), p2 = p(r0, a1), p3 = p(r0, a0);
+    return "M" + p0[0] + " " + p0[1] + " A" + r1 + " " + r1 + " 0 " + large + " 1 " + p1[0] + " " + p1[1] +
+      " L" + p2[0] + " " + p2[1] + " A" + r0 + " " + r0 + " 0 " + large + " 0 " + p3[0] + " " + p3[1] + " Z";
+  }
+  function mixSlices(book, t) {
+    if (t === "combined" && book.books && book.books.length) {
+      return book.books.map(function (b, i) {
+        return { key: b.id, label: b.label, value: Number(b.equity) || 0, color: MIX[i % MIX.length] };
+      }).filter(function (s) { return s.value > 0.004; });
+    }
+    var held = (book.names || []).filter(function (n) { return (Number(n.value) || 0) > 0.004; })
+      .sort(function (a, b) { return (Number(b.value) || 0) - (Number(a.value) || 0); });
+    var rows = held.map(function (n, i) {
+      return { key: n.symbol, label: n.symbol, value: Number(n.value) || 0, color: MIX[i % MIX.length] };
+    });
+    if ((Number(book.cash) || 0) > 0.004) rows.push({ key: "cash", label: "Cash", value: Number(book.cash) || 0, color: "var(--mix-cash)" });
+    return rows;
   }
