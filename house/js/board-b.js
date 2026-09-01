@@ -74,6 +74,7 @@
       var cls = row[0] === today ? "tone-soon" : (row[0] < today ? "tone-flat" : "");
       return '<div class="cal-row ' + cls + '"><b>' + row[0] + "</b> \u00b7 " + esc(row[1]) + (row[0] === today ? " \u00b7 today" : "") + "</div>";
     }).join("");
+    var agLink = /\/house(\/|$)/.test(location.pathname) ? "../agentic.html" : "agentic.html";
     return "<h2>Agentic \u00b7 next job</h2><div class=\"card span\"><div class=\"next\"><div><div class=\"name\">" +
       (n ? n.t + "  " + n.name : "\u2014") + '</div><div class="hint">' + (n ? n.role : "") + "</div></div><div class=\"eta\">" + eta + "</div></div></div>" +
       stateHtml(ag, "Agentic") +
@@ -85,7 +86,7 @@
       "</ul></div>" +
       "<h2>Weekday clock</h2><div class=\"card span\"><table><thead><tr><th>ET</th><th>Job</th><th>Role</th></tr></thead><tbody>" + clockRows + "</tbody></table></div>" +
       "<h2>Coming weeks</h2><div class=\"card\">" + cal + "</div>" +
-      '<p class="hint"><a href="../agentic.html">Open the full Agentic trading desk</a> for charts, pack links, and snapshot paste.</p>';
+      '<p class="hint"><a href="' + agLink + '">Open the full Agentic trading desk</a> for charts, pack links, and snapshot paste.</p>';
   }
 
   function paint() {
@@ -125,8 +126,8 @@
 
   function load() {
     Promise.all([
-      fetch("house-snapshot.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
-      fetch("../pilot-snapshot.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+      fetch((/\/house(\/|$)/.test(location.pathname) ? "house-snapshot.json" : "house/house-snapshot.json") + "?t=" + Date.now(), { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
+      fetch((/\/house(\/|$)/.test(location.pathname) ? "../pilot-snapshot.json" : "pilot-snapshot.json") + "?t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
     ]).then(function (pair) {
       snap = merge(pair[0], pair[1]);
       paint();
@@ -159,4 +160,3 @@
   setInterval(tickClock, 1000);
   load();
   setInterval(load, 5 * 60 * 1000);
-})();
