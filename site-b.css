@@ -1,0 +1,3 @@
+/* extra Google-build rules continue to land here */
+.book-split{display:grid;gap:12px}
+@media(min-width:800px){.book-split{grid-template-columns:1.45fr .85fr}}
