@@ -34,13 +34,13 @@ function buildFidelitySleeves(fid, outside) {
     return { id: s.id, label: s.label, key: s.key, equity: rnd(equity), cash: cash, buying_power: cash, pending_deposits: 0, equity_value: rnd(held), invested_pct: equity ? Math.min(100, (held / equity) * 100) : 0, open_orders: 0, names: names };
   });
 }
-
 var _mergeCore = merge;
 merge = function (house, pilot, outside) {
+  outside = outside || (typeof snap !== "undefined" && snap && snap.truthifi) || null;
   var out = _mergeCore(house, pilot, outside);
   if (outside && outside.accounts) {
     OUTSIDE_IDS.forEach(function (id) {
-      if (outside.accounts[id] && !out.accounts[id]) out.accounts[id] = outside.accounts[id];
+      if (outside.accounts[id]) out.accounts[id] = outside.accounts[id];
     });
     out.truthifi = outside;
   }
@@ -104,7 +104,6 @@ merge = function (house, pilot, outside) {
   out.combined.overall_asof = (outside && outside.overall && outside.overall.asof) || (outside && outside.scanned_at) || "";
   return out;
 };
-
 cardsHtml = function () {
   return "<h2>Books</h2><div class=\"acct-grid\">" + IDS.map(function (id) {
     var b = snap.accounts[id] || {};
@@ -112,7 +111,6 @@ cardsHtml = function () {
     return '<button type="button" class="acct-mini" data-tab="' + id + '"><div class="k">' + esc(LABEL[id]) + " \u00b7 " + tag + "</div><b>" + money(b.equity) + '</b><div class="m">' + (b.names || []).length + " names</div></button>";
   }).join("") + "</div>";
 };
-
 function fidelityDeskHtml() {
   var fid = snap.accounts.fidelity || { names: [], equity: 0 };
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
@@ -133,24 +131,22 @@ function fidelityDeskHtml() {
   });
   return html;
 }
-
 function overallCardHtml() {
   var c = snap.combined || {};
   var prints = ((snap.tape && snap.tape.overall) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
   var vals = prints.map(function (p) { return p.equity; });
   var last = vals.length ? vals[vals.length - 1] : (c.equity || 0);
   if (!vals.length) vals = [last, last];
-  return "<h2>Overall equity \u00b7 daily close</h2><div class=\"card tape-card\">" +
+  return "<h2>Overall equity \u00b7 daily close</h2><div class=\"card tape-card tape-open\" data-open-all-books=\"1\">" +
     '<div class="tape-kpis">' +
     "<div><span>Overall</span><b>" + money(c.equity) + "</b></div>" +
     "<div><span>Live</span><b>" + money(c.live_equity) + "</b></div>" +
     "<div><span>Custodial</span><b>" + money(c.custodial_equity) + "</b></div>" +
     "<div><span>Prints</span><b>" + prints.length + "</b></div></div>" +
     '<div class="tape-plot">' + spark(vals) + "</div>" +
-    '<p class="hint">Ticked weekdays at 16:00 ET. Live = Robinhood books. Custodial = Fidelity + Voya' +
+    '<p class="hint">Ticked weekdays at 16:00 ET. Click for every book. Custodial Fidelity + Voya' +
     (c.outside_asof ? " as of " + esc(c.outside_asof) : "") + ".</p></div>";
 }
-
 var _paint = paint;
 paint = function () {
   if (!snap) return;
@@ -163,6 +159,21 @@ paint = function () {
       var alertF = deskF.querySelector(".next-alert");
       var footF = deskF.querySelector(".desk-foot");
       deskF.innerHTML = (alertF ? alertF.outerHTML : "") + fidelityDeskHtml() + (footF ? footF.outerHTML : "");
+    }
+    return;
+  }
+  if (tab === "voya") {
+    var deskV = document.getElementById("desk");
+    if (deskV) {
+      var alertV = deskV.querySelector(".next-alert");
+      var footV = deskV.querySelector(".desk-foot");
+      var voya = snap.accounts.voya || { names: [], equity: 0 };
+      deskV.innerHTML = (alertV ? alertV.outerHTML : "") + stateHtml(voya, "Voya") +
+        '<p class="hint">Voya is Truthifi EOD ' + esc(voya.asof || (snap.truthifi && (snap.truthifi.holdings_asof || snap.truthifi.asof)) || "") + '.</p>' +
+        tapeHtml("voya", "Voya", false) +
+        "<h2>Where it sits \u00b7 Voya</h2>" + mixHtml(voya, "voya") +
+        "<h2>Book \u00b7 Voya</h2>" + tableHtml(voya.names, false, false) +
+        (footV ? footV.outerHTML : "");
     }
     return;
   }
@@ -183,7 +194,6 @@ paint = function () {
     while (wrap.firstChild) desk.insertBefore(wrap.firstChild, liveH);
   }
 };
-
 load = function () {
   var housePath = /\/house(\/|$)/.test(location.pathname);
   var bust = "?t=" + Date.now();
@@ -198,12 +208,10 @@ load = function () {
     document.getElementById("desk").innerHTML = "<p class='hint'>Could not load snapshots. " + esc(e) + "</p>";
   });
 };
-
 document.addEventListener("click", function (e) {
   var jump = e.target.closest("[data-scroll]");
   if (!jump) return;
   var target = document.getElementById(jump.getAttribute("data-scroll"));
   if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
 });
-
 load();
