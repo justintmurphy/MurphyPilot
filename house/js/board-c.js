@@ -108,28 +108,37 @@ cardsHtml = function () {
   return "<h2>Books</h2><div class=\"acct-grid\">" + IDS.map(function (id) {
     var b = snap.accounts[id] || {};
     var tag = OUTSIDE_IDS.indexOf(id) >= 0 ? "EOD" : "live";
-    return '<button type="button" class="acct-mini" data-tab="' + id + '"><div class="k">' + esc(LABEL[id]) + " \u00b7 " + tag + "</div><b>" + money(b.equity) + '</b><div class="m">' + (b.names || []).length + " names</div></button>";
+    return "<button type=\"button\" class=\"acct-mini\" data-tab=\"" + id + "\"><div class=\"k\">" + esc(LABEL[id]) + " \u00b7 " + tag + "</div><b>" + money(b.equity) + "</b><div class=\"m\">" + (b.names || []).length + " names</div></button>";
   }).join("") + "</div>";
 };
+function eodNote(book, title) {
+  var asof = (book && book.asof) || (snap.truthifi && (snap.truthifi.holdings_asof || snap.truthifi.asof)) || "";
+  return "<p class=\"hint\">" + esc(title) + " is Truthifi EOD " + esc(asof) + ".</p>";
+}
 function fidelityDeskHtml() {
   var fid = snap.accounts.fidelity || { names: [], equity: 0 };
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
   var sleeves = fid.sleeves || [];
   var mixBook = { books: sleeves, names: fid.names || [], cash: fid.cash || 0 };
-  var html = stateHtml(fid, "Fidelity");
-  html += '<p class="hint">Fidelity is Truthifi EOD ' + esc(fid.asof || (snap.truthifi && (snap.truthifi.holdings_asof || snap.truthifi.asof)) || "") + ". Sleeves are the individual Fidelity accounts under that link.</p>';
+  var html = stateHtml(fid, "Fidelity") + eodNote(fid, "Fidelity");
   html += tapeHtml("fidelity", "Fidelity", false);
   html += "<h2>Where it sits \u00b7 Fidelity</h2>" + mixHtml(mixBook, "combined");
   html += "<h2>Sleeve books</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
-    return '<button type="button" class="acct-mini" data-scroll="sleeve-' + esc(s.id) + '"><div class="k">' + esc(s.label) + "</div><b>" + money(s.equity) + '</b><div class="m">' + (s.names || []).length + " names</div></button>";
+    return "<button type=\"button\" class=\"acct-mini\" data-scroll=\"sleeve-" + esc(s.id) + "\"><div class=\"k\">" + esc(s.label) + "</div><b>" + money(s.equity) + "</b><div class=\"m\">" + (s.names || []).length + " names</div></button>";
   }).join("") + "</div>";
   sleeves.forEach(function (s) {
-    html += '<h2 id="sleeve-' + esc(s.id) + '">Sleeve \u00b7 ' + esc(s.label) + "</h2>";
+    html += "<h2 id=\"sleeve-" + esc(s.id) + "\">Sleeve \u00b7 " + esc(s.label) + "</h2>";
     html += stateHtml(s, s.label);
     html += "<h2>Where it sits \u00b7 " + esc(s.label) + "</h2>" + mixHtml(s, s.id);
     html += "<h2>Book \u00b7 " + esc(s.label) + "</h2>" + tableHtml(s.names, false, false);
   });
   return html;
+}
+function voyaDeskHtml() {
+  var voya = snap.accounts.voya || { names: [], equity: 0 };
+  return stateHtml(voya, "Voya") + eodNote(voya, "Voya") + tapeHtml("voya", "Voya", false) +
+    "<h2>Where it sits \u00b7 Voya</h2>" + mixHtml(voya, "voya") +
+    "<h2>Book \u00b7 Voya</h2>" + tableHtml(voya.names, false, false);
 }
 function overallCardHtml() {
   var c = snap.combined || {};
@@ -137,15 +146,15 @@ function overallCardHtml() {
   var vals = prints.map(function (p) { return p.equity; });
   var last = vals.length ? vals[vals.length - 1] : (c.equity || 0);
   if (!vals.length) vals = [last, last];
-  return "<h2>Overall equity \u00b7 daily close</h2><div class=\"card tape-card tape-open\" data-open-all-books=\"1\">" +
-    '<div class="tape-kpis">' +
+  return "<h2 class=\"overall-eq\">Overall equity \u00b7 daily close</h2><div class=\"card tape-card tape-open\" data-open-all-books=\"1\">" +
+    "<div class=\"tape-kpis\">" +
     "<div><span>Overall</span><b>" + money(c.equity) + "</b></div>" +
     "<div><span>Live</span><b>" + money(c.live_equity) + "</b></div>" +
     "<div><span>Custodial</span><b>" + money(c.custodial_equity) + "</b></div>" +
     "<div><span>Prints</span><b>" + prints.length + "</b></div></div>" +
-    '<div class="tape-plot">' + spark(vals) + "</div>" +
-    '<p class="hint">Ticked weekdays at 16:00 ET. Click for every book. Custodial Fidelity + Voya' +
-    (c.outside_asof ? " as of " + esc(c.outside_asof) : "") + ".</p></div>";
+    "<div class=\"tape-plot\">" + spark(vals) + "</div>" +
+    "<p class=\"hint\">Ticked weekdays at 16:00 ET. Click for every book." +
+    (c.outside_asof ? " Custodial as of " + esc(c.outside_asof) : "") + "</p></div>";
 }
 var _paint = paint;
 paint = function () {
@@ -153,33 +162,15 @@ paint = function () {
   _paint();
   var foot = document.querySelector(".desk-foot");
   if (foot) foot.textContent = "Murphy Pilot \u00b7 House rolls up live Robinhood books plus Fidelity and Voya.";
-  if (tab === "fidelity") {
-    var deskF = document.getElementById("desk");
-    if (deskF) {
-      var alertF = deskF.querySelector(".next-alert");
-      var footF = deskF.querySelector(".desk-foot");
-      deskF.innerHTML = (alertF ? alertF.outerHTML : "") + fidelityDeskHtml() + (footF ? footF.outerHTML : "");
-    }
-    return;
-  }
-  if (tab === "voya") {
-    var deskV = document.getElementById("desk");
-    if (deskV) {
-      var alertV = deskV.querySelector(".next-alert");
-      var footV = deskV.querySelector(".desk-foot");
-      var voya = snap.accounts.voya || { names: [], equity: 0 };
-      deskV.innerHTML = (alertV ? alertV.outerHTML : "") + stateHtml(voya, "Voya") +
-        '<p class="hint">Voya is Truthifi EOD ' + esc(voya.asof || (snap.truthifi && (snap.truthifi.holdings_asof || snap.truthifi.asof)) || "") + '.</p>' +
-        tapeHtml("voya", "Voya", false) +
-        "<h2>Where it sits \u00b7 Voya</h2>" + mixHtml(voya, "voya") +
-        "<h2>Book \u00b7 Voya</h2>" + tableHtml(voya.names, false, false) +
-        (footV ? footV.outerHTML : "");
-    }
+  var desk = document.getElementById("desk");
+  if (!desk) return;
+  if (tab === "fidelity" || tab === "voya") {
+    var alertN = desk.querySelector(".next-alert");
+    var footN = desk.querySelector(".desk-foot");
+    desk.innerHTML = (alertN ? alertN.outerHTML : "") + (tab === "fidelity" ? fidelityDeskHtml() : voyaDeskHtml()) + (footN ? footN.outerHTML : "");
     return;
   }
   if (tab !== "combined") return;
-  var desk = document.getElementById("desk");
-  if (!desk) return;
   Array.from(desk.querySelectorAll("h2")).forEach(function (h) {
     var t = h.textContent || "";
     if (t.indexOf("Live equity") === 0) h.textContent = "Live equity \u00b7 Robinhood";
@@ -189,8 +180,6 @@ paint = function () {
   if (liveH && !desk.querySelector("h2.overall-eq")) {
     var wrap = document.createElement("div");
     wrap.innerHTML = overallCardHtml();
-    var h = wrap.querySelector("h2");
-    if (h) h.className = "overall-eq";
     while (wrap.firstChild) desk.insertBefore(wrap.firstChild, liveH);
   }
 };
@@ -205,13 +194,7 @@ load = function () {
     snap = merge(pair[0], pair[1], pair[2]);
     paint();
   }).catch(function (e) {
-    document.getElementById("desk").innerHTML = "<p class='hint'>Could not load snapshots. " + esc(e) + "</p>";
+    document.getElementById("desk").innerHTML = "<p class=\"hint\">Could not load snapshots. " + esc(e) + "</p>";
   });
 };
-document.addEventListener("click", function (e) {
-  var jump = e.target.closest("[data-scroll]");
-  if (!jump) return;
-  var target = document.getElementById(jump.getAttribute("data-scroll"));
-  if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-});
 load();
