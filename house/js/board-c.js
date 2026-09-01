@@ -2,25 +2,50 @@ TABS = [
   { id: "combined", label: "House" },
   { id: "agentic", label: "Agentic" },
   { id: "individual", label: "Individual" },
-  { id: "auto_grok", label: "Auto-Grok" },
+  { id: "auto_grok", label: "Auto" },
   { id: "joint", label: "Joint" },
   { id: "fidelity", label: "Fidelity" },
   { id: "voya", label: "Voya" }
 ];
+LABEL.auto_grok = "Auto";
 LABEL.fidelity = "Fidelity";
 LABEL.voya = "Voya";
 IDS = ["agentic", "individual", "auto_grok", "joint", "fidelity", "voya"];
 var LIVE_IDS = ["agentic", "individual", "auto_grok", "joint"];
 var OUTSIDE_IDS = ["fidelity", "voya"];
+var FID_SLEEVES = [
+  { id: "bny", label: "BNY", key: "BNY", sleeveKey: "fidelity_bny" },
+  { id: "per", label: "PER", key: "PER", sleeveKey: "fidelity_per" },
+  { id: "roth", label: "Roth", key: "Roth", sleeveKey: "fidelity_roth" },
+  { id: "trad", label: "Trad", key: "Trad", sleeveKey: "fidelity_trad" },
+  { id: "espp", label: "ESPP", key: "ESPP", sleeveKey: "fidelity_espp" },
+  { id: "rsu", label: "RSU", key: "RSU", sleeveKey: "fidelity_rsu" }
+];
+function buildFidelitySleeves(fid, outside) {
+  var totals = (outside && outside.sleeves) || {};
+  fid = fid || { names: [] };
+  return FID_SLEEVES.map(function (s) {
+    var names = (fid.names || []).filter(function (n) {
+      return String(n.sleeve || "").toLowerCase() === s.key.toLowerCase();
+    });
+    var held = names.reduce(function (sum, n) { return sum + (Number(n.value) || 0); }, 0);
+    var equity = totals[s.sleeveKey] != null ? Number(totals[s.sleeveKey]) : held;
+    var cash = Math.max(0, rnd(equity - held));
+    return { id: s.id, label: s.label, key: s.key, equity: rnd(equity), cash: cash, buying_power: cash, pending_deposits: 0, equity_value: rnd(held), invested_pct: equity ? Math.min(100, (held / equity) * 100) : 0, open_orders: 0, names: names };
+  });
+}
 
 var _mergeCore = merge;
 merge = function (house, pilot, outside) {
-  var out = _mergeCore(house, pilot);
+  var out = _mergeCore(house, pilot, outside);
   if (outside && outside.accounts) {
     OUTSIDE_IDS.forEach(function (id) {
-      if (outside.accounts[id]) out.accounts[id] = outside.accounts[id];
+      if (outside.accounts[id] && !out.accounts[id]) out.accounts[id] = outside.accounts[id];
     });
     out.truthifi = outside;
+  }
+  if (out.accounts && out.accounts.fidelity) {
+    out.accounts.fidelity.sleeves = buildFidelitySleeves(out.accounts.fidelity, outside || out.truthifi);
   }
   var eq = 0, cash = 0, bp = 0, pend = 0, ev = 0, cv = 0, orders = 0, names = [];
   IDS.forEach(function (id) {
@@ -88,6 +113,27 @@ cardsHtml = function () {
   }).join("") + "</div>";
 };
 
+function fidelityDeskHtml() {
+  var fid = snap.accounts.fidelity || { names: [], equity: 0 };
+  if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
+  var sleeves = fid.sleeves || [];
+  var mixBook = { books: sleeves, names: fid.names || [], cash: fid.cash || 0 };
+  var html = stateHtml(fid, "Fidelity");
+  html += '<p class="hint">Fidelity is Truthifi EOD ' + esc(fid.asof || (snap.truthifi && (snap.truthifi.holdings_asof || snap.truthifi.asof)) || "") + ". Sleeves are the individual Fidelity accounts under that link.</p>';
+  html += tapeHtml("fidelity", "Fidelity", false);
+  html += "<h2>Where it sits \u00b7 Fidelity</h2>" + mixHtml(mixBook, "combined");
+  html += "<h2>Sleeve books</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
+    return '<button type="button" class="acct-mini" data-scroll="sleeve-' + esc(s.id) + '"><div class="k">' + esc(s.label) + "</div><b>" + money(s.equity) + '</b><div class="m">' + (s.names || []).length + " names</div></button>";
+  }).join("") + "</div>";
+  sleeves.forEach(function (s) {
+    html += '<h2 id="sleeve-' + esc(s.id) + '">Sleeve \u00b7 ' + esc(s.label) + "</h2>";
+    html += stateHtml(s, s.label);
+    html += "<h2>Where it sits \u00b7 " + esc(s.label) + "</h2>" + mixHtml(s, s.id);
+    html += "<h2>Book \u00b7 " + esc(s.label) + "</h2>" + tableHtml(s.names, false, false);
+  });
+  return html;
+}
+
 function overallCardHtml() {
   var c = snap.combined || {};
   var prints = ((snap.tape && snap.tape.overall) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
@@ -111,6 +157,15 @@ paint = function () {
   _paint();
   var foot = document.querySelector(".desk-foot");
   if (foot) foot.textContent = "Murphy Pilot \u00b7 House rolls up live Robinhood books plus Fidelity and Voya.";
+  if (tab === "fidelity") {
+    var deskF = document.getElementById("desk");
+    if (deskF) {
+      var alertF = deskF.querySelector(".next-alert");
+      var footF = deskF.querySelector(".desk-foot");
+      deskF.innerHTML = (alertF ? alertF.outerHTML : "") + fidelityDeskHtml() + (footF ? footF.outerHTML : "");
+    }
+    return;
+  }
   if (tab !== "combined") return;
   var desk = document.getElementById("desk");
   if (!desk) return;
@@ -143,5 +198,12 @@ load = function () {
     document.getElementById("desk").innerHTML = "<p class='hint'>Could not load snapshots. " + esc(e) + "</p>";
   });
 };
+
+document.addEventListener("click", function (e) {
+  var jump = e.target.closest("[data-scroll]");
+  if (!jump) return;
+  var target = document.getElementById(jump.getAttribute("data-scroll"));
+  if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 
 load();

@@ -49,23 +49,45 @@ header nav a.on {
   background: var(--nav-hover);
 }
 
-header nav#tabs {
-  display: flex;
-  gap: 2px 10px;
-  flex-wrap: wrap;
+header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "mark brand end"
+    "nav nav nav";
   align-items: center;
+  gap: 6px 12px;
+  padding: 8px 16px 6px;
+}
+header .mark { grid-area: mark; }
+header .brand-block { grid-area: brand; }
+header .header-end { grid-area: end; margin-left: 0; }
+header nav#tabs {
+  grid-area: nav;
+  display: flex;
+  gap: 2px;
+  flex-wrap: nowrap;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  width: 100%;
+  padding: 2px 0 6px;
 }
 header nav#tabs button {
   color: var(--header-fg);
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  min-height: 28px;
-  padding: 2px 6px;
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 4px 10px;
   font-size: 12px;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   opacity: 0.65;
   text-transform: none;
+  white-space: nowrap;
 }
 header nav#tabs button:hover { opacity: 1; }
 header nav#tabs button.on {
@@ -94,8 +116,37 @@ header nav#tabs button.on {
 }
 @media (max-width: 720px) {
   .acct-grid.four { grid-template-columns: 1fr 1fr; }
-  .acct-grid { grid-template-columns: 1fr 1fr; }
   .split-two { grid-template-columns: 1fr !important; }
+  header {
+    padding: 8px 10px 4px;
+    gap: 4px 8px;
+  }
+  header .mark,
+  header .mark svg,
+  header .mark img {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+  header .brand { font-size: 12px; letter-spacing: 1.4px; }
+  header .sub { font-size: 10px; }
+  header .clock { display: none; }
+  header .theme-switch button {
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  header nav#tabs {
+    gap: 0;
+    padding: 0 0 4px;
+  }
+  header nav#tabs button {
+    flex: 0 0 auto !important;
+    min-height: 34px !important;
+    padding: 4px 9px !important;
+    font-size: 12px;
+  }
+  .acct-grid { grid-template-columns: 1fr 1fr; }
 }
 
 .next-alert {
