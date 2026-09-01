@@ -3,56 +3,84 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Murphy Pilot</title>
-<style>
-  body{margin:0;background:#F6F1E8;color:#1B3A2F;font-family:Georgia,Times,serif}
-  header{background:#1B3A2F;color:#F6F1E8;padding:14px 20px;letter-spacing:2px;display:flex;justify-content:space-between;align-items:center}
-  main{max-width:720px;margin:0 auto;padding:24px 20px}
-  .kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-  .kpi div{background:#fff;border:1px solid #C9C0B0;border-radius:6px;padding:12px 14px}
-  .kpi span{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#2F5346}
-  .kpi b{font-size:22px;font-variant-numeric:tabular-nums}
-  table{width:100%;border-collapse:collapse;margin-top:18px;background:#fff}
-  th,td{text-align:left;padding:8px;border-bottom:1px solid #EFE8DC;font-variant-numeric:tabular-nums}
-  th{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#2F5346}
-  a{color:#1B3A2F}
-  footer{margin-top:28px;font-size:13px;color:#2F5346}
-</style>
+<title>Murphy Pilot Desk</title>
+<meta name="theme-color" content="#1B3A2F">
+<script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
+<link rel="stylesheet" href="site.css">
 </head>
 <body>
-<header><span>MURPHY PILOT</span><span id="asof">snapshot</span></header>
-<main>
-  <div class="kpi">
-    <div><span>Equity</span><b id="eq">—</b></div>
-    <div><span>Cash / BP</span><b id="cash">—</b></div>
-    <div><span>Invested</span><b id="inv">—</b></div>
-    <div><span>Slots</span><b id="slots">—</b></div>
+<header>
+  <a class="mark" href="index.html" aria-label="Murphy Pilot desk">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#F6F1E8"/><path fill="#1B3A2F" d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z"/></svg>
+  </a>
+  <a class="brand-block" href="index.html">
+    <div class="brand">MURPHY PILOT</div>
+    <div class="sub">DESK · AGENTIC ONLY</div>
+  </a>
+  <nav>
+    <a href="Murphy_Pilot_Manual.html">Operating Manual</a>
+    <a href="Murphy_Pilot_Setup.html">Setup Guide</a>
+  </nav>
+  <div class="header-end">
+    <div class="theme-switch" role="group" aria-label="Color mode">
+      <button type="button" class="on" data-theme-choice="light">Light</button>
+      <button type="button" data-theme-choice="dark">Dark</button>
+    </div>
+    <div class="clock"><div class="t" id="etClock">--:--:-- ET</div><div class="d" id="etDate"></div></div>
   </div>
-  <table>
-    <thead><tr><th>Name</th><th>Qty</th><th>Avg</th><th>First fill</th><th>Next stall</th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
-  <footer>
-    <p>Serve with <code>./serve.sh</code> then open <a href="http://127.0.0.1:8765/">http://127.0.0.1:8765/</a>.</p>
-    <p><a href="Murphy_Pilot_Desk.html">Full desk</a> · <a href="Murphy_Pilot_Manual.html">Manual v7</a> · <a href="Murphy_Pilot_Setup.html">Setup v5</a></p>
-  </footer>
+</header>
+<div class="ticker"><div class="ticker-track" id="tickerTrack"></div></div>
+<main>
+  <h2>Next job</h2>
+  <div class="card span" id="nextCard"><div class="next"><div><div class="name" id="nextName">—</div><div class="hint" id="nextRole"></div></div><div class="eta" id="nextEta">—</div></div></div>
+  <h2>Financial information</h2>
+  <div class="card span">
+    <div class="kpi">
+      <div><span>Equity</span><b id="kEquity">—</b></div>
+      <div><span>Buying power</span><b id="kBp">—</b></div>
+      <div><span>Invested</span><b id="kInv">—</b></div>
+      <div><span>Slots</span><b id="kSlots">—</b></div>
+    </div>
+    <div class="kpi">
+      <div><span>Cash</span><b id="kCash">—</b></div>
+      <div><span>Pending (already in)</span><b id="kPend">—</b></div>
+      <div><span>Open orders</span><b id="kOrd">—</b></div>
+      <div><span>Snapshot</span><b id="kSnap" style="font-size:13px">local</b></div>
+    </div>
+    <p class="hint" id="bookNote"></p>
+  </div>
+  <h2>Book</h2>
+  <div class="card"><table><thead><tr><th>Name</th><th>Avg cost</th><th>First fill</th><th>Next stall</th><th>Vs cost</th></tr></thead><tbody id="bookRows"></tbody></table></div>
+  <h2>Mix</h2>
+  <div class="card" id="mixCard"></div>
+  <h2>Since held</h2>
+  <div class="card" id="charts"></div>
+  <h2>Sell / buy thresholds</h2>
+  <div class="card"><div id="thrRows"></div><ul class="buy-lines" id="buyNote"></ul></div>
+  <h2>Names on the book</h2>
+  <div class="card" id="coRows"></div>
+  <h2>Weekday clock</h2>
+  <div class="card"><table><thead><tr><th>ET</th><th>Job</th><th>Role</th></tr></thead><tbody id="clockRows"></tbody></table></div>
+  <h2>Overnight pack</h2>
+  <div class="card" id="packCard"></div>
+  <h2>Coming weeks</h2>
+  <div class="card" id="calCard"></div>
+  <h2>Official docs</h2>
+  <div class="card">
+    <a class="doclink" href="Murphy_Pilot_Manual.html">Operating Manual v7.0</a>
+    <a class="doclink" href="Murphy_Pilot_Setup.html">Setup Guide v5.0</a>
+  </div>
+  <details class="tools"><summary>Update from the AM card</summary>
+    <div class="card">
+      <label>Private snapshot URL</label><input id="fUrl">
+      <button type="button" id="urlBtn">Save URL and fetch now</button>
+      <label>Or paste snapshot JSON</label>
+      <textarea id="fJson"></textarea>
+      <button type="button" id="jsonBtn">Load snapshot JSON</button>
+    </div>
+  </details>
+  <footer>Murphy Pilot Desk · Agentic only.</footer>
 </main>
-<script>
-fetch("pilot-snapshot.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){
-  document.getElementById("asof").textContent = j.asof || "";
-  document.getElementById("eq").textContent = j.equity != null ? "$"+Number(j.equity).toFixed(2) : "—";
-  document.getElementById("cash").textContent = j.cash != null ? "$"+Number(j.cash).toFixed(2) : "—";
-  document.getElementById("inv").textContent = j.invested_pct != null ? Number(j.invested_pct).toFixed(1)+"%" : "—";
-  document.getElementById("slots").textContent = j.slots != null ? String(j.slots) : "—";
-  var tb = document.getElementById("rows");
-  (j.names||[]).forEach(function(n){
-    var tr=document.createElement("tr");
-    tr.innerHTML = "<td>"+(n.symbol||"")+"</td><td>"+(n.qty||"")+"</td><td>"+(n.avg||"")+"</td><td>"+(n.first_fill||"")+"</td><td>"+(n.next_stall||"")+"</td>";
-    tb.appendChild(tr);
-  });
-}).catch(function(){
-  document.getElementById("asof").textContent = "snapshot missing — use serve.sh, not file://";
-});
-</script>
+<script src="desk.js"></script>
 </body>
 </html>
