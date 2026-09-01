@@ -1,19 +1,16 @@
-Murphy Pilot — host on your PC
+Murphy Pilot + House — host on your PC from GitHub.
 
-Clone:  git clone https://github.com/justintmurphy/MurphyPilot.git
-Then from that folder:
+Do not use Google Apps Script /exec. Do not paste Index.html.
+The private repo is the site.
 
-  Mac / Linux:  ./serve.sh
-  Windows:      serve.bat
+  git clone https://github.com/justintmurphy/MurphyPilot.git
+  cd MurphyPilot
+  ./serve.sh          # Windows: serve.bat
 
-Open http://127.0.0.1:8765/
+  Pilot  http://127.0.0.1:8765/
+  House  http://127.0.0.1:8765/house/
 
-Update later: git pull && refresh the browser.
+Update: git pull   then refresh the browser.
+Do not open file:// if you want the JSON snapshots to load.
 
-Desk reads sibling files:
-  Murphy_Pilot_Desk.html
-  Murphy_Pilot_Manual.html
-  Murphy_Pilot_Setup.html
-  pilot-snapshot.json
-
-Do not use file:// if you want the snapshot file to load.
+Snapshot jobs write JSON into this repo. Gmail is backup only.
