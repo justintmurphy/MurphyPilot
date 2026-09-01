@@ -5,22 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Murphy House</title>
 <meta name="theme-color" content="#1B3A2F">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="logo.svg" sizes="any">
+<link rel="apple-touch-icon" href="logo.svg">
 <script>(function(){try{var k="murphyHouseTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
 <link rel="stylesheet" href="house.css">
 </head>
 <body>
 <header>
-  <a class="mark" href="#" aria-label="Murphy House desk">
-    <svg viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="64" height="64" fill="#F6F1E8"/>
-      <path fill="#1B3A2F" d="M11 12h15v21L40 12h13v40H40V33L26 52H11V12z"/>
-    </svg>
-    
+  <a class="mark" href="index.html" aria-label="Murphy House desk">
+    <img src="logo.svg" width="52" height="52" alt="Murphy House">
   </a>
-  <div class="brand-block">
+  <a class="brand-block" href="index.html">
     <div class="brand">MURPHY HOUSE</div>
     <div class="sub">DESK · THREE BOOKS</div>
-  </div>
+  </a>
   <nav id="tabs" aria-label="Books"></nav>
   <div class="header-end">
     <div class="theme-switch" role="group" aria-label="Color mode">
@@ -34,7 +33,7 @@
 <main class="desk" id="desk"></main>
 <script>
 (async function(){
-  var parts = ["js/h00.js", "js/h01.js", "js/h02.js", "js/h03.js"];
+  var parts = ["js/h00.js","js/h01.js","js/h02.js","js/h03.js"];
   var s = "";
   for (var i=0;i<parts.length;i++){
     var r = await fetch(parts[i], {cache:"no-store"});
