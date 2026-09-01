@@ -9,8 +9,12 @@
   "invested_pct": 90.0,
   "slots": 2,
   "open_orders": 0,
+  "tape": [
+    {"t": 1788272700000, "dtg": "011025R SEP 26", "equity": 197.20, "max": 197.20, "key": "Snapshot 2026-09-01 10:25 ET"},
+    {"t": 1788284700000, "dtg": "011345R SEP 26", "equity": 196.38, "max": 197.20, "key": "Snapshot 2026-09-01 13:45 ET"}
+  ],
   "names": [
-    {"symbol":"XLE","name":"Energy Select Sector SPDR","qty":1.381764,"avg":64.24,"last":64.65,"first_fill":"2026-09-01","next_stall":"2026-09-03"},
-    {"symbol":"RTX","name":"RTX","qty":0.42536,"avg":208.67,"last":205.26,"first_fill":"2026-09-01","next_stall":"2026-09-03"}
+    {"symbol":"XLE","name":"Energy Select Sector SPDR Fund","qty":1.381764,"avg":64.24,"last":64.65,"first_fill":"2026-09-01","next_stall":"2026-09-03"},
+    {"symbol":"RTX","name":"RTX Corporation","qty":0.42536,"avg":208.67,"last":205.26,"first_fill":"2026-09-01","next_stall":"2026-09-03"}
   ]
 }
