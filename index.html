@@ -5,26 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Murphy Pilot Desk</title>
 <meta name="theme-color" content="#1B3A2F">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="logo.svg" sizes="any">
+<link rel="apple-touch-icon" href="logo.svg">
 <script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
 <link rel="stylesheet" href="site.css">
+<style>
+header .mark{position:relative;width:52px;height:52px;flex:0 0 52px;background:#F6F1E8;border-radius:4px;overflow:hidden;display:block}
+header .mark img,header .mark svg{width:52px;height:52px;display:block}
+</style>
 </head>
 <body>
-
     <header>
-      <a class="mark" id="navDesk" href="Murphy_Pilot_Desk.html" aria-label="Murphy Pilot desk">
-        
-        <svg viewBox="0 0 64 64" aria-hidden="true">
-          <rect width="64" height="64" fill="#F6F1E8" />
-          <path fill="#1B3A2F" d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z" />
-        </svg>
-
-        
+      <a class="mark" id="navDesk" href="index.html" aria-label="Murphy Pilot desk">
+        <img src="logo.svg" width="52" height="52" alt="Murphy Pilot">
       </a>
-      <a class="brand-block" id="navBrand" href="Murphy_Pilot_Desk.html">
+      <a class="brand-block" id="navBrand" href="index.html">
         <div class="brand">MURPHY PILOT</div>
         <div class="sub">DESK · AGENTIC ONLY</div>
       </a>
-      
+      <nav>
+        <a id="linkManualTop" href="Murphy_Pilot_Manual.html">Operating Manual</a>
+        <a id="linkSetupTop" href="Murphy_Pilot_Setup.html">Setup Guide</a>
+        <a href="house/index.html">House</a>
+      </nav>
       <div class="header-end">
         <div class="theme-switch" role="group" aria-label="Color mode">
           <button type="button" class="on" data-theme-choice="light" aria-pressed="true" aria-label="Light mode">Light</button>
@@ -36,7 +40,6 @@
         </div>
       </div>
     </header>
-
 <div class="ticker" aria-label="Tracked names">
   <div class="ticker-track" id="tickerTrack"></div>
 </div>
@@ -51,7 +54,6 @@
       <div class="eta heat-ok" id="nextEta">—</div>
     </div>
   </div>
-
   <h2>Financial information</h2>
   <div class="card span">
     <div class="kpi">
@@ -67,10 +69,9 @@
       <div><span>Snapshot</span><b id="kSnap" style="font-size:13px">local</b></div>
     </div>
     <div class="fin" id="finCard"></div>
-    <p class="hint" id="pendHint">Pending deposits on this account are instant. They are already inside equity and buying power — not extra cash arriving, and not a reason to wait.</p>
+    <p class="hint" id="pendHint">Pending deposits on this account are instant. They are already inside equity and buying power.</p>
     <p class="hint" id="bookNote"></p>
   </div>
-
   <div class="book-split">
     <div>
       <h2>Book</h2>
@@ -86,24 +87,18 @@
       <div class="card mix-card" id="mixCard"></div>
     </div>
   </div>
-
   <h2>Since held</h2>
   <div class="card span">
-    <p class="hint" id="chartHint" style="margin:0 0 8px">Click a name to expand. Solid is last; dashed is average cost. Prints accumulate from snapshots while you hold it.</p>
+    <p class="hint" id="chartHint" style="margin:0 0 8px">Click a name to expand. Solid is last; dashed is average cost.</p>
     <div id="charts"></div>
   </div>
-
   <h2>Sell / buy thresholds</h2>
   <div class="card span">
     <div class="thrs" id="thrRows"></div>
     <ul class="buy-lines" id="buyNote"></ul>
   </div>
-
   <h2>Names on the book</h2>
-  <div class="card span">
-    <div class="cos" id="coRows"></div>
-  </div>
-
+  <div class="card span"><div class="cos" id="coRows"></div></div>
   <h2>Weekday clock</h2>
   <div class="card span">
     <table>
@@ -111,10 +106,8 @@
       <tbody id="clockRows"></tbody>
     </table>
   </div>
-
   <h2>Overnight pack</h2>
   <div class="card span" id="packCard"></div>
-
   <div class="grid">
     <div>
       <h2>Coming weeks</h2>
@@ -123,51 +116,42 @@
     <div>
       <h2>Official docs</h2>
       <div class="card" id="docsCard">
-        <p class="hint" style="margin:0 0 10px">Standing mandate and how to run the desk.</p>
         <a class="doclink" id="linkManual" href="Murphy_Pilot_Manual.html">Operating Manual v7.0</a>
         <a class="doclink" id="linkSetup" href="Murphy_Pilot_Setup.html">Setup Guide v5.0</a>
+        <a class="doclink" href="house/index.html">House desk</a>
       </div>
     </div>
   </div>
-
   <details class="tools">
-    <summary>Update from the AM card</summary>
+    <summary>Update from snapshot JSON</summary>
     <div class="card">
-      <p class="hint" style="margin-top:0">This board cannot log into Robinhood. Snapshot jobs email JSON from Agentic. Paste that JSON below, or type the AM card. Saved only in this browser.</p>
-      <label>Private snapshot URL (only you should have this)</label>
-      <input id="fUrl" placeholder="https://script.google.com/macros/s/..../exec">
-      <p class="hint">Desk fetches that URL on load and every 5 minutes when auto-fetch is on. Do not post the link.</p>
+      <label>Snapshot URL</label>
+      <input id="fUrl" placeholder="https://justintmurphy.github.io/MurphyPilot/pilot-snapshot.json">
       <button type="button" id="urlBtn">Save URL and fetch now</button>
-      <label style="margin-top:8px"><input type="checkbox" id="autoBox" checked> Auto-fetch URL every 5 minutes</label>
+      <label style="margin-top:8px"><input type="checkbox" id="autoBox" checked> Auto-fetch every 5 minutes</label>
       <label>Or paste snapshot JSON</label>
-      <textarea id="fJson" placeholder='{"asof":"...","equity":100.27,"buying_power":10,"names":[{"symbol":"QQQ","qty":0.06,"avg":717.15}]}'></textarea>
+      <textarea id="fJson"></textarea>
       <button type="button" id="jsonBtn">Load snapshot JSON</button>
       <div class="row2">
-        <div><label>Equity $</label><input id="fEquity" placeholder="100.27"></div>
-        <div><label>Buying power $</label><input id="fBp" placeholder="10.00"></div>
+        <div><label>Equity $</label><input id="fEquity"></div>
+        <div><label>Buying power $</label><input id="fBp"></div>
       </div>
       <div class="row2">
-        <div><label>Cash $</label><input id="fCash" placeholder="10.00"></div>
-        <div><label>Pending $ (already in BP)</label><input id="fPend" placeholder="100.00"></div>
+        <div><label>Cash $</label><input id="fCash"></div>
+        <div><label>Pending $</label><input id="fPend"></div>
       </div>
       <div class="row2">
-        <div><label>Invested %</label><input id="fInv" placeholder="90"></div>
-        <div><label>HWM $</label><input id="fHwm" placeholder=""></div>
+        <div><label>Invested %</label><input id="fInv"></div>
+        <div><label>HWM $</label><input id="fHwm"></div>
       </div>
-      <label>Names (one per line: SYMBOL | cost | first-fill YYYY-MM-DD | next-stall YYYY-MM-DD | pct)</label>
-      <textarea id="fNames" placeholder="QQQ | 0 | 2026-08-27 | 2026-09-08 | +0.0%"></textarea>
+      <label>Names</label>
+      <textarea id="fNames"></textarea>
       <button type="button" id="saveBtn">Save on this computer</button>
-      <button type="button" class="ghost" id="resetBtn">Reset to 27 Aug seed</button>
+      <button type="button" class="ghost" id="resetBtn">Reset seed</button>
     </div>
   </details>
-  <footer>
-    Murphy Pilot Desk · Agentic only. Does not log into Robinhood.
-    Optional private URL is fetched on load and every 5 minutes.
-    Snapshot emails still run on the weekday clock if you would rather paste.
-  </footer>
+  <footer>Murphy Pilot Desk · Agentic only.</footer>
 </main>
-
-
 <div id="docOverlay" hidden>
   <div class="doc-bar">
     <button type="button" id="docClose">Back to desk</button>
@@ -175,10 +159,9 @@
   </div>
   <iframe id="docFrame" title="Murphy Pilot document"></iframe>
 </div>
-
 <script>
 (async function(){
-  var parts = ["js/d00.js", "js/d01.js", "js/d02.js", "js/d03.js", "js/d04.js", "js/d05.js", "js/d06.js", "js/d07.js", "js/d08.js"];
+  var parts = ["js/d00.js","js/d01.js","js/d02.js","js/d03.js","js/d04.js","js/d05.js","js/d06.js","js/d07.js","js/d08.js"];
   var s = "";
   for (var i=0;i<parts.length;i++){
     var r = await fetch(parts[i], {cache:"no-store"});
