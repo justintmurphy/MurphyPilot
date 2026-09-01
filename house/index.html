@@ -10,42 +10,66 @@
 </head>
 <body>
 <header>
-  <a class="mark" href="#" aria-label="Murphy House desk">
-    <svg viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="64" height="64" fill="#F6F1E8"/>
-      <path fill="#1B3A2F" d="M11 12h15v21L40 12h13v40H40V33L26 52H11V12z"/>
-    </svg>
-    
+  <a class="mark" href="index.html" aria-label="Murphy House">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#F6F1E8"/><path fill="#1B3A2F" d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z"/></svg>
   </a>
-  <div class="brand-block">
+  <a class="brand-block" href="index.html">
     <div class="brand">MURPHY HOUSE</div>
-    <div class="sub">DESK · THREE BOOKS</div>
-  </div>
-  <nav id="tabs" aria-label="Books"></nav>
+    <div class="sub">DATA ONLY · THREE BOOKS</div>
+  </a>
+  <nav>
+    <a href="index.html" class="on">House</a>
+    <a href="../index.html">Pilot</a>
+  </nav>
   <div class="header-end">
     <div class="theme-switch" role="group" aria-label="Color mode">
-      <button type="button" data-theme-choice="light">Light</button>
+      <button type="button" class="on" data-theme-choice="light">Light</button>
       <button type="button" data-theme-choice="dark">Dark</button>
     </div>
-    <div class="clock" id="clock"><div class="t">--:--:-- ET</div><div class="d"></div></div>
+    <div class="clock"><div class="t" id="etClock">--:--:-- ET</div><div class="d" id="etDate"></div></div>
   </div>
 </header>
-<div class="ticker" id="ticker" aria-label="Tracked names"><div class="ticker-track" id="tickerTrack"></div></div>
-<main class="desk" id="desk"></main>
-<script>
-(async function(){
-  var parts = ["js/h00.js", "js/h01.js", "js/h02.js", "js/h03.js"];
-  var s = "";
-  for (var i=0;i<parts.length;i++){
-    var r = await fetch(parts[i], {cache:"no-store"});
-    if (!r.ok) throw new Error(parts[i]+" "+r.status);
-    s += await r.text();
-    s += "\n";
-  }
-  var el = document.createElement("script");
-  el.textContent = s;
-  document.body.appendChild(el);
-})().catch(function(e){ document.body.insertAdjacentHTML("beforeend","<p>House JS failed: "+e+"</p>"); });
-</script>
+<main>
+  <h2>House</h2>
+  <div class="card">
+    <div class="kpi">
+      <div><span>House</span><b id="kHouse">—</b></div>
+      <div><span>Individual</span><b id="kInd">—</b></div>
+      <div><span>Auto-Grok</span><b id="kAg">—</b></div>
+      <div><span>Joint</span><b id="kJt">—</b></div>
+    </div>
+    <div class="kpi">
+      <div><span>Cash</span><b id="kCash">—</b></div>
+      <div><span>Pending (already in)</span><b id="kPend">—</b></div>
+      <div><span>Open orders</span><b id="kOrd">—</b></div>
+      <div><span>Snapshot</span><b id="kSnap" style="font-size:13px">local</b></div>
+    </div>
+    <p class="hint" id="bookNote"></p>
+  </div>
+  <h2>Books</h2>
+  <div class="card">
+    <p class="hint" style="margin-top:0">Data only. No stall clocks or trading.</p>
+    <nav id="bookTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button type="button" data-book="combined" class="on">House</button>
+      <button type="button" data-book="individual">Individual</button>
+      <button type="button" data-book="auto_grok">Auto-Grok</button>
+      <button type="button" data-book="joint">Joint</button>
+    </nav>
+    <table>
+      <thead><tr><th>Name</th><th>Book</th><th>Qty</th><th>Avg</th><th>Last</th><th>Value</th><th>P&L</th></tr></thead>
+      <tbody id="nameRows"></tbody>
+    </table>
+  </div>
+  <h2>Tape (recent)</h2>
+  <div class="card" id="tapeCard"></div>
+  <details class="tools"><summary>Paste a House snapshot</summary>
+    <div class="card">
+      <textarea id="fJson"></textarea>
+      <button type="button" id="jsonBtn">Load snapshot JSON</button>
+    </div>
+  </details>
+  <footer>Murphy House · Individual · Auto-Grok · Joint · no account numbers.</footer>
+</main>
+<script src="house.js"></script>
 </body>
 </html>
