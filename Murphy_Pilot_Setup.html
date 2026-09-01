@@ -9,22 +9,27 @@
 <link rel="stylesheet" href="site.css">
 </head>
 <body>
+
     <header>
       <a class="mark" id="navDesk" href="Murphy_Pilot_Desk.html" aria-label="Murphy Pilot desk">
+        
         <svg viewBox="0 0 64 64" aria-hidden="true">
           <rect width="64" height="64" fill="#F6F1E8" />
           <path fill="#1B3A2F" d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z" />
         </svg>
-        <img src="Murphy_Pilot_Ladder_M.jpg" alt="" width="52" height="52" onerror="this.remove()">
+
+        
       </a>
       <a class="brand-block" id="navBrand" href="Murphy_Pilot_Desk.html">
         <div class="brand">MURPHY PILOT</div>
         <div class="sub">SETUP GUIDE v5.0</div>
       </a>
+      
       <nav aria-label="Official docs">
         <a id="linkManualTop" href="Murphy_Pilot_Manual.html">Operating Manual</a>
         <a id="linkSetupTop" href="Murphy_Pilot_Setup.html" class="on">Setup Guide</a>
       </nav>
+
       <div class="header-end">
         <div class="theme-switch" role="group" aria-label="Color mode">
           <button type="button" class="on" data-theme-choice="light" aria-pressed="true" aria-label="Light mode">Light</button>
@@ -36,6 +41,7 @@
         </div>
       </div>
     </header>
+
 <main class="doc-main">
   <article class="card manual doc-article" aria-label="Murphy Pilot Setup Guide v5.0">
 <p class="lede">Murphy Pilot · Instructions · 31 August 2026. How to stand Murphy Pilot up on Agentic and how to read the live job roster. Product labels on Robinhood and Grok change — confirm the live screens. Pairs with Operating Manual v7.0.</p>
@@ -113,9 +119,12 @@
       <p class="lede">Sources for screens: Robinhood Agentic Trading overview; Trading with your agent; xAI Grok connectors. AI agents can misread markets or fail to run. The owner owns every fill and can lose the entire Agentic balance.</p>
       <h3>9. Document control</h3>
       <p>This Setup Guide v5.0 pairs with Operating Manual v7.0, both dated 31 August 2026. Together they replace Setup Guide v4.0 and Operating Manual v6.0. The live job text remains the executable source if a line here and a prompt ever drift.</p>
+
   </article>
 </main>
+
 <script>
+
 (function(){
   var KEY = "murphyPilotTheme";
   var EVENT = "murphy-theme";
@@ -151,6 +160,57 @@
     if (c) c.textContent = pad(n.getHours()) + ":" + pad(n.getMinutes()) + ":" + pad(n.getSeconds()) + " ET";
     if (d) d.textContent = n.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
   }
+  function isGas(){ return typeof google !== "undefined" && google.script; }
+  function bindDocs(){
+    var desk = isGas() ? "?" : "Murphy_Pilot_Desk.html";
+    var man = isGas() ? "?doc=manual" : "Murphy_Pilot_Manual.html";
+    var setu = isGas() ? "?doc=setup" : "Murphy_Pilot_Setup.html";
+    function setHref(id, href){
+      var el = document.getElementById(id);
+      if (el) el.setAttribute("href", href);
+    }
+    setHref("navDesk", desk);
+    setHref("navBrand", desk);
+    setHref("linkManual", man);
+    setHref("linkSetup", setu);
+    setHref("linkManualTop", man);
+    setHref("linkSetupTop", setu);
+    if (isGas()) return;
+    function overlay(view, file, e){
+      var ov = document.getElementById("docOverlay");
+      var frame = document.getElementById("docFrame");
+      if (!ov || !frame) return;
+      if (e) e.preventDefault();
+      var title = view === "manual" ? "Operating Manual v7.0" : "Setup Guide v5.0";
+      var t = document.getElementById("docTitle");
+      if (t) t.textContent = title;
+      ov.hidden = false;
+      fetch(file).then(function(r){
+        if (!r.ok) throw new Error(String(r.status));
+        return r.text();
+      }).then(function(html){
+        frame.removeAttribute("src");
+        frame.srcdoc = html;
+      }).catch(function(){
+        frame.removeAttribute("srcdoc");
+        frame.src = file;
+      });
+    }
+    function bind(id, view, file){
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("click", function(e){ overlay(view, file, e); });
+    }
+    bind("linkManual", "manual", "Murphy_Pilot_Manual.html");
+    bind("linkSetup", "setup", "Murphy_Pilot_Setup.html");
+    bind("linkManualTop", "manual", "Murphy_Pilot_Manual.html");
+    bind("linkSetupTop", "setup", "Murphy_Pilot_Setup.html");
+    var close = document.getElementById("docClose");
+    if (close) close.addEventListener("click", function(){
+      var ov = document.getElementById("docOverlay");
+      if (ov) ov.hidden = true;
+    });
+  }
   applyTheme(readTheme());
   document.querySelectorAll("[data-theme-choice]").forEach(function(btn){
     btn.addEventListener("click", function(){
@@ -159,7 +219,10 @@
   });
   tick();
   setInterval(tick, 1000);
+  bindDocs();
 })();
+
+
 </script>
 </body>
 </html>

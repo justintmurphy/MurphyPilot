@@ -9,64 +9,285 @@
 <link rel="stylesheet" href="site.css">
 </head>
 <body>
-<header>
-  <a class="mark" href="index.html" aria-label="Murphy Pilot desk">
-    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#F6F1E8"/><path fill="#1B3A2F" d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z"/></svg>
-  </a>
-  <a class="brand-block" href="index.html">
-    <div class="brand">MURPHY PILOT</div>
-    <div class="sub">OPERATING MANUAL v7.0</div>
-  </a>
-  <nav aria-label="Official docs">
-    <a href="Murphy_Pilot_Manual.html" class="on">Operating Manual</a>
-    <a href="Murphy_Pilot_Setup.html">Setup Guide</a>
-  </nav>
-</header>
+
+    <header>
+      <a class="mark" id="navDesk" href="Murphy_Pilot_Desk.html" aria-label="Murphy Pilot desk">
+        
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" fill="#F6F1E8" />
+          <path fill="#1B3A2F" d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z" />
+        </svg>
+
+        
+      </a>
+      <a class="brand-block" id="navBrand" href="Murphy_Pilot_Desk.html">
+        <div class="brand">MURPHY PILOT</div>
+        <div class="sub">OPERATING MANUAL v7.0</div>
+      </a>
+      
+      <nav aria-label="Official docs">
+        <a id="linkManualTop" href="Murphy_Pilot_Manual.html" class="on">Operating Manual</a>
+        <a id="linkSetupTop" href="Murphy_Pilot_Setup.html">Setup Guide</a>
+      </nav>
+
+      <div class="header-end">
+        <div class="theme-switch" role="group" aria-label="Color mode">
+          <button type="button" class="on" data-theme-choice="light" aria-pressed="true" aria-label="Light mode">Light</button>
+          <button type="button" data-theme-choice="dark" aria-pressed="false" aria-label="Dark mode">Dark</button>
+        </div>
+        <div class="clock">
+          <div class="t" id="etClock">--:--:-- ET</div>
+          <div class="d" id="etDate"></div>
+        </div>
+      </div>
+    </header>
+
 <main class="doc-main">
-<article class="card manual doc-article">
-<p class="lede">Murphy Pilot · Standing mandate · 31 August 2026 · America/New_York. Account is Agentic only. Live job text is the executable source. No account numbers.</p>
-<h3>1. Mission</h3>
-<p>Unattended long-only stock and ETF trading in Agentic. Grok researches and places. No per-trade approval. Process obedience over a single green day.</p>
-<h3>2. Hard bans</h3>
-<ul>
-<li>Any Robinhood account that is not Agentic.</li>
-<li>Options, crypto, shorts, inverse as core book, transfers between accounts.</li>
-<li>Fail closed on tool errors. Do not invent fills.</li>
-<li>Do not dump a fresh green winner. Empty book + BP is a deploy.</li>
-<li>X is never a corroborator.</li>
-</ul>
-<h3>3. Capital — 90 / 10</h3>
-<p>Deploy toward 90% of Agentic equity. Hold about 10% cash. Pending deposits are already in equity and BP — do not add them twice.</p>
-<h3>4. Name slots — every $75</h3>
-<p>Slots = floor(equity / $75). New ticker only when unique names < slots. May add to an existing allowed name. At ~$197 that is 2 names.</p>
-<h3>11. Loss exits — per symbol</h3>
-<table>
-<thead><tr><th>Line</th><th>Trigger</th><th>Action</th></tr></thead>
-<tbody>
-<tr><td>−5% floor</td><td>Last ≤ cost × 0.95</td><td>Sell that name</td></tr>
-<tr><td>−6% hard cap</td><td>Last ≤ cost × 0.94 anytime</td><td>Sell immediately. 12h lock does not protect it.</td></tr>
-<tr><td>−10% flatten</td><td>Last ≤ cost × 0.90</td><td>Flatten that name</td></tr>
-<tr><td>TIGHT −5%</td><td>Account in TIGHT and last ≤ cost × 0.95</td><td>Sell that name</td></tr>
-</tbody>
-</table>
-<h3>12. Twelve-hour green lock</h3>
-<p>From that symbol’s first fill, do not sell it while green versus its own cost unless a loss stop, the −6% hard cap, or stall already applies. Same-symbol rebuy waits 24 hours.</p>
-<h3>13. Green trail</h3>
-<p>After 12 hours, if still above cost: sell if last ≤ high-since-held × 0.85.</p>
-<h3>14. Stalled-winner ladder — per symbol</h3>
-<table>
-<thead><tr><th>When</th><th>Must clear</th></tr></thead>
-<tbody>
-<tr><td>Days 0–1 (purchase day does not complete a block)</td><td>No stall test</td></tr>
-<tr><td>Day 2</td><td>+5% from that name’s cost</td></tr>
-<tr><td>Each later 2 business days</td><td>+4% from that name’s survive-mark</td></tr>
-</tbody>
-</table>
-<p>A miss sells only that name. Do not use account P&L or HWM as the stall test.</p>
-<h3>Process review</h3>
-<p>After each Agentic trade: SELL mail: exactly 3 KEEP and 3 CHANGE, each with why. No trading on that job.</p>
-<p class="lede">The owner owns every fill and can lose the entire Agentic balance.</p>
-</article>
+  <article class="card manual doc-article" aria-label="Murphy Pilot Operating Manual v7.0">
+<p class="lede">Murphy Pilot · Standing mandate · 31 August 2026 · America/New_York. The brand is Murphy Pilot. The account is Agentic only. The executable source is the live job text. This book is the standing mandate those jobs must obey. No brokerage account numbers.</p>
+      <h3>1. Mission</h3>
+      <p>Murphy Pilot is unattended long-only stock and ETF trading in the Robinhood account labeled Agentic (agentic_allowed). Grok researches and places. The owner funds the account, sets these rules, and may add cash. There is no per-trade approval. Success is process obedience, not a single green day. The Ladder-M mark is the stall ladder: each name climbs its own steps or it is sold.</p>
+      <h3>2. Hard bans</h3>
+      <ul>
+        <li>Any Robinhood account that is not Agentic. If a tool returns other accounts, ignore them.</li>
+        <li>Options, crypto, short sales, inverse products as a core book, money transfers between accounts.</li>
+        <li>Fail closed on tool errors, unread buying power, or $0 readable value. Do not invent fills or high-water marks.</li>
+        <li>Do not dump a fresh green winner to chase a headline or a new theme.</li>
+        <li>Do not sit idle in cash when the book is empty and buying power is spendable.</li>
+        <li>X / Twitter is never a corroborating source for a buy veto or a buy thesis.</li>
+      </ul>
+      <h3>3. Capital — 90 / 10</h3>
+      <p>Deploy toward 90% of current Agentic equity. Hold about 10% cash. One name may use the full 90% if it is the only slot filled. Multiple names split the 90%. Percentages do not loosen after a win. Pending deposits on this account are instant — already counted in equity and buying power. Do not add pending to cash, equity, or BP, do not wait for them to clear, and do not treat them as extra money arriving. Deploy on the next job from the buying power you can already read. Profits stay in Agentic.</p>
+      <p>Limited margin. Sale proceeds, including losses, are reusable the same session. Do not wait T+1. Same-symbol rebuy still waits 24 hours from that sale. Loss proceeds may go into a different ticker immediately.</p>
+      <h3>4. Name slots — every $75</h3>
+      <p>Slots = floor(current Agentic equity / $75). Each full $75 of equity from deposits or accrued gains unlocks one unique name. A new ticker may be researched and opened only when unique names < slots. Opening a new name is allowed, not forced — idle cash may add to an existing allowed name if that is the higher-conviction use of the 90%. Do not exceed slots. Legacy extra names may be held until an exit rule sells one. The retired hard max-two-names cap is gone.</p>
+      <table>
+        <thead><tr><th>Equity</th><th>Slots</th><th>What is allowed</th></tr></thead>
+        <tbody>
+          <tr><td>$159.80</td><td>1</td><td>One unique name. Second ticker only after equity clears $200.</td></tr>
+          <tr><td>$200.00</td><td>2</td><td>A second researched name may be added. Not required.</td></tr>
+          <tr><td>$347.00</td><td>3</td><td>Third name allowed if unique count is 2.</td></tr>
+          <tr><td>Deposit that lifts equity across a $75 line</td><td>+1</td><td>New slot unlocks on the next trading job.</td></tr>
+        </tbody>
+      </table>
+      <h3>5. The clock</h3>
+      <p>All times are America/New_York on regular cash sessions. Notification on these jobs is OFF. The only mail is what the prompt itself sends (fill, fault, pack, book-state, process review).</p>
+      <table>
+        <thead><tr><th>ET</th><th>Job</th><th>Role</th><th>Mail</th></tr></thead>
+        <tbody>
+          <tr><td>21:00 Sun–Thu</td><td>Policy Pack Evening</td><td>No trading. White House EOs, 50-state live bills, 21-day official calendar.</td><td>Agentic policy pack: YYYY-MM-DD</td></tr>
+          <tr><td>06:30 Mon–Fri</td><td>Policy Pack AM Refresh</td><td>No trading. Overnight White House drops and official calendar moves only. Silent if nothing new.</td><td>… AM only if new</td></tr>
+          <tr><td>09:45</td><td>Autopilot AM</td><td>Daytime deploy. Risk per symbol, bounce buys off the pack, deploy toward 90/10 within slots, write the book-state card.</td><td>Trade if fill + book-state card</td></tr>
+          <tr><td>10:15</td><td>Connector Watch AM</td><td>Health only. No orders. Empty-book fault if ≥ $40 BP, no positions, no orders after AM.</td><td>Fault only</td></tr>
+          <tr><td>11:45</td><td>Eyes</td><td>Risk-first. Quiet-after-deploy if book-state says ≥80% invested, no stop through, no stall due. Otherwise stops / stall / idle-cash deploy.</td><td>Trade if fill</td></tr>
+          <tr><td>13:45</td><td>Eyes</td><td>Same as 11:45.</td><td>Trade if fill</td></tr>
+          <tr><td>15:05</td><td>Autopilot PM</td><td>Last redeploy. Risk first, then fill idle 90/10 or replace a sold name.</td><td>Trade if fill</td></tr>
+          <tr><td>15:20</td><td>Connector Watch PM</td><td>Health only. No AM empty-book fault on this run.</td><td>Fault only</td></tr>
+          <tr><td>On each SELL fill</td><td>Process review</td><td>No trading. Fires when Gmail receives Agentic trade: SELL. Reconstructs that exit, scores the process, then exactly 3 KEEP and 3 CHANGE, each with why. Friday 17:00 / 14-day calendar review is retired.</td><td>Agentic process review</td></tr>
+        </tbody>
+      </table>
+      <h3>6. Book-state card</h3>
+      <p>After the 09:45 AM pass, that job emails Agentic book state: YYYY-MM-DD with, for each open symbol: quantity, average cost, first-fill date, next stall-test date, survive-mark if any, percent versus its own cost; plus slots used / max, equity, buying power, HWM, invested percent, and whether a stop or stall is due later that day. Later jobs read this card instead of re-deriving clocks. They do not rewrite it.</p>
+      <h3>7. Quiet-after-deploy</h3>
+      <p>If the latest book-state card shows the book ≥ 80% invested, no name is through a stop, and no stall clock is due that day, the 11:45 and 13:45 Eyes jobs exit with no email and no new research shop. They still honor a live stop if the tape has moved since the card. PM 15:05 still does a last risk-and-redeploy pass.</p>
+      <h3>8. What a 15-minute trading stamp actually checks</h3>
+      <p>In order. It does not rebuild the overnight pack.</p>
+      <ul>
+        <li>Can it act? Agentic readable (value, buying power, positions, open/recent agent orders). Tools up. Fail closed if not.</li>
+        <li>Risk on names already owned, each symbol alone: −5% floor / −6% hard cap / −10% flatten / TIGHT −5% from that name’s average cost; 12-hour green lock from that fill; −15% trail from that name’s high after 12 hours if still above its cost; stall ladder on that name’s own 2-business-day clock.</li>
+        <li>Account freeze only: HWM −20% then TIGHT −10% blocks new buys; slots and 90/10 cap new risk; PDT blocks a fourth same-name day-trade in five business days.</li>
+        <li>If it is about to buy: load the latest Gmail subject starting “Agentic policy pack:” from the last 36 hours. Bounce the candidate’s sector and HQ off White House items, live state bills, and the coming-weeks calendar. Pack-flagged 1–3 week hit → skip that name. No pack → short live whitehouse.gov check only. No 50-state crawl in the stamp.</li>
+        <li>A Reuters or AP headline printed since the pack still needs two independent corroborators before it can veto or select a name.</li>
+        <li>Deploy or rotate only after the checks above. Empty book + spendable BP is a deploy. New name only if a slot is free. May add to an existing allowed name. Eyes may rotate a weak flat or red name. Must not dump a fresh green winner.</li>
+      </ul>
+      <h3>9. Policy pack, sources, and the coming-weeks calendar</h3>
+      <p>Overnight research is the information layer. Daytime jobs bounce candidates off it. They do not re-crawl fifty legislatures.</p>
+      <p><b>Source protocol</b></p>
+      <ul>
+        <li>White House primary: whitehouse.gov presidential actions, executive orders, proclamations, briefing room. A new EO that touches the candidate’s sector, trade, energy, sanctions, or labor counts on its own.</li>
+        <li>Reuters or AP may not veto or select a name until two independent sources state the same fact. Valid corroborators: White House or other .gov, Federal Register, USTR, Treasury/OFAC, EIA, Congress.gov, a second major wire, or the company’s 8-K. Two reprints of the same wire are one source. Uncorroborated wire is ignored.</li>
+        <li>States: HQ state official site, material operating or regulatory states for that issuer, plus a 50-state sweep via NCSL / official bill trackers. Only live bills with committee movement or a dated vote in the next three weeks. Rumor bills with no committee movement do not block a name.</li>
+        <li>X is never a corroborator.</li>
+      </ul>
+      <p><b>Coming-weeks calendar (next 21 days ET, official sources only)</b></p>
+      <ul>
+        <li>federalreserve.gov FOMC meetings, SEP / dot-plot days, scheduled minutes.</li>
+        <li>BLS CPI and NFP; BEA PCE and GDP.</li>
+        <li>EIA weekly petroleum status day, including holiday shifts.</li>
+        <li>NYSE full holiday or early-close days.</li>
+        <li>Dated EO / proclamation effective dates, USTR deadlines, Congress.gov votes or recess if already scheduled and sector-relevant.</li>
+        <li>OPEC dates only if posted on OPEC.org.</li>
+        <li>Official federal or state election or primary dates inside the window.</li>
+        <li>Do not invent dates. Unofficial calendar rumors stay in the unconfirmed footnote and cannot veto a name.</li>
+      </ul>
+      <p>Pack email subject is exactly Agentic policy pack: YYYY-MM-DD using the next session date. Body sections: (A) White House, (B) state live bills, (C) coming-weeks calendar, (D) sectors most exposed, (E) unconfirmed wires, (F) expiry at the next 21:00 rebuild. No fill orders in the pack.</p>
+      <h3>10. How a name is chosen</h3>
+      <p>There is no numeric scoring model and no owner ticker list. Jobs pick themselves. A name may be bought only if all of the following are true.</p>
+      <ul>
+        <li>Agentic only. Long-only stock or ETF. Last price ≥ $5. Liquid enough to enter and exit the intended size, including a fractional stub.</li>
+        <li>A free name slot, or the job is adding to an existing allowed name.</li>
+        <li>Room inside 90/10. Account is not HWM-frozen.</li>
+        <li>PDT-safe. Same-symbol 24-hour rebuy is clear.</li>
+        <li>The policy pack does not flag a clear 1–3 week hit on that name’s sector or HQ.</li>
+        <li>The name can live with its own −5% floor, −6% hard cap, and its own period-one +5% stall test on day 2.</li>
+        <li>World events (Fed path, wars and sanctions, elections and dated policy votes, oil shocks, tariffs) are a path filter for the coming weeks, not a separate strategy. They do not authorize options, shorts, inverse products, or sitting in cash waiting for calm.</li>
+      </ul>
+      <p>Proximity to a 52-week high is not a veto. Leaders often print many new highs. Do not prefer a washed-out name solely because “it has room.” That name still has to clear its own stall clock.</p>
+      <h3>11. Loss exits — per symbol</h3>
+      <p>These fire any time, including inside the first 12 hours. Each name is scored from its own average cost. A name must never print through −6%.</p>
+      <table>
+        <thead><tr><th>Line</th><th>Trigger</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>−5% floor</td><td>Last ≤ that name’s average cost × 0.95</td><td>Sell that name. Whole-share GTC stop-market only if that name’s quantity ≥ 1. Fractionals are job-watched.</td></tr>
+          <tr><td>−6% hard cap</td><td>Last ≤ that name’s cost × 0.94 at any time</td><td>Sell that name immediately. The 12-hour green lock does not protect a −6% print.</td></tr>
+          <tr><td>−10% flatten</td><td>Last ≤ that name’s cost × 0.90</td><td>Flatten that name immediately.</td></tr>
+          <tr><td>TIGHT −5%</td><td>Account is in TIGHT after an HWM trip, and last ≤ that name’s cost × 0.95</td><td>Sell that name.</td></tr>
+        </tbody>
+      </table>
+      <h3>12. Twelve-hour green lock — per symbol</h3>
+      <p>From that symbol’s first-fill time, do not sell it while it is green versus its own cost unless a loss stop, the −6% hard cap, or the stall ladder already applies to that symbol. The lock lasts 12 hours. Selling a loser the same session is allowed. The lock is not book-wide and is not reset by a trade in a different name. A −6% print is never protected.</p>
+      <h3>13. Green trail — per symbol</h3>
+      <p>After 12 hours, if the name is still above its own cost: sell if last ≤ that name’s high-since-held × 0.85. If that trail line has already cut through cost, treat it as a loss exit for that name only.</p>
+      <h3>14. Stalled-winner ladder — per symbol, never portfolio</h3>
+      <p>This is the rule the Ladder-M stands for. Run it separately on each open name. Each name has its own first-fill date, average cost, survive-mark, and 2-business-day clock. A pass on one name does not protect another. A miss sells only the stalled name. Do not use account P&L, combined book return, or HWM as the stall test. HWM is a separate account-level freeze.</p>
+      <table>
+        <thead><tr><th>When, for that name</th><th>Base</th><th>Must be at least</th><th>On a miss while still green vs its own cost</th></tr></thead>
+        <tbody>
+          <tr><td>Days 0–1. Purchase day does not complete a block.</td><td>—</td><td>No stall test. Loss stops only.</td><td>—</td></tr>
+          <tr><td>End of 2 business days</td><td>That name’s original average cost</td><td>Cost × 1.05</td><td>Sell that name. Redeploy into a different name if rules allow.</td></tr>
+          <tr><td>If it survives</td><td>That day’s actual last price</td><td>New survive-mark locked. Not cost × 1.05.</td><td>—</td></tr>
+          <tr><td>Each later 2 business days</td><td>That name’s last survive-mark</td><td>Survive-mark × 1.04</td><td>Sell that name. Redeploy into a different name if rules allow.</td></tr>
+        </tbody>
+      </table>
+      <p>Example, one stock. Cost $100. Day 2 must be ≥ $105. If it prints $106, the next line is $110.24, not a fresh +4% off cost. If two business days later it prints $111, the following line is $115.44. A name that is red versus its own cost uses loss stops, not this ladder. QQQ and SOXX are independent clocks.</p>
+      <h3>15. Account drawdown — HWM only</h3>
+      <p>HWM is peak Agentic value including deposits and growth. Down 20% from HWM freezes new buys (NORMAL trip). After that, freeze at −10% from HWM (TIGHT). Restore NORMAL when equity is 10% above the trip value. A deposit can restore it. HWM does not, by itself, sell a name.</p>
+      <h3>16. Pattern-day-trader</h3>
+      <p>A same-name buy and sell in one session is a day trade. Do not create a fourth in five business days. Replace ABC with XYZ rather than round-trip ABC.</p>
+      <h3>17. After-sell process review</h3>
+      <p>The Friday 17:00 / every-14-days calendar review is retired. Process review runs when Gmail receives a new message whose subject contains “Agentic trade: SELL”. It does not trade. It reconstructs that exit only, scores the process around the sell, and mails exactly three things to KEEP and exactly three things to CHANGE, each with why, grounded in that sell. Subject stays exactly Agentic process review. Buys, snapshots, packs, and faults do not trigger a review.</p>
+      <h3>18. Mail</h3>
+      <table>
+        <thead><tr><th>Event</th><th>Subject</th></tr></thead>
+        <tbody>
+          <tr><td>Any Autopilot or Eyes fill</td><td>Agentic trade: BUY SYMBOL or Agentic trade: SELL SYMBOL</td></tr>
+          <tr><td>AM 09:45 book snapshot</td><td>Agentic book state: YYYY-MM-DD</td></tr>
+          <tr><td>Evening policy pack</td><td>Agentic policy pack: YYYY-MM-DD</td></tr>
+          <tr><td>Morning pack refresh, only if new</td><td>Agentic policy pack: YYYY-MM-DD AM</td></tr>
+          <tr><td>Tool / order / empty-book AM fault</td><td>Agentic fault: [short reason]</td></tr>
+          <tr><td>After each SELL fill</td><td>Agentic process review</td></tr>
+          <tr><td>Quiet healthy book, no fill</td><td>No email</td></tr>
+        </tbody>
+      </table>
+      <h3>19. Owner halt</h3>
+      <p>Disconnect the agent on Agentic in Robinhood, or tell Grok to pause the Murphy Pilot jobs. Always-allow for place and cancel lives at grok.com/connectors. Stop depositing. The agent cannot pull the primary Robinhood account.</p>
+      <h3>20. Book as of this manual</h3>
+      <p>First live names were QQQ and SOXX fractionals on 27 August 2026. Stall clocks start on those first fills. No whole-share broker stops attach to fractional stubs — jobs watch them. The 27 August baseline pack found no new official 1–3 week veto on QQQ or SOXX. The semiconductor 232 proclamation of 14 January 2026 is old and already in the tape.</p>
+      <p class="lede">AI agents can misread markets or fail to run. The owner owns every fill and can lose the entire Agentic balance. Brokerage through Robinhood Financial LLC / Robinhood Securities, LLC, members SIPC.</p>
+
+  </article>
 </main>
+
+<script>
+
+(function(){
+  var KEY = "murphyPilotTheme";
+  var EVENT = "murphy-theme";
+  function readTheme(){
+    var attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "dark" || attr === "light") return attr;
+    try {
+      var t = localStorage.getItem(KEY);
+      if (t === "light" || t === "dark") return t;
+    } catch (e) {}
+    try {
+      if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+    } catch (e) {}
+    return "light";
+  }
+  function applyTheme(t){
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem(KEY, t); } catch (e) {}
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", t === "dark" ? "#0A100E" : "#1B3A2F");
+    document.querySelectorAll("[data-theme-choice]").forEach(function(btn){
+      var on = btn.getAttribute("data-theme-choice") === t;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    try { window.dispatchEvent(new Event(EVENT)); } catch (e) {}
+  }
+  function pad(n){ return String(n).padStart(2, "0"); }
+  function tick(){
+    var n = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    var c = document.getElementById("etClock");
+    var d = document.getElementById("etDate");
+    if (c) c.textContent = pad(n.getHours()) + ":" + pad(n.getMinutes()) + ":" + pad(n.getSeconds()) + " ET";
+    if (d) d.textContent = n.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
+  }
+  function isGas(){ return typeof google !== "undefined" && google.script; }
+  function bindDocs(){
+    var desk = isGas() ? "?" : "Murphy_Pilot_Desk.html";
+    var man = isGas() ? "?doc=manual" : "Murphy_Pilot_Manual.html";
+    var setu = isGas() ? "?doc=setup" : "Murphy_Pilot_Setup.html";
+    function setHref(id, href){
+      var el = document.getElementById(id);
+      if (el) el.setAttribute("href", href);
+    }
+    setHref("navDesk", desk);
+    setHref("navBrand", desk);
+    setHref("linkManual", man);
+    setHref("linkSetup", setu);
+    setHref("linkManualTop", man);
+    setHref("linkSetupTop", setu);
+    if (isGas()) return;
+    function overlay(view, file, e){
+      var ov = document.getElementById("docOverlay");
+      var frame = document.getElementById("docFrame");
+      if (!ov || !frame) return;
+      if (e) e.preventDefault();
+      var title = view === "manual" ? "Operating Manual v7.0" : "Setup Guide v5.0";
+      var t = document.getElementById("docTitle");
+      if (t) t.textContent = title;
+      ov.hidden = false;
+      fetch(file).then(function(r){
+        if (!r.ok) throw new Error(String(r.status));
+        return r.text();
+      }).then(function(html){
+        frame.removeAttribute("src");
+        frame.srcdoc = html;
+      }).catch(function(){
+        frame.removeAttribute("srcdoc");
+        frame.src = file;
+      });
+    }
+    function bind(id, view, file){
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("click", function(e){ overlay(view, file, e); });
+    }
+    bind("linkManual", "manual", "Murphy_Pilot_Manual.html");
+    bind("linkSetup", "setup", "Murphy_Pilot_Setup.html");
+    bind("linkManualTop", "manual", "Murphy_Pilot_Manual.html");
+    bind("linkSetupTop", "setup", "Murphy_Pilot_Setup.html");
+    var close = document.getElementById("docClose");
+    if (close) close.addEventListener("click", function(){
+      var ov = document.getElementById("docOverlay");
+      if (ov) ov.hidden = true;
+    });
+  }
+  applyTheme(readTheme());
+  document.querySelectorAll("[data-theme-choice]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      applyTheme(btn.getAttribute("data-theme-choice"));
+    });
+  });
+  tick();
+  setInterval(tick, 1000);
+  bindDocs();
+})();
+
+
+</script>
 </body>
 </html>
