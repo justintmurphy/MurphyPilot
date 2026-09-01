@@ -48,3 +48,10 @@ header nav a:hover,
 header nav a.on {
   background: var(--nav-hover);
 }
+
+header nav#tabs { display: none !important; }
+header nav#siteNav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
