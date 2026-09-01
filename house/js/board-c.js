@@ -41,6 +41,15 @@ merge = function (house, pilot, outside) {
       names.push(row);
     });
   });
+  var liveEq = 0, liveCash = 0, liveBp = 0;
+  LIVE_IDS.forEach(function (id) {
+    var b = out.accounts[id] || {};
+    liveEq += Number(b.equity) || 0;
+    liveCash += Number(b.cash) || 0;
+    liveBp += Number(b.buying_power) || 0;
+  });
+  var custEq = 0;
+  OUTSIDE_IDS.forEach(function (id) { custEq += Number((out.accounts[id] || {}).equity) || 0; });
   out.combined.equity = rnd(eq);
   out.combined.cash = rnd(cash);
   out.combined.buying_power = rnd(bp);
@@ -54,56 +63,70 @@ merge = function (house, pilot, outside) {
     var b = out.accounts[id] || {};
     return { id: id, label: LABEL[id], equity: Number(b.equity) || 0, cash: Number(b.cash) || 0, pending_deposits: Number(b.pending_deposits) || 0, invested_pct: Number(b.invested_pct) || 0, names: (b.names || []).length };
   });
-  var liveEq = 0;
-  LIVE_IDS.forEach(function (id) { liveEq += Number((out.accounts[id] || {}).equity) || 0; });
   out.tape = out.tape || {};
   out.tape.live = (out.tape.combined || []).map(normPrint);
-  var outsideAsOf = (outside && outside.asof) || "";
+  var outsideAsOf = (outside && (outside.holdings_asof || outside.asof)) || "";
   out.tape.fidelity = [{ t: outsideAsOf, equity: Number((out.accounts.fidelity || {}).equity) || 0 }];
   out.tape.voya = [{ t: outsideAsOf, equity: Number((out.accounts.voya || {}).equity) || 0 }];
+  var ovTape = (outside && outside.tape && outside.tape.overall) || [];
+  out.tape.overall = ovTape.map(normPrint);
+  if (!out.tape.overall.length) out.tape.overall = [{ t: (outside && outside.scanned_at) || "", equity: rnd(eq) }];
   out.combined.live_equity = rnd(liveEq);
+  out.combined.live_cash = rnd(liveCash);
+  out.combined.live_buying_power = rnd(liveBp);
+  out.combined.custodial_equity = rnd(custEq);
   out.combined.outside_asof = outsideAsOf;
+  out.combined.overall_asof = (outside && outside.overall && outside.overall.asof) || (outside && outside.scanned_at) || "";
   return out;
 };
 
 cardsHtml = function () {
   return "<h2>Books</h2><div class=\"acct-grid\">" + IDS.map(function (id) {
     var b = snap.accounts[id] || {};
-    return '<button type="button" class="acct-mini" data-tab="' + id + '"><div class="k">' + esc(LABEL[id]) + "</div><b>" + money(b.equity) + '</b><div class="m">' + (b.names || []).length + " names</div></button>";
+    var tag = OUTSIDE_IDS.indexOf(id) >= 0 ? "EOD" : "live";
+    return '<button type="button" class="acct-mini" data-tab="' + id + '"><div class="k">' + esc(LABEL[id]) + " \u00b7 " + tag + "</div><b>" + money(b.equity) + '</b><div class="m">' + (b.names || []).length + " names</div></button>";
   }).join("") + "</div>";
 };
 
-tableHtml = function (names, showBook, showStall) {
-  names = (names || []).slice().sort(function (a, b) {
-    return (Number(b.value) || 0) - (Number(a.value) || 0);
-  });
-  if (!names.length) return '<div class="card"><p class="hint" style="margin:0">No names on this book.</p></div>';
-  var head = "<tr><th>Name</th>" + (showBook ? "<th>Book</th>" : "") + '<th class="num">Qty</th><th class="num">Avg</th><th class="num">Last</th>' +
-    (showStall ? "<th>First fill</th><th>Next stall</th>" : "") +
-    "<th>Last fill</th>" +
-    '<th class="num">Value</th><th class="num">P&L</th></tr>';
-  var rows = names.map(function (n) {
-    var books = (n.accounts || []).map(function (a) { return LABEL[a] || a; }).join(" \u00b7 ") || LABEL[n.account] || "";
-    if (n.sleeve) books = (books ? books + " \u00b7 " : "") + n.sleeve;
-    var chg = n.day_pct != null ? n.day_pct : n.pnl_pct;
-    return "<tr><td class=\"name-cell tone-" + tone(chg) + "\"><span class=\"sym\">" + esc(n.symbol) + '</span><span class="sub">' + esc(n.name || "") + "</span></td>" +
-      (showBook ? "<td>" + esc(books) + "</td>" : "") +
-      '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (n.avg == null ? "\u2014" : money(n.avg)) + "</td>" +
-      '<td class="num">' + (n.last == null ? "\u2014" : money(n.last)) + "</td>" +
-      (showStall ? "<td>" + esc(n.first_fill || "\u2014") + "</td><td>" + esc(n.next_stall || "\u2014") + "</td>" : "") +
-      "<td>" + esc(n.last_fill || n.first_fill || "\u2014") + "</td>" +
-      '<td class="num">' + money(n.value) + '</td><td class="num tone-' + tone(n.pnl) + '">' + money(n.pnl) + " " + pct(n.pnl_pct) + "</td></tr>";
-  }).join("");
-  var wrap = (showBook || names.length > 10) ? "card book-scroll" : "card";
-  return '<div class="' + wrap + '"><table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
-};
+function overallCardHtml() {
+  var c = snap.combined || {};
+  var prints = ((snap.tape && snap.tape.overall) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
+  var vals = prints.map(function (p) { return p.equity; });
+  var last = vals.length ? vals[vals.length - 1] : (c.equity || 0);
+  if (!vals.length) vals = [last, last];
+  return "<h2>Overall equity \u00b7 daily close</h2><div class=\"card tape-card\">" +
+    '<div class="tape-kpis">' +
+    "<div><span>Overall</span><b>" + money(c.equity) + "</b></div>" +
+    "<div><span>Live</span><b>" + money(c.live_equity) + "</b></div>" +
+    "<div><span>Custodial</span><b>" + money(c.custodial_equity) + "</b></div>" +
+    "<div><span>Prints</span><b>" + prints.length + "</b></div></div>" +
+    '<div class="tape-plot">' + spark(vals) + "</div>" +
+    '<p class="hint">Ticked weekdays at 16:00 ET. Live = Robinhood books. Custodial = Fidelity + Voya' +
+    (c.outside_asof ? " as of " + esc(c.outside_asof) : "") + ".</p></div>";
+}
 
 var _paint = paint;
 paint = function () {
   if (!snap) return;
   _paint();
   var foot = document.querySelector(".desk-foot");
-  if (foot) foot.textContent = "Murphy Pilot \u00b7 House rolls up Agentic, Individual, Auto-Grok, Joint, Fidelity, and Voya.";
+  if (foot) foot.textContent = "Murphy Pilot \u00b7 House rolls up live Robinhood books plus Fidelity and Voya.";
+  if (tab !== "combined") return;
+  var desk = document.getElementById("desk");
+  if (!desk) return;
+  Array.from(desk.querySelectorAll("h2")).forEach(function (h) {
+    var t = h.textContent || "";
+    if (t.indexOf("Live equity") === 0) h.textContent = "Live equity \u00b7 Robinhood";
+    if (t.indexOf("Book state") === 0) h.textContent = "Book state \u00b7 all books";
+  });
+  var liveH = Array.from(desk.querySelectorAll("h2")).filter(function (h) { return (h.textContent || "").indexOf("Live equity") === 0; })[0];
+  if (liveH && !desk.querySelector("h2.overall-eq")) {
+    var wrap = document.createElement("div");
+    wrap.innerHTML = overallCardHtml();
+    var h = wrap.querySelector("h2");
+    if (h) h.className = "overall-eq";
+    while (wrap.firstChild) desk.insertBefore(wrap.firstChild, liveH);
+  }
 };
 
 load = function () {
