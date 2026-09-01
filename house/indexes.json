@@ -1,0 +1,5 @@
+{
+  "asof": "2026-09-01T16:51:55-04:00",
+  "spx": { "symbol": "SPX", "label": "S&P", "last": 7631.47, "prev": 7686.14, "pct": -0.71 },
+  "ndx": { "symbol": "NDX", "label": "Nasdaq", "last": 29077.22, "prev": 29456.97, "pct": -1.29 }
+}
