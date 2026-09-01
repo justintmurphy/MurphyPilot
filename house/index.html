@@ -41,6 +41,52 @@
     s += await r.text();
     s += "\n";
   }
+  s = s.replace(
+    '{ id: "combined", label: "House" },',
+    '{ id: "combined", label: "House" },\n    { id: "agentic", label: "Agentic" },'
+  );
+  s = s.replace(
+    'var ACCOUNT_LABEL = { individual: "Individual", auto_grok: "Auto-Grok", joint: "Joint" };',
+    'var ACCOUNT_LABEL = { agentic: "Agentic", individual: "Individual", auto_grok: "Auto-Grok", joint: "Joint" };'
+  );
+  s = s.replace(
+    'var TAPE_KEYS = ["combined", "individual", "auto_grok", "joint"];',
+    'var TAPE_KEYS = ["combined", "agentic", "individual", "auto_grok", "joint"];'
+  );
+  s = s.replace(
+    'function emptyTape() { return { combined: [], individual: [], auto_grok: [], joint: [] }; }',
+    'function emptyTape() { return { combined: [], agentic: [], individual: [], auto_grok: [], joint: [] }; }'
+  );
+  s = s.replace(
+    'eat(s.accounts.individual);',
+    'eat(s.accounts.agentic);\n      eat(s.accounts.individual);'
+  );
+  s = s.replace(
+    'enrichBook(s.accounts.individual, "individual");',
+    'enrichBook(s.accounts.agentic, "agentic");\n    enrichBook(s.accounts.individual, "individual");'
+  );
+  s = s.replace(
+    '["individual", "auto_grok", "joint"].forEach(function (id) {',
+    '["agentic", "individual", "auto_grok", "joint"].forEach(function (id) {'
+  );
+  s = s.replace(
+    'individual: mk((s.accounts && s.accounts.individual && s.accounts.individual.equity) || 0),',
+    'agentic: mk((s.accounts && s.accounts.agentic && s.accounts.agentic.equity) || 0),\n      individual: mk((s.accounts && s.accounts.individual && s.accounts.individual.equity) || 0),'
+  );
+  s = s.replace("Three books + cash", "Four books + cash");
+  s = s.replace("<h2>Three books</h2>", "<h2>Four books</h2>");
+  s = s.replace(
+    'else if(h==="individual"||h==="auto_grok"||h==="joint"||h==="combined") tab=h;',
+    'else if(h==="agentic"||h==="individual"||h==="auto_grok"||h==="joint"||h==="combined") tab=h;'
+  );
+  s = s.replace(
+    'function hostedPull()',
+    'function normPilotTape(list, asof, equity){\n    var rows=[]; (list||[]).forEach(function(p){\n      if(!p||p.equity==null||!isFinite(Number(p.equity))) return;\n      var tt=p.t; if(typeof tt==="number") tt=new Date(tt).toISOString(); if(!tt) tt=asof;\n      rows.push({t:String(tt), dtg:p.dtg||formatDtg(tt), equity:roundEq(Number(p.equity)), max:p.max!=null?roundEq(Number(p.max)):undefined});\n    });\n    if(!rows.length && equity!=null) rows.push({t:asof, dtg:formatDtg(asof), equity:roundEq(equity), max:roundEq(equity)});\n    var mx=-Infinity; return rows.map(function(p){ mx=Math.max(mx,p.equity); p.max=p.max!=null?Math.max(p.max,mx):mx; return p; });\n  }\n  function agenticFromPilot(p){\n    if(!p) return null;\n    var names=(p.names||[]).map(function(n){\n      var last=n.last!=null?Number(n.last):null, avg=n.avg!=null?Number(n.avg):null, qty=n.qty!=null?Number(n.qty):null;\n      var value=n.value!=null?Number(n.value):(last!=null&&qty!=null?last*qty:null);\n      var cost=n.cost!=null?Number(n.cost):(avg!=null&&qty!=null?avg*qty:null);\n      var pnl=(value!=null&&cost!=null)?value-cost:(n.pnl!=null?Number(n.pnl):null);\n      var pnl_pct=n.pnl_pct!=null?Number(n.pnl_pct):(cost?(pnl/cost)*100:(avg&&last?((last/avg)-1)*100:null));\n      return {symbol:n.symbol,name:n.name||n.symbol,kind:n.kind||"equity",qty:qty,avg:avg,last:last,value:value,cost:cost,pnl:pnl,pnl_pct:pnl_pct,first_fill:n.first_fill||"",next_stall:n.next_stall||"",account:"agentic",accounts:["agentic"]};\n    });\n    return {id:"agentic",label:"Agentic",equity:Number(p.equity)||0,equity_value:Number(p.equity_value)||0,cash:Number(p.cash)||0,buying_power:Number(p.buying_power)||0,pending_deposits:Number(p.pending_deposits)||0,invested_pct:Number(p.invested_pct)||0,open_orders:Number(p.open_orders)||0,slots:p.slots!=null?Number(p.slots):undefined,names:names};\n  }\n  function absorbAgentic(house, pilot){\n    if(!isHouse(house)) return house;\n    var copy=JSON.parse(JSON.stringify(house));\n    if(!copy.accounts) copy.accounts={};\n    var book=agenticFromPilot(pilot);\n    copy.accounts.agentic=book||copy.accounts.agentic||{id:"agentic",label:"Agentic",equity:0,cash:0,buying_power:0,pending_deposits:0,invested_pct:0,open_orders:0,names:[]};\n    var ids=["agentic","individual","auto_grok","joint"];\n    var eq=0,cash=0,bp=0,pend=0,ev=0,cv=0,orders=0;\n    ids.forEach(function(id){ var b=copy.accounts[id]||{}; eq+=Number(b.equity)||0; cash+=Number(b.cash)||0; bp+=Number(b.buying_power)||0; pend+=Number(b.pending_deposits)||0; ev+=Number(b.equity_value)||0; cv+=Number(b.crypto_value)||0; orders+=Number(b.open_orders)||0; });\n    var names=[];\n    ids.forEach(function(id){ ((copy.accounts[id]&&copy.accounts[id].names)||[]).forEach(function(n){ var row=JSON.parse(JSON.stringify(n)); row.account=row.account||id; row.accounts=row.accounts&&row.accounts.length?row.accounts:[id]; names.push(row); }); });\n    copy.combined=copy.combined||{};\n    copy.combined.id="combined"; copy.combined.label="House";\n    copy.combined.equity=roundEq(eq); copy.combined.cash=roundEq(cash); copy.combined.buying_power=roundEq(bp);\n    copy.combined.pending_deposits=roundEq(pend); copy.combined.equity_value=roundEq(ev); copy.combined.crypto_value=roundEq(cv);\n    copy.combined.open_orders=orders; copy.combined.invested_pct=eq?Math.min(100,(ev/eq)*100):0;\n    copy.combined.names=names;\n    copy.combined.books=ids.map(function(id){ var b=copy.accounts[id]||{}; return {id:id,label:ACCOUNT_LABEL[id]||id,equity:Number(b.equity)||0,cash:Number(b.cash)||0,pending_deposits:Number(b.pending_deposits)||0,invested_pct:Number(b.invested_pct)||0,names:(b.names||[]).length}; });\n    if(!copy.tape) copy.tape=emptyTape();\n    if(pilot) copy.tape.agentic=mergePrints(copy.tape.agentic, normPilotTape(pilot.tape, pilot.asof, pilot.equity));\n    var lastHouse=((house.tape&&house.tape.combined)||[]).slice();\n    var rolled={t:copy.asof||(pilot&&pilot.asof)||new Date().toISOString(), equity:copy.combined.equity};\n    rolled.dtg=formatDtg(rolled.t);\n    copy.tape.combined=mergePrints(lastHouse,[rolled]);\n    copy.brand="Murphy Pilot";\n    return copy;\n  }\n  function hostedPull()'
+  );
+  s = s.replace(
+    /function localFilePull\(\)\{[\s\S]*?catch\(function\(\)\{\}\);\s*\}/,
+    'function localFilePull(){\n    var bust="?t="+Date.now();\n    Promise.all([\n      fetch("house-snapshot.json"+bust,{cache:"no-store"}).then(function(res){ if(!res.ok) throw new Error(String(res.status)); return res.json(); }),\n      fetch("../pilot-snapshot.json"+bust,{cache:"no-store"}).then(function(res){ return res.ok?res.json():null; }).catch(function(){ return null; })\n    ]).then(function(pair){\n      var merged=absorbAgentic(pair[0], pair[1]);\n      snap=withTape(merged, snap.tape);\n      try{ localStorage.setItem(STATE_KEY, JSON.stringify(snap)); }catch(e){}\n      status="House + Agentic snapshots";\n      paintDesk();\n    }).catch(function(){ status="Could not load snapshots"; paintDesk(); });\n  }'
+  );
   var el = document.createElement("script");
   el.textContent = s;
   document.body.appendChild(el);
