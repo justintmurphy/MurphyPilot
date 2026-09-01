@@ -3,14 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Murphy Pilot</title>
+<title>Murphy Pilot · House</title>
 <meta name="theme-color" content="#1B3A2F">
-<link rel="canonical" href="house/">
-<meta http-equiv="refresh" content="0; url=house/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<script>location.replace("house/");</script>
+<link rel="icon" href="house/logo.svg" sizes="any">
+<link rel="apple-touch-icon" href="house/logo.svg">
+<script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k)||localStorage.getItem("murphyHouseTheme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
+<link rel="stylesheet" href="house/house.css">
 </head>
 <body>
-<p><a href="house/">Murphy Pilot · House</a></p>
+<header>
+  <a class="mark" href="/" aria-label="Murphy Pilot House">
+    <img src="house/logo.svg" width="52" height="52" alt="Murphy Pilot">
+  </a>
+  <a class="brand-block" href="/">
+    <div class="brand">MURPHY PILOT</div>
+    <div class="sub" id="deskSub">HOUSE</div>
+  </a>
+  <nav id="tabs" aria-label="Books"></nav>
+  <div class="header-end">
+    <div class="theme-switch" role="group" aria-label="Color mode">
+      <button type="button" data-theme-choice="light">Light</button>
+      <button type="button" data-theme-choice="dark">Dark</button>
+    </div>
+    <div class="clock" id="clock"><div class="t">--:--:-- ET</div><div class="d"></div></div>
+  </div>
+</header>
+<div class="ticker" id="ticker" aria-label="Tracked names"><div class="ticker-track" id="tickerTrack"></div></div>
+<main class="desk" id="desk"></main>
+<script src="house/js/board-a.js"></script>
+<script src="house/js/board-b.js"></script>
 </body>
 </html>

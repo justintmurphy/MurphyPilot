@@ -4,47 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Murphy Pilot · House</title>
-<meta name="theme-color" content="#1B3A2F">
-<link rel="icon" href="../favicon.svg" type="image/svg+xml">
-<link rel="icon" href="logo.svg" sizes="any">
-<link rel="apple-touch-icon" href="logo.svg">
-<script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k)||localStorage.getItem("murphyHouseTheme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
-<link rel="stylesheet" href="house.css">
+<link rel="canonical" href="/">
+<meta http-equiv="refresh" content="0; url=/">
+<script>location.replace("/");</script>
 </head>
 <body>
-<header>
-  <a class="mark" href="index.html" aria-label="Murphy Pilot House">
-    <img src="logo.svg" width="52" height="52" alt="Murphy Pilot">
-  </a>
-  <a class="brand-block" href="index.html">
-    <div class="brand">MURPHY PILOT</div>
-    <div class="sub" id="deskSub">HOUSE</div>
-  </a>
-  <nav id="tabs" aria-label="Books"></nav>
-  <div class="header-end">
-    <div class="theme-switch" role="group" aria-label="Color mode">
-      <button type="button" data-theme-choice="light">Light</button>
-      <button type="button" data-theme-choice="dark">Dark</button>
-    </div>
-    <div class="clock" id="clock"><div class="t">--:--:-- ET</div><div class="d"></div></div>
-  </div>
-</header>
-<div class="ticker" id="ticker" aria-label="Tracked names"><div class="ticker-track" id="tickerTrack"></div></div>
-<main class="desk" id="desk"></main>
-<script>
-(async function(){
-  var parts=["js/board-a.js","js/board-b.js"];
-  var s="";
-  for (var i=0;i<parts.length;i++){
-    var r=await fetch(parts[i],{cache:"no-store"});
-    if(!r.ok) throw new Error(parts[i]+" "+r.status);
-    s+=await r.text();
-    s+="\n";
-  }
-  var el=document.createElement("script");
-  el.textContent=s;
-  document.body.appendChild(el);
-})().catch(function(e){ document.body.insertAdjacentHTML("beforeend","<p>Desk JS failed: "+e+"</p>"); });
-</script>
+<p><a href="/">Murphy Pilot</a></p>
 </body>
 </html>
