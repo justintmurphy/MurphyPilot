@@ -8,29 +8,17 @@
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="logo.svg" sizes="any">
 <link rel="apple-touch-icon" href="logo.svg">
-<script>(function(){try{var k="murphyHouseTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
 <link rel="stylesheet" href="house.css">
-<style>
-header .mark{position:relative;width:52px;height:52px;flex:0 0 52px;background:#F6F1E8;border-radius:4px;overflow:hidden;display:block}
-header .mark img{width:52px;height:52px;display:block}
-</style>
+<script>(function(){try{var k="murphyHouseTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark")t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
 </head>
 <body>
 <header>
-  <a class="mark" href="index.html" aria-label="Murphy House">
-    <img src="logo.svg" width="52" height="52" alt="Murphy House">
-  </a>
-  <a class="brand-block" href="index.html">
-    <div class="brand">MURPHY HOUSE</div>
-    <div class="sub">DATA ONLY · THREE BOOKS</div>
-  </a>
-  <nav>
-    <a href="index.html" class="on">House</a>
-    <a href="../index.html">Pilot</a>
-  </nav>
+  <a class="mark" href="index.html" aria-label="Murphy House"><img src="logo.svg" width="52" height="52" alt="Murphy House"></a>
+  <a class="brand-block" href="index.html"><div class="brand">MURPHY HOUSE</div><div class="sub">DATA ONLY · THREE BOOKS</div></a>
+  <nav><a href="index.html" class="on">House</a><a href="../index.html">Pilot</a></nav>
   <div class="header-end">
     <div class="theme-switch" role="group" aria-label="Color mode">
-      <button type="button" class="on" data-theme-choice="light">Light</button>
+      <button type="button" data-theme-choice="light">Light</button>
       <button type="button" data-theme-choice="dark">Dark</button>
     </div>
     <div class="clock"><div class="t" id="etClock">--:--:-- ET</div><div class="d" id="etDate"></div></div>
@@ -49,13 +37,13 @@ header .mark img{width:52px;height:52px;display:block}
       <div><span>Cash</span><b id="kCash">—</b></div>
       <div><span>Pending (already in)</span><b id="kPend">—</b></div>
       <div><span>Open orders</span><b id="kOrd">—</b></div>
-      <div><span>Snapshot</span><b id="kSnap" style="font-size:13px">local</b></div>
+      <div><span>Snapshot</span><b id="kSnap" style="font-size:13px">loading</b></div>
     </div>
     <p class="hint" id="bookNote"></p>
   </div>
   <h2>Books</h2>
   <div class="card">
-    <p class="hint" style="margin-top:0">Data only. No stall clocks or trading.</p>
+    <p class="hint" style="margin-top:0">Data only. No stall clocks or trading. Source: house-snapshot.json on GitHub Pages.</p>
     <nav id="bookTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button type="button" data-book="combined" class="on">House</button>
       <button type="button" data-book="individual">Individual</button>
@@ -70,7 +58,7 @@ header .mark img{width:52px;height:52px;display:block}
   <h2>Tape (recent)</h2>
   <div class="card" id="tapeCard"></div>
   <details class="tools"><summary>Paste a House snapshot</summary>
-    <div class="card"><textarea id="fJson"></textarea><button type="button" id="jsonBtn">Load snapshot JSON</button></div>
+    <div class="card"><textarea id="fJson" rows="8" style="width:100%"></textarea><button type="button" id="jsonBtn">Load snapshot JSON</button></div>
   </details>
   <footer>Murphy House · Individual · Auto-Grok · Joint · no account numbers.</footer>
 </main>
@@ -79,87 +67,92 @@ header .mark img{width:52px;height:52px;display:block}
   var KEY="murphyHouseTheme";
   var book="combined";
   var snap=null;
-  function pad(n){ return String(n).padStart(2,"0"); }
-  function money(n){ n=Number(n); return isFinite(n) ? "$"+n.toFixed(2) : "—"; }
-  function pct(n){ n=Number(n); return isFinite(n) ? (n>=0?"+":"")+n.toFixed(2)+"%" : "—"; }
-  function setText(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
-  function nyNow(){ return new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"})); }
+  function pad(n){return String(n).padStart(2,"0");}
+  function money(n){n=Number(n);return isFinite(n)?"$"+n.toFixed(2):"—";}
+  function pct(n){n=Number(n);return isFinite(n)?(n>=0?"+":"")+n.toFixed(2)+"%":"—";}
+  function setText(id,v){var el=document.getElementById(id);if(el)el.textContent=v;}
+  function nyNow(){return new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"}));}
   function tick(){
     var n=nyNow();
-    setText("etClock", pad(n.getHours())+":"+pad(n.getMinutes())+":"+pad(n.getSeconds())+" ET");
-    setText("etDate", n.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric",year:"numeric"}));
+    setText("etClock",pad(n.getHours())+":"+pad(n.getMinutes())+":"+pad(n.getSeconds())+" ET");
+    setText("etDate",n.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric",year:"numeric"}));
   }
   function applyTheme(t){
     document.documentElement.setAttribute("data-theme",t);
-    try{ localStorage.setItem(KEY,t); }catch(e){}
+    try{localStorage.setItem(KEY,t);}catch(e){}
     document.querySelectorAll("[data-theme-choice]").forEach(function(btn){
-      btn.classList.toggle("on", btn.getAttribute("data-theme-choice")===t);
+      btn.classList.toggle("on",btn.getAttribute("data-theme-choice")===t);
     });
   }
   function namesFor(j){
-    if(book==="combined") return (j.combined && j.combined.names) || [];
-    var a=j.accounts && j.accounts[book];
-    return (a && a.names) || [];
+    if(!j) return [];
+    if(book==="combined") return (j.combined&&j.combined.names)||[];
+    var a=j.accounts&&j.accounts[book];
+    return (a&&a.names)||[];
   }
   function paint(j){
-    if(!j) return;
+    if(!j){setText("kSnap","no data");return;}
     snap=j;
     var acc=j.accounts||{};
-    var c=j.combined||{};
-    setText("kHouse", money(c.equity));
-    setText("kInd", money(acc.individual && acc.individual.equity));
-    setText("kAg", money(acc.auto_grok && acc.auto_grok.equity));
-    setText("kJt", money(acc.joint && acc.joint.equity));
-    setText("kCash", money(c.cash));
-    setText("kPend", money(c.pending_deposits));
-    setText("kOrd", c.open_orders!=null ? String(c.open_orders) : "0");
-    setText("bookNote", (j.brand||"Murphy House")+" · "+(j.asof||"")+" · "+(j.note||"DATA ONLY"));
+    var c=j.combined||j;
+    setText("kHouse",money(c.equity));
+    setText("kInd",money(acc.individual&&acc.individual.equity));
+    setText("kAg",money(acc.auto_grok&&acc.auto_grok.equity));
+    setText("kJt",money(acc.joint&&acc.joint.equity));
+    setText("kCash",money(c.cash));
+    setText("kPend",money(c.pending_deposits));
+    setText("kOrd",c.open_orders!=null?String(c.open_orders):"0");
+    setText("bookNote",(j.brand||"Murphy House")+" · "+(j.asof||"")+" · "+(j.note||"DATA ONLY"));
     var tb=document.getElementById("nameRows");
     if(tb){
       tb.innerHTML="";
-      namesFor(j).forEach(function(n){
-        var books=(n.accounts||[]).join(", ") || n.account || book;
-        var tr=document.createElement("tr");
-        tr.innerHTML="<td>"+(n.symbol||"")+(n.name?" · "+n.name:"")+"</td><td>"+books+"</td><td>"+(n.qty!=null?n.qty:"—")+"</td><td>"+(n.avg!=null?n.avg:"—")+"</td><td>"+(n.last!=null?n.last:"—")+"</td><td>"+money(n.value)+"</td><td>"+money(n.pnl)+" "+pct(n.pnl_pct)+"</td>";
-        tb.appendChild(tr);
-      });
+      var rows=namesFor(j);
+      if(!rows.length){
+        tb.innerHTML="<tr><td colspan='7'>No names in this book.</td></tr>";
+      } else {
+        rows.forEach(function(n){
+          var books=(n.accounts||[]).join(", ")||n.account||book;
+          var tr=document.createElement("tr");
+          var pnl=Number(n.pnl), pp=Number(n.pnl_pct);
+          tr.innerHTML="<td>"+(n.symbol||"")+(n.name?" · "+n.name:"")+"</td><td>"+books+"</td><td>"+(n.qty!=null?n.qty:"—")+"</td><td>"+(n.avg!=null?n.avg:"—")+"</td><td>"+(n.last!=null?n.last:"—")+"</td><td>"+money(n.value)+"</td><td class='"+(pp<0?"tone-stop":pp>0?"tone-go":"")+"'>"+money(pnl)+" "+pct(pp)+"</td>";
+          tb.appendChild(tr);
+        });
+      }
     }
     var tape=document.getElementById("tapeCard");
     if(tape){
       var key=book==="combined"?"combined":book;
-      var rows=((j.tape&&j.tape[key])||[]).slice().reverse();
-      tape.innerHTML = rows.length ? rows.map(function(p){
-        return "<div>"+(p.dtg||p.t||"")+" · "+money(p.equity)+(p.max!=null?" · max "+money(p.max):"")+"</div>";
-      }).join("") : "<p class='hint'>No tape in this snapshot.</p>";
+      var rows=((j.tape&&j.tape[key])||[]).slice().reverse().slice(0,12);
+      tape.innerHTML=rows.length?rows.map(function(p){return "<div>"+(p.dtg||p.t||"")+" · "+money(p.equity)+(p.max!=null?" · max "+money(p.max):"")+"</div>";}).join(""):"<p class='hint'>No tape in this snapshot.</p>";
     }
   }
   function load(){
-    fetch("house-snapshot.json",{cache:"no-store"}).then(function(r){ if(!r.ok) throw new Error("no file"); return r.json(); })
-      .then(function(j){ setText("kSnap","local file"); paint(j); })
-      .catch(function(){ setText("kSnap","missing"); });
+    setText("kSnap","loading");
+    fetch("house-snapshot.json?t="+Date.now(),{cache:"no-store"})
+      .then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+      .then(function(j){setText("kSnap","GitHub");paint(j);})
+      .catch(function(e){setText("kSnap","fetch fail");setText("bookNote","Could not read house-snapshot.json ("+e+"). Paste JSON below.");});
   }
-  var saved=null; try{ saved=localStorage.getItem(KEY); }catch(e){}
+  var saved=null;try{saved=localStorage.getItem(KEY);}catch(e){}
   applyTheme(saved==="dark"||saved==="light"?saved:"light");
   document.querySelectorAll("[data-theme-choice]").forEach(function(btn){
-    btn.addEventListener("click", function(){ applyTheme(btn.getAttribute("data-theme-choice")); });
+    btn.addEventListener("click",function(){applyTheme(btn.getAttribute("data-theme-choice"));});
   });
-  document.getElementById("bookTabs").addEventListener("click", function(e){
-    var b=e.target.getAttribute && e.target.getAttribute("data-book");
-    if(!b) return;
+  document.getElementById("bookTabs").addEventListener("click",function(e){
+    var b=e.target.getAttribute&&e.target.getAttribute("data-book");
+    if(!b)return;
     book=b;
-    document.querySelectorAll("#bookTabs [data-book]").forEach(function(x){ x.classList.toggle("on", x.getAttribute("data-book")===book); });
-    if(snap) paint(snap);
+    document.querySelectorAll("#bookTabs [data-book]").forEach(function(x){x.classList.toggle("on",x.getAttribute("data-book")===book);});
+    if(snap)paint(snap);
   });
   var jsonBtn=document.getElementById("jsonBtn");
-  if(jsonBtn) jsonBtn.onclick=function(){
+  if(jsonBtn)jsonBtn.onclick=function(){
     var raw=(document.getElementById("fJson")||{}).value||"";
     raw=raw.replace(/```json|```/g,"").trim();
-    if(!raw) return;
-    try{ paint(JSON.parse(raw)); setText("kSnap","paste"); }catch(err){ alert("JSON did not parse"); }
+    if(!raw)return;
+    try{paint(JSON.parse(raw));setText("kSnap","paste");}catch(err){alert("JSON did not parse");}
   };
-  tick();
-  setInterval(tick,1000);
-  load();
+  tick();setInterval(tick,1000);load();setInterval(load,5*60*1000);
 })();
 </script>
 </body>
