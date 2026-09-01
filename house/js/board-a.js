@@ -1,4 +1,3 @@
-(function () {
   var TABS = [
     { id: "combined", label: "House" },
     { id: "agentic", label: "Agentic" },
@@ -22,7 +21,7 @@
     ["2026-09-01", "JOLTS; beef TRQ first tranche"],
     ["2026-09-03", "UAS import duties start"],
     ["2026-09-04", "NFP 08:30 ET"],
-    ["2026-09-07", "Labor Day — NYSE closed"],
+    ["2026-09-07", "Labor Day \u2014 NYSE closed"],
     ["2026-09-10", "PPI; EIA weekly"],
     ["2026-09-11", "CPI 08:30 ET"],
     ["2026-09-15", "FOMC + SEP"],
@@ -44,7 +43,15 @@
     return n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
   }
   function tone(n) { n = Number(n); if (!isFinite(n) || Math.abs(n) < 0.0005) return "flat"; return n > 0 ? "go" : "stop"; }
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;" })[c]; }); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      if (c === "&") return "\x26amp;";
+      if (c === "<") return "\x26lt;";
+      if (c === ">") return "\x26gt;";
+      if (c === '"') return "\x26quot;";
+      return "\x26#39;";
+    });
+  }
   function rnd(n) { return Math.round(Number(n) * 100) / 100; }
 
   function hashTab() {
@@ -166,4 +173,3 @@
     }
     return best;
   }
-
