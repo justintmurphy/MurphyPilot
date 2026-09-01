@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Murphy Pilot Desk</title>
+<meta name="theme-color" content="#1B3A2F">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="logo.svg" sizes="any">
+<link rel="apple-touch-icon" href="logo.svg">
+<script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
+<link rel="stylesheet" href="site.css">
+<style>
+header .mark{position:relative;width:52px;height:52px;flex:0 0 52px;background:#F6F1E8;border-radius:4px;overflow:hidden;display:block}
+header .mark img,header .mark svg{width:52px;height:52px;display:block}
+</style>
+</head>
+<body>
+    <header>
+      <a class="mark" id="navDesk" href="index.html" aria-label="Murphy Pilot desk">
+        <img src="logo.svg" width="52" height="52" alt="Murphy Pilot">
+      </a>
+      <a class="brand-block" id="navBrand" href="index.html">
+        <div class="brand">MURPHY PILOT</div>
+        <div class="sub" id="deskSub">AGENTIC</div>
+      </a>
+      <nav aria-label="Desk">
+        <a href="index.html">House</a>
+        <a class="on" href="agentic.html">Agentic</a>
+      </nav>
+      <div class="header-end">
+        <div class="theme-switch" role="group" aria-label="Color mode">
+          <button type="button" class="on" data-theme-choice="light" aria-pressed="true" aria-label="Light mode">Light</button>
+          <button type="button" data-theme-choice="dark" aria-pressed="false" aria-label="Dark mode">Dark</button>
+        </div>
+        <div class="clock">
+          <div class="t" id="etClock">--:--:-- ET</div>
+          <div class="d" id="etDate"></div>
+        </div>
+      </div>
+    </header>
+<div class="ticker" aria-label="Tracked names">
+  <div class="ticker-track" id="tickerTrack"></div>
+</div>
+<main>
+  <h2>Next job</h2>
+  <div class="card span" id="nextCard">
+    <div class="next">
+      <div>
+        <div class="name" id="nextName">—</div>
+        <div class="hint" id="nextRole"></div>
+      </div>
+      <div class="eta heat-ok" id="nextEta">—</div>
+    </div>
+  </div>
+  <h2>Financial information</h2>
+  <div class="card span">
+    <div class="kpi">
+      <div><span>Equity</span><b id="kEquity">—</b></div>
+      <div><span>Buying power</span><b id="kBp">—</b></div>
+      <div><span>Invested</span><b id="kInv">—</b></div>
+      <div><span>Slots</span><b id="kSlots">—</b></div>
+    </div>
+    <div class="kpi">
+      <div><span>Cash</span><b id="kCash">—</b></div>
+      <div><span>Pending (already in)</span><b id="kPend">—</b></div>
+      <div><span>Open orders</span><b id="kOrd">—</b></div>
+      <div><span>Snapshot</span><b id="kSnap" style="font-size:13px">local</b></div>
+    </div>
+    <div class="fin" id="finCard"></div>
+    <p class="hint" id="pendHint">Pending deposits on this account are instant. They are already inside equity and buying power.</p>
+    <p class="hint" id="bookNote"></p>
+  </div>
+  <div class="book-split">
+    <div>
+      <h2>Book</h2>
+      <div class="card">
+        <table>
+          <thead><tr><th>Name</th><th>Avg cost</th><th>First fill</th><th>Next stall</th><th>Vs cost</th></tr></thead>
+          <tbody id="bookRows"></tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <h2>Mix</h2>
+      <div class="card mix-card" id="mixCard"></div>
+    </div>
+  </div>
+  <h2>Since held</h2>
+  <div class="card span">
+    <p class="hint" id="chartHint" style="margin:0 0 8px">Click a name to expand. Solid is last; dashed is average cost.</p>
+    <div id="charts"></div>
+  </div>
+  <h2>Sell / buy thresholds</h2>
+  <div class="card span">
+    <div class="thrs" id="thrRows"></div>
+    <ul class="buy-lines" id="buyNote"></ul>
+  </div>
+  <h2>Names on the book</h2>
+  <div class="card span"><div class="cos" id="coRows"></div></div>
+  <h2>Weekday clock</h2>
+  <div class="card span">
+    <table>
+      <thead><tr><th>ET</th><th>Job</th><th>Role</th></tr></thead>
+      <tbody id="clockRows"></tbody>
+    </table>
+  </div>
+  <h2>Overnight pack</h2>
+  <div class="card span" id="packCard"></div>
+  <div class="grid">
+    <div>
+      <h2>Coming weeks</h2>
+      <div class="card" id="calCard"></div>
+    </div>
+    <div>
+      <h2>Official docs</h2>
+      <div class="card" id="docsCard">
+        <a class="doclink" id="linkManual" href="Murphy_Pilot_Manual.html">Operating Manual v7.0</a>
+        <a class="doclink" id="linkSetup" href="Murphy_Pilot_Setup.html">Setup Guide v5.0</a>
+        <a class="doclink" href="house/index.html">House</a>
+      </div>
+    </div>
+  </div>
+  <details class="tools">
+    <summary>Update from snapshot JSON</summary>
+    <div class="card">
+      <label>Snapshot URL</label>
+      <input id="fUrl" placeholder="https://justintmurphy.github.io/MurphyPilot/pilot-snapshot.json">
+      <button type="button" id="urlBtn">Save URL and fetch now</button>
+      <label style="margin-top:8px"><input type="checkbox" id="autoBox" checked> Auto-fetch every 5 minutes</label>
+      <label>Or paste snapshot JSON</label>
+      <textarea id="fJson"></textarea>
+      <button type="button" id="jsonBtn">Load snapshot JSON</button>
+      <div class="row2">
+        <div><label>Equity $</label><input id="fEquity"></div>
+        <div><label>Buying power $</label><input id="fBp"></div>
+      </div>
+      <div class="row2">
+        <div><label>Cash $</label><input id="fCash"></div>
+        <div><label>Pending $</label><input id="fPend"></div>
+      </div>
+      <div class="row2">
+        <div><label>Invested %</label><input id="fInv"></div>
+        <div><label>HWM $</label><input id="fHwm"></div>
+      </div>
+      <label>Names</label>
+      <textarea id="fNames"></textarea>
+      <button type="button" id="saveBtn">Save on this computer</button>
+      <button type="button" class="ghost" id="resetBtn">Reset seed</button>
+    </div>
+  </details>
+  <footer>Murphy Pilot · Agentic is the trading book. House holds Individual, Auto-Grok, and Joint as data only.</footer>
+</main>
+<div id="docOverlay" hidden>
+  <div class="doc-bar">
+    <button type="button" id="docClose">Back to desk</button>
+    <span id="docTitle">Document</span>
+  </div>
+  <iframe id="docFrame" title="Murphy Pilot document"></iframe>
+</div>
+<script>
+(async function(){
+  var parts = ["js/d00.js","js/d01.js","js/d02.js","js/d03.js","js/d04.js","js/d05.js","js/d06.js","js/d07.js","js/d08.js"];
+  var s = "";
+  for (var i=0;i<parts.length;i++){
+    var r = await fetch(parts[i], {cache:"no-store"});
+    if (!r.ok) throw new Error(parts[i]+" "+r.status);
+    s += await r.text();
+    s += "\n";
+  }
+  var el = document.createElement("script");
+  el.textContent = s;
+  document.body.appendChild(el);
+})().catch(function(e){ document.body.insertAdjacentHTML("beforeend","<p>Desk JS failed: "+e+"</p>"); });
+</script>
+</body>
+</html>
