@@ -35,7 +35,7 @@
   }
   function isGas(){ return typeof google !== "undefined" && google.script; }
   function bindDocs(){
-    var desk = isGas() ? "?" : "index.html";
+    var desk = isGas() ? "?" : "Murphy_Pilot_Desk.html";
     var man = isGas() ? "?doc=manual" : "Murphy_Pilot_Manual.html";
     var setu = isGas() ? "?doc=setup" : "Murphy_Pilot_Setup.html";
     function setHref(id, href){
@@ -101,6 +101,7 @@ const JOBS = [
   { t: "06:30", days: [1,2,3,4,5], name: "Policy Pack AM Refresh", role: "No trading. Overnight delta only." },
   { t: "09:45", days: [1,2,3,4,5], name: "Autopilot AM", role: "Deploy + write book-state card." },
   { t: "10:15", days: [1,2,3,4,5], name: "Watch AM", role: "Health only." },
+  { t: "10:20", days: [1,2,3,4,5], name: "Desk Snapshot", role: "No trading. Emails Agentic JSON for this board." },
   { t: "11:45", days: [1,2,3,4,5], name: "Eyes", role: "Risk-first. Quiet if ≥80% invested." },
   { t: "13:45", days: [1,2,3,4,5], name: "Eyes", role: "Risk-first. Quiet if ≥80% invested." },
   { t: "15:05", days: [1,2,3,4,5], name: "Autopilot PM", role: "Last redeploy." },
@@ -118,33 +119,53 @@ const CAL = [
   ["2026-09-30", "PCE + GDP third estimate"]
 ];
 const SEED = {
-  equity: "197.20",
-  bp: "19.74",
+  equity: "100.27",
+  bp: "10.00",
   inv: "90.0",
   hwm: "",
-  cash: "19.74",
-  pending: "0",
+  cash: "10.00",
+  pending: "100.00",
   orders: "0",
-  names: "XLE | 64.2367 | 2026-09-01 | 2026-09-03 | qty 1.381764 | last 64.2367\nRTX | 208.6699 | 2026-09-01 | 2026-09-03 | qty 0.425360 | last 208.6699",
-  note: "Live Agentic 1 Sep 2026. XLE + RTX. Slots 2 of 2. Stall day 2 is Thu 3 Sep +5%."
+  names: "QQQ | 717.15 | 2026-08-27 | 2026-09-08 | qty 0.062748 | last 720.06\nSOXX | 521.50 | 2026-08-27 | 2026-09-08 | qty 0.086290 | last 522.87",
+  note: "Live Agentic + quotes 27 Aug 2026 13:33 ET. Equity $100.27, cash $10, BP $10. Pending $100 is already in that equity/BP — not extra arriving. Both names still inside the 24h green lock. Stall test is 8 Sep 2026 (7 business days; Labor Day does not count)."
 };
+
 const SEED_PACK = {
-  subject: "Agentic policy pack",
-  asof: "2026-09-01",
+  subject: "Agentic policy pack: 2026-08-28",
+  asof: "2026-08-27 13:16 ET",
   items: [
-    { tag: "Fed", title: "FOMC meeting calendar (SEP 15-16 Sep)", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm", text: "Decision expected ~14:00 ET 16 Sep." },
-    { tag: "Data", title: "BLS Employment Situation (NFP 4 Sep)", url: "https://www.bls.gov/schedule/news_release/empsit.htm", text: "CPI 11 Sep. Labor Day 7 Sep NYSE closed." }
+    { tag: "White House", title: "Declaring a National Emergency to Secure the United States Bulk-Power System (EO 14420)", url: "https://www.whitehouse.gov/presidential-actions/2026/08/declaring-a-national-emergency-to-secure-the-united-states-bulk-power-system/", text: "Foreign bulk-power gear from covered entities restricted; DOE rules in 120 days." },
+    { tag: "Trade", title: "Temporary Suspension of Additional Duties … Canada (alcohol, dairy, autos)", url: "https://www.whitehouse.gov/presidential-actions/2026/08/temporary-suspension-of-additional-duties-to-offset-canadian-discrimination-against-the-commerce-of-the-united-states-with-respect-to-alcoholic-beverages-dairy-and-motor-vehicles/", text: "50% Section 338 duties on covered Canadian goods operative since 22 Aug." },
+    { tag: "Defense", title: "Adjusting Imports of Unmanned Aircraft Systems and UAS Components", url: "https://www.whitehouse.gov/presidential-actions/2026/08/adjusting-imports-of-unmanned-aircraft-systems-and-unmanned-aircraft-systems-components-into-the-united-states/", text: "Most UAS import adjustments effective 3 Sep." },
+    { tag: "Ag", title: "Further Ensuring Affordable Beef for the American Consumer", url: "https://www.whitehouse.gov/presidential-actions/2026/08/further-ensuring-affordable-beef-for-the-american-consumer/", text: "Lean-beef TRQ extra 300k mt; first tranche 1–30 Sep." },
+    { tag: "Fed", title: "FOMC meeting calendar (SEP 15–16 Sep)", url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm", text: "Decision expected ~14:00 ET 16 Sep." },
+    { tag: "Data", title: "BLS Employment Situation schedule (NFP 4 Sep)", url: "https://www.bls.gov/schedule/news_release/empsit.htm", text: "CPI 11 Sep · Labor Day 7 Sep NYSE closed." },
+    { tag: "Book", title: "White House presidential actions", url: "https://www.whitehouse.gov/presidential-actions/", text: "No official 1–3 week veto on QQQ/SOXX in this pack." }
   ]
 };
 const SEED_CO = {
-  XLE: { name: "Energy Select Sector SPDR", type: "ETF", issuer: "SSGA", location: "USA", exchange: "NYSEARCA", url: "https://www.ssga.com/", note: "Energy sector ETF." },
-  RTX: { name: "RTX Corporation", type: "Stock", issuer: "RTX", location: "Arlington, VA", exchange: "NYSE", url: "https://www.rtx.com/", note: "Aerospace and defense." }
+  QQQ: {
+    name: "Invesco QQQ Trust",
+    type: "ETF",
+    issuer: "Invesco Ltd.",
+    location: "Atlanta, GA",
+    exchange: "NASDAQ",
+    url: "https://www.invesco.com/qqq-etf/en/home.html",
+    note: "Tracks a modified-cap index of 100 NASDAQ-listed names."
+  },
+  SOXX: {
+    name: "iShares Semiconductor ETF",
+    type: "ETF",
+    issuer: "BlackRock / iShares",
+    location: "San Francisco, CA",
+    exchange: "NASDAQ",
+    url: "https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf",
+    note: "Tracks 30 US-listed semiconductor companies."
+  }
 };
 const SEED_TICKER = {
-  XLE: { last: 64.24, prev: 64.24 },
-  RTX: { last: 208.67, prev: 208.67 }
+  QQQ: { last: 718.59, prev: 711.37 },
+  SOXX: { last: 520.98, prev: 515.40 }
 };
 const SEED_CHARTS = {
-  XLE: [64.24],
-  RTX: [208.67]
-};
+  QQQ: [716.04, 715.76, 715.93, 717.06, 718.25, 718.94, 717.43, 718.63, 718.8, 719.32, 719.33, 718.22, 717.74, 716.95, 718.72, 718.62, 718.53, 718.85, 719.72, 719.89, 720.03, 720.39, 720.34, 719.77, 719.57, 719.2],

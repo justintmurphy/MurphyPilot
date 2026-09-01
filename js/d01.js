@@ -1,13 +1,21 @@
+  SOXX: [524.68, 520.44, 518.82, 520.34, 523.24, 524.49, 521.6, 522.8, 521.43, 523.79, 522.72, 521.85, 521.63, 520.23, 522.55, 522.57, 521.69, 522.35, 523.37, 523.75, 523.43, 523.6, 523.57, 522.6, 522.36, 521.74]
+};
 function nyNow() {
   return new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
 }
-function pad2(n){ return String(n).padStart(2,"0"); }
+function pad(n){ return String(n).padStart(2,"0"); }
 function fmtDtg(ms){
   const t = Number(ms);
   if (!isFinite(t) || t < 1e11) return "";
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York", year: "numeric", month: "short", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", hour12: false, timeZoneName: "short"
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZoneName: "short"
   }).formatToParts(new Date(t));
   function grab(type){
     const p = parts.find(function(x){ return x.type === type; });
@@ -15,7 +23,7 @@ function fmtDtg(ms){
   }
   const zone = grab("timeZoneName") === "EST" ? "Q" : "R";
   const mon = grab("month").slice(0,3).toUpperCase();
-  return pad2(grab("day")) + pad2(grab("hour")) + pad2(grab("minute")) + zone + " " + mon + " " + String(grab("year")).slice(2);
+  return pad(grab("day")) + pad(grab("hour")) + pad(grab("minute")) + zone + " " + mon + " " + String(grab("year")).slice(2);
 }
 function themeColors(){
   const st = getComputedStyle(document.documentElement);
@@ -24,12 +32,18 @@ function themeColors(){
     return x || fallback;
   }
   return {
-    go: v("--go", "#1F6B45"), stop: v("--stop", "#9B2C2C"),
-    axis: v("--chart-axis", "#1B3A2F"), mute: v("--chart-mute", "#2F5346"),
-    grid: v("--chart-grid", "#EFE8DC"), dash: v("--chart-dash", "#C9C0B0"),
-    paper: v("--paper", "#fff"), ink: v("--ink", "#1B3A2F"),
-    mixA: v("--mix-a", "#1B3A2F"), mixB: v("--mix-b", "#1F6B45"),
-    mixC: v("--mix-c", "#9A6700"), mixCash: v("--mix-cash", "#C9C0B0")
+    go: v("--go", "#1F6B45"),
+    stop: v("--stop", "#9B2C2C"),
+    axis: v("--chart-axis", "#1B3A2F"),
+    mute: v("--chart-mute", "#2F5346"),
+    grid: v("--chart-grid", "#EFE8DC"),
+    dash: v("--chart-dash", "#C9C0B0"),
+    paper: v("--paper", "#fff"),
+    ink: v("--ink", "#1B3A2F"),
+    mixA: v("--mix-a", "#1B3A2F"),
+    mixB: v("--mix-b", "#1F6B45"),
+    mixC: v("--mix-c", "#9A6700"),
+    mixCash: v("--mix-cash", "#C9C0B0")
   };
 }
 function toneCls(n){
@@ -50,7 +64,7 @@ function signedSpan(n, d, extra){
   return "<span class='"+toneCls(n)+"'>"+t+(extra||"")+"</span>";
 }
 function fmtClock(d){
-  return pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds()) + " ET";
+  return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) + " ET";
 }
 function parseHM(hm){
   const [h,m] = hm.split(":").map(Number);
@@ -80,14 +94,13 @@ function eta(now, when){
   let s = Math.max(0, Math.floor((when - now)/1000));
   const h = Math.floor(s/3600); s%=3600;
   const m = Math.floor(s/60); s%=60;
-  if (h>0) return h + "h " + pad2(m) + "m";
-  return m + "m " + pad2(s) + "s";
+  if (h>0) return h + "h " + pad(m) + "m";
+  return m + "m " + pad(s) + "s";
 }
 function renderClockTable(now){
   const dow = now.getDay();
   const mins = now.getHours()*60 + now.getMinutes();
   const body = document.getElementById("clockRows");
-  if (!body) return;
   body.innerHTML = "";
   JOBS.filter(j => j.days.includes(dow) || (dow===0 && j.t==="21:00")).forEach(j => {
     const tr = document.createElement("tr");
@@ -107,24 +120,40 @@ function renderClockTable(now){
 }
 function loadState(){
   try { return JSON.parse(localStorage.getItem("murphyPilotDesk")||"null") || SEED; }
-  catch (e) { return SEED; }
+  catch { return SEED; }
+}
+function saveState(){
+  const s = {
+    equity: document.getElementById("fEquity").value,
+    bp: document.getElementById("fBp").value,
+    inv: document.getElementById("fInv").value,
+    hwm: document.getElementById("fHwm").value,
+    cash: document.getElementById("fCash").value,
+    pending: document.getElementById("fPend").value,
+    orders: document.getElementById("kOrd").textContent === "—" ? "" : document.getElementById("kOrd").textContent,
+    names: document.getElementById("fNames").value,
+    note: "Updated on this computer " + new Date().toISOString()
+  };
+  localStorage.setItem("murphyPilotDesk", JSON.stringify(s));
+  paintBook(s);
 }
 function parseNames(s){
-  if (Array.isArray(s.names)) {
-    return s.names.map(function(n){
-      return { symbol: n.symbol||"—", cost: n.avg!=null?Number(n.avg):n.cost, fill: n.first_fill||n.fill||"", stall: n.next_stall||n.stall||"", last: n.last!=null?Number(n.last):null, qty: n.qty!=null?Number(n.qty):null, name: n.name||"" };
-    });
-  }
-  return String(s.names||"").split("\n").filter(Boolean).map(function(line){
-    const p = line.split("|").map(function(x){ return x.trim(); });
-    const n = { symbol: p[0]||"—", cost: null, fill: p[2]||"", stall: p[3]||"", last: null, qty: null };
+  return String(s.names||"").split("\n").filter(Boolean).map(line => {
+    const p = line.split("|").map(x=>x.trim());
+    const n = { symbol: p[0]||"—", cost: null, fill: p[2]||"", stall: p[3]||"", extra: p[4]||"", last: null, qty: null };
     const c = parseFloat(String(p[1]||"").replace(/[^0-9.]/g,""));
     if (isFinite(c)) n.cost = c;
     const blob = p.slice(4).join(" ");
     const lastM = blob.match(/last\s+([0-9.]+)/i);
     const qtyM = blob.match(/qty\s+([0-9.]+)/i);
+    const prevM = blob.match(/prev(?:ious_close)?\s+([0-9.]+)/i);
     if (lastM) n.last = parseFloat(lastM[1]);
     if (qtyM) n.qty = parseFloat(qtyM[1]);
+    if (prevM) n.prev = parseFloat(prevM[1]);
+    if (!n.last && p[5]) {
+      const l = parseFloat(String(p[5]).replace(/[^0-9.]/g,""));
+      if (isFinite(l)) n.last = l;
+    }
     return n;
   });
 }
@@ -145,9 +174,8 @@ function busDaysFrom(fillISO, now){
 function paintThresholds(s, parsed){
   const now = nyNow();
   const tb = document.getElementById("thrRows");
-  if (!tb) return;
   tb.innerHTML = "";
-  parsed.forEach(function(n){
+  parsed.forEach(n => {
     const card = document.createElement("div");
     card.className = "thr";
     if (!n.cost){
@@ -158,19 +186,43 @@ function paintThresholds(s, parsed){
     const last = n.last;
     const vs = last ? ((last/n.cost - 1)*100) : null;
     const stop5 = n.cost * 0.95; const hard6 = n.cost * 0.94;
-    const flat = n.cost * 0.90; const stall = n.cost * 1.05;
+    const flat = n.cost * 0.90;
+    const stall = n.cost * 1.05;
     const days = busDaysFrom(n.fill, now);
     const hours = n.fill ? (now - new Date(n.fill+"T09:45:00"))/36e5 : null;
     const lockOn = hours != null && hours < 12 && vs != null && vs >= 0;
     const trailOn = hours != null && hours >= 12 && vs != null && vs >= 0;
+    const trailLine = last ? last * 0.85 : null;
+    const stallDate = n.stall || "period 1";
     const leftBd = days!=null && days<2 ? (2-days) : null;
+    function vsLine(price){
+      if (last==null || price==null) return "—";
+      const d = last - price;
+      if (Math.abs(d) < 0.01) return "on the line";
+      if (d > 0) return "$"+d.toFixed(2)+" above";
+      return "$"+(-d).toFixed(2)+" through";
+    }
     let verdict = "Hold. No sell line is due.";
     let statusCls = "tone-flat";
-    if (last && last <= flat) { verdict = "Sell now. Through the −10% flatten."; statusCls = "tone-stop"; card.classList.add("attn"); }
-    else if (last && last <= hard6) { verdict = "Sell now. Through the −6% hard cap."; statusCls = "tone-stop"; card.classList.add("attn"); }
-    else if (last && last <= stop5) { verdict = "Sell now. Through the −5% floor."; statusCls = "tone-stop"; card.classList.add("attn"); }
-    else if (days != null && days >= 2 && last && last < stall && vs >= 0) { verdict = "Sell now. Missed the +5% stall test."; statusCls = "tone-stop"; card.classList.add("attn"); }
-    else if (lockOn) { verdict = "Hold. First 12h and green."; statusCls = "tone-go"; }
-    else if (trailOn) { verdict = "Hold. Trail on after 12h."; statusCls = "tone-go"; }
-    else if (vs != null && vs < 0) { verdict = "Hold unless −5% floor."; statusCls = "tone-stop"; }
-    else if (leftBd != null) {
+    if (last && last <= flat) {
+      verdict = "Sell now. Through the −10% flatten.";
+      statusCls = "tone-stop"; card.classList.add("attn");
+    } else if (last && last <= hard6) {
+      verdict = "Sell now. Through the −6% hard cap.";
+      statusCls = "tone-stop"; card.classList.add("attn");
+    } else if (last && last <= stop5) {
+      verdict = "Sell now. Through the −5% floor.";
+      statusCls = "tone-stop"; card.classList.add("attn");
+    } else if (days != null && days >= 2 && last && last < stall && vs >= 0) {
+      verdict = "Sell now. Missed the +5% stall test.";
+      statusCls = "tone-stop"; card.classList.add("attn");
+    } else if (lockOn) {
+      verdict = "Hold. First 12h and green — will not sell (unless −6%).";
+      statusCls = "tone-go";
+    } else if (trailOn) {
+      verdict = "Hold. Trail on — sell if −15% from high (~$"+(trailLine?trailLine.toFixed(2):"—")+").";
+      statusCls = "tone-go";
+    } else if (vs != null && vs < 0) {
+      verdict = "Hold unless −5% floor. Last is below cost.";
+      statusCls = "tone-stop";
+    } else if (leftBd != null) {
