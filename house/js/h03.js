@@ -17,7 +17,7 @@
       '<button type="button" class="act ghost" id="resetBtn">Reset</button>' +
       (status ? '<p class="hint" id="statusLine">' + esc(status) + "</p>" : "") +
       "</div></details>" +
-      '<footer class="desk-foot">Murphy House Desk \u00b7 Individual, Auto-Grok, and Joint. Separate from Murphy Pilot. Does not log into Robinhood.</footer>';
+      '<footer class="desk-foot">Murphy Pilot \u00b7 House books are data only. Agentic is the trading book. Does not log into Robinhood.</footer>';
     document.getElementById("desk").innerHTML = html;
     var urlEl = document.getElementById("fUrl");
     if (urlEl) urlEl.value = url;
@@ -62,7 +62,7 @@
     var themeBtn = e.target.closest("[data-theme-choice]");
     if (themeBtn) { applyTheme(themeBtn.getAttribute("data-theme-choice")); return; }
     var tabBtn = e.target.closest("[data-tab]");
-    if (tabBtn) { tab = tabBtn.getAttribute("data-tab"); paintDesk(); return; }
+    if (tabBtn) { tab = tabBtn.getAttribute("data-tab"); try { history.replaceState(null, "", "#" + bookHash(tab)); } catch (err) {} paintDesk(); return; }
     var tapeRow = e.target.closest("[data-tape-i]");
     if (tapeRow) { tapeSel[tab] = Number(tapeRow.getAttribute("data-tape-i")); paintDesk(); return; }
     var hit = e.target.closest("circle.tape-hit");
@@ -121,6 +121,7 @@
       return res.json();
     }).then(function(json){ loadJson(json); status = "GitHub house-snapshot.json"; paintDesk(); }).catch(function(){});
   }
+  applyHashTab();
   paintDesk();
   localFilePull();
   if (auto && url) fetchUrl(url);
