@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Murphy Pilot Operating Manual v7.0</title>
+<meta name="theme-color" content="#1B3A2F">
+<script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header>
+  <a class="mark" href="index.html" aria-label="Murphy Pilot desk">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#F6F1E8"/><path fill="#1B3A2F" d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z"/></svg>
+  </a>
+  <a class="brand-block" href="index.html">
+    <div class="brand">MURPHY PILOT</div>
+    <div class="sub">OPERATING MANUAL v7.0</div>
+  </a>
+  <nav aria-label="Official docs">
+    <a href="Murphy_Pilot_Manual.html" class="on">Operating Manual</a>
+    <a href="Murphy_Pilot_Setup.html">Setup Guide</a>
+  </nav>
+</header>
+<main class="doc-main">
+<article class="card manual doc-article">
+<p class="lede">Murphy Pilot · Standing mandate · 31 August 2026 · America/New_York. Account is Agentic only. Live job text is the executable source. No account numbers.</p>
+<h3>1. Mission</h3>
+<p>Unattended long-only stock and ETF trading in Agentic. Grok researches and places. No per-trade approval. Process obedience over a single green day.</p>
+<h3>2. Hard bans</h3>
+<ul>
+<li>Any Robinhood account that is not Agentic.</li>
+<li>Options, crypto, shorts, inverse as core book, transfers between accounts.</li>
+<li>Fail closed on tool errors. Do not invent fills.</li>
+<li>Do not dump a fresh green winner. Empty book + BP is a deploy.</li>
+<li>X is never a corroborator.</li>
+</ul>
+<h3>3. Capital — 90 / 10</h3>
+<p>Deploy toward 90% of Agentic equity. Hold about 10% cash. Pending deposits are already in equity and BP — do not add them twice.</p>
+<h3>4. Name slots — every $75</h3>
+<p>Slots = floor(equity / $75). New ticker only when unique names < slots. May add to an existing allowed name. At ~$197 that is 2 names.</p>
+<h3>11. Loss exits — per symbol</h3>
+<table>
+<thead><tr><th>Line</th><th>Trigger</th><th>Action</th></tr></thead>
+<tbody>
+<tr><td>−5% floor</td><td>Last ≤ cost × 0.95</td><td>Sell that name</td></tr>
+<tr><td>−6% hard cap</td><td>Last ≤ cost × 0.94 anytime</td><td>Sell immediately. 12h lock does not protect it.</td></tr>
+<tr><td>−10% flatten</td><td>Last ≤ cost × 0.90</td><td>Flatten that name</td></tr>
+<tr><td>TIGHT −5%</td><td>Account in TIGHT and last ≤ cost × 0.95</td><td>Sell that name</td></tr>
+</tbody>
+</table>
+<h3>12. Twelve-hour green lock</h3>
+<p>From that symbol’s first fill, do not sell it while green versus its own cost unless a loss stop, the −6% hard cap, or stall already applies. Same-symbol rebuy waits 24 hours.</p>
+<h3>13. Green trail</h3>
+<p>After 12 hours, if still above cost: sell if last ≤ high-since-held × 0.85.</p>
+<h3>14. Stalled-winner ladder — per symbol</h3>
+<table>
+<thead><tr><th>When</th><th>Must clear</th></tr></thead>
+<tbody>
+<tr><td>Days 0–1 (purchase day does not complete a block)</td><td>No stall test</td></tr>
+<tr><td>Day 2</td><td>+5% from that name’s cost</td></tr>
+<tr><td>Each later 2 business days</td><td>+4% from that name’s survive-mark</td></tr>
+</tbody>
+</table>
+<p>A miss sells only that name. Do not use account P&L or HWM as the stall test.</p>
+<h3>Process review</h3>
+<p>After each Agentic trade: SELL mail: exactly 3 KEEP and 3 CHANGE, each with why. No trading on that job.</p>
+<p class="lede">The owner owns every fill and can lose the entire Agentic balance.</p>
+</article>
+</main>
+</body>
+</html>
