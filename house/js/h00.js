@@ -1,4 +1,4 @@
-window.HOUSE_SEED = {asof:"",brand:"Murphy House",note:"DATA ONLY",accounts:{},combined:{equity:0,cash:0,names:[],open_orders:0,pending_deposits:0},tape:{combined:[],individual:[],auto_grok:[],joint:[]}};
+window.HOUSE_SEED = {asof:"",brand:"Murphy House",note:"DATA ONLY",accounts:{individual:{id:"individual",label:"Individual Investing",equity:0,cash:0,buying_power:0,pending_deposits:0,invested_pct:0,open_orders:0,names:[]},auto_grok:{id:"auto_grok",label:"Auto-Grok",equity:0,cash:0,buying_power:0,pending_deposits:0,invested_pct:0,open_orders:0,names:[]},joint:{id:"joint",label:"Joint Account",equity:0,cash:0,buying_power:0,pending_deposits:0,invested_pct:0,open_orders:0,names:[]}},combined:{id:"combined",label:"House",equity:0,cash:0,buying_power:0,pending_deposits:0,invested_pct:0,open_orders:0,names:[],books:[]},tape:{combined:[],individual:[],auto_grok:[],joint:[]}};
 (function () {
   var THEME_KEY = "murphyHouseTheme";
   var STATE_KEY = "murphyHouseDesk";
@@ -27,13 +27,13 @@ window.HOUSE_SEED = {asof:"",brand:"Murphy House",note:"DATA ONLY",accounts:{},c
     return new Date((date || new Date()).toLocaleString("en-US", { timeZone: "America/New_York" }));
   }
   function money(n, d) {
-    if (n == null || !isFinite(n)) return "—";
+    if (n == null || !isFinite(n)) return "\u2014";
     d = d == null ? 2 : d;
     var abs = Math.abs(n).toFixed(d);
     return n < 0 ? "-$" + abs : "$" + abs;
   }
   function signedMoney(n, d) {
-    if (n == null || !isFinite(n)) return "—";
+    if (n == null || !isFinite(n)) return "\u2014";
     d = d == null ? 2 : d;
     var abs = Math.abs(n).toFixed(d);
     if (n > 0) return "+$" + abs;
@@ -41,13 +41,13 @@ window.HOUSE_SEED = {asof:"",brand:"Murphy House",note:"DATA ONLY",accounts:{},c
     return "$" + abs;
   }
   function pct(n, d) {
-    if (n == null || !isFinite(n)) return "—";
+    if (n == null || !isFinite(n)) return "\u2014";
     d = d == null ? 2 : d;
     var t = n.toFixed(d);
     return n > 0 ? "+" + t + "%" : t + "%";
   }
   function qty(n) {
-    if (n == null || !isFinite(n)) return "—";
+    if (n == null || !isFinite(n)) return "\u2014";
     if (Math.abs(n) >= 100) return n.toFixed(2);
     if (Math.abs(n) >= 1) return n.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
     return n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
@@ -170,10 +170,10 @@ window.HOUSE_SEED = {asof:"",brand:"Murphy House",note:"DATA ONLY",accounts:{},c
       return [{ t: s.asof, dtg: formatDtg(s.asof), equity: v, max: v }];
     }
     return {
-      combined: mk(s.combined.equity),
-      individual: mk(s.accounts.individual.equity),
-      auto_grok: mk(s.accounts.auto_grok.equity),
-      joint: mk(s.accounts.joint.equity)
+      combined: mk((s.combined && s.combined.equity) || 0),
+      individual: mk((s.accounts && s.accounts.individual && s.accounts.individual.equity) || 0),
+      auto_grok: mk((s.accounts && s.accounts.auto_grok && s.accounts.auto_grok.equity) || 0),
+      joint: mk((s.accounts && s.accounts.joint && s.accounts.joint.equity) || 0)
     };
   }
   function mergeTapes() {
