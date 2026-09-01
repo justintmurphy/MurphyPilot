@@ -29,3 +29,22 @@ header a.brand-block:hover {
   color: var(--header-fg);
   text-decoration: none;
 }
+
+header nav a {
+  color: var(--header-fg);
+  background: transparent;
+  text-decoration: none;
+  font-size: 12px;
+  letter-spacing: 0.7px;
+  min-height: 40px;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--nav-line);
+  border-radius: 4px;
+  margin: 0;
+}
+header nav a:hover,
+header nav a.on {
+  background: var(--nav-hover);
+}
