@@ -55,3 +55,14 @@ header nav#tabs button.on {
   text-underline-offset: 5px;
   background: transparent !important;
 }
+
+.book-scroll {
+  max-height: 31.5rem;
+  overflow: auto;
+}
+.book-scroll table.book thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--paper);
+}
