@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Murphy Pilot Setup Guide v5.0</title>
+<meta name="theme-color" content="#1B3A2F">
+<script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+    <header>
+      <a class="mark" id="navDesk" href="Murphy_Pilot_Desk.html" aria-label="Murphy Pilot desk">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" fill="#F6F1E8" />
+          <path fill="#1B3A2F" d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z" />
+        </svg>
+        <img src="Murphy_Pilot_Ladder_M.jpg" alt="" width="52" height="52" onerror="this.remove()">
+      </a>
+      <a class="brand-block" id="navBrand" href="Murphy_Pilot_Desk.html">
+        <div class="brand">MURPHY PILOT</div>
+        <div class="sub">SETUP GUIDE v5.0</div>
+      </a>
+      <nav aria-label="Official docs">
+        <a id="linkManualTop" href="Murphy_Pilot_Manual.html">Operating Manual</a>
+        <a id="linkSetupTop" href="Murphy_Pilot_Setup.html" class="on">Setup Guide</a>
+      </nav>
+      <div class="header-end">
+        <div class="theme-switch" role="group" aria-label="Color mode">
+          <button type="button" class="on" data-theme-choice="light" aria-pressed="true" aria-label="Light mode">Light</button>
+          <button type="button" data-theme-choice="dark" aria-pressed="false" aria-label="Dark mode">Dark</button>
+        </div>
+        <div class="clock">
+          <div class="t" id="etClock">--:--:-- ET</div>
+          <div class="d" id="etDate"></div>
+        </div>
+      </div>
+    </header>
+<main class="doc-main">
+  <article class="card manual doc-article" aria-label="Murphy Pilot Setup Guide v5.0">
+<p class="lede">Murphy Pilot · Instructions · 31 August 2026. How to stand Murphy Pilot up on Agentic and how to read the live job roster. Product labels on Robinhood and Grok change — confirm the live screens. Pairs with Operating Manual v7.0.</p>
+      <h3>1. What you are turning on</h3>
+      <p>Murphy Pilot is Grok running unattended in the Robinhood account labeled Agentic. The Operating Manual v7.0 is the rule book. This guide is the wiring. No per-trade approval. No money leaves Agentic for another account.</p>
+      <h3>2. Robinhood</h3>
+      <ul>
+        <li>Confirm a primary individual account exists and is unrestricted. Agentic is a separate labeled book under that household, not a second login.</li>
+        <li>Desktop browser → https://grok.com/connectors → New Connector → Custom / Other / Bring Your Own MCP.</li>
+        <li>Paste https://agent.robinhood.com/mcp/trading and finish Robinhood OAuth. Grok never sees the password.</li>
+        <li>When prompted, open the Agentic account on desktop and complete disclosures.</li>
+        <li>Fund Agentic only. Pending deposits are instant and already in buying power — do not wait for ACH to settle and do not count pending twice. Deploy when BP is readable.</li>
+        <li>Agentic → Investing Settings → limited margin (reuse unsettled sale proceeds).</li>
+        <li>Learn disconnect on Agentic so you can halt without touching the primary account. Optional: enable broker fill pushes in addition to Grok trade emails.</li>
+      </ul>
+      <h3>3. Grok connectors and mail</h3>
+      <ul>
+        <li>Always allow place_equity_order and cancel tools at https://grok.com/connectors.</li>
+        <li>Connect Gmail. Trade, fault, pack, book-state, and process-review mail all go to justin.tucker.murphy@gmail.com from the job prompts.</li>
+        <li>Google Calendar is optional. It is not required for the pack calendar — that pack is built from official .gov sites and emailed.</li>
+        <li>Job notification method is OFF. Do not rely on the Automations product ping. The prompt mail is the bus.</li>
+      </ul>
+      <h3>4. Live job roster</h3>
+      <p>Recreate or keep these America/New_York jobs. Names may vary by a few words; the role must match.</p>
+      <table>
+        <thead><tr><th>Time</th><th>Name</th><th>Must include in the prompt</th></tr></thead>
+        <tbody>
+          <tr><td>21:00 Sun–Thu</td><td>Policy Pack Evening</td><td>NO TRADING. whitehouse.gov last 7 days. NCSL + official state sites for live bills. 21-day official calendar (FOMC, BLS, BEA, EIA, NYSE hours, dated EOs, OPEC.org, official elections). Two-source wire rule. Subject Agentic policy pack: YYYY-MM-DD. Official titles must include URLs.</td></tr>
+          <tr><td>06:30 weekdays</td><td>Policy Pack AM Refresh</td><td>NO TRADING. Delta only vs last pack. Silent if nothing new. New items include official URLs.</td></tr>
+          <tr><td>09:45 weekdays</td><td>Autopilot AM</td><td>Agentic only. Skip per-trade review. Fail closed. Deploy job. Slots. Pack bounce. Write Agentic book state: YYYY-MM-DD. Trade email on fills.</td></tr>
+          <tr><td>10:15 weekdays</td><td>Connector Watch AM</td><td>HEALTH ONLY. Fault mail. Empty-book fault if ≥ $40 BP and no positions/orders.</td></tr>
+          <tr><td>11:45 weekdays</td><td>Eyes</td><td>Risk-first. Quiet-after-deploy using today’s book-state card. Pack bounce before any buy.</td></tr>
+          <tr><td>13:45 weekdays</td><td>Eyes</td><td>Same as 11:45.</td></tr>
+          <tr><td>15:05 weekdays</td><td>Autopilot PM</td><td>Last redeploy. Risk first. Pack bounce. Trade email on fills.</td></tr>
+          <tr><td>15:20 weekdays</td><td>Connector Watch PM</td><td>HEALTH ONLY. No AM empty-book fault.</td></tr>
+          <tr><td>On each SELL fill</td><td>Process Review after SELL</td><td>NO TRADING. Gmail trigger: subject contains Agentic trade: SELL. Reconstruct that exit. Score process. Exactly 3 KEEP and 3 CHANGE, each with why. Friday 17:00 schedule is paused.</td></tr>
+        </tbody>
+      </table>
+      <h3>5. Required lines in every trading prompt</h3>
+      <ul>
+        <li>Trade only Agentic. Ignore every other account. Never transfer money. Never print account numbers.</li>
+        <li>Skip per-trade review. Place on Agentic only. Fail closed on tool errors.</li>
+        <li>Liquid long-only stocks/ETFs, last ≥ $5. No options, crypto, shorts, inverse as core book.</li>
+        <li>Empty book with spendable buying power is a deploy, not an idle log.</li>
+        <li>90/10. Slots = floor(equity / $75). New name only when unique names < slots.</li>
+        <li>12-hour green lock per symbol. Same-symbol rebuy waits 24 hours. Loss proceeds → different name immediately.</li>
+        <li>Loss floor −5% / hard cap −6% anytime / flatten −10% / TIGHT −5%, each from that name’s own average cost.</li>
+        <li>Stall ladder per symbol, never portfolio: days 0–1 none; day 2 +5% from that name’s cost; later +4% from that name’s actual survive-mark each 2 business days.</li>
+        <li>HWM −20% freeze new buys, then TIGHT −10%. Restore NORMAL at +10% above trip.</li>
+        <li>No fourth same-name day-trade in five business days.</li>
+        <li>Bounce buys off the latest Agentic policy pack. Two-source rule for wires. X never a corroborator.</li>
+      </ul>
+      <h3>6. First-day sequence after a rebuild</h3>
+      <ul>
+        <li>Confirm Agentic is readable and funded. Limited margin on.</li>
+        <li>Run Policy Pack Evening once (or wait for 21:00). Confirm an Agentic policy pack email arrived.</li>
+        <li>Next regular session: 09:45 AM deploys if the book is empty and writes the book-state card.</li>
+        <li>10:15 watch should stay quiet if AM deployed. If it mails empty-book fault, AM missed — treat as a process fail.</li>
+        <li>11:45 / 13:45 should stay quiet if the card shows ≥80% invested and no stop or stall is due.</li>
+        <li>15:05 is the last chance to use idle cash that day.</li>
+        <li>Do not expect a book-state card on a day whose 09:45 already ran before the card rule was added. The next AM writes the first card.</li>
+      </ul>
+      <h3>7. Verify</h3>
+      <ul>
+        <li>Account switcher shows Agentic with spendable cash.</li>
+        <li>Limited margin on. MCP connected. Grok reads Agentic only.</li>
+        <li>Jobs enabled, timezone America/New_York, notification OFF.</li>
+        <li>First Always-allow tap for place and cancel completed.</li>
+        <li>Latest pack email exists and has sections A–F, including a coming-weeks calendar.</li>
+        <li>Process Review after SELL is active with a Gmail trigger on Agentic trade: SELL. The old Friday 17:00 schedule is paused.</li>
+        <li>Desk logo opens the board. Operating Manual and Setup Guide open from Official docs on the desk. PDF copies download from those pages.</li>
+      </ul>
+      <h3>8. Halt</h3>
+      <p>Disconnect the agent on Agentic, or pause/delete the Murphy Pilot automations. Stop depositing. The agent cannot pull the primary account.</p>
+      <p class="lede">Sources for screens: Robinhood Agentic Trading overview; Trading with your agent; xAI Grok connectors. AI agents can misread markets or fail to run. The owner owns every fill and can lose the entire Agentic balance.</p>
+      <h3>9. Document control</h3>
+      <p>This Setup Guide v5.0 pairs with Operating Manual v7.0, both dated 31 August 2026. Together they replace Setup Guide v4.0 and Operating Manual v6.0. The live job text remains the executable source if a line here and a prompt ever drift.</p>
+  </article>
+</main>
+<script>
+(function(){
+  var KEY = "murphyPilotTheme";
+  var EVENT = "murphy-theme";
+  function readTheme(){
+    var attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "dark" || attr === "light") return attr;
+    try {
+      var t = localStorage.getItem(KEY);
+      if (t === "light" || t === "dark") return t;
+    } catch (e) {}
+    try {
+      if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+    } catch (e) {}
+    return "light";
+  }
+  function applyTheme(t){
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem(KEY, t); } catch (e) {}
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", t === "dark" ? "#0A100E" : "#1B3A2F");
+    document.querySelectorAll("[data-theme-choice]").forEach(function(btn){
+      var on = btn.getAttribute("data-theme-choice") === t;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    try { window.dispatchEvent(new Event(EVENT)); } catch (e) {}
+  }
+  function pad(n){ return String(n).padStart(2, "0"); }
+  function tick(){
+    var n = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    var c = document.getElementById("etClock");
+    var d = document.getElementById("etDate");
+    if (c) c.textContent = pad(n.getHours()) + ":" + pad(n.getMinutes()) + ":" + pad(n.getSeconds()) + " ET";
+    if (d) d.textContent = n.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
+  }
+  applyTheme(readTheme());
+  document.querySelectorAll("[data-theme-choice]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      applyTheme(btn.getAttribute("data-theme-choice"));
+    });
+  });
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>
