@@ -62,7 +62,7 @@
     var themeBtn = e.target.closest("[data-theme-choice]");
     if (themeBtn) { applyTheme(themeBtn.getAttribute("data-theme-choice")); return; }
     var tabBtn = e.target.closest("[data-tab]");
-    if (tabBtn) { tab = tabBtn.getAttribute("data-tab"); try { history.replaceState(null, "", "#" + bookHash(tab)); } catch (err) {} paintDesk(); return; }
+    if (tabBtn) { tab = tabBtn.getAttribute("data-tab"); try { history.replaceState(null, "", "#" + (tab==="combined"?"house":tab)); } catch (err) {} paintDesk(); return; }
     var tapeRow = e.target.closest("[data-tape-i]");
     if (tapeRow) { tapeSel[tab] = Number(tapeRow.getAttribute("data-tape-i")); paintDesk(); return; }
     var hit = e.target.closest("circle.tape-hit");
@@ -121,7 +121,7 @@
       return res.json();
     }).then(function(json){ loadJson(json); status = "GitHub house-snapshot.json"; paintDesk(); }).catch(function(){});
   }
-  applyHashTab();
+  (function(){ var h=(location.hash||"").replace(/^#/,""); if(h==="house") tab="combined"; else if(h==="individual"||h==="auto_grok"||h==="joint"||h==="combined") tab=h; })();
   paintDesk();
   localFilePull();
   if (auto && url) fetchUrl(url);
