@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Murphy Pilot</title>
+<style>
+  body{margin:0;background:#F6F1E8;color:#1B3A2F;font-family:Georgia,Times,serif}
+  header{background:#1B3A2F;color:#F6F1E8;padding:14px 20px;letter-spacing:2px;display:flex;justify-content:space-between;align-items:center}
+  main{max-width:720px;margin:0 auto;padding:24px 20px}
+  .kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .kpi div{background:#fff;border:1px solid #C9C0B0;border-radius:6px;padding:12px 14px}
+  .kpi span{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#2F5346}
+  .kpi b{font-size:22px;font-variant-numeric:tabular-nums}
+  table{width:100%;border-collapse:collapse;margin-top:18px;background:#fff}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid #EFE8DC;font-variant-numeric:tabular-nums}
+  th{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#2F5346}
+  a{color:#1B3A2F}
+  footer{margin-top:28px;font-size:13px;color:#2F5346}
+</style>
+</head>
+<body>
+<header><span>MURPHY PILOT</span><span id="asof">snapshot</span></header>
+<main>
+  <div class="kpi">
+    <div><span>Equity</span><b id="eq">—</b></div>
+    <div><span>Cash / BP</span><b id="cash">—</b></div>
+    <div><span>Invested</span><b id="inv">—</b></div>
+    <div><span>Slots</span><b id="slots">—</b></div>
+  </div>
+  <table>
+    <thead><tr><th>Name</th><th>Qty</th><th>Avg</th><th>First fill</th><th>Next stall</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <footer>
+    <p>Serve with <code>./serve.sh</code> then open <a href="http://127.0.0.1:8765/">http://127.0.0.1:8765/</a>.</p>
+    <p><a href="Murphy_Pilot_Desk.html">Full desk</a> · <a href="Murphy_Pilot_Manual.html">Manual v7</a> · <a href="Murphy_Pilot_Setup.html">Setup v5</a></p>
+  </footer>
+</main>
+<script>
+fetch("pilot-snapshot.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){
+  document.getElementById("asof").textContent = j.asof || "";
+  document.getElementById("eq").textContent = j.equity != null ? "$"+Number(j.equity).toFixed(2) : "—";
+  document.getElementById("cash").textContent = j.cash != null ? "$"+Number(j.cash).toFixed(2) : "—";
+  document.getElementById("inv").textContent = j.invested_pct != null ? Number(j.invested_pct).toFixed(1)+"%" : "—";
+  document.getElementById("slots").textContent = j.slots != null ? String(j.slots) : "—";
+  var tb = document.getElementById("rows");
+  (j.names||[]).forEach(function(n){
+    var tr=document.createElement("tr");
+    tr.innerHTML = "<td>"+(n.symbol||"")+"</td><td>"+(n.qty||"")+"</td><td>"+(n.avg||"")+"</td><td>"+(n.first_fill||"")+"</td><td>"+(n.next_stall||"")+"</td>";
+    tb.appendChild(tr);
+  });
+}).catch(function(){
+  document.getElementById("asof").textContent = "snapshot missing — use serve.sh, not file://";
+});
+</script>
+</body>
+</html>
