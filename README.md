@@ -1,8 +1,8 @@
-# Murphy Pilot
+# Murphy Pilot + House
 
-Local desk for the Agentic book. Private trading rules live in the job prompts; this repo is the board you host on your PC.
+Private local boards. Host on your PC. No account numbers.
 
-## Run on your machine
+## Run
 
 ```bash
 git clone https://github.com/justintmurphy/MurphyPilot.git
@@ -10,25 +10,25 @@ cd MurphyPilot
 ./serve.sh          # Windows: serve.bat
 ```
 
-Open http://127.0.0.1:8765/
+- Pilot: http://127.0.0.1:8765/
+- House: http://127.0.0.1:8765/house/
 
-Later updates:
+Then `git pull` and refresh when I push a new snapshot.
 
-```bash
-git pull
-```
+Do not open as `file://` if you want the JSON files to load.
 
-Then refresh the browser. Do not open the HTML as `file://` if you want `pilot-snapshot.json` to load.
+## Layout
 
-## What is in here
-
-| File | Role |
+| Path | Role |
 | --- | --- |
-| `index.html` | Board — loads `pilot-snapshot.json` |
-| `Murphy_Pilot_Desk.html` | Full desk (when present) |
+| `index.html` | Pilot desk (Agentic) |
+| `desk.js` / `site.css` | Pilot board |
+| `pilot-snapshot.json` | Latest Agentic print |
 | `Murphy_Pilot_Manual.html` | Operating Manual v7 |
 | `Murphy_Pilot_Setup.html` | Setup Guide v5 |
-| `pilot-snapshot.json` | Latest Agentic book print |
-| `serve.sh` / `serve.bat` | Local server on port 8765 |
+| `house/index.html` | House desk (Individual / Auto-Grok / Joint) |
+| `house/house.js` | House board |
+| `house/house-snapshot.json` | Latest House print |
 
-Repo is public. Do not commit account numbers.
+House is data only. No stall, slots, or trading from that page.
+Repo is private. GitHub Pages is off.
