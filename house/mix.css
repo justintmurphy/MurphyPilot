@@ -1,0 +1,12 @@
+.mix-card { cursor: pointer; }
+.mix-card .mix-svg path,
+.mix-card .mix-leg { cursor: pointer; }
+.mix-card .mix-leg { border-radius: 4px; padding: 2px 4px; }
+.mix-card .mix-leg:hover,
+.mix-card .mix-leg.on { background: var(--row); }
+.mix-detail { display: none; margin-top: 10px; border-top: 1px solid var(--rule); padding-top: 10px; }
+.mix-card.mix-open .mix-detail { display: block; }
+.mix-card.mix-open .mix-svg { width: 160px; height: 160px; }
+.mix-detail table { width: 100%; font-size: 13px; }
+.mix-detail td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.mix-hint-click { margin: 8px 0 0; font-size: 12px; color: var(--ink-soft); }
