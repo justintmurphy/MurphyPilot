@@ -1,4 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Murphy Pilot">
-  <rect width="64" height="64" fill="#F6F1E8"/>
-  <path fill="#1B3A2F" d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="#1B3A2F" role="img" aria-label="Murphy Pilot"><rect width="64" height="64" fill="#F6F1E8"/><path d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z"/></svg>
