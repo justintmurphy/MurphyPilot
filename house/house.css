@@ -89,8 +89,12 @@ header nav#tabs button.on {
 .acct-grid.four {
   grid-template-columns: repeat(4, 1fr);
 }
+.acct-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
 @media (max-width: 720px) {
   .acct-grid.four { grid-template-columns: 1fr 1fr; }
+  .acct-grid { grid-template-columns: 1fr 1fr; }
   .split-two { grid-template-columns: 1fr !important; }
 }
 
