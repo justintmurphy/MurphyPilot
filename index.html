@@ -48,16 +48,17 @@
       <div><span>Open orders</span><b id="kOrd">—</b></div>
       <div><span>Snapshot</span><b id="kSnap" style="font-size:13px">local</b></div>
     </div>
+    <div class="fin" id="finCard"></div>
     <p class="hint" id="bookNote"></p>
   </div>
   <h2>Book</h2>
   <div class="card"><table><thead><tr><th>Name</th><th>Avg cost</th><th>First fill</th><th>Next stall</th><th>Vs cost</th></tr></thead><tbody id="bookRows"></tbody></table></div>
   <h2>Mix</h2>
-  <div class="card" id="mixCard"></div>
+  <div class="card mix-card" id="mixCard"></div>
   <h2>Since held</h2>
   <div class="card" id="charts"></div>
   <h2>Sell / buy thresholds</h2>
-  <div class="card"><div id="thrRows"></div><ul class="buy-lines" id="buyNote"></ul></div>
+  <div class="card"><div class="thrs" id="thrRows"></div><ul class="buy-lines" id="buyNote"></ul></div>
   <h2>Names on the book</h2>
   <div class="card" id="coRows"></div>
   <h2>Weekday clock</h2>
@@ -72,17 +73,29 @@
     <a class="doclink" href="Murphy_Pilot_Setup.html">Setup Guide v5.0</a>
     <a class="doclink" href="house/index.html">House desk</a>
   </div>
-  <details class="tools"><summary>Update from the AM card</summary>
+  <details class="tools"><summary>Update from snapshot JSON</summary>
     <div class="card">
-      <label>Private snapshot URL</label><input id="fUrl">
-      <button type="button" id="urlBtn">Save URL and fetch now</button>
-      <label>Or paste snapshot JSON</label>
       <textarea id="fJson"></textarea>
       <button type="button" id="jsonBtn">Load snapshot JSON</button>
     </div>
   </details>
-  <footer>Murphy Pilot Desk · Agentic only.</footer>
+  <footer>Murphy Pilot Desk · Agentic only. Same board as the Google build.</footer>
 </main>
-<script src="desk.js"></script>
+<div id="docOverlay" hidden><div class="doc-bar"><button type="button" id="docClose">Back to desk</button><span id="docTitle">Document</span></div><iframe id="docFrame" title="Murphy Pilot document"></iframe></div>
+<script>
+(async function(){
+  var parts = ["js/d00.js","js/d01.js","js/d02.js","js/d03.js","js/d04.js","js/d05.js","js/d06.js","js/d07.js","js/d08.js"];
+  var s = "";
+  for (var i=0;i<parts.length;i++){
+    var r = await fetch(parts[i], {cache:"no-store"});
+    if (!r.ok) throw new Error(parts[i]+" "+r.status);
+    s += await r.text();
+    s += "\n";
+  }
+  var el = document.createElement("script");
+  el.textContent = s;
+  document.body.appendChild(el);
+})().catch(function(e){ document.body.insertAdjacentHTML("beforeend","<p>Desk JS failed: "+e+"</p>"); });
+</script>
 </body>
 </html>
