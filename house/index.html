@@ -5,13 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Murphy House</title>
 <meta name="theme-color" content="#1B3A2F">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="logo.svg" sizes="any">
+<link rel="apple-touch-icon" href="logo.svg">
 <script>(function(){try{var k="murphyHouseTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
 <link rel="stylesheet" href="house.css">
+<style>
+header .mark{position:relative;width:52px;height:52px;flex:0 0 52px;background:#F6F1E8;border-radius:4px;overflow:hidden;display:block}
+header .mark img{width:52px;height:52px;display:block}
+</style>
 </head>
 <body>
 <header>
   <a class="mark" href="index.html" aria-label="Murphy House">
-    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#F6F1E8"/><path fill="#1B3A2F" d="M8 56V8h12l12 26 12-26h12v48h-10V24L32 50 18 24v32H8z"/></svg>
+    <img src="logo.svg" width="52" height="52" alt="Murphy House">
   </a>
   <a class="brand-block" href="index.html">
     <div class="brand">MURPHY HOUSE</div>
