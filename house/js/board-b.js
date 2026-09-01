@@ -36,7 +36,9 @@
   }
 
   function tableHtml(names, showBook, showStall) {
-    names = names || [];
+    names = (names || []).slice().sort(function (a, b) {
+      return (Number(b.value) || 0) - (Number(a.value) || 0);
+    });
     if (!names.length) return '<div class="card"><p class="hint" style="margin:0">No names on this book.</p></div>';
     var head = "<tr><th>Name</th>" + (showBook ? "<th>Book</th>" : "") + '<th class="num">Qty</th><th class="num">Avg</th><th class="num">Last</th>' +
       (showStall ? "<th>First fill</th><th>Next stall</th>" : "") +
@@ -50,7 +52,8 @@
         (showStall ? "<td>" + esc(n.first_fill || "\u2014") + "</td><td>" + esc(n.next_stall || "\u2014") + "</td>" : "") +
         '<td class="num">' + money(n.value) + '</td><td class="num tone-' + tone(n.pnl) + '">' + money(n.pnl) + " " + pct(n.pnl_pct) + "</td></tr>";
     }).join("");
-    return '<div class="card"><table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+    var wrap = (showBook || names.length > 10) ? "card book-scroll" : "card";
+    return '<div class="' + wrap + '"><table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
   }
 
   function agenticDeskHtml() {
