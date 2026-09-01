@@ -1,0 +1,19 @@
+Murphy Pilot — host on your PC
+
+Clone:  git clone https://github.com/justintmurphy/MurphyPilot.git
+Then from that folder:
+
+  Mac / Linux:  ./serve.sh
+  Windows:      serve.bat
+
+Open http://127.0.0.1:8765/
+
+Update later: git pull && refresh the browser.
+
+Desk reads sibling files:
+  Murphy_Pilot_Desk.html
+  Murphy_Pilot_Manual.html
+  Murphy_Pilot_Setup.html
+  pilot-snapshot.json
+
+Do not use file:// if you want the snapshot file to load.

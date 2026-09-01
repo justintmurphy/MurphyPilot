@@ -1,0 +1,16 @@
+{
+  "asof": "2026-09-01 10:25 ET",
+  "account": "Agentic",
+  "equity": 197.20,
+  "equity_value": 177.46,
+  "cash": 19.74,
+  "buying_power": 19.74,
+  "pending_deposits": 100,
+  "invested_pct": 90.0,
+  "slots": 2,
+  "open_orders": 0,
+  "names": [
+    {"symbol":"XLE","name":"Energy Select Sector SPDR","qty":1.381764,"avg":64.24,"last":64.24,"first_fill":"2026-09-01","next_stall":"2026-09-03"},
+    {"symbol":"RTX","name":"RTX","qty":0.42536,"avg":208.67,"last":208.67,"first_fill":"2026-09-01","next_stall":"2026-09-03"}
+  ]
+}
