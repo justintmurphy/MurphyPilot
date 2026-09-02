@@ -16,3 +16,9 @@
 .idx-strip .idx.up b { color: #9ee0b8; }
 .idx-strip .idx.down b { color: #f0a8a8; }
 @media (max-width: 720px) { .idx-strip { margin-right: 4px; gap: 6px; } .idx-strip b { font-size: 10px; } }
+.pack-card .pack-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px 16px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 13px; }
+.pack-card .pack-row:first-of-type { border-top: 0; }
+.pack-card .pack-row b { font-weight: 600; }
+.pack-card .pack-row a { color: inherit; }
+.pack-card .pack-row span { color: var(--ink-soft); }
+@media (max-width: 720px) { .pack-card .pack-row { grid-template-columns: 1fr; gap: 2px; } }

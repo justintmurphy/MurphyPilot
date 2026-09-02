@@ -1,0 +1,23 @@
+{
+  "asof": "2026-09-01 21:08 ET",
+  "subject": "Agentic policy pack: 2026-09-02",
+  "expiry": "2026-09-02 21:00 ET",
+  "sectors": "Energy / grid / oil · Defense / shipbuilding / drones · Space / launch · Agriculture / food · Trade / Canada · Pharma",
+  "items": [
+    {"tag": "White House", "title": "Establishing the United States Space Academy", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/establishing-the-united-states-space-academy/", "text": "space education / NASA pipeline"},
+    {"tag": "White House", "title": "Honoring the American History of the Great Lakes and Renaming Lake Ontario as Lake America", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/honoring-the-american-history-of-the-great-lakes-and-renaming-lake-ontario-as-lake-america-3a36/", "text": "symbolic / Great Lakes"},
+    {"tag": "White House", "title": "Further Ensuring Affordable Beef for the American Consumer", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/further-ensuring-affordable-beef-for-the-american-consumer/", "text": "agriculture / beef supply"},
+    {"tag": "White House", "title": "Declaring a National Emergency to Secure the United States Bulk-Power System", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/declaring-a-national-emergency-to-secure-the-united-states-bulk-power-system/", "text": "energy grid / critical infrastructure"},
+    {"tag": "White House", "title": "The National Space Transportation Policy", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/national-security-presidential-memorandum-nspm-17/", "text": "space launch / commercial space"},
+    {"tag": "White House", "title": "Temporary Suspension of Additional Duties to Offset Canadian Discrimination Against the Commerce of the United States with Respect to Alcoholic Beverages, Dairy, and Motor Vehicles", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/temporary-suspension-of-additional-duties-to-offset-canadian-discrimination-against-the-commerce-of-the-united-states-with-respect-to-alcoholic-beverages-dairy-and-motor-vehicles/", "text": "trade / Canada tariffs pause"},
+    {"tag": "White House", "title": "Adjusting Imports of Unmanned Aircraft Systems and Unmanned Aircraft Systems Components into the United States", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/adjusting-imports-of-unmanned-aircraft-systems-and-unmanned-aircraft-systems-components-into-the-united-states/", "text": "drones / UAS tariffs"},
+    {"tag": "White House", "title": "Rebuilding the United States Navy and America's Shipbuilding Industrial Base", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/rebuilding-the-united-states-navy-and-americas-shipbuilding-industrial-base/", "text": "defense / shipbuilding"},
+    {"tag": "Calendar", "title": "EIA Weekly Petroleum Status Report", "url": "https://www.eia.gov/petroleum/supply/weekly/", "text": "Wednesdays ~10:30 ET"},
+    {"tag": "Calendar", "title": "BLS Employment Situation August 2026", "url": "https://www.bls.gov/schedule/2026/09_sched_list.htm", "text": "NFP 08:30 ET Fri 4 Sep"},
+    {"tag": "Calendar", "title": "NYSE Labor Day closure", "url": "https://www.nyse.com/markets/hours-calendars", "text": "Mon 7 Sep markets closed"},
+    {"tag": "Calendar", "title": "BLS Consumer Price Index August 2026", "url": "https://www.bls.gov/schedule/2026/09_sched_list.htm", "text": "CPI 08:30 ET Fri 11 Sep"},
+    {"tag": "Calendar", "title": "FOMC meeting September 15-16 2026 with SEP", "url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm", "text": "rate decision + projections ~14:00 ET 16 Sep"},
+    {"tag": "Calendar", "title": "BEA Personal Income and Outlays August 2026 / GDP Q2 third", "url": "https://www.bea.gov/news/schedule", "text": "PCE + GDP 08:30 ET 30 Sep"},
+    {"tag": "Calendar", "title": "OPEC+ monthly review", "url": "https://www.opec.org/", "text": "6 Sep production adjustment already set for September"}
+  ]
+}
