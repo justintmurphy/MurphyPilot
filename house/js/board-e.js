@@ -12,6 +12,12 @@ function paintIndexes(data) {
     node.title = (q.label || pair[0].toUpperCase()) + " " + last.toFixed(2) + (pct ? " (" + (pct > 0 ? "+" : "") + pct.toFixed(2) + "%)" : "");
   });
 }
+function safeEsc(s) {
+  if (typeof esc === "function") return esc(s);
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+  });
+}
 var PACK = null;
 function packHtml() {
   if (!PACK) return "";
@@ -20,9 +26,9 @@ function packHtml() {
     return items.filter(function (i) {
       return String(i.tag || "").toLowerCase().indexOf(tag) >= 0;
     }).map(function (i) {
-      var title = esc(i.title || "");
-      var link = i.url ? "<a href=\"" + esc(i.url) + "\" target=\"_blank\" rel=\"noopener\">" + title + "</a>" : title;
-      return "<div class=\"pack-row\"><b>" + link + "</b><span>" + esc(i.text || "") + "</span></div>";
+      var title = safeEsc(i.title || "");
+      var link = i.url ? "<a href=\"" + safeEsc(i.url) + "\" target=\"_blank\" rel=\"noopener\">" + title + "</a>" : title;
+      return "<div class=\"pack-row\"><b>" + link + "</b><span>" + safeEsc(i.text || "") + "</span></div>";
     }).join("");
   }
   var wh = rowsFor("white");
@@ -31,33 +37,38 @@ function packHtml() {
     var t = String(i.tag || "").toLowerCase();
     return t.indexOf("white") < 0 && t.indexOf("calendar") < 0;
   }).map(function (i) {
-    var title = esc(i.title || "");
-    var link = i.url ? "<a href=\"" + esc(i.url) + "\" target=\"_blank\" rel=\"noopener\">" + title + "</a>" : title;
-    return "<div class=\"pack-row\"><b>" + link + "</b><span>" + esc(i.text || i.tag || "") + "</span></div>";
+    var title = safeEsc(i.title || "");
+    var link = i.url ? "<a href=\"" + safeEsc(i.url) + "\" target=\"_blank\" rel=\"noopener\">" + title + "</a>" : title;
+    return "<div class=\"pack-row\"><b>" + link + "</b><span>" + safeEsc(i.text || i.tag || "") + "</span></div>";
   }).join("");
   var rows = (wh ? "<p class=\"hint\">White House</p>" + wh : "") +
     (cal ? "<p class=\"hint\">Coming official prints</p>" + cal : "") +
     other;
   return "<h2>Overnight pack</h2><div class=\"card pack-card\">" +
-    "<p class=\"hint\">" + esc(PACK.subject || "Agentic policy pack") +
-    (PACK.asof ? " \u00b7 " + esc(PACK.asof) : "") +
-    (PACK.expiry ? " \u00b7 expires " + esc(PACK.expiry) : "") + "</p>" +
+    "<p class=\"hint\">" + safeEsc(PACK.subject || "Agentic policy pack") +
+    (PACK.asof ? " \u00b7 " + safeEsc(PACK.asof) : "") +
+    (PACK.expiry ? " \u00b7 expires " + safeEsc(PACK.expiry) : "") + "</p>" +
     (rows || "<p class=\"hint\" style=\"margin:0\">No pack items.</p>") +
-    (PACK.sectors ? "<p class=\"hint\">Sectors \u00b7 " + esc(PACK.sectors) + "</p>" : "") +
+    (PACK.sectors ? "<p class=\"hint\">Sectors \u00b7 " + safeEsc(PACK.sectors) + "</p>" : "") +
     "</div>";
 }
 function injectPack() {
   var desk = document.getElementById("desk");
-  if (!desk || !PACK || desk.querySelector(".pack-card")) return;
-  var clock = Array.from(desk.querySelectorAll("h2")).filter(function (h) {
-    return (h.textContent || "").indexOf("Weekday clock") === 0;
-  })[0];
-  var wrap = document.createElement("div");
-  wrap.innerHTML = packHtml();
-  if (clock) {
-    while (wrap.firstChild) desk.insertBefore(wrap.firstChild, clock);
+  if (!desk || !PACK) return;
+  var html = packHtml();
+  var box = document.getElementById("overnightPack");
+  if (box) {
+    box.innerHTML = html;
+    return;
+  }
+  box = document.createElement("div");
+  box.id = "overnightPack";
+  box.innerHTML = html;
+  var alert = desk.querySelector(".next-alert");
+  if (alert && alert.parentNode === desk) {
+    desk.insertBefore(box, alert.nextSibling);
   } else {
-    desk.insertAdjacentHTML("beforeend", packHtml());
+    desk.insertBefore(box, desk.firstChild);
   }
 }
 function loadIndexes() {
@@ -92,4 +103,7 @@ function loadPack() {
   };
   loadIndexes();
   loadPack();
+  setTimeout(injectPack, 400);
+  setTimeout(injectPack, 1600);
+  setInterval(loadPack, 5 * 60 * 1000);
 })();
