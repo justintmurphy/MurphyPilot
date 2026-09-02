@@ -65,20 +65,25 @@ function packHtml() {
     "</div>";
 }
 function injectPack() {
-  var desk = document.getElementById("desk");
-  if (!desk || !PACK) return;
-  var html = packHtml();
-  var box = document.getElementById("overnightPack");
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "overnightPack";
-  }
-  box.innerHTML = html;
-  var clock = Array.from(desk.querySelectorAll("h2")).filter(function (h) {
-    return String(h.textContent || "").indexOf("Weekday clock") === 0;
-  })[0];
-  if (clock) desk.insertBefore(box, clock);
-  else if (!box.parentNode) desk.appendChild(box);
+  try {
+    var desk = document.getElementById("desk");
+    if (!desk || !PACK) return;
+    var html = packHtml();
+    var box = document.getElementById("overnightPack");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "overnightPack";
+    }
+    box.innerHTML = html;
+    if (box.parentNode) return;
+    var split = desk.querySelector(".split-two");
+    var clock = Array.from(desk.querySelectorAll("h2")).filter(function (h) {
+      return String(h.textContent || "").indexOf("Weekday clock") === 0;
+    })[0];
+    var anchor = split || clock;
+    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor);
+    else desk.appendChild(box);
+  } catch (err) {}
 }
 function loadIndexes() {
   var housePath = /\/house(\/|$)/.test(location.pathname);
