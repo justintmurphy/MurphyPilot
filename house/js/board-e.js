@@ -1,3 +1,13 @@
+(function () {
+  if (typeof splitClockCal === "function") {
+    var prevSplit = splitClockCal;
+    splitClockCal = function () {
+      var html = prevSplit();
+      if (html.indexOf("overnightPack") < 0) html = '<div id="overnightPack"></div>' + html;
+      return html;
+    };
+  }
+})();
 function paintIndexes(data) {
   if (!data) return;
   [["spx", data.spx], ["ndx", data.ndx]].forEach(function (pair) {
