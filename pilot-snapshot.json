@@ -1,20 +1,16 @@
 {
-  "asof": "2026-09-01 13:45 ET",
+  "asof": "2026-09-02 10:12 ET",
   "account": "Agentic",
-  "equity": 196.38,
-  "equity_value": 176.64,
+  "equity": 194.88,
+  "equity_value": 175.14,
   "cash": 19.74,
   "buying_power": 19.74,
   "pending_deposits": 100,
-  "invested_pct": 90.0,
+  "invested_pct": 89.9,
   "slots": 2,
   "open_orders": 0,
-  "tape": [
-    {"t": 1788272700000, "dtg": "011025R SEP 26", "equity": 197.20, "max": 197.20, "key": "Snapshot 2026-09-01 10:25 ET"},
-    {"t": 1788284700000, "dtg": "011345R SEP 26", "equity": 196.38, "max": 197.20, "key": "Snapshot 2026-09-01 13:45 ET"}
-  ],
   "names": [
-    {"symbol":"XLE","name":"Energy Select Sector SPDR Fund","qty":1.381764,"avg":64.24,"last":64.65,"first_fill":"2026-09-01","next_stall":"2026-09-03"},
-    {"symbol":"RTX","name":"RTX Corporation","qty":0.42536,"avg":208.67,"last":205.26,"first_fill":"2026-09-01","next_stall":"2026-09-03"}
+    {"symbol": "XLE", "qty": 1.381764, "avg": 64.24, "last": 64.54, "first_fill": "2026-09-01", "next_stall": "2026-09-03", "lock_until": "2026-09-01T22:23ET expired"},
+    {"symbol": "RTX", "qty": 0.425360, "avg": 208.67, "last": 202.04, "first_fill": "2026-09-01", "next_stall": "2026-09-03", "lock_until": "2026-09-01T22:23ET expired"}
   ]
 }
