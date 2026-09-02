@@ -48,7 +48,9 @@ function packHtml() {
     "<p class=\"hint\">" + safeEsc(PACK.subject || "Agentic policy pack") +
     (PACK.asof ? " \u00b7 " + safeEsc(PACK.asof) : "") +
     (PACK.expiry ? " \u00b7 expires " + safeEsc(PACK.expiry) : "") + "</p>" +
+    "<div class=\"pack-scroll\">" +
     (rows || "<p class=\"hint\" style=\"margin:0\">No pack items.</p>") +
+    "</div>" +
     (PACK.sectors ? "<p class=\"hint\">Sectors \u00b7 " + safeEsc(PACK.sectors) + "</p>" : "") +
     "</div>";
 }
@@ -57,19 +59,16 @@ function injectPack() {
   if (!desk || !PACK) return;
   var html = packHtml();
   var box = document.getElementById("overnightPack");
-  if (box) {
-    box.innerHTML = html;
-    return;
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "overnightPack";
   }
-  box = document.createElement("div");
-  box.id = "overnightPack";
   box.innerHTML = html;
-  var alert = desk.querySelector(".next-alert");
-  if (alert && alert.parentNode === desk) {
-    desk.insertBefore(box, alert.nextSibling);
-  } else {
-    desk.insertBefore(box, desk.firstChild);
-  }
+  var clock = Array.from(desk.querySelectorAll("h2")).filter(function (h) {
+    return String(h.textContent || "").indexOf("Weekday clock") === 0;
+  })[0];
+  if (clock) desk.insertBefore(box, clock);
+  else if (!box.parentNode) desk.appendChild(box);
 }
 function loadIndexes() {
   var housePath = /\/house(\/|$)/.test(location.pathname);
