@@ -21,7 +21,7 @@ function paintIndexes(data) {
     var pct = q.pct != null ? Number(q.pct) : (q.prev ? ((last - Number(q.prev)) / Number(q.prev)) * 100 : 0);
     node.classList.toggle("up", pct > 0.005);
     node.classList.toggle("down", pct < -0.005);
-    node.title = (q.label || pair[0].toUpperCase()) + " " + last.toFixed(2) + (pct ? " (" + (pct > 0 ? "+" : "") + pct.toFixed(2) + "%)" : "");
+    node.title = (q.label || pair[0].toUpperCase()) + " " + last.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (pct ? " (" + (pct > 0 ? "+" : "") + pct.toFixed(2) + "%)" : "");
   });
   if (typeof paint === "function" && typeof snap !== "undefined" && snap) paint();
 }
