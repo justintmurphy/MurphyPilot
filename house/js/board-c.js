@@ -271,7 +271,7 @@ function overallCardHtml() {
     "<div><span>Last close</span><b>" + money(c.equity) + "</b></div>" +
     improveKpis(prints, c.equity) + "</div>" +
     "<div class=\"tape-plot\">" + spark(vals) + "</div>" +
-    "<p class=\"hint\">Net worth at the 16:00 ET close. Robinhood " + money(c.live_equity) + " \u00b7 Fidelity + Voya " + money(c.custodial_equity) + "." +
+    "<p class=\"hint\">Click for every book. Net worth at the 16:00 ET close. Robinhood " + money(c.live_equity) + " \u00b7 Fidelity + Voya " + money(c.custodial_equity) + "." +
     (asof ? " Holdings date " + esc(asof) + "." : "") + "</p></div>";
 }
 var _paint = paint;
