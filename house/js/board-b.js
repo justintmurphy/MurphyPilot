@@ -28,8 +28,6 @@
     }
     var sub = document.getElementById("deskSub");
     if (sub) sub.textContent = LABEL[tab] || "HOUSE";
-    var menuBtn = document.getElementById("menuBtn");
-    if (menuBtn) menuBtn.textContent = (LABEL[tab] || "House") + " \u00b7 menu";
     document.title = "Murphy Pilot \u00b7 " + (LABEL[tab] || "House");
     applyTheme();
   }
