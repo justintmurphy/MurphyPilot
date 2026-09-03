@@ -3,7 +3,7 @@
   var book="combined";
   var snap=null;
   function pad(n){ return String(n).padStart(2,"0"); }
-  function money(n){ n=Number(n); return isFinite(n) ? "$"+n.toFixed(2) : "—"; }
+  function money(n){ n=Number(n); if(!isFinite(n)) return "—"; return (n<0?"-$":"$")+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function pct(n){ n=Number(n); return isFinite(n) ? (n>=0?"+":"")+n.toFixed(2)+"%" : "—"; }
   function setText(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
   function nyNow(){ return new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"})); }
