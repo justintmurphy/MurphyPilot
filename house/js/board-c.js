@@ -211,11 +211,11 @@ function eodTapeHtml(key, title) {
   var vals = prints.map(function (p) { return p.equity; });
   var last = vals.length ? vals[vals.length - 1] : 0;
   if (!vals.length) vals = [last, last];
-  return "<h2>EOD equity · " + esc(title) + "</h2><div class=\"card tape-card\">" +
+  return "<h2>EOD equity \u00b7 " + esc(title) + "</h2><div class=\"card tape-card\">" +
     "<div class=\"tape-kpis\"><div><span>Last EOD</span><b>" + money(last) + "</b></div>" +
-    "<div><span>Prints</span><b>" + prints.length + "</b></div></div>" +
+    improveKpis(prints, last) + "</div>" +
     "<div class=\"tape-plot\">" + spark(vals) + "</div>" +
-    "<p class=\"hint\">One Truthifi close per weekday. Not the Robinhood live tape. " + prints.length + " close print" + (prints.length === 1 ? "" : "s") + "."</p></div>";
+    "<p class=\"hint\">Truthifi weekday close. Day / week / month vs the prior close.</p></div>";
 }
 function truthifiMetaHtml() {
   var t = snap.truthifi || {};
@@ -223,7 +223,7 @@ function truthifiMetaHtml() {
     "<div><span>Holdings date</span><b>" + esc(t.holdings_asof || t.asof || "—") + "</b></div>" +
     "<div><span>Scanned</span><b>" + esc((t.scanned_at || "").replace("T", " ").slice(0, 16) || "—") + "</b></div>" +
     "<div><span>Source</span><b>" + esc(t.source || "Truthifi") + "</b></div>" +
-    "<div><span>EOD prints</span><b>" + (((t.tape && t.tape.overall) || []).length) + "</b></div></div>" +
+    "<div><span>Day</span><b>" + (function () { var d = vsLookback((t.tape && t.tape.overall) || [], (snap.combined || {}).equity, 1); return d ? ((d.delta > 0 ? "+" : "") + money(d.delta)) : "\u2014"; })() + "</b></div></div>" +
     "<p class=\"hint\">" + esc(t.note || "Custodial EOD. Sleeves labeled as Truthifi names. No account numbers.") + "</p></div>";
 }
 function fidelityDeskHtml() {
@@ -269,11 +269,9 @@ function overallCardHtml() {
   return "<h2 class=\"overall-eq\">Overall \u00b7 last close</h2><div class=\"card tape-card tape-open\" data-open-all-books=\"1\">" +
     "<div class=\"tape-kpis\">" +
     "<div><span>Last close</span><b>" + money(c.equity) + "</b></div>" +
-    "<div><span>Robinhood now</span><b>" + money(c.live_equity) + "</b></div>" +
-    "<div><span>Fidelity + Voya</span><b>" + money(c.custodial_equity) + "</b></div>" +
-    "<div><span>EOD prints</span><b>" + prints.length + "</b></div></div>" +
+    improveKpis(prints, c.equity) + "</div>" +
     "<div class=\"tape-plot\">" + spark(vals) + "</div>" +
-    "<p class=\"hint\">Net worth at the 16:00 ET Truthifi close (Robinhood that afternoon + Fidelity/Voya holdings date). This chart is one print per weekday, not the live tape below." +
+    "<p class=\"hint\">Net worth at the 16:00 ET close. Robinhood " + money(c.live_equity) + " \u00b7 Fidelity + Voya " + money(c.custodial_equity) + "." +
     (asof ? " Holdings date " + esc(asof) + "." : "") + "</p></div>";
 }
 var _paint = paint;
