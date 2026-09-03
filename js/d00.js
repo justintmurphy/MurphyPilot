@@ -95,6 +95,22 @@
   bindDocs();
 })();
 
+function fmt(x,d){
+  if (x==null || !isFinite(Number(x))) return "—";
+  d = d == null ? 2 : d;
+  return Number(x).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function usd(n){
+  n = Number(n);
+  if (!isFinite(n)) return "—";
+  return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function num2(n){
+  n = Number(n);
+  if (!isFinite(n)) return "—";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function bootDesk() {
 const JOBS = [
   { t: "21:00", days: [0,1,2,3,4], name: "Policy Pack Evening", role: "No trading. World events + WH." },
