@@ -19,6 +19,7 @@
     { t: "14:50", days: [1, 2, 3, 4, 5], name: "Autopilot PM", who: "Agentic", role: "Last same-day pick." },
     { t: "15:00", days: [1, 2, 3, 4, 5], name: "Snapshot", who: "Grok", role: "Book dump + mechanical stops." },
     { t: "16:00", days: [1, 2, 3, 4, 5], name: "Truthifi", who: "Grok", role: "Custodial close. Not Agentic trading." },
+    { t: "20:05", days: [1, 2, 3, 4, 5], name: "House AH", who: "Grok", role: "After-hours print. All Robinhood books." },
     { t: "on SELL", days: [], name: "Process review", who: "Agentic", role: "KEEP/CHANGE on the next pick." }
   ];
   var CAL = [
