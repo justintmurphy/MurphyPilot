@@ -78,7 +78,8 @@ function nextJob(now){
     const dow = d.getDay();
     const minsNow = add === 0 ? now.getHours()*60 + now.getMinutes() : -1;
     JOBS.forEach(j => {
-      if (!j.days.includes(dow)) return;
+      if (!j.days || !j.days.length || !j.days.includes(dow)) return;
+      if (!/^\d{2}:\d{2}$/.test(j.t)) return;
       const jm = parseHM(j.t);
       if (add === 0 && jm <= minsNow) return;
       const when = new Date(d.getTime());
@@ -102,19 +103,20 @@ function renderClockTable(now){
   const mins = now.getHours()*60 + now.getMinutes();
   const body = document.getElementById("clockRows");
   body.innerHTML = "";
-  JOBS.filter(j => j.days.includes(dow) || (dow===0 && j.t==="21:00")).forEach(j => {
+  JOBS.forEach(j => {
     const tr = document.createElement("tr");
-    const jm = parseHM(j.t);
-    const today = j.days.includes(dow);
-    if (today && jm <= mins) tr.className = "done";
-    if (today && jm > mins) {
+    const timed = /^\d{2}:\d{2}$/.test(j.t);
+    const today = j.days && j.days.includes(dow);
+    const when = (!j.days || !j.days.length) ? j.t : (j.days.length === 1 ? ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][j.days[0]] + " " + j.t : j.t);
+    if (timed && today && parseHM(j.t) <= mins) tr.className = "done";
+    if (timed && today && parseHM(j.t) > mins) {
       const nxt = nextJob(now);
       if (nxt && nxt.t === j.t && nxt.name === j.name) {
         const s = Math.max(0, Math.floor((nxt.when - now)/1000));
         tr.className = "now " + heatFromSec(s);
       }
     }
-    tr.innerHTML = "<td>"+j.t+"</td><td>"+j.name+"</td><td>"+j.role+"</td>";
+    tr.innerHTML = "<td>"+when+"</td><td>"+j.name+"</td><td>"+(j.who||"")+"</td><td>"+j.role+"</td>";
     body.appendChild(tr);
   });
 }
