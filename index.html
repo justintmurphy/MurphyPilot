@@ -8,8 +8,8 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="house/logo.svg" sizes="any">
 <link rel="apple-touch-icon" href="house/logo.svg">
-<script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k)||localStorage.getItem("murphyHouseTheme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
-<link rel="stylesheet" href="house/house.css?v=20260903w">
+<script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k)||localStorage.getItem("murphyHouseTheme");if(t==="nina"||t==="purple"||t==="dark")t="nina";else t="justin";document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","justin");}})();</script>
+<link rel="stylesheet" href="house/house.css?v=20260903y">
 </head>
 <body>
 <header>
@@ -20,25 +20,30 @@
     <div class="brand">MURPHY PILOT</div>
     <div class="sub" id="deskSub">HOUSE</div>
   </a>
-  <nav id="tabs" aria-label="Books"></nav>
   <div class="header-end">
     <div class="idx-strip" id="idxStrip" aria-label="Index levels">
       <span class="idx" data-idx="spx"><abbr title="S&amp;P 500">S&amp;P</abbr> <b>—</b></span>
       <span class="idx" data-idx="ndx"><abbr title="Nasdaq-100">Nasdaq</abbr> <b>—</b></span>
     </div>
-    <div class="theme-switch" role="group" aria-label="Color mode">
-      <button type="button" data-theme-choice="light">Light</button>
-      <button type="button" data-theme-choice="dark">Dark</button>
-    </div>
     <div class="clock" id="clock"><div class="t">--:--:-- ET</div><div class="d"></div></div>
+    <div class="menu-wrap">
+      <button type="button" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-controls="deskMenu">Menu</button>
+      <div id="deskMenu" class="desk-menu" hidden>
+        <nav id="tabs" aria-label="Books"></nav>
+        <div class="theme-switch" role="group" aria-label="Looks">
+          <button type="button" data-theme-choice="justin">Justin</button>
+          <button type="button" data-theme-choice="nina">Nina</button>
+        </div>
+      </div>
+    </div>
   </div>
 </header>
 <div class="ticker" id="ticker" aria-label="Tracked names"><div class="ticker-track" id="tickerTrack"></div></div>
 <main class="desk" id="desk"></main>
-<script src="house/js/board-a.js?v=20260903w"></script>
-<script src="house/js/board-b.js?v=20260903w"></script>
-<script src="house/js/board-c.js?v=20260903w"></script>
-<script src="house/js/board-d.js?v=20260903w"></script>
-<script src="house/js/board-e.js?v=20260903w"></script>
+<script src="house/js/board-a.js?v=20260903y"></script>
+<script src="house/js/board-b.js?v=20260903y"></script>
+<script src="house/js/board-c.js?v=20260903y"></script>
+<script src="house/js/board-d.js?v=20260903y"></script>
+<script src="house/js/board-e.js?v=20260903y"></script>
 </body>
 </html>
