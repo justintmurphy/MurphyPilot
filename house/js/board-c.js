@@ -1,6 +1,6 @@
 TABS = [
   { id: "combined", label: "House" },
-  { id: "agentic", label: "Agentic" },
+  { id: "agentic", label: "Marlowe" },
   { id: "individual", label: "Individual" },
   { id: "auto_grok", label: "Auto" },
   { id: "joint", label: "Joint" },
