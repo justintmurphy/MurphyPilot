@@ -94,23 +94,34 @@
       improveCell("Week", vsLookback(prints, currentEq, 7)) +
       improveCell("Month", vsLookback(prints, currentEq, 30));
   }
+  function growChip(label, d) {
+    if (!d) return '<div class="ov-chip"><span>' + label + '</span><b class="tone-flat">\u2014</b></div>';
+    return '<div class="ov-chip"><span>' + label + '</span><b class="tone-' + tone(d.delta) + '">' +
+      (d.delta > 0 ? "+" : "") + money(d.delta) + '</b><i class="tone-' + tone(d.delta) + '">' + pct(d.pct) + "</i></div>";
+  }
   function overallStripHtml() {
     var c = (snap && snap.combined) || {};
     var prints = dodTape("combined");
     var eq = Number(c.equity) || 0;
-    return "<h2>Overall</h2><div class=\"card span overall-strip\"><div class=\"kpi\">" +
-      "<div><span>Total</span><b>" + money(eq) + "</b></div>" +
-      improveCell("Day", vsLookback(prints, eq, 1)) +
-      improveCell("Week", vsLookback(prints, eq, 7)) +
-      improveCell("Month", vsLookback(prints, eq, 30)) +
-      improveCell("YTD", vsYtd(prints, eq)) +
-      improveCell("Year", vsLookback(prints, eq, 365)) +
-      "</div></div>";
+    var asof = c.outside_asof || c.overall_asof || "";
+    return '<div class="card span overall-strip tape-open" data-open-all-books="1">' +
+      '<div class="ov-hero"><span>Overall \u00b7 last close</span><b>' + money(eq) + "</b></div>" +
+      '<div class="ov-chips">' +
+      growChip("Day", vsLookback(prints, eq, 1)) +
+      growChip("Week", vsLookback(prints, eq, 7)) +
+      growChip("Month", vsLookback(prints, eq, 30)) +
+      growChip("YTD", vsYtd(prints, eq)) +
+      growChip("Year", vsLookback(prints, eq, 365)) +
+      "</div>" +
+      '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" +
+      '<p class="hint">Click for every book. Robinhood ' + money(c.live_equity) + " \u00b7 Fidelity + Voya " + money(c.custodial_equity) + "." +
+      (asof ? " Holdings " + esc(String(asof).slice(0, 10)) + "." : "") + "</p></div>";
   }
 
   function stateHtml(b, title) {
+    var eqCell = tab === "combined" ? "" : ("<div><span>Equity</span><b>" + money(b.equity) + "</b>" + dodHtml(dodTape(tab), b.equity) + "</div>");
     return "<h2>Book state \u00b7 " + esc(title) + "</h2><div class=\"card span\"><div class=\"kpi\">" +
-      "<div><span>Equity</span><b>" + money(b.equity) + "</b>" + dodHtml(dodTape(tab === "combined" ? "combined" : tab), b.equity) + "</div>" +
+      eqCell +
       "<div><span>Buying power</span><b>" + money(b.buying_power) + "</b></div>" +
       "<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>" +
       "<div><span>Names</span><b>" + (b.names || []).length + "</b></div></div>" +
