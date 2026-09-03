@@ -107,7 +107,7 @@
     return "<h2>Live equity \u00b7 " + esc(title) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
       '<div class="tape-kpis"><div><span>Now</span><b>' + money(last) + "</b></div>" +
       improveKpis(prints, last) + "</div>" +
-      '<div class="tape-plot">' + spark(vals) + "</div>" + hint + "</div>";
+      '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" + hint + "</div>";
   }
 
   function mixHtml(bookObj, t) {
