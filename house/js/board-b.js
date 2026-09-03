@@ -1,14 +1,37 @@
   var overlayOpen = false;
   var overlayMode = "live";
 
+  function applyTheme(choice) {
+    var t = choice || document.documentElement.getAttribute("data-theme") || "justin";
+    if (t === "nina" || t === "purple" || t === "dark") t = "nina";
+    else t = "justin";
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem("murphyPilotTheme", t); } catch (err) {}
+    document.querySelectorAll("[data-theme-choice]").forEach(function (b) {
+      b.classList.toggle("on", b.getAttribute("data-theme-choice") === t);
+    });
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", t === "nina" ? "#1A0A24" : "#1B3A2F");
+  }
+  function closeDeskMenu() {
+    var menu = document.getElementById("deskMenu");
+    var btn = document.getElementById("menuBtn");
+    if (menu) menu.hidden = true;
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  }
   function paintNav() {
     var el = document.getElementById("tabs");
-    el.innerHTML = TABS.map(function (t) {
-      return '<button type="button" data-tab="' + t.id + '" class="' + (tab === t.id ? "on" : "") + '">' + t.label + "</button>";
-    }).join("");
+    if (el) {
+      el.innerHTML = TABS.map(function (item) {
+        return '<button type="button" data-tab="' + item.id + '" class="' + (tab === item.id ? "on" : "") + '">' + item.label + "</button>";
+      }).join("");
+    }
     var sub = document.getElementById("deskSub");
     if (sub) sub.textContent = LABEL[tab] || "HOUSE";
+    var menuBtn = document.getElementById("menuBtn");
+    if (menuBtn) menuBtn.textContent = (LABEL[tab] || "House") + " \u00b7 menu";
     document.title = "Murphy Pilot \u00b7 " + (LABEL[tab] || "House");
+    applyTheme();
   }
 
   function cardsHtml() {
@@ -397,11 +420,19 @@
   }
 
   document.addEventListener("click", function (e) {
+    var menuBtn = e.target.closest("#menuBtn");
+    if (menuBtn) {
+      var menu = document.getElementById("deskMenu");
+      if (menu) {
+        menu.hidden = !menu.hidden;
+        menuBtn.setAttribute("aria-expanded", menu.hidden ? "false" : "true");
+      }
+      return;
+    }
+    if (!e.target.closest(".menu-wrap")) closeDeskMenu();
     var theme = e.target.closest("[data-theme-choice]");
     if (theme) {
-      var t = theme.getAttribute("data-theme-choice");
-      document.documentElement.setAttribute("data-theme", t);
-      try { localStorage.setItem("murphyPilotTheme", t); } catch (err) {}
+      applyTheme(theme.getAttribute("data-theme-choice"));
       return;
     }
     if (e.target.closest("[data-open-all-books]")) {
@@ -427,12 +458,16 @@
     if (btn) {
       overlayOpen = false;
       tab = btn.getAttribute("data-tab");
+      closeDeskMenu();
       setHash();
       paint();
     }
   });
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && overlayOpen) { overlayOpen = false; syncOverlay(); }
+    if (e.key === "Escape") {
+      closeDeskMenu();
+      if (overlayOpen) { overlayOpen = false; syncOverlay(); }
+    }
   });
   window.addEventListener("hashchange", function () {
     if (typeof hashTab === "function") hashTab();
