@@ -60,7 +60,7 @@ function heatFromSec(s){
 }
 function signedSpan(n, d, extra){
   if (n==null || !isFinite(n)) return "<span class='tone-flat'>—</span>";
-  const t = ((n>=0)?"+":"") + Number(n).toFixed(d);
+  const t = ((n>=0)?"+":"") + Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
   return "<span class='"+toneCls(n)+"'>"+t+(extra||"")+"</span>";
 }
 function fmtClock(d){
@@ -199,8 +199,8 @@ function paintThresholds(s, parsed){
       if (last==null || price==null) return "—";
       const d = last - price;
       if (Math.abs(d) < 0.01) return "on the line";
-      if (d > 0) return "$"+d.toFixed(2)+" above";
-      return "$"+(-d).toFixed(2)+" through";
+      if (d > 0) return usd(d)+" above";
+      return usd(-d)+" through";
     }
     let verdict = "Hold. No sell line is due.";
     let statusCls = "tone-flat";
@@ -220,7 +220,7 @@ function paintThresholds(s, parsed){
       verdict = "Hold. First 12h and green — will not sell (unless −6%).";
       statusCls = "tone-go";
     } else if (trailOn) {
-      verdict = "Hold. Trail on — sell if −15% from high (~$"+(trailLine?trailLine.toFixed(2):"—")+").";
+      verdict = "Hold. Trail on — sell if −15% from high (~"+(trailLine?usd(trailLine):"—")+").";
       statusCls = "tone-go";
     } else if (vs != null && vs < 0) {
       verdict = "Hold unless −5% floor. Last is below cost.";
