@@ -140,3 +140,9 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
 .tape-card .tape-plot { height: auto; }
 .tape-card .ov-plot-inner, .tape-card .ov-line-svg { height: 110px; }
 .tape-card .ov-xrow { margin-left: 58px; }
+
+.overall-strip .kpi { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 720px) {
+  .overall-strip .kpi { grid-template-columns: 1fr 1fr; }
+  .overall-strip .kpi div:first-child { grid-column: 1 / -1; }
+}
