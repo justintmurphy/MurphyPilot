@@ -17,9 +17,40 @@
     }).join("") + "</div>";
   }
 
+
+  function dodTape(key) {
+    var tape = (typeof snap !== "undefined" && snap && snap.tape) || {};
+    if (key === "combined" && tape.overall && tape.overall.length >= 2) return tape.overall;
+    return tape[key] || [];
+  }
+  function dodVsPriorDay(prints, currentEq) {
+    var by = {};
+    (prints || []).forEach(function (raw) {
+      var p = typeof normPrint === "function" ? normPrint(raw) : raw;
+      if (!p || !p.t) return;
+      var eq = Number(p.equity);
+      if (!isFinite(eq)) return;
+      var day = String(p.t).slice(0, 10);
+      if (!day) return;
+      var prev = by[day];
+      if (!prev || String(p.t) >= String(prev.t)) by[day] = { t: p.t, equity: eq };
+    });
+    var days = Object.keys(by).sort();
+    if (days.length < 2) return null;
+    var prior = by[days[days.length - 2]].equity;
+    var cur = isFinite(Number(currentEq)) ? Number(currentEq) : by[days[days.length - 1]].equity;
+    var delta = cur - prior;
+    return { delta: delta, pct: prior ? (delta / prior) * 100 : null, prior: prior };
+  }
+  function dodHtml(prints, currentEq) {
+    var d = dodVsPriorDay(prints, currentEq);
+    if (!d) return '<small class="dod tone-flat">vs prior day \u2014</small>';
+    return '<small class="dod tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</small>";
+  }
+
   function stateHtml(b, title) {
     return "<h2>Book state \u00b7 " + esc(title) + "</h2><div class=\"card span\"><div class=\"kpi\">" +
-      "<div><span>Equity</span><b>" + money(b.equity) + "</b></div>" +
+      "<div><span>Equity</span><b>" + money(b.equity) + "</b>" + dodHtml(dodTape(tab === "combined" ? "combined" : tab), b.equity) + "</div>" +
       "<div><span>Buying power</span><b>" + money(b.buying_power) + "</b></div>" +
       "<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>" +
       "<div><span>Names</span><b>" + (b.names || []).length + "</b></div></div>" +
@@ -152,17 +183,29 @@
     paintNav();
     var b = book();
     var title = LABEL[tab] || tab;
+    var idxLead = [];
+    if (typeof INDEXES !== "undefined" && INDEXES) {
+      [["spx", "S&P"], ["ndx", "Nasdaq"]].forEach(function (pair) {
+        var q = INDEXES[pair[0]];
+        if (!q || q.last == null) return;
+        var last = Number(q.last);
+        var chg = q.pct != null ? Number(q.pct) : (q.prev ? ((last - Number(q.prev)) / Number(q.prev)) * 100 : null);
+        idxLead.push({ symbol: q.label || pair[1], last: last, day_pct: chg, index: true });
+      });
+    }
     var tickerNames = b.names || [];
     var track = document.getElementById("tickerTrack");
     var hideTape = tab === "fidelity" || tab === "voya";
-    var items = hideTape ? [] : tickerNames.filter(function (n) { return n.last != null; });
+    var names = hideTape ? [] : tickerNames.filter(function (n) { return n.last != null; });
+    var items = idxLead.concat(names);
     document.getElementById("ticker").style.display = items.length ? "" : "none";
     if (items.length) {
       var loop = items.concat(items);
       track.innerHTML = loop.map(function (n) {
         var chg = n.day_pct != null ? n.day_pct : n.pnl_pct;
         var chgHtml = (chg == null || !isFinite(Number(chg))) ? "" : pct(chg);
-        return '<span class="ticker-item ' + (tone(chg) === "go" ? "up" : tone(chg) === "stop" ? "down" : "flat") + '"><span class="sym">' + esc(n.symbol) + '</span><span class="px">' + money(n.last) + '</span><span class="chg">' + chgHtml + "</span></span>";
+        var px = n.index ? Number(n.last).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : money(n.last);
+        return '<span class="ticker-item ' + (n.index ? "idx " : "") + (tone(chg) === "go" ? "up" : tone(chg) === "stop" ? "down" : "flat") + '"><span class="sym">' + esc(n.symbol) + '</span><span class="px">' + px + '</span><span class="chg">' + chgHtml + "</span></span>";
       }).join("");
     }
     var html = nextAlertHtml();
