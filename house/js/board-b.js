@@ -3,7 +3,7 @@
 
   function applyTheme(choice) {
     var t = choice || document.documentElement.getAttribute("data-theme") || "justin";
-    if (t === "nina" || t === "purple" || t === "dark") t = "nina";
+    if (t === "nina" || t === "purple") t = "nina";
     else t = "justin";
     document.documentElement.setAttribute("data-theme", t);
     try { localStorage.setItem("murphyPilotTheme", t); } catch (err) {}
@@ -11,7 +11,7 @@
       b.classList.toggle("on", b.getAttribute("data-theme-choice") === t);
     });
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", t === "nina" ? "#1A0A24" : "#1B3A2F");
+    if (meta) meta.setAttribute("content", t === "nina" ? "#1A0A24" : "#08090B");
   }
   function closeDeskMenu() {
     var menu = document.getElementById("deskMenu");
