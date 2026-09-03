@@ -15,14 +15,14 @@
     if (hi !== last){
       const hiI = vals.indexOf(hi);
       const hiPt = ptsArr[hiI];
-      marks += '<text class="tape-hl" x="'+hiPt[0].toFixed(1)+'" y="'+(hiPt[1]-10).toFixed(1)+'" text-anchor="middle" font-size="10" fill="'+pal.go+'">$'+Number(hi).toFixed(2)+'</text>';
+      marks += '<text class="tape-hl" x="'+hiPt[0].toFixed(1)+'" y="'+(hiPt[1]-10).toFixed(1)+'" text-anchor="middle" font-size="10" fill="'+pal.go+'">'+usd(hi)+'</text>';
     }
     if (loVal !== last && loVal !== hi){
       const loI = vals.indexOf(loVal);
       const loPt = ptsArr[loI];
-      marks += '<text class="tape-hl" x="'+loPt[0].toFixed(1)+'" y="'+(loPt[1]+14).toFixed(1)+'" text-anchor="middle" font-size="10" fill="'+pal.stop+'">$'+Number(loVal).toFixed(2)+'</text>';
+      marks += '<text class="tape-hl" x="'+loPt[0].toFixed(1)+'" y="'+(loPt[1]+14).toFixed(1)+'" text-anchor="middle" font-size="10" fill="'+pal.stop+'">'+usd(loVal)+'</text>';
     }
-    marks += tapeFlagMarkup(lastPt[0], lastPt[1], "$"+Number(last).toFixed(2), stroke, pal, w);
+    marks += tapeFlagMarkup(lastPt[0], lastPt[1], usd(Number(last)), stroke, pal, w);
   } else if (fat){
     const hi = Math.max.apply(null, vals);
     const loVal = Math.min.apply(null, vals);
@@ -33,9 +33,9 @@
     extras += '<circle cx="'+lastPt[0].toFixed(1)+'" cy="'+lastPt[1].toFixed(1)+'" r="3.2" fill="'+stroke+'"/>';
     extras += '<circle cx="'+hiPt[0].toFixed(1)+'" cy="'+hiPt[1].toFixed(1)+'" r="2.4" fill="'+pal.go+'"/>';
     extras += '<circle cx="'+loPt[0].toFixed(1)+'" cy="'+loPt[1].toFixed(1)+'" r="2.4" fill="'+pal.stop+'"/>';
-    extras += '<text x="4" y="'+(pT+3)+'" font-size="10" fill="'+pal.mute+'">'+Number(mx).toFixed(2)+'</text>';
-    extras += '<text x="4" y="'+(h-pB)+'" font-size="10" fill="'+pal.mute+'">'+Number(mn).toFixed(2)+'</text>';
-    extras += '<text x="'+(lastPt[0]+6).toFixed(1)+'" y="'+(lastPt[1]+3).toFixed(1)+'" font-size="11" font-weight="700" fill="'+stroke+'">'+Number(last).toFixed(2)+'</text>';
+    extras += '<text x="4" y="'+(pT+3)+'" font-size="10" fill="'+pal.mute+'">'+num2(mx)+'</text>';
+    extras += '<text x="4" y="'+(h-pB)+'" font-size="10" fill="'+pal.mute+'">'+num2(mn)+'</text>';
+    extras += '<text x="'+(lastPt[0]+6).toFixed(1)+'" y="'+(lastPt[1]+3).toFixed(1)+'" font-size="11" font-weight="700" fill="'+stroke+'">'+num2(last)+'</text>';
   }
   const sw = fat ? 2 : 1.6;
   const par = axis ? "xMidYMid meet" : "none";
@@ -58,14 +58,14 @@ function paintTicker(parsed, quotes){
     let cls = "flat";
     if (pct != null && pct > 0.005) cls = "up";
     else if (pct != null && pct < -0.005) cls = "down";
-    const lastTxt = last != null ? Number(last).toFixed(2) : "—";
+    const lastTxt = last != null ? num2(last) : "—";
     const pctTxt = pct == null ? "" : ((pct>=0?"+":"")+Number(pct).toFixed(2)+"%");
     const qty = n.qty;
     const spent = (qty != null && n.cost != null) ? qty * n.cost : null;
     const value = (qty != null && last != null) ? qty * last : null;
-    const qtyTxt = qty == null ? "" : (qty>=1?qty.toFixed(2):qty.toFixed(4))+" sh";
-    const spentTxt = spent == null ? "" : "$"+spent.toFixed(2)+" in";
-    const valTxt = value == null ? "" : "$"+value.toFixed(2)+" mkt";
+    const qtyTxt = qty == null ? "" : (qty>=1?qty.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}):qty.toLocaleString("en-US",{maximumFractionDigits:4}))+" sh";
+    const spentTxt = spent == null ? "" : usd(spent)+" in";
+    const valTxt = value == null ? "" : usd(value)+" mkt";
     return '<span class="ticker-item '+cls+'">'+
       '<span class="sym">'+n.symbol+'</span>'+
       '<span class="px">'+lastTxt+'</span>'+
@@ -106,11 +106,11 @@ function paintCharts(parsed){
     const held = n.fill || "2026-08-27";
     const mkt = (n.qty!=null && last!=null) ? n.qty*last : null;
     const spent = (n.qty!=null && n.cost!=null) ? n.qty*n.cost : null;
-    const fmt = function(x,d){ return x==null || !isFinite(x) ? "—" : Number(x).toFixed(d); };
+    const fmt = function(x,d){ return x==null || !isFinite(Number(x)) ? "—" : Number(x).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); };
     const mini = sparkSvg(vals, n.cost, {fat:false});
     const fat = sparkSvg(vals, n.cost, {fat:true});
     const nameCls = toneCls(vsCostPct);
-    const qtyTxt = n.qty==null ? "" : (n.qty>=1?n.qty.toFixed(2):n.qty.toFixed(4))+" sh";
+    const qtyTxt = n.qty==null ? "" : (n.qty>=1?n.qty.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}):n.qty.toLocaleString("en-US",{maximumFractionDigits:4}))+" sh";
     const recent = vals.slice(-8).map(function(v,i,a){
       const mark = i===a.length-1 ? "<b>"+fmt(v,2)+"</b>" : fmt(v,2);
       return "<span>"+mark+"</span>";
@@ -137,7 +137,7 @@ function paintCharts(parsed){
       '<div><span>Trail −15%</span>'+fmt(trail,2)+'</div>'+
       '<div><span>Room to trail</span>'+signedSpan(roomTrail,2)+'</div>'+
       '<div><span>Qty</span>'+(qtyTxt||"—")+'</div>'+
-      '<div><span>Spent</span>'+(spent==null?"—":"$"+fmt(spent,2))+'</div>'+
-      '<div><span>Mkt</span>'+(mkt==null?"—":"$"+fmt(mkt,2))+'</div>'+
+      '<div><span>Spent</span>'+(spent==null?"—":usd(spent))+'</div>'+
+      '<div><span>Mkt</span>'+(mkt==null?"—":usd(mkt))+'</div>'+
       '<div><span>Prints</span>'+vals.length+'</div>'+
       '</div>'+
