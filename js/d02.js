@@ -1,15 +1,15 @@
-      verdict = "Hold. Stall in "+leftBd+" bd — need $"+stall.toFixed(2)+".";
+      verdict = "Hold. Stall in "+leftBd+" bd — need "+usd(stall)+".";
     }
-    const lastBit = last ? "$"+last.toFixed(2)+" · "+signedSpan(vs,2,"%") : "";
+    const lastBit = last ? usd(last)+" · "+signedSpan(vs,2,"%") : "";
     const stallWhen = leftBd!=null ? stallDate+" · "+leftBd+" bd" : (days!=null && days>=2 ? "due" : "period 1");
     card.innerHTML =
       "<div class='thr-head'><b>"+n.symbol+"</b><span>"+lastBit+(n.qty!=null?" · "+n.qty+" sh":"")+"</span></div>"+
       "<p class='thr-verdict "+statusCls+"'>"+verdict+"</p>"+
       "<table class='thr-table'><tbody>"+
-      "<tr><td>Floor −5%</td><td>$"+stop5.toFixed(2)+"</td><td>"+vsLine(stop5)+"</td></tr>"+
-      "<tr><td>Hard cap −6%</td><td>$"+hard6.toFixed(2)+"</td><td>"+vsLine(hard6)+"</td></tr>"+
-      "<tr><td>Flatten −10%</td><td>$"+flat.toFixed(2)+"</td><td>"+vsLine(flat)+"</td></tr>"+
-      "<tr><td>Stall +5%</td><td>$"+stall.toFixed(2)+"</td><td>"+vsLine(stall)+" · "+stallWhen+"</td></tr>"+
+      "<tr><td>Floor −5%</td><td>"+usd(stop5)+"</td><td>"+vsLine(stop5)+"</td></tr>"+
+      "<tr><td>Hard cap −6%</td><td>"+usd(hard6)+"</td><td>"+vsLine(hard6)+"</td></tr>"+
+      "<tr><td>Flatten −10%</td><td>"+usd(flat)+"</td><td>"+vsLine(flat)+"</td></tr>"+
+      "<tr><td>Stall +5%</td><td>"+usd(stall)+"</td><td>"+vsLine(stall)+" · "+stallWhen+"</td></tr>"+
       "</tbody></table>";
     tb.appendChild(card);
   });
@@ -134,7 +134,7 @@ function paintMoney(){
   const vsFirst = first ? ((hwm/first)-1)*100 : null;
   const vsHwm = hwm ? ((lastEq/hwm)-1)*100 : null;
   const grown = hwm - first;
-  const fmt = function(x,d){ return x==null || !isFinite(x) ? "—" : Number(x).toFixed(d); };
+  const fmt = function(x,d){ return x==null || !isFinite(Number(x)) ? "—" : Number(x).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); };
   const plotEq = eqVals.length === 1 ? [eqVals[0], eqVals[0]] : eqVals;
   const plotMax = maxVals.length === 1 ? [maxVals[0], maxVals[0]] : maxVals;
   const dtgs = store.map(function(r){ return r.dtg || fmtDtg(r.t); });
@@ -142,7 +142,7 @@ function paintMoney(){
   const mini = sparkSvg(plotMax, first, {w:640, h:92});
   const fat = sparkSvg(plotEq, hwm, {fat:true, axis:true, dashLabel:"high", dtg: plotDtg});
   const vsTxt = vsFirst==null ? "—" : ((vsFirst>=0?"+":"")+fmt(vsFirst,2)+"%");
-  const growTxt = grown==null || !isFinite(grown) ? "—" : ((grown>=0?"+$":"−$")+Math.abs(grown).toFixed(2));
+  const growTxt = grown==null || !isFinite(grown) ? "—" : (grown>=0?usd(grown):"−"+usd(Math.abs(grown)).slice(1));
   const nowCls = lastEq + 0.004 < hwm ? "tone-stop" : "tone-go";
   const growCls = toneCls(vsFirst);
   const isOpen = el.querySelector("details.fin-more") ? el.querySelector("details.fin-more").open : false;
@@ -153,7 +153,7 @@ function paintMoney(){
     const i = startI + (lastShown - revI);
     const dtg = r.dtg || fmtDtg(r.t);
     const on = i === store.length - 1 ? " on" : "";
-    return '<button type="button" class="tape-row'+on+'" data-i="'+i+'" data-eq="'+fmt(r.equity,2)+'" data-dtg="'+String(dtg).replace(/"/g,"")+'"><span>'+dtg+'</span><b>$'+fmt(r.equity,2)+'</b></button>';
+    return '<button type="button" class="tape-row'+on+'" data-i="'+i+'" data-eq="'+fmt(r.equity,2)+'" data-dtg="'+String(dtg).replace(/"/g,"")+'"><span>'+dtg+'</span><b>'+usd(r.equity)+'</b></button>';
   }).join("");
   el.innerHTML =
     '<div class="fin-hero">'+
