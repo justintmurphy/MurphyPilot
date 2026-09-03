@@ -231,7 +231,7 @@ function fidelityDeskHtml() {
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
   var sleeves = fid.sleeves || [];
   var mixBook = { books: sleeves, names: fid.names || [], cash: fid.cash || 0 };
-  var html = truthifiMetaHtml() + custodialStateHtml(fid, "Fidelity") + eodNote(fid, "Fidelity");
+  var html = custodialStateHtml(fid, "Fidelity") + eodNote(fid, "Fidelity");
   html += eodTapeHtml("fidelity", "Fidelity");
   html += "<h2>Fidelity accounts · Truthifi sleeves</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
     var st = nameStats(s.names);
@@ -250,6 +250,7 @@ function fidelityDeskHtml() {
       html += "<h2>Holdings · " + esc(s.label) + "</h2>" + custodialTableHtml(s.names, s.equity);
     }
   });
+  html += truthifiMetaHtml();
   return html;
 }
 function voyaDeskHtml() {
