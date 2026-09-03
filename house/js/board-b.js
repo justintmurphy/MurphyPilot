@@ -23,7 +23,19 @@
     if (key === "combined" && tape.overall && tape.overall.length >= 2) return tape.overall;
     return tape[key] || [];
   }
-  function dodVsPriorDay(prints, currentEq) {
+  function ymdAdd(ymd, days) {
+    var p = String(ymd || "").split("-").map(Number);
+    if (p.length < 3 || !p[0]) return "";
+    var dt = new Date(Date.UTC(p[0], p[1] - 1, p[2] + days));
+    return dt.toISOString().slice(0, 10);
+  }
+  function ymdDiff(a, b) {
+    var pa = String(a || "").split("-").map(Number);
+    var pb = String(b || "").split("-").map(Number);
+    if (pa.length < 3 || pb.length < 3) return 0;
+    return Math.round((Date.UTC(pb[0], pb[1] - 1, pb[2]) - Date.UTC(pa[0], pa[1] - 1, pa[2])) / 86400000);
+  }
+  function lastByDay(prints) {
     var by = {};
     (prints || []).forEach(function (raw) {
       var p = typeof normPrint === "function" ? normPrint(raw) : raw;
@@ -33,19 +45,41 @@
       var day = String(p.t).slice(0, 10);
       if (!day) return;
       var prev = by[day];
-      if (!prev || String(p.t) >= String(prev.t)) by[day] = { t: p.t, equity: eq };
+      if (!prev || String(p.t) >= String(prev.t)) by[day] = { t: p.t, day: day, equity: eq };
     });
-    var days = Object.keys(by).sort();
-    if (days.length < 2) return null;
-    var prior = by[days[days.length - 2]].equity;
-    var cur = isFinite(Number(currentEq)) ? Number(currentEq) : by[days[days.length - 1]].equity;
-    var delta = cur - prior;
-    return { delta: delta, pct: prior ? (delta / prior) * 100 : null, prior: prior };
+    return Object.keys(by).sort().map(function (d) { return by[d]; });
+  }
+  function vsLookback(prints, currentEq, days) {
+    var rows = lastByDay(prints);
+    if (!rows.length) return null;
+    var lastDay = rows[rows.length - 1].day;
+    var target = ymdAdd(lastDay, -days);
+    var prior = null;
+    rows.forEach(function (row) { if (row.day <= target) prior = row; });
+    if (!prior && days > 1 && ymdDiff(rows[0].day, lastDay) >= days - 2) prior = rows[0];
+    if (!prior) return null;
+    var cur = isFinite(Number(currentEq)) ? Number(currentEq) : rows[rows.length - 1].equity;
+    var delta = cur - prior.equity;
+    return { delta: delta, pct: prior.equity ? (delta / prior.equity) * 100 : null, prior: prior.equity };
+  }
+  function improveLine(tag, d) {
+    if (!d) return '<small class="dod tone-flat">' + tag + " \u2014</small>";
+    return '<small class="dod tone-' + tone(d.delta) + '">' + tag + " " + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</small>";
   }
   function dodHtml(prints, currentEq) {
-    var d = dodVsPriorDay(prints, currentEq);
-    if (!d) return '<small class="dod tone-flat">vs prior day \u2014</small>';
-    return '<small class="dod tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</small>";
+    return improveLine("Day", vsLookback(prints, currentEq, 1)) +
+      improveLine("Week", vsLookback(prints, currentEq, 7)) +
+      improveLine("Month", vsLookback(prints, currentEq, 30));
+  }
+  function improveCell(label, d) {
+    if (!d) return "<div><span>" + label + "</span><b class=\"tone-flat\">\u2014</b></div>";
+    return "<div><span>" + label + "</span><b class=\"tone-" + tone(d.delta) + "\">" + (d.delta > 0 ? "+" : "") + money(d.delta) + "</b>" +
+      '<small class="dod tone-' + tone(d.delta) + '">' + pct(d.pct) + "</small></div>";
+  }
+  function improveKpis(prints, currentEq) {
+    return improveCell("Day", vsLookback(prints, currentEq, 1)) +
+      improveCell("Week", vsLookback(prints, currentEq, 7)) +
+      improveCell("Month", vsLookback(prints, currentEq, 30));
   }
 
   function stateHtml(b, title) {
@@ -66,14 +100,12 @@
     var last = vals.length ? vals[vals.length - 1] : (book().equity || 0);
     if (!vals.length) vals = [last, last];
     var open = clickable ? ' data-open-books="1"' : "";
-    var first = prints.length ? (prints[0].dtg || prints[0].t.slice(0, 10)) : "";
     var hint = clickable
-      ? '<p class="hint tape-open-hint">Robinhood only, every House print since ' + esc(first) + '. Not Fidelity or Voya. Click to overlay books.</p>'
-      : '<p class="hint">Every snapshot print. ' + prints.length + " points" + (first ? " from " + esc(first) : "") + ".</p>";
+      ? '<p class="hint tape-open-hint">Robinhood session, not Fidelity or Voya. Click to overlay books.</p>'
+      : '<p class="hint">Day / week / month vs this book\u2019s last print.</p>';
     return "<h2>Live equity \u00b7 " + esc(title) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
-      '<div class="tape-kpis"><div><span>Now</span><b>' + money(last) + "</b></div><div><span>Prints</span><b>" + prints.length + "</b></div>" +
-      (clickable ? '<div><span>Books</span><b>4</b></div>' : "") +
-      (first ? '<div><span>Since</span><b>' + esc(first.split(" ")[0] || first) + "</b></div>" : "") + "</div>" +
+      '<div class="tape-kpis"><div><span>Now</span><b>' + money(last) + "</b></div>" +
+      improveKpis(prints, last) + "</div>" +
       '<div class="tape-plot">' + spark(vals) + "</div>" + hint + "</div>";
   }
 
