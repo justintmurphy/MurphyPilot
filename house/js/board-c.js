@@ -10,14 +10,15 @@ TABS = [
 LABEL.auto_grok = "Auto";
 LABEL.fidelity = "Fidelity";
 LABEL.voya = "Voya";
+if (typeof hashTab === "function") hashTab();
 IDS = ["agentic", "individual", "auto_grok", "joint", "fidelity", "voya"];
 var LIVE_IDS = ["agentic", "individual", "auto_grok", "joint"];
 var OUTSIDE_IDS = ["fidelity", "voya"];
 var FID_SLEEVES = [
-  { id: "bny", label: "BNY", key: "BNY", sleeveKey: "fidelity_bny" },
-  { id: "per", label: "PER", key: "PER", sleeveKey: "fidelity_per" },
-  { id: "roth", label: "Roth", key: "Roth", sleeveKey: "fidelity_roth" },
-  { id: "trad", label: "Trad", key: "Trad", sleeveKey: "fidelity_trad" },
+  { id: "bny", label: "Brokerage", key: "BNY", sleeveKey: "fidelity_bny" },
+  { id: "per", label: "Personal", key: "PER", sleeveKey: "fidelity_per" },
+  { id: "roth", label: "Roth IRA", key: "Roth", sleeveKey: "fidelity_roth" },
+  { id: "trad", label: "Traditional IRA", key: "Trad", sleeveKey: "fidelity_trad" },
   { id: "espp", label: "ESPP", key: "ESPP", sleeveKey: "fidelity_espp" },
   { id: "rsu", label: "RSU", key: "RSU", sleeveKey: "fidelity_rsu" }
 ];
@@ -163,7 +164,7 @@ function custodialTableHtml(names, totalEq) {
       "<td class=\"num\">" + (n.cost == null ? "—" : money(n.cost)) + "</td>" +
       "<td class=\"num tone-" + tone(n.pnl) + "\">" + (n.pnl == null ? "—" : money(n.pnl) + " " + pct(n.pnl_pct)) + "</td></tr>";
   }).join("");
-  return "<div class=\"card book-scroll\"><table class=\"book\"><thead>" + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+  return "<div class=\"card book-scroll\"><table class=\"book custodial\"><thead>" + head + "</thead><tbody>" + rows + "</tbody></table></div>";
 }
 function eodTapeHtml(key, title) {
   var prints = ((snap.tape && snap.tape[key]) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
@@ -198,7 +199,7 @@ function fidelityDeskHtml() {
     return "<button type=\"button\" class=\"acct-mini\" data-scroll=\"sleeve-" + esc(s.id) + "\"><div class=\"k\">" + esc(s.label) + "</div><b>" + money(s.equity) + "</b><div class=\"m\">" + extra +
       (st.pnl != null ? " · P&L " + money(st.pnl) : "") + "</div></button>";
   }).join("") + "</div>";
-  html += "<p class=\"hint\">BNY, PER, Roth, Trad, ESPP, RSU as Truthifi labels them. Totals and holdings only.</p>";
+  html += "<p class=\"hint\">Fidelity accounts as Truthifi sleeves. Totals and holdings only. No account numbers.</p>";
   html += "<h2>Where it sits · Fidelity</h2>" + mixHtml(mixBook, "combined");
   html += "<h2>All Fidelity names</h2>" + custodialTableHtml(fid.names, fid.equity);
   sleeves.forEach(function (s) {
@@ -275,3 +276,11 @@ load = function () {
   });
 };
 load();
+
+document.addEventListener("click", function (e) {
+  var btn = e.target.closest("[data-scroll]");
+  if (!btn) return;
+  var id = btn.getAttribute("data-scroll");
+  var el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+});

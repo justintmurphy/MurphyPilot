@@ -74,12 +74,26 @@ header nav#tabs button.on {
 .book-scroll { max-height: 31.5rem; overflow: auto; }
 .acct-grid { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 720px) {
+  header .idx-strip,
+  header .theme-switch { display: none !important; }
+  header .mark,
+  header .mark img { width: 32px; height: 32px; }
   header .clock { display: block; min-width: 0; text-align: right; }
   header .clock .t { font-size: 12px; line-height: 1.15; }
   header .clock .d { font-size: 10px; }
-  header nav#tabs button { flex: 0 0 auto !important; min-height: 34px !important; }
+  header nav#tabs button { flex: 0 0 auto !important; min-height: 30px !important; padding: 2px 8px !important; font-size: 11px !important; }
   .acct-grid { grid-template-columns: 1fr 1fr; }
   .split-two { grid-template-columns: 1fr !important; }
+  table.book.custodial th:nth-child(3),
+  table.book.custodial td:nth-child(3),
+  table.book.custodial th:nth-child(4),
+  table.book.custodial td:nth-child(4),
+  table.book.custodial th:nth-child(5),
+  table.book.custodial td:nth-child(5),
+  table.book.custodial th:nth-child(6),
+  table.book.custodial td:nth-child(6),
+  table.book.custodial th:nth-child(9),
+  table.book.custodial td:nth-child(9) { display: none; }
 }
 .tape-card.tape-open { cursor: pointer; }
 .split-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

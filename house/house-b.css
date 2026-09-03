@@ -328,16 +328,16 @@ footer.desk-foot {
     gap: 8px 10px;
   }
   header .mark {
-    width: 40px;
-    height: 40px;
-    flex-basis: 40px;
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
     grid-column: 1;
     grid-row: 1;
   }
   header .mark svg,
   header .mark img {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
   }
   header .brand-block {
     grid-column: 2;
@@ -348,8 +348,10 @@ footer.desk-foot {
     grid-column: 3;
     grid-row: 1;
     margin-left: 0;
-    gap: 8px;
+    gap: 0;
   }
+  header .idx-strip,
+  header .theme-switch { display: none !important; }
   header nav {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -359,7 +361,7 @@ footer.desk-foot {
   header nav button {
     flex: 1;
     justify-content: center;
-    min-height: 44px;
+    min-height: 32px;
   }
   header .clock {
     display: block;

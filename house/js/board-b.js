@@ -269,5 +269,4 @@
   }
   tickClock();
   setInterval(tickClock, 1000);
-  load();
-  setInterval(load, 5 * 60 * 1000);
+  setInterval(function () { if (typeof load === "function") load(); }, 5 * 60 * 1000);
