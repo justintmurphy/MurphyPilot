@@ -8,8 +8,10 @@
     };
   }
 })();
+var INDEXES = null;
 function paintIndexes(data) {
   if (!data) return;
+  INDEXES = data;
   [["spx", data.spx], ["ndx", data.ndx]].forEach(function (pair) {
     var node = document.querySelector('[data-idx="' + pair[0] + '"]');
     var q = pair[1];
@@ -21,6 +23,7 @@ function paintIndexes(data) {
     node.classList.toggle("down", pct < -0.005);
     node.title = (q.label || pair[0].toUpperCase()) + " " + last.toFixed(2) + (pct ? " (" + (pct > 0 ? "+" : "") + pct.toFixed(2) + "%)" : "");
   });
+  if (typeof paint === "function" && typeof snap !== "undefined" && snap) paint();
 }
 function safeEsc(s) {
   if (typeof esc === "function") return esc(s);
