@@ -294,12 +294,6 @@ paint = function () {
     if (t.indexOf("Live equity") === 0) h.textContent = "Live equity \u00b7 Robinhood session";
     if (t.indexOf("Book state") === 0) h.textContent = "Book state \u00b7 all books";
   });
-  var liveH = Array.from(desk.querySelectorAll("h2")).filter(function (h) { return (h.textContent || "").indexOf("Live equity") === 0; })[0];
-  if (liveH && !desk.querySelector("h2.overall-eq")) {
-    var wrap = document.createElement("div");
-    wrap.innerHTML = overallCardHtml();
-    while (wrap.firstChild) desk.insertBefore(wrap.firstChild, liveH);
-  }
 };
 load = function () {
   var housePath = /\/house(\/|$)/.test(location.pathname);
