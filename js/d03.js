@@ -1,19 +1,19 @@
-      '<div><span>High water</span><b class="tone-go">$'+fmt(hwm,2)+'</b><span class="sub">Running max of Agentic value</span></div>'+
-      '<div><span>Now</span><b class="'+nowCls+'">$'+fmt(lastEq,2)+'</b><span class="sub">'+signedSpan(vsHwm,2,"%")+' vs high water</span></div>'+
+      '<div><span>High water</span><b class="tone-go">'+usd(hwm)+'</b><span class="sub">Running max of Agentic value</span></div>'+
+      '<div><span>Now</span><b class="'+nowCls+'">'+usd(lastEq)+'</b><span class="sub">'+signedSpan(vsHwm,2,"%")+' vs high water</span></div>'+
       '<div><span>Grown</span><b class="'+growCls+'">'+growTxt+'</b><span class="sub">'+vsTxt+' since first print</span></div>'+
       '<div><span>Prints</span><b>'+store.length+'</b><span class="sub">From first fill, then each snapshot</span></div>'+
     '</div>'+
     '<div class="fin-chart">'+mini+'<div class="fin-cap">High-water tape from first fill. Dashed is the first print. Solid only steps up.</div></div>'+
     '<details class="spark fin-more"'+(isOpen?" open":"")+'>'+
-      '<summary><span class="tape-sum">Live equity tape</span><span class="held">$'+fmt(lastEq,2)+' now · expand to read $ on the chart</span></summary>'+
+      '<summary><span class="tape-sum">Live equity tape</span><span class="held">'+usd(lastEq)+' now · expand to read $ on the chart</span></summary>'+
       '<div class="spark-open">'+
-      '<div class="tape-plot">'+fat+'<div class="tape-flag-html" id="tapeFlagHtml">$'+fmt(lastEq,2)+'</div></div>'+
-      '<div class="tape-readout" id="tapeReadout"><b>$'+fmt(lastEq,2)+'</b><span> · '+(plotDtg[plotDtg.length-1]||"")+' · last print</span></div>'+
+      '<div class="tape-plot">'+fat+'<div class="tape-flag-html" id="tapeFlagHtml">'+usd(lastEq)+'</div></div>'+
+      '<div class="tape-readout" id="tapeReadout"><b>'+usd(lastEq)+'</b><span> · '+(plotDtg[plotDtg.length-1]||"")+' · last print</span></div>'+
       '<div class="stats">'+
-      '<div><span>Now</span>$'+fmt(lastEq,2)+'</div>'+
-      '<div><span>High water</span>$'+fmt(hwm,2)+'</div>'+
-      '<div><span>First</span>$'+fmt(first,2)+'</div>'+
-      '<div><span>Low tick</span>$'+fmt(lo,2)+'</div>'+
+      '<div><span>Now</span>'+usd(lastEq)+'</div>'+
+      '<div><span>High water</span>'+usd(hwm)+'</div>'+
+      '<div><span>First</span>'+usd(first)+'</div>'+
+      '<div><span>Low tick</span>'+usd(lo)+'</div>'+
       '<div><span>Vs first</span>'+signedSpan(vsFirst,2,"%")+'</div>'+
       '<div><span>Vs high water</span>'+signedSpan(vsHwm,2,"%")+'</div>'+
       '<div><span>Dollars grown</span>'+signedSpan(grown,2)+'</div>'+
@@ -136,7 +136,7 @@ function sparkSvg(vals, cost, opt){
     yTicks.forEach(function(v){
       const y=pT+(h-pT-pB)*(1-((v-mn)/span));
       extras += '<line x1="'+pL+'" x2="'+(w-pR)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="'+pal.grid+'"/>';
-      extras += '<text x="'+(pL-8)+'" y="'+(y+4).toFixed(1)+'" text-anchor="end" font-size="'+(narrow?"16":"11")+'" font-variant="tabular-nums" fill="'+pal.axis+'">$'+v.toFixed(2)+'</text>';
+      extras += '<text x="'+(pL-8)+'" y="'+(y+4).toFixed(1)+'" text-anchor="end" font-size="'+(narrow?"16":"11")+'" font-variant="tabular-nums" fill="'+pal.axis+'">'+usd(v)+'</text>';
     });
     extras += '<text transform="rotate(-90 '+(16)+' '+(pT+(h-pT-pB)/2).toFixed(1)+')" x="16" y="'+(pT+(h-pT-pB)/2).toFixed(1)+'" text-anchor="middle" font-size="'+(narrow?"13":"10")+'" letter-spacing="1.2" fill="'+pal.mute+'">EQUITY $</text>';
     const dtg = opt.dtg || [];
