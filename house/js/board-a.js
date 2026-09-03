@@ -79,14 +79,22 @@
 
   function pad(n) { return String(n).padStart(2, "0"); }
   function nyNow() { return new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" })); }
-  function money(n) { n = Number(n); return isFinite(n) ? (n < 0 ? "-$" + Math.abs(n).toFixed(2) : "$" + n.toFixed(2)) : "\u2014"; }
+  function money(n) {
+    n = Number(n);
+    if (!isFinite(n)) return "\u2014";
+    var abs = Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (n < 0 ? "-$" : "$") + abs;
+  }
   function pct(n) { n = Number(n); return isFinite(n) ? (n > 0 ? "+" : "") + n.toFixed(2) + "%" : "\u2014"; }
   function qty(n) {
     n = Number(n);
     if (!isFinite(n)) return "\u2014";
-    if (Math.abs(n) >= 100) return n.toFixed(2);
-    if (Math.abs(n) >= 1) return n.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
-    return n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+    var abs = Math.abs(n);
+    var mind = abs >= 100 ? 2 : 0;
+    var maxd = abs >= 100 ? 2 : abs >= 1 ? 4 : 6;
+    var s = n.toLocaleString("en-US", { minimumFractionDigits: mind, maximumFractionDigits: maxd });
+    if (abs < 100) s = s.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+    return s;
   }
   function tone(n) { n = Number(n); if (!isFinite(n) || Math.abs(n) < 0.0005) return "flat"; return n > 0 ? "go" : "stop"; }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "\u0026amp;", "<": "\u0026lt;", ">": "\u0026gt;", '"': "\u0026quot;", "'": "\u0026#39;" })[c]; }); }
