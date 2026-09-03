@@ -178,7 +178,7 @@ function custodialStateHtml(b, title) {
   var pnlPct = s.hasCost && s.cost ? (pnl / s.cost) * 100 : null;
   var t = snap.truthifi || {};
   return "<h2>Book state · " + esc(title) + "</h2><div class=\"card span\"><div class=\"kpi\">" +
-    "<div><span>Equity</span><b>" + money(b.equity) + "</b></div>" +
+    "<div><span>Equity</span><b>" + money(b.equity) + "</b>" + (title === "Fidelity" || String(title).indexOf("Voya") === 0 ? dodHtml(dodTape(title === "Fidelity" ? "fidelity" : "voya"), b.equity) : "") + "</div>" +
     "<div><span>Holdings</span><b>" + money(held) + "</b></div>" +
     "<div><span>Cash</span><b>" + money(b.cash) + "</b></div>" +
     "<div><span>P&L</span><b class=\"tone-" + tone(pnl) + "\">" + (pnl == null ? "—" : money(pnl) + " " + pct(pnlPct)) + "</b></div>" +
