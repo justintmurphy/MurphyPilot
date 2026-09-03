@@ -67,18 +67,19 @@
       <h3>4. Live job roster</h3>
       <p>Recreate or keep these America/New_York jobs. Names may vary by a few words; the role must match.</p>
       <table>
-        <thead><tr><th>Time</th><th>Name</th><th>Must include in the prompt</th></tr></thead>
+        <thead><tr><th>Time</th><th>Name</th><th>Who</th><th>Must include in the prompt</th></tr></thead>
         <tbody>
-          <tr><td>21:00 Sun–Thu</td><td>Policy Pack Evening</td><td>NO TRADING. Agent: Agentic Trading. White House, states, 21-day calendar, world-event concepts. Subject Agentic policy pack: YYYY-MM-DD. Push house/policy-pack.json.</td></tr>
-          <tr><td>06:30 weekdays</td><td>Policy Pack AM Refresh</td><td>NO TRADING. Delta vs last pack including overnight world events. Silent if nothing new.</td></tr>
-          <tr><td>09:50 weekdays</td><td>Autopilot research</td><td>Agent: Agentic Trading. Pick under v7.1. Email Agentic order: BUY/SELL. On 2026-09-04 this job stays silent (clean-slate sells at 10:50).</td></tr>
-          <tr><td>10:00 and 15:00 weekdays</td><td>Snapshot watchdog</td><td>Email Agentic fn: snapshot. Grok dumps Agentic and runs mechanical stops. No name picking. Skip 2026-09-04 before 10:47 ET.</td></tr>
-          <tr><td>11:50 weekdays</td><td>Eyes research</td><td>Agent: Agentic Trading. Quiet if ≥80% invested and no stop/stall due.</td></tr>
-          <tr><td>13:50 weekdays</td><td>Eyes research</td><td>Same as 11:50.</td></tr>
-          <tr><td>14:50 weekdays</td><td>Autopilot PM research</td><td>Last redeploy pick so Grok can still exec the same day.</td></tr>
-          <tr><td>16:00 weekdays</td><td>Truthifi close</td><td>Grok. Custodial EOD. Not Agentic trading.</td></tr>
-          <tr><td>On each SELL fill</td><td>Process Review after SELL</td><td>NO TRADING. Picker’s scorecard. 3 KEEP / 3 CHANGE applied on the next pick. Owner does not adjudicate.</td></tr>
-          <tr><td>Gmail, anytime</td><td>Agentic fn: snapshot / house / Agentic order:</td><td>Grok.com email callables. Hands only.</td></tr>
+          <tr><td>06:30 weekdays</td><td>Policy Pack</td><td>Agentic</td><td>NO TRADING. Full pack: White House, states, calendars, world concepts. Subject Agentic policy pack: YYYY-MM-DD. Push house/policy-pack.json. Evening pack is off.</td></tr>
+          <tr><td>Mon 09:30</td><td>Desk UX</td><td>Agentic</td><td>Weekly phone-desk pass.</td></tr>
+          <tr><td>09:50 weekdays</td><td>Autopilot AM</td><td>Agentic</td><td>Pick under v7.1. Email Agentic order: BUY/SELL. On 2026-09-04 this job stays silent (clean-slate sells at 10:50).</td></tr>
+          <tr><td>Mon 10:00</td><td>Scorecard</td><td>Agentic</td><td>Weekly process KEEP/CHANGE.</td></tr>
+          <tr><td>10:00 and 15:00 weekdays</td><td>Snapshot</td><td>Grok</td><td>Email Agentic fn: snapshot. Dump Agentic and run mechanical stops. No name picking. Skip 2026-09-04 before 10:47 ET.</td></tr>
+          <tr><td>11:50 weekdays</td><td>Eyes</td><td>Agentic</td><td>Quiet if ≥80% invested and no stop/stall due.</td></tr>
+          <tr><td>13:50 weekdays</td><td>Eyes</td><td>Agentic</td><td>Same as 11:50.</td></tr>
+          <tr><td>14:50 weekdays</td><td>Autopilot PM</td><td>Agentic</td><td>Last same-day pick so Grok can still exec.</td></tr>
+          <tr><td>16:00 weekdays</td><td>Truthifi</td><td>Grok</td><td>Custodial EOD. Not Agentic trading.</td></tr>
+          <tr><td>On each SELL</td><td>Process review</td><td>Agentic</td><td>NO TRADING. Picker’s scorecard. 3 KEEP / 3 CHANGE on the next pick. Owner does not adjudicate.</td></tr>
+          <tr><td>Gmail, anytime</td><td>snapshot / house / order</td><td>Grok</td><td>Email callables. Hands only.</td></tr>
         </tbody>
       </table>
       <h3>5. Required lines in every trading prompt</h3>
