@@ -141,8 +141,57 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
 .tape-card .ov-plot-inner, .tape-card .ov-line-svg { height: 110px; }
 .tape-card .ov-xrow { margin-left: 58px; }
 
-.overall-strip .kpi { grid-template-columns: repeat(3, 1fr); }
+.overall-strip { text-align: center; }
+.overall-strip .ov-hero { padding: 12px 8px 6px; }
+.overall-strip .ov-hero span {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.overall-strip .ov-hero b {
+  display: block;
+  margin-top: 4px;
+  font-size: 36px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.6px;
+}
+.overall-strip .ov-chips {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin: 4px 0 8px;
+}
+.overall-strip .ov-chip {
+  background: var(--row);
+  padding: 4px 3px 5px;
+  border-radius: 4px;
+  min-width: 0;
+}
+.overall-strip .ov-chip span {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.overall-strip .ov-chip b {
+  display: block;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.overall-strip .ov-chip i {
+  display: block;
+  font-style: normal;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.overall-strip .ov-plot { margin-top: 4px; }
 @media (max-width: 720px) {
-  .overall-strip .kpi { grid-template-columns: 1fr 1fr; }
-  .overall-strip .kpi div:first-child { grid-column: 1 / -1; }
+  .overall-strip .ov-hero b { font-size: 28px; }
+  .overall-strip .ov-chip b { font-size: 10px; }
+  .overall-strip .ov-chip i { font-size: 9px; }
 }
