@@ -191,17 +191,65 @@
     if (id === "combined" && tape.live && tape.live.length) src = src.concat(tape.live);
     return src;
   }
+  function axisMoney(n) {
+    n = Number(n);
+    if (!isFinite(n)) return "\u2014";
+    var abs = Math.abs(n), sign = n < 0 ? "\u2212" : "";
+    if (abs >= 100000) return sign + "$" + Math.round(abs / 1000) + "k";
+    if (abs >= 10000) return sign + "$" + (abs / 1000).toFixed(1) + "k";
+    if (abs >= 1000) return sign + "$" + Math.round(abs).toLocaleString("en-US");
+    return (n < 0 ? "\u2212" : "") + "$" + abs.toFixed(2);
+  }
+  function axisWhen(t, multiDay) {
+    var s = String(t || "");
+    var day = s.slice(5, 10);
+    var hm = s.slice(11, 16);
+    if (!day) return "";
+    var md = String(Number(day.slice(0, 2))) + "/" + String(Number(day.slice(3, 5)));
+    if (!hm || multiDay) return md;
+    var h = Number(hm.slice(0, 2)), m = hm.slice(3, 5);
+    var ap = h >= 12 ? "p" : "a";
+    h = h % 12; if (!h) h = 12;
+    return h + ":" + m + ap;
+  }
+  function overlayAxisChart(prints) {
+    prints = (prints || []).filter(function (p) { return p && isFinite(p.equity); });
+    if (!prints.length) return "";
+    if (prints.length === 1) prints = [prints[0], prints[0]];
+    var vals = prints.map(function (p) { return p.equity; });
+    var w = 640, h = 88, pL = 4, pR = 4, pT = 6, pB = 6;
+    var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+    if (mx === mn) { var padY = Math.max(Math.abs(mx) * 0.01, 0.5); mn -= padY; mx += padY; }
+    var span = mx - mn || 1;
+    var t0 = Date.parse(prints[0].t), t1 = Date.parse(prints[prints.length - 1].t);
+    var multiDay = isFinite(t0) && isFinite(t1) && (t1 - t0) > 36 * 3600 * 1000;
+    var pts = vals.map(function (v, i) {
+      var x = pL + i * (w - pL - pR) / Math.max(vals.length - 1, 1);
+      var y = pT + (h - pT - pB) * (1 - (v - mn) / span);
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+    var up = vals[vals.length - 1] >= vals[0];
+    var svg = '<svg class="ov-line-svg" viewBox="0 0 ' + w + " " + h + '" preserveAspectRatio="none"><polyline fill="none" stroke="' +
+      (up ? "var(--go)" : "var(--stop)") + '" stroke-width="2" points="' + pts + '"/></svg>';
+    var xLabs = [axisWhen(prints[0].t, multiDay)];
+    if (prints.length > 2) xLabs.push(axisWhen(prints[Math.floor((prints.length - 1) / 2)].t, multiDay));
+    xLabs.push(axisWhen(prints[prints.length - 1].t, multiDay));
+    return '<div class="ov-axis">' +
+      '<div class="ov-ycol"><span>' + axisMoney(mx) + "</span><span>" + axisMoney((mx + mn) / 2) + "</span><span>" + axisMoney(mn) + "</span></div>" +
+      '<div class="ov-plot-inner">' + svg + "</div></div>" +
+      '<div class="ov-xrow">' + xLabs.map(function (lab) { return "<span>" + lab + "</span>"; }).join("") + "</div>";
+  }
   function overlayChartCard(id, mode) {
     var raw = overlayPrints(id, mode);
     var prints = (typeof mergePrints === "function" ? mergePrints(raw) : (raw || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); }));
     var vals = prints.map(function (p) { return p.equity; }).filter(function (v) { return isFinite(v); });
     var last = vals.length ? vals[vals.length - 1] : Number(((id === "combined" ? snap.combined : snap.accounts[id]) || {}).equity) || 0;
-    if (!vals.length) vals = [last, last];
+    if (!prints.length) prints = [{ t: "", equity: last }];
     var eod = (id === "fidelity" || id === "voya" || (mode === "all" && id === "combined"));
     var label = (mode === "all" && id === "combined") ? "Overall" : (LABEL[id] || id);
     return '<button type="button" class="ov-book ov-chart" data-tab="' + id + '">' +
       '<div class="k">' + esc(label) + " \u00b7 " + (eod ? "EOD" : "live") + "</div><b>" + money(last) + "</b>" +
-      '<div class="tape-plot ov-plot">' + spark(vals) + "</div></button>";
+      '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div></button>";
   }
   function overlaySheet(domId, mode, title, hint) {
     var rows = overlayIds(mode).map(function (id) { return overlayChartCard(id, mode); }).join("");
