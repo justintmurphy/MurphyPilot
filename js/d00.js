@@ -113,15 +113,17 @@ function num2(n){
 
 function bootDesk() {
 const JOBS = [
-  { t: "21:00", days: [0,1,2,3,4], name: "Policy Pack Evening", role: "No trading. World events + WH." },
-  { t: "06:30", days: [1,2,3,4,5], name: "Policy Pack AM Refresh", role: "No trading. Overnight delta only." },
-  { t: "09:50", days: [1,2,3,4,5], name: "Autopilot research", role: "Name pick. Grok exec." },
-  { t: "10:00", days: [1,2,3,4,5], name: "Snapshot", role: "Stops only." },
-  { t: "11:50", days: [1,2,3,4,5], name: "Eyes", role: "Risk-first pick." },
-  { t: "13:50", days: [1,2,3,4,5], name: "Eyes", role: "Risk-first pick." },
-  { t: "14:50", days: [1,2,3,4,5], name: "Autopilot PM", role: "Last redeploy pick." },
-  { t: "15:00", days: [1,2,3,4,5], name: "Snapshot", role: "Stops only." },
-  { t: "16:00", days: [1,2,3,4,5], name: "Truthifi", role: "Close scan." }
+  { t: "06:30", days: [1,2,3,4,5], name: "Policy Pack", who: "Agentic", role: "Full pack. World + WH. No trading." },
+  { t: "09:30", days: [1], name: "Desk UX", who: "Agentic", role: "Weekly phone-desk pass." },
+  { t: "09:50", days: [1,2,3,4,5], name: "Autopilot AM", who: "Agentic", role: "Name pick. Emails Grok to place." },
+  { t: "10:00", days: [1], name: "Scorecard", who: "Agentic", role: "Weekly process KEEP/CHANGE." },
+  { t: "10:00", days: [1,2,3,4,5], name: "Snapshot", who: "Grok", role: "Book dump + mechanical stops." },
+  { t: "11:50", days: [1,2,3,4,5], name: "Eyes", who: "Agentic", role: "Risk-first pick. Quiet if ≥80% in." },
+  { t: "13:50", days: [1,2,3,4,5], name: "Eyes", who: "Agentic", role: "Risk-first pick. Quiet if ≥80% in." },
+  { t: "14:50", days: [1,2,3,4,5], name: "Autopilot PM", who: "Agentic", role: "Last same-day pick." },
+  { t: "15:00", days: [1,2,3,4,5], name: "Snapshot", who: "Grok", role: "Book dump + mechanical stops." },
+  { t: "16:00", days: [1,2,3,4,5], name: "Truthifi", who: "Grok", role: "Custodial close. Not Agentic trading." },
+  { t: "on SELL", days: [], name: "Process review", who: "Agentic", role: "KEEP/CHANGE on the next pick." }
 ];
 const CAL = [
   ["2026-09-01", "JOLTS; beef TRQ first tranche"],
