@@ -25,7 +25,7 @@
 .idx-strip b { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 11px; }
 .idx-strip .idx.up b { color: #9ee0b8; }
 .idx-strip .idx.down b { color: #f0a8a8; }
-@media (max-width: 720px) { .idx-strip { margin-right: 4px; gap: 1px; } .idx-strip b { font-size: 10px; } }
+@media (max-width: 720px) { .idx-strip, header .theme-switch { display: none !important; } }
 .pack-scroll { max-height: 230px; overflow-y: auto; padding-right: 6px; }
 .pack-card .pack-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px 16px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 13px; }
 .pack-card .pack-row:first-of-type { border-top: 0; }

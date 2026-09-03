@@ -154,13 +154,15 @@
     var title = LABEL[tab] || tab;
     var tickerNames = b.names || [];
     var track = document.getElementById("tickerTrack");
-    var items = tickerNames.filter(function (n) { return n.last != null; });
+    var hideTape = tab === "fidelity" || tab === "voya";
+    var items = hideTape ? [] : tickerNames.filter(function (n) { return n.last != null; });
     document.getElementById("ticker").style.display = items.length ? "" : "none";
     if (items.length) {
       var loop = items.concat(items);
       track.innerHTML = loop.map(function (n) {
         var chg = n.day_pct != null ? n.day_pct : n.pnl_pct;
-        return '<span class="ticker-item ' + (tone(chg) === "go" ? "up" : tone(chg) === "stop" ? "down" : "flat") + '"><span class="sym">' + esc(n.symbol) + '</span><span class="px">' + money(n.last) + '</span><span class="chg">' + pct(chg) + "</span></span>";
+        var chgHtml = (chg == null || !isFinite(Number(chg))) ? "" : pct(chg);
+        return '<span class="ticker-item ' + (tone(chg) === "go" ? "up" : tone(chg) === "stop" ? "down" : "flat") + '"><span class="sym">' + esc(n.symbol) + '</span><span class="px">' + money(n.last) + '</span><span class="chg">' + chgHtml + "</span></span>";
       }).join("");
     }
     var html = nextAlertHtml();
@@ -241,6 +243,10 @@
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && overlayOpen) { overlayOpen = false; syncOverlay(); }
+  });
+  window.addEventListener("hashchange", function () {
+    if (typeof hashTab === "function") hashTab();
+    if (typeof paint === "function" && snap) paint();
   });
 
   hashTab();
