@@ -112,33 +112,109 @@ cardsHtml = function () {
   }).join("") + "</div>";
 };
 function eodNote(book, title) {
-  var asof = (book && book.asof) || (snap.truthifi && (snap.truthifi.holdings_asof || snap.truthifi.asof)) || "";
-  return "<p class=\"hint\">" + esc(title) + " is Truthifi EOD " + esc(asof) + ".</p>";
+  var t = snap.truthifi || {};
+  var asof = (book && book.asof) || t.holdings_asof || t.asof || "";
+  var scanned = t.scanned_at || "";
+  return "<p class=\"hint\">" + esc(title) + " is Truthifi EOD " + esc(asof) +
+    (scanned ? " · scanned " + esc(scanned.replace("T", " ").slice(0, 19)) : "") +
+    ". Once a day. No account numbers.</p>";
+}
+function nameStats(names) {
+  var value = 0, cost = 0, pnl = 0, hasCost = false, n = names || [];
+  n.forEach(function (row) {
+    value += Number(row.value) || 0;
+    if (row.cost != null && isFinite(Number(row.cost))) { cost += Number(row.cost); hasCost = true; }
+    if (row.pnl != null && isFinite(Number(row.pnl))) pnl += Number(row.pnl);
+  });
+  if (!hasCost) pnl = null;
+  else if (!n.some(function (row) { return row.pnl != null; })) pnl = value - cost;
+  return { value: rnd(value), cost: rnd(cost), pnl: pnl == null ? null : rnd(pnl), n: n.length, hasCost: hasCost };
+}
+function custodialStateHtml(b, title) {
+  var s = nameStats(b.names);
+  var held = b.equity_value != null ? Number(b.equity_value) : s.value;
+  var pnl = s.pnl;
+  var pnlPct = s.hasCost && s.cost ? (pnl / s.cost) * 100 : null;
+  var t = snap.truthifi || {};
+  return "<h2>Book state · " + esc(title) + "</h2><div class=\"card span\"><div class=\"kpi\">" +
+    "<div><span>Equity</span><b>" + money(b.equity) + "</b></div>" +
+    "<div><span>Holdings</span><b>" + money(held) + "</b></div>" +
+    "<div><span>Cash</span><b>" + money(b.cash) + "</b></div>" +
+    "<div><span>P&L</span><b class=\"tone-" + tone(pnl) + "\">" + (pnl == null ? "—" : money(pnl) + " " + pct(pnlPct)) + "</b></div>" +
+    "</div><p class=\"hint\">Invested " + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "—") +
+    " · " + s.n + " names · Truthifi holdings " + esc(t.holdings_asof || b.asof || "—") +
+    " · scanned " + esc((t.scanned_at || "").replace("T", " ").slice(0, 16) || "—") +
+    ". Once a day. Sleeves by name only.</p></div>";
+}
+function custodialTableHtml(names, totalEq) {
+  names = (names || []).slice().sort(function (a, b) { return (Number(b.value) || 0) - (Number(a.value) || 0); });
+  var total = totalEq || names.reduce(function (s, n) { return s + (Number(n.value) || 0); }, 0) || 1;
+  if (!names.length) return "<div class=\"card\"><p class=\"hint\" style=\"margin:0\">No names on this sleeve. Cash-only or empty.</p></div>";
+  var head = "<tr><th>Name</th><th>Sleeve</th><th>Kind</th><th class=\"num\">Qty</th><th class=\"num\">Avg</th><th class=\"num\">Last</th><th class=\"num\">Value</th><th class=\"num\">Wt</th><th class=\"num\">Cost</th><th class=\"num\">P&L</th></tr>";
+  var rows = names.map(function (n) {
+    var wt = (Number(n.value) || 0) / total * 100;
+    return "<tr><td class=\"name-cell tone-" + tone(n.pnl_pct) + "\"><span class=\"sym\">" + esc(n.symbol) + "</span><span class=\"sub\">" + esc(n.name || "") + "</span></td>" +
+      "<td>" + esc(n.sleeve || "—") + "</td><td>" + esc(n.kind || "equity") + "</td>" +
+      "<td class=\"num\">" + qty(n.qty) + "</td>" +
+      "<td class=\"num\">" + (n.avg == null ? "—" : money(n.avg)) + "</td>" +
+      "<td class=\"num\">" + (n.last == null ? "—" : money(n.last)) + "</td>" +
+      "<td class=\"num\">" + money(n.value) + "</td>" +
+      "<td class=\"num\">" + wt.toFixed(1) + "%</td>" +
+      "<td class=\"num\">" + (n.cost == null ? "—" : money(n.cost)) + "</td>" +
+      "<td class=\"num tone-" + tone(n.pnl) + "\">" + (n.pnl == null ? "—" : money(n.pnl) + " " + pct(n.pnl_pct)) + "</td></tr>";
+  }).join("");
+  return "<div class=\"card book-scroll\"><table class=\"book\"><thead>" + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+}
+function eodTapeHtml(key, title) {
+  var prints = ((snap.tape && snap.tape[key]) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
+  var vals = prints.map(function (p) { return p.equity; });
+  var last = vals.length ? vals[vals.length - 1] : 0;
+  if (!vals.length) vals = [last, last];
+  return "<h2>EOD equity · " + esc(title) + "</h2><div class=\"card tape-card\">" +
+    "<div class=\"tape-kpis\"><div><span>Last EOD</span><b>" + money(last) + "</b></div>" +
+    "<div><span>Prints</span><b>" + prints.length + "</b></div></div>" +
+    "<div class=\"tape-plot\">" + spark(vals) + "</div>" +
+    "<p class=\"hint\">Truthifi once a day. Not the Robinhood live tape. " + prints.length + " close print" + (prints.length === 1 ? "" : "s") + " so far.</p></div>";
+}
+function truthifiMetaHtml() {
+  var t = snap.truthifi || {};
+  return "<h2>Truthifi feed</h2><div class=\"card span\"><div class=\"kpi\">" +
+    "<div><span>Holdings date</span><b>" + esc(t.holdings_asof || t.asof || "—") + "</b></div>" +
+    "<div><span>Scanned</span><b>" + esc((t.scanned_at || "").replace("T", " ").slice(0, 16) || "—") + "</b></div>" +
+    "<div><span>Source</span><b>" + esc(t.source || "Truthifi") + "</b></div>" +
+    "<div><span>EOD prints</span><b>" + (((t.tape && t.tape.overall) || []).length) + "</b></div></div>" +
+    "<p class=\"hint\">" + esc(t.note || "Custodial EOD. Sleeves labeled as Truthifi names. No account numbers.") + "</p></div>";
 }
 function fidelityDeskHtml() {
   var fid = snap.accounts.fidelity || { names: [], equity: 0 };
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
   var sleeves = fid.sleeves || [];
   var mixBook = { books: sleeves, names: fid.names || [], cash: fid.cash || 0 };
-  var html = stateHtml(fid, "Fidelity") + eodNote(fid, "Fidelity");
-  html += tapeHtml("fidelity", "Fidelity", false);
-  html += "<h2>Where it sits \u00b7 Fidelity</h2>" + mixHtml(mixBook, "combined");
-  html += "<h2>Sleeve books</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
-    return "<button type=\"button\" class=\"acct-mini\" data-scroll=\"sleeve-" + esc(s.id) + "\"><div class=\"k\">" + esc(s.label) + "</div><b>" + money(s.equity) + "</b><div class=\"m\">" + (s.names || []).length + " names</div></button>";
+  var html = truthifiMetaHtml() + custodialStateHtml(fid, "Fidelity") + eodNote(fid, "Fidelity");
+  html += eodTapeHtml("fidelity", "Fidelity");
+  html += "<h2>Fidelity accounts · Truthifi sleeves</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
+    var st = nameStats(s.names);
+    var extra = s.names.length ? (s.names.length + " names") : (s.cash > 0.004 ? "cash sweep" : "empty");
+    return "<button type=\"button\" class=\"acct-mini\" data-scroll=\"sleeve-" + esc(s.id) + "\"><div class=\"k\">" + esc(s.label) + "</div><b>" + money(s.equity) + "</b><div class=\"m\">" + extra +
+      (st.pnl != null ? " · P&L " + money(st.pnl) : "") + "</div></button>";
   }).join("") + "</div>";
+  html += "<p class=\"hint\">BNY, PER, Roth, Trad, ESPP, RSU as Truthifi labels them. Totals and holdings only.</p>";
+  html += "<h2>Where it sits · Fidelity</h2>" + mixHtml(mixBook, "combined");
+  html += "<h2>All Fidelity names</h2>" + custodialTableHtml(fid.names, fid.equity);
   sleeves.forEach(function (s) {
-    html += "<h2 id=\"sleeve-" + esc(s.id) + "\">Sleeve \u00b7 " + esc(s.label) + "</h2>";
-    html += stateHtml(s, s.label);
-    html += "<h2>Where it sits \u00b7 " + esc(s.label) + "</h2>" + mixHtml(s, s.id);
-    html += "<h2>Book \u00b7 " + esc(s.label) + "</h2>" + tableHtml(s.names, false, false);
+    html += "<h2 id=\"sleeve-" + esc(s.id) + "\">Account · " + esc(s.label) + "</h2>";
+    html += custodialStateHtml(s, "Fidelity · " + s.label);
+    html += "<h2>Where it sits · " + esc(s.label) + "</h2>" + mixHtml(s, s.id);
+    html += "<h2>Holdings · " + esc(s.label) + "</h2>" + custodialTableHtml(s.names, s.equity);
   });
   return html;
 }
 function voyaDeskHtml() {
   var voya = snap.accounts.voya || { names: [], equity: 0 };
-  return stateHtml(voya, "Voya") + eodNote(voya, "Voya") + tapeHtml("voya", "Voya", false) +
-    "<h2>Where it sits \u00b7 Voya</h2>" + mixHtml(voya, "voya") +
-    "<h2>Book \u00b7 Voya</h2>" + tableHtml(voya.names, false, false);
+  return truthifiMetaHtml() + custodialStateHtml(voya, "Voya 401(k)") + eodNote(voya, "Voya") +
+    eodTapeHtml("voya", "Voya") +
+    "<h2>Where it sits · Voya</h2>" + mixHtml(voya, "voya") +
+    "<h2>Holdings · Voya</h2>" + custodialTableHtml(voya.names, voya.equity);
 }
 function overallCardHtml() {
   var c = snap.combined || {};
