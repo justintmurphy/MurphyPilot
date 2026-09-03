@@ -1,13 +1,16 @@
 (function(){
   var JOBS = [
-    {t:"21:00", days:[0,1,2,3,4], name:"Policy Pack Evening", role:"No trading. White House, states, 21-day calendar."},
-    {t:"06:30", days:[1,2,3,4,5], name:"Policy Pack AM Refresh", role:"No trading. Overnight delta only."},
-    {t:"09:45", days:[1,2,3,4,5], name:"Autopilot AM", role:"Deploy + write book-state card."},
-    {t:"10:15", days:[1,2,3,4,5], name:"Watch AM", role:"Health only."},
-    {t:"11:45", days:[1,2,3,4,5], name:"Eyes", role:"Risk-first. Quiet if ≥80% invested."},
-    {t:"13:45", days:[1,2,3,4,5], name:"Eyes", role:"Risk-first. Quiet if ≥80% invested."},
-    {t:"15:05", days:[1,2,3,4,5], name:"Autopilot PM", role:"Last redeploy."},
-    {t:"15:20", days:[1,2,3,4,5], name:"Watch PM", role:"Health only."}
+    {t:"06:30", days:[1,2,3,4,5], name:"Policy Pack", who:"Agentic", role:"Full pack. World + WH. No trading."},
+    {t:"09:30", days:[1], name:"Desk UX", who:"Agentic", role:"Weekly phone-desk pass."},
+    {t:"09:50", days:[1,2,3,4,5], name:"Autopilot AM", who:"Agentic", role:"Name pick. Emails Grok to place."},
+    {t:"10:00", days:[1], name:"Scorecard", who:"Agentic", role:"Weekly process KEEP/CHANGE."},
+    {t:"10:00", days:[1,2,3,4,5], name:"Snapshot", who:"Grok", role:"Book dump + mechanical stops."},
+    {t:"11:50", days:[1,2,3,4,5], name:"Eyes", who:"Agentic", role:"Risk-first pick. Quiet if ≥80% in."},
+    {t:"13:50", days:[1,2,3,4,5], name:"Eyes", who:"Agentic", role:"Risk-first pick. Quiet if ≥80% in."},
+    {t:"14:50", days:[1,2,3,4,5], name:"Autopilot PM", who:"Agentic", role:"Last same-day pick."},
+    {t:"15:00", days:[1,2,3,4,5], name:"Snapshot", who:"Grok", role:"Book dump + mechanical stops."},
+    {t:"16:00", days:[1,2,3,4,5], name:"Truthifi", who:"Grok", role:"Custodial close. Not Agentic trading."},
+    {t:"on SELL", days:[], name:"Process review", who:"Agentic", role:"KEEP/CHANGE on the next pick."}
   ];
   var CAL = [
     ["2026-09-01","JOLTS; beef TRQ first tranche"],
@@ -36,7 +39,8 @@
     function consider(off){
       JOBS.forEach(function(j){
         var d=(day+off)%7;
-        if(j.days.indexOf(d)<0) return;
+        if(!j.days||!j.days.length||j.days.indexOf(d)<0) return;
+        if(!/^\d{2}:\d{2}$/.test(j.t)) return;
         var p=j.t.split(":"), mins=+p[0]*60+(+p[1]);
         if(off===0 && mins<=cur) return;
         if(!pick){ pick=j; when=mins+(off*24*60)-cur; }
@@ -45,7 +49,7 @@
     consider(0); if(!pick) consider(1); if(!pick) consider(2);
     if(!pick) return;
     setText("nextName", pick.t+"  "+pick.name);
-    setText("nextRole", pick.role);
+    setText("nextRole", (pick.who?pick.who+" · ":"")+pick.role);
     var h=Math.floor(when/60), m=when%60;
     var eta=document.getElementById("nextEta");
     if(eta){ eta.textContent = h+"h "+pad(m)+"m"; eta.className="eta "+(when<=15?"heat-hot":when<=60?"heat-soon":when<=180?"heat-hour":"heat-ok"); }
@@ -56,7 +60,7 @@
       tb.dataset.done="1";
       JOBS.forEach(function(j){
         var tr=document.createElement("tr");
-        tr.innerHTML="<td>"+j.t+"</td><td>"+j.name+"</td><td>"+j.role+"</td>";
+        tr.innerHTML="<td>"+((j.days&&j.days.length===1)?["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][j.days[0]]+" "+j.t:j.t)+"</td><td>"+j.name+"</td><td>"+(j.who||"")+"</td><td>"+j.role+"</td>";
         tb.appendChild(tr);
       });
     }
