@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Murphy Pilot Setup Guide v5.0</title>
+<title>Murphy Pilot Setup Guide v5.1</title>
 <meta name="theme-color" content="#1B3A2F">
 <script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
 <link rel="stylesheet" href="site.css">
@@ -22,7 +22,7 @@
       </a>
       <a class="brand-block" id="navBrand" href="Murphy_Pilot_Desk.html">
         <div class="brand">MURPHY PILOT</div>
-        <div class="sub">SETUP GUIDE v5.0</div>
+        <div class="sub">SETUP GUIDE v5.1</div>
       </a>
       
       <nav aria-label="Official docs">
@@ -43,10 +43,10 @@
     </header>
 
 <main class="doc-main">
-  <article class="card manual doc-article" aria-label="Murphy Pilot Setup Guide v5.0">
-<p class="lede">Murphy Pilot · Instructions · 31 August 2026. How to stand Murphy Pilot up on Agentic and how to read the live job roster. Product labels on Robinhood and Grok change — confirm the live screens. Pairs with Operating Manual v7.0.</p>
+  <article class="card manual doc-article" aria-label="Murphy Pilot Setup Guide v5.1">
+<p class="lede">Murphy Pilot · Instructions · 3 September 2026. How to stand Murphy Pilot up on Agentic and how to read the live job roster. Product labels on Robinhood and Grok change — confirm the live screens. Pairs with Operating Manual v7.1.</p>
       <h3>1. What you are turning on</h3>
-      <p>Murphy Pilot is Grok running unattended in the Robinhood account labeled Agentic. The Operating Manual v7.0 is the rule book. This guide is the wiring. No per-trade approval. No money leaves Agentic for another account.</p>
+      <p>Murphy Pilot is unattended Agentic trading. Agentic Trading (Grok Bot) is the brain: packs, research, name picks, process review. Grok.com is the hands: Robinhood snapshot, mechanical stops, and <code>Agentic order:</code> execution. The Operating Manual v7.1 is the rule book. This guide is the wiring. No per-trade approval. The owner watches the MurphyPilot desk. No money leaves Agentic for another account.</p>
       <h3>2. Robinhood</h3>
       <ul>
         <li>Confirm a primary individual account exists and is unrestricted. Agentic is a separate labeled book under that household, not a second login.</li>
@@ -69,15 +69,16 @@
       <table>
         <thead><tr><th>Time</th><th>Name</th><th>Must include in the prompt</th></tr></thead>
         <tbody>
-          <tr><td>21:00 Sun–Thu</td><td>Policy Pack Evening</td><td>NO TRADING. whitehouse.gov last 7 days. NCSL + official state sites for live bills. 21-day official calendar (FOMC, BLS, BEA, EIA, NYSE hours, dated EOs, OPEC.org, official elections). Two-source wire rule. Subject Agentic policy pack: YYYY-MM-DD. Official titles must include URLs.</td></tr>
-          <tr><td>06:30 weekdays</td><td>Policy Pack AM Refresh</td><td>NO TRADING. Delta only vs last pack. Silent if nothing new. New items include official URLs.</td></tr>
-          <tr><td>09:45 weekdays</td><td>Autopilot AM</td><td>Agentic only. Skip per-trade review. Fail closed. Deploy job. Slots. Pack bounce. Write Agentic book state: YYYY-MM-DD. Trade email on fills.</td></tr>
-          <tr><td>10:15 weekdays</td><td>Connector Watch AM</td><td>HEALTH ONLY. Fault mail. Empty-book fault if ≥ $40 BP and no positions/orders.</td></tr>
-          <tr><td>11:45 weekdays</td><td>Eyes</td><td>Risk-first. Quiet-after-deploy using today’s book-state card. Pack bounce before any buy.</td></tr>
-          <tr><td>13:45 weekdays</td><td>Eyes</td><td>Same as 11:45.</td></tr>
-          <tr><td>15:05 weekdays</td><td>Autopilot PM</td><td>Last redeploy. Risk first. Pack bounce. Trade email on fills.</td></tr>
-          <tr><td>15:20 weekdays</td><td>Connector Watch PM</td><td>HEALTH ONLY. No AM empty-book fault.</td></tr>
-          <tr><td>On each SELL fill</td><td>Process Review after SELL</td><td>NO TRADING. Gmail trigger: subject contains Agentic trade: SELL. Reconstruct that exit. Score process. Exactly 3 KEEP and 3 CHANGE, each with why. Friday 17:00 schedule is paused.</td></tr>
+          <tr><td>21:00 Sun–Thu</td><td>Policy Pack Evening</td><td>NO TRADING. Agent: Agentic Trading. White House, states, 21-day calendar, world-event concepts. Subject Agentic policy pack: YYYY-MM-DD. Push house/policy-pack.json.</td></tr>
+          <tr><td>06:30 weekdays</td><td>Policy Pack AM Refresh</td><td>NO TRADING. Delta vs last pack including overnight world events. Silent if nothing new.</td></tr>
+          <tr><td>09:50 weekdays</td><td>Autopilot research</td><td>Agent: Agentic Trading. Pick under v7.1. Email Agentic order: BUY/SELL. On 2026-09-04 this job stays silent (clean-slate sells at 10:50).</td></tr>
+          <tr><td>10:00 and 15:00 weekdays</td><td>Snapshot watchdog</td><td>Email Agentic fn: snapshot. Grok dumps Agentic and runs mechanical stops. No name picking. Skip 2026-09-04 before 10:47 ET.</td></tr>
+          <tr><td>11:50 weekdays</td><td>Eyes research</td><td>Agent: Agentic Trading. Quiet if ≥80% invested and no stop/stall due.</td></tr>
+          <tr><td>13:50 weekdays</td><td>Eyes research</td><td>Same as 11:50.</td></tr>
+          <tr><td>14:50 weekdays</td><td>Autopilot PM research</td><td>Last redeploy pick so Grok can still exec the same day.</td></tr>
+          <tr><td>16:00 weekdays</td><td>Truthifi close</td><td>Grok. Custodial EOD. Not Agentic trading.</td></tr>
+          <tr><td>On each SELL fill</td><td>Process Review after SELL</td><td>NO TRADING. Picker’s scorecard. 3 KEEP / 3 CHANGE applied on the next pick. Owner does not adjudicate.</td></tr>
+          <tr><td>Gmail, anytime</td><td>Agentic fn: snapshot / house / Agentic order:</td><td>Grok.com email callables. Hands only.</td></tr>
         </tbody>
       </table>
       <h3>5. Required lines in every trading prompt</h3>
@@ -92,17 +93,17 @@
         <li>Stall ladder per symbol, never portfolio: days 0–1 none; day 2 +5% from that name’s cost; later +4% from that name’s actual survive-mark each 2 business days.</li>
         <li>HWM −20% freeze new buys, then TIGHT −10%. Restore NORMAL at +10% above trip.</li>
         <li>No fourth same-name day-trade in five business days.</li>
-        <li>Bounce buys off the latest Agentic policy pack. Two-source rule for wires. X never a corroborator.</li>
+        <li>Bounce buys off the latest Agentic policy pack and world events. Two-source rule for wires. X never a corroborator. 2-session +5% must sit in the body of recent ATR. Stagger slots. Skip NFP/CPI/FOMC deploys unless that print is the concept.</li>
       </ul>
       <h3>6. First-day sequence after a rebuild</h3>
       <ul>
         <li>Confirm Agentic is readable and funded. Limited margin on.</li>
         <li>Run Policy Pack Evening once (or wait for 21:00). Confirm an Agentic policy pack email arrived.</li>
-        <li>Next regular session: 09:45 AM deploys if the book is empty and writes the book-state card.</li>
+        <li>Next regular session after SuperGrok is available: snapshot watchdog pings Grok; Autopilot research emails Agentic order: if a slot is free.</li>
         <li>10:15 watch should stay quiet if AM deployed. If it mails empty-book fault, AM missed — treat as a process fail.</li>
-        <li>11:45 / 13:45 should stay quiet if the card shows ≥80% invested and no stop or stall is due.</li>
+        <li>11:50 / 13:50 should stay quiet if the snapshot shows ≥80% invested and no stop or stall is due.</li>
         <li>15:05 is the last chance to use idle cash that day.</li>
-        <li>Do not expect a book-state card on a day whose 09:45 already ran before the card rule was added. The next AM writes the first card.</li>
+        <li>Watch the desk at https://justintmurphy.github.io/MurphyPilot/ — asof and tape, not this chat.</li>
       </ul>
       <h3>7. Verify</h3>
       <ul>
@@ -111,14 +112,14 @@
         <li>Jobs enabled, timezone America/New_York, notification OFF.</li>
         <li>First Always-allow tap for place and cancel completed.</li>
         <li>Latest pack email exists and has sections A–F, including a coming-weeks calendar.</li>
-        <li>Process Review after SELL is active with a Gmail trigger on Agentic trade: SELL. The old Friday 17:00 schedule is paused.</li>
+        <li>Process Review after SELL polls Gmail for Agentic trade: SELL. KEEP/CHANGE is the picker’s scorecard.</li>
         <li>Desk logo opens the board. Operating Manual and Setup Guide open from Official docs on the desk. PDF copies download from those pages.</li>
       </ul>
       <h3>8. Halt</h3>
-      <p>Disconnect the agent on Agentic, or pause/delete the Murphy Pilot automations. Stop depositing. The agent cannot pull the primary account.</p>
+      <p>Disconnect the agent on Agentic, pause Agentic Trading routines, and pause grok.com email callables. Stop depositing. The agent cannot pull the primary account.</p>
       <p class="lede">Sources for screens: Robinhood Agentic Trading overview; Trading with your agent; xAI Grok connectors. AI agents can misread markets or fail to run. The owner owns every fill and can lose the entire Agentic balance.</p>
       <h3>9. Document control</h3>
-      <p>This Setup Guide v5.0 pairs with Operating Manual v7.0, both dated 31 August 2026. Together they replace Setup Guide v4.0 and Operating Manual v6.0. The live job text remains the executable source if a line here and a prompt ever drift.</p>
+      <p>This Setup Guide v5.1 pairs with Operating Manual v7.0, both dated 31 August 2026. Together they replace Setup Guide v4.0 and Operating Manual v6.0. The live job text remains the executable source if a line here and a prompt ever drift.</p>
 
   </article>
 </main>
@@ -181,7 +182,7 @@
       var frame = document.getElementById("docFrame");
       if (!ov || !frame) return;
       if (e) e.preventDefault();
-      var title = view === "manual" ? "Operating Manual v7.0" : "Setup Guide v5.0";
+      var title = view === "manual" ? "Operating Manual v7.0" : "Setup Guide v5.1";
       var t = document.getElementById("docTitle");
       if (t) t.textContent = title;
       ov.hidden = false;

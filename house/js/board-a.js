@@ -8,14 +8,15 @@
   var LABEL = { agentic: "Agentic", individual: "Individual", auto_grok: "Auto-Grok", joint: "Joint", combined: "House" };
   var IDS = ["agentic", "individual", "auto_grok", "joint"];
   var JOBS = [
-    { t: "21:00", days: [0, 1, 2, 3, 4], name: "Policy Pack Evening", role: "No trading." },
+    { t: "21:00", days: [0, 1, 2, 3, 4], name: "Policy Pack Evening", role: "No trading. World events + WH." },
     { t: "06:30", days: [1, 2, 3, 4, 5], name: "Policy Pack AM", role: "Overnight delta only." },
-    { t: "09:45", days: [1, 2, 3, 4, 5], name: "Autopilot AM", role: "Deploy + book-state." },
-    { t: "10:15", days: [1, 2, 3, 4, 5], name: "Watch AM", role: "Health only." },
-    { t: "11:45", days: [1, 2, 3, 4, 5], name: "Eyes", role: "Risk-first." },
-    { t: "13:45", days: [1, 2, 3, 4, 5], name: "Eyes", role: "Risk-first." },
-    { t: "15:05", days: [1, 2, 3, 4, 5], name: "Autopilot PM", role: "Last redeploy." },
-    { t: "15:20", days: [1, 2, 3, 4, 5], name: "Watch PM", role: "Health only." }
+    { t: "09:50", days: [1, 2, 3, 4, 5], name: "Autopilot research", role: "Name pick. Grok exec." },
+    { t: "10:00", days: [1, 2, 3, 4, 5], name: "Snapshot", role: "Stops only." },
+    { t: "11:50", days: [1, 2, 3, 4, 5], name: "Eyes", role: "Risk-first pick." },
+    { t: "13:50", days: [1, 2, 3, 4, 5], name: "Eyes", role: "Risk-first pick." },
+    { t: "14:50", days: [1, 2, 3, 4, 5], name: "Autopilot PM", role: "Last redeploy pick." },
+    { t: "15:00", days: [1, 2, 3, 4, 5], name: "Snapshot", role: "Stops only." },
+    { t: "16:00", days: [1, 2, 3, 4, 5], name: "Truthifi", role: "Close scan." }
   ];
   var CAL = [
     ["2026-09-01", "JOLTS; beef TRQ first tranche"],

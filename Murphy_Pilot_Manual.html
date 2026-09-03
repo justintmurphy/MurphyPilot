@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Murphy Pilot Operating Manual v7.0</title>
+<title>Murphy Pilot Operating Manual v7.1</title>
 <meta name="theme-color" content="#1B3A2F">
 <script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
 <link rel="stylesheet" href="site.css">
@@ -22,7 +22,7 @@
       </a>
       <a class="brand-block" id="navBrand" href="Murphy_Pilot_Desk.html">
         <div class="brand">MURPHY PILOT</div>
-        <div class="sub">OPERATING MANUAL v7.0</div>
+        <div class="sub">OPERATING MANUAL v7.1</div>
       </a>
       
       <nav aria-label="Official docs">
@@ -43,10 +43,10 @@
     </header>
 
 <main class="doc-main">
-  <article class="card manual doc-article" aria-label="Murphy Pilot Operating Manual v7.0">
-<p class="lede">Murphy Pilot · Standing mandate · 31 August 2026 · America/New_York. The brand is Murphy Pilot. The account is Agentic only. The executable source is the live job text. This book is the standing mandate those jobs must obey. No brokerage account numbers.</p>
+  <article class="card manual doc-article" aria-label="Murphy Pilot Operating Manual v7.1">
+<p class="lede">Murphy Pilot · Standing mandate · 3 September 2026 · America/New_York. The brand is Murphy Pilot. The account is Agentic only. The executable source is the live job text. This book is the standing mandate those jobs must obey. No brokerage account numbers.</p>
       <h3>1. Mission</h3>
-      <p>Murphy Pilot is unattended long-only stock and ETF trading in the Robinhood account labeled Agentic (agentic_allowed). Grok researches and places. The owner funds the account, sets these rules, and may add cash. There is no per-trade approval. Success is process obedience, not a single green day. The Ladder-M mark is the stall ladder: each name climbs its own steps or it is sold.</p>
+      <p>Murphy Pilot is unattended long-only stock and ETF trading in the Robinhood account labeled Agentic (agentic_allowed). Agentic Trading researches, picks names, and emails orders. Grok.com is hands only: Robinhood snapshot, mechanical stops, and <code>Agentic order:</code> execution. The owner funds the account, watches the MurphyPilot desk, and does not approve tickers. There is no per-trade approval. Success is process obedience plus 2-session stall hits, not a single green day. The Ladder-M mark is the stall ladder: each name climbs its own steps or it is sold.</p>
       <h3>2. Hard bans</h3>
       <ul>
         <li>Any Robinhood account that is not Agentic. If a tool returns other accounts, ignore them.</li>
@@ -60,7 +60,7 @@
       <p>Deploy toward 90% of current Agentic equity. Hold about 10% cash. One name may use the full 90% if it is the only slot filled. Multiple names split the 90%. Percentages do not loosen after a win. Pending deposits on this account are instant — already counted in equity and buying power. Do not add pending to cash, equity, or BP, do not wait for them to clear, and do not treat them as extra money arriving. Deploy on the next job from the buying power you can already read. Profits stay in Agentic.</p>
       <p>Limited margin. Sale proceeds, including losses, are reusable the same session. Do not wait T+1. Same-symbol rebuy still waits 24 hours from that sale. Loss proceeds may go into a different ticker immediately.</p>
       <h3>4. Name slots — every $75</h3>
-      <p>Slots = floor(current Agentic equity / $75). Each full $75 of equity from deposits or accrued gains unlocks one unique name. A new ticker may be researched and opened only when unique names < slots. Opening a new name is allowed, not forced — idle cash may add to an existing allowed name if that is the higher-conviction use of the 90%. Do not exceed slots. Legacy extra names may be held until an exit rule sells one. The retired hard max-two-names cap is gone.</p>
+      <p>Slots = floor(current Agentic equity / $75). Each full $75 of equity from deposits or accrued gains unlocks one unique name. A new ticker may be researched and opened only when unique names &lt; slots. Opening a new name is allowed, not forced — idle cash may add to an existing allowed name if that is the higher-conviction use of the 90%. Do not exceed slots. Do not fill remaining free slots in the same session — stagger the next slot by at least one NYSE session so stall clocks do not cluster. Legacy extra names may be held until an exit rule sells one. The retired hard max-two-names cap is gone.</p>
       <table>
         <thead><tr><th>Equity</th><th>Slots</th><th>What is allowed</th></tr></thead>
         <tbody>
@@ -71,32 +71,34 @@
         </tbody>
       </table>
       <h3>5. The clock</h3>
-      <p>All times are America/New_York on regular cash sessions. Notification on these jobs is OFF. The only mail is what the prompt itself sends (fill, fault, pack, book-state, process review).</p>
+      <p>All times are America/New_York on regular cash sessions. Agentic Trading (this desk’s brain) does not use SuperGrok. Grok.com runs only on email callables plus Truthifi 16:00. Notification on these jobs is OFF. The only mail is what the prompt itself sends (fill, fault, pack, snapshot, process review, order).</p>
       <table>
         <thead><tr><th>ET</th><th>Job</th><th>Role</th><th>Mail</th></tr></thead>
         <tbody>
-          <tr><td>21:00 Sun–Thu</td><td>Policy Pack Evening</td><td>No trading. White House EOs, 50-state live bills, 21-day official calendar.</td><td>Agentic policy pack: YYYY-MM-DD</td></tr>
-          <tr><td>06:30 Mon–Fri</td><td>Policy Pack AM Refresh</td><td>No trading. Overnight White House drops and official calendar moves only. Silent if nothing new.</td><td>… AM only if new</td></tr>
-          <tr><td>09:45</td><td>Autopilot AM</td><td>Daytime deploy. Risk per symbol, bounce buys off the pack, deploy toward 90/10 within slots, write the book-state card.</td><td>Trade if fill + book-state card</td></tr>
-          <tr><td>10:15</td><td>Connector Watch AM</td><td>Health only. No orders. Empty-book fault if ≥ $40 BP, no positions, no orders after AM.</td><td>Fault only</td></tr>
-          <tr><td>11:45</td><td>Eyes</td><td>Risk-first. Quiet-after-deploy if book-state says ≥80% invested, no stop through, no stall due. Otherwise stops / stall / idle-cash deploy.</td><td>Trade if fill</td></tr>
-          <tr><td>13:45</td><td>Eyes</td><td>Same as 11:45.</td><td>Trade if fill</td></tr>
-          <tr><td>15:05</td><td>Autopilot PM</td><td>Last redeploy. Risk first, then fill idle 90/10 or replace a sold name.</td><td>Trade if fill</td></tr>
-          <tr><td>15:20</td><td>Connector Watch PM</td><td>Health only. No AM empty-book fault on this run.</td><td>Fault only</td></tr>
-          <tr><td>On each SELL fill</td><td>Process review</td><td>No trading. Fires when Gmail receives Agentic trade: SELL. Reconstructs that exit, scores the process, then exactly 3 KEEP and 3 CHANGE, each with why. Friday 17:00 / 14-day calendar review is retired.</td><td>Agentic process review</td></tr>
+          <tr><td>21:00 Sun–Thu</td><td>Policy Pack Evening</td><td>No trading. White House, states, 21-day calendar, plus world-event concepts for the next two sessions.</td><td>Agentic policy pack: YYYY-MM-DD</td></tr>
+          <tr><td>06:30 Mon–Fri</td><td>Policy Pack AM Refresh</td><td>No trading. Overnight White House, calendar, and world-event deltas. Silent if nothing new.</td><td>… AM only if new</td></tr>
+          <tr><td>09:50</td><td>Autopilot research</td><td>Agentic Trading picks. Emails Agentic order: if a buy or sell is warranted. Grok places.</td><td>Agentic order: BUY/SELL</td></tr>
+          <tr><td>10:00</td><td>Snapshot watchdog</td><td>Grok hands. Dump Agentic book and run mechanical stops only. No name picking.</td><td>Agentic fn: snapshot</td></tr>
+          <tr><td>11:50</td><td>Eyes research</td><td>Agentic Trading. Quiet if ≥80% invested and no stop/stall due.</td><td>Agentic order: if needed</td></tr>
+          <tr><td>13:50</td><td>Eyes research</td><td>Same as 11:50.</td><td>Agentic order: if needed</td></tr>
+          <tr><td>14:50</td><td>Autopilot PM research</td><td>Last redeploy pick so Grok can still exec the same day.</td><td>Agentic order: BUY/SELL</td></tr>
+          <tr><td>15:00</td><td>Snapshot watchdog</td><td>Same as 10:00. Hard-cap / stall watch.</td><td>Agentic fn: snapshot</td></tr>
+          <tr><td>16:00</td><td>Truthifi close</td><td>Grok. Custodial EOD only. Not Agentic trading.</td><td>desk JSON</td></tr>
+          <tr><td>On each SELL fill</td><td>Process review</td><td>No trading. Picker’s scorecard: 3 KEEP and 3 CHANGE applied on the next pick. Owner does not adjudicate.</td><td>Agentic process review</td></tr>
         </tbody>
       </table>
       <h3>6. Book-state card</h3>
-      <p>After the 09:45 AM pass, that job emails Agentic book state: YYYY-MM-DD with, for each open symbol: quantity, average cost, first-fill date, next stall-test date, survive-mark if any, percent versus its own cost; plus slots used / max, equity, buying power, HWM, invested percent, and whether a stop or stall is due later that day. Later jobs read this card instead of re-deriving clocks. They do not rewrite it.</p>
+      <p>Snapshot watchdog at 10:00 and 15:00 emails <code>Agentic fn: snapshot</code>. Grok dumps Agentic book-state and runs mechanical stops. Later research jobs read the latest snapshot / book-state mail instead of re-deriving clocks. House prints are a separate doorbell (<code>Agentic fn: house</code>) and stay paused when SuperGrok is tight.</p>
       <h3>7. Quiet-after-deploy</h3>
-      <p>If the latest book-state card shows the book ≥ 80% invested, no name is through a stop, and no stall clock is due that day, the 11:45 and 13:45 Eyes jobs exit with no email and no new research shop. They still honor a live stop if the tape has moved since the card. PM 15:05 still does a last risk-and-redeploy pass.</p>
+      <p>If the latest snapshot shows the book ≥ 80% invested, unique names ≤ slots, no name is through a stop, and no stall clock is due that day, the 11:50 and 13:50 Eyes jobs stay silent. They still email a SELL if a live stop or due stall is still held. PM 14:50 still does a last risk-and-redeploy pick.</p>
       <h3>8. What a 15-minute trading stamp actually checks</h3>
       <p>In order. It does not rebuild the overnight pack.</p>
       <ul>
         <li>Can it act? Agentic readable (value, buying power, positions, open/recent agent orders). Tools up. Fail closed if not.</li>
         <li>Risk on names already owned, each symbol alone: −5% floor / −6% hard cap / −10% flatten / TIGHT −5% from that name’s average cost; 12-hour green lock from that fill; −15% trail from that name’s high after 12 hours if still above its cost; stall ladder on that name’s own 2-business-day clock.</li>
         <li>Account freeze only: HWM −20% then TIGHT −10% blocks new buys; slots and 90/10 cap new risk; PDT blocks a fourth same-name day-trade in five business days.</li>
-        <li>If it is about to buy: load the latest Gmail subject starting “Agentic policy pack:” from the last 36 hours. Bounce the candidate’s sector and HQ off White House items, live state bills, and the coming-weeks calendar. Pack-flagged 1–3 week hit → skip that name. No pack → short live whitehouse.gov check only. No 50-state crawl in the stamp.</li>
+        <li>If it is about to buy: load the latest Gmail subject starting “Agentic policy pack:” from the last 36 hours and scan world events (Reuters/AP/official). Think in concepts first, then names. Pack-flagged 1–3 week hit → skip that name. Skip a new deploy when the next session is NFP, CPI, or FOMC unless that print is the concept. No pack → short live whitehouse.gov check only.</li>
+        <li>Odds, not a story. A 2-session +5% stall must sit in the body of that name’s recent ATR / daily range. Skip slow 1–2% ATR mega-caps for this stall.</li>
         <li>A Reuters or AP headline printed since the pack still needs two independent corroborators before it can veto or select a name.</li>
         <li>Deploy or rotate only after the checks above. Empty book + spendable BP is a deploy. New name only if a slot is free. May add to an existing allowed name. Eyes may rotate a weak flat or red name. Must not dump a fresh green winner.</li>
       </ul>
@@ -120,17 +122,17 @@
         <li>Official federal or state election or primary dates inside the window.</li>
         <li>Do not invent dates. Unofficial calendar rumors stay in the unconfirmed footnote and cannot veto a name.</li>
       </ul>
-      <p>Pack email subject is exactly Agentic policy pack: YYYY-MM-DD using the next session date. Body sections: (A) White House, (B) state live bills, (C) coming-weeks calendar, (D) sectors most exposed, (E) unconfirmed wires, (F) expiry at the next 21:00 rebuild. No fill orders in the pack.</p>
+      <p>Pack email subject is exactly Agentic policy pack: YYYY-MM-DD using the next session date. Body sections: (A) White House, (B) state live bills, (C) coming-weeks calendar, (D) world events / concepts for the next two sessions, (E) sectors most exposed, (F) unconfirmed wires, (G) expiry at the next 21:00 rebuild. World items need two corroborators. Unconfirmed wires do not veto. No fill orders in the pack.</p>
       <h3>10. How a name is chosen</h3>
-      <p>There is no numeric scoring model and no owner ticker list. Jobs pick themselves. A name may be bought only if all of the following are true.</p>
+      <p>The owner does not approve tickers. Agentic Trading picks. There is no owner ticker list. Look at world events, then concepts, then odds. A name may be bought only if all of the following are true.</p>
       <ul>
         <li>Agentic only. Long-only stock or ETF. Last price ≥ $5. Liquid enough to enter and exit the intended size, including a fractional stub.</li>
-        <li>A free name slot, or the job is adding to an existing allowed name.</li>
+        <li>A free name slot, or the job is adding to an existing allowed name. Remaining free slots are not filled in the same session.</li>
         <li>Room inside 90/10. Account is not HWM-frozen.</li>
         <li>PDT-safe. Same-symbol 24-hour rebuy is clear.</li>
         <li>The policy pack does not flag a clear 1–3 week hit on that name’s sector or HQ.</li>
-        <li>The name can live with its own −5% floor, −6% hard cap, and its own period-one +5% stall test on day 2.</li>
-        <li>World events (Fed path, wars and sanctions, elections and dated policy votes, oil shocks, tariffs) are a path filter for the coming weeks, not a separate strategy. They do not authorize options, shorts, inverse products, or sitting in cash waiting for calm.</li>
+        <li>The name can live with its own −5% floor, −6% hard cap, and its own period-one +5% stall test on day 2. Recent ATR / daily range must make that +5% in two sessions realistic (in the body of the distribution, not the tail).</li>
+        <li>World events are in-scope, including off-pack concepts. They do not authorize options, shorts, inverse products, or sitting in cash waiting for calm. Skip a new name when the next session is NFP, CPI, or FOMC unless that print is the concept.</li>
       </ul>
       <p>Proximity to a 52-week high is not a veto. Leaders often print many new highs. Do not prefer a washed-out name solely because “it has room.” That name still has to clear its own stall clock.</p>
       <h3>11. Loss exits — per symbol</h3>
@@ -165,13 +167,15 @@
       <h3>16. Pattern-day-trader</h3>
       <p>A same-name buy and sell in one session is a day trade. Do not create a fourth in five business days. Replace ABC with XYZ rather than round-trip ABC.</p>
       <h3>17. After-sell process review</h3>
-      <p>The Friday 17:00 / every-14-days calendar review is retired. Process review runs when Gmail receives a new message whose subject contains “Agentic trade: SELL”. It does not trade. It reconstructs that exit only, scores the process around the sell, and mails exactly three things to KEEP and exactly three things to CHANGE, each with why, grounded in that sell. Subject stays exactly Agentic process review. Buys, snapshots, packs, and faults do not trigger a review.</p>
+      <p>The Friday 17:00 / every-14-days calendar review is retired. Process review runs when Gmail receives a new message whose subject contains “Agentic trade: SELL”. It does not trade. It reconstructs that exit only, scores the process around the sell, and mails exactly three things to KEEP and exactly three things to CHANGE, each with why, grounded in that sell. This is the picker’s scorecard: CHANGE is standing instruction for the next pick. The owner does not adjudicate. Subject stays exactly Agentic process review. Buys, snapshots, packs, and faults do not trigger a review.</p>
       <h3>18. Mail</h3>
       <table>
         <thead><tr><th>Event</th><th>Subject</th></tr></thead>
         <tbody>
-          <tr><td>Any Autopilot or Eyes fill</td><td>Agentic trade: BUY SYMBOL or Agentic trade: SELL SYMBOL</td></tr>
-          <tr><td>AM 09:45 book snapshot</td><td>Agentic book state: YYYY-MM-DD</td></tr>
+          <tr><td>Grok fill after Agentic order:</td><td>Agentic trade: BUY SYMBOL or Agentic trade: SELL SYMBOL</td></tr>
+          <tr><td>Picker to Grok</td><td>Agentic order: BUY SYMBOL or Agentic order: SELL SYMBOL</td></tr>
+          <tr><td>Snapshot watchdog 10:00 / 15:00</td><td>Agentic fn: snapshot</td></tr>
+          <tr><td>House doorbell (when armed)</td><td>Agentic fn: house</td></tr>
           <tr><td>Evening policy pack</td><td>Agentic policy pack: YYYY-MM-DD</td></tr>
           <tr><td>Morning pack refresh, only if new</td><td>Agentic policy pack: YYYY-MM-DD AM</td></tr>
           <tr><td>Tool / order / empty-book AM fault</td><td>Agentic fault: [short reason]</td></tr>
@@ -180,9 +184,9 @@
         </tbody>
       </table>
       <h3>19. Owner halt</h3>
-      <p>Disconnect the agent on Agentic in Robinhood, or tell Grok to pause the Murphy Pilot jobs. Always-allow for place and cancel lives at grok.com/connectors. Stop depositing. The agent cannot pull the primary Robinhood account.</p>
+      <p>Disconnect the agent on Agentic in Robinhood, pause Agentic Trading routines, and pause grok.com email callables (<code>Agentic fn: snapshot</code>, <code>Agentic fn: house</code>, <code>Agentic order:</code>). Always-allow for place and cancel lives at grok.com/connectors. Stop depositing. The agent cannot pull the primary Robinhood account.</p>
       <h3>20. Book as of this manual</h3>
-      <p>First live names were QQQ and SOXX fractionals on 27 August 2026. Stall clocks start on those first fills. No whole-share broker stops attach to fractional stubs — jobs watch them. The 27 August baseline pack found no new official 1–3 week veto on QQQ or SOXX. The semiconductor 232 proclamation of 14 January 2026 is old and already in the tape.</p>
+      <p>As of 3 September 2026 the Agentic book is XOM and LMT (first fills that session). A one-time stall bypass is authorized for the morning of 4 September 2026 after SuperGrok resets: flatten both names for a clean slate, then pick under this v7.1 screen. No whole-share broker stops attach to fractional stubs — snapshot watchdog watches them.</p>
       <p class="lede">AI agents can misread markets or fail to run. The owner owns every fill and can lose the entire Agentic balance. Brokerage through Robinhood Financial LLC / Robinhood Securities, LLC, members SIPC.</p>
 
   </article>
@@ -246,7 +250,7 @@
       var frame = document.getElementById("docFrame");
       if (!ov || !frame) return;
       if (e) e.preventDefault();
-      var title = view === "manual" ? "Operating Manual v7.0" : "Setup Guide v5.0";
+      var title = view === "manual" ? "Operating Manual v7.1" : "Setup Guide v5.1";
       var t = document.getElementById("docTitle");
       if (t) t.textContent = title;
       ov.hidden = false;
