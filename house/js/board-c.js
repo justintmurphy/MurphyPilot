@@ -14,6 +14,45 @@ if (typeof hashTab === "function") hashTab();
 IDS = ["agentic", "individual", "auto_grok", "joint", "fidelity", "voya"];
 var LIVE_IDS = ["agentic", "individual", "auto_grok", "joint"];
 var OUTSIDE_IDS = ["fidelity", "voya"];
+var EOD_TAPE_SEED = {
+  fidelity: [
+    { t: "2026-09-01T16:00:00-04:00", dtg: "011600R SEP 26", equity: 2755.07 },
+    { t: "2026-09-02T16:00:00-04:00", dtg: "021600R SEP 26", equity: 2735.53 },
+    { t: "2026-09-03T16:00:00-04:00", dtg: "031600R SEP 26", equity: 2749.62 }
+  ],
+  voya: [
+    { t: "2026-09-01T16:00:00-04:00", dtg: "011600R SEP 26", equity: 62174.33 },
+    { t: "2026-09-02T16:00:00-04:00", dtg: "021600R SEP 26", equity: 61806.32 },
+    { t: "2026-09-03T16:00:00-04:00", dtg: "031600R SEP 26", equity: 61966.26 }
+  ]
+};
+function mergeEodTape(key, outside, currentEq, closeT) {
+  var seed = (EOD_TAPE_SEED && EOD_TAPE_SEED[key]) || [];
+  var fromJson = (outside && outside.tape && outside.tape[key]) || [];
+  var extra = [];
+  if (currentEq != null && isFinite(Number(currentEq)) && closeT) extra.push({ t: closeT, equity: Number(currentEq) });
+  var arr = [].concat(seed, fromJson, extra);
+  try {
+    var raw = localStorage.getItem("murphyTape." + key);
+    var stored = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(stored)) arr = arr.concat(stored);
+  } catch (e) {}
+  var byDay = {};
+  arr.forEach(function (rawP) {
+    var p = typeof normPrint === "function" ? normPrint(rawP) : rawP;
+    if (!p || !p.t) return;
+    var eq = Number(p.equity);
+    if (!isFinite(eq)) return;
+    var day = String(p.t).slice(0, 10);
+    if (!day || day === "Invalid") return;
+    var prev = byDay[day];
+    if (!prev || String(p.t) >= String(prev.t)) byDay[day] = { t: p.t, dtg: p.dtg || "", equity: eq };
+  });
+  var days = Object.keys(byDay).sort();
+  var out = days.map(function (d) { return byDay[d]; });
+  try { localStorage.setItem("murphyTape." + key, JSON.stringify(out)); } catch (e2) {}
+  return out;
+}
 var FID_SLEEVES = [
   { id: "bny", label: "Brokerage", key: "BNY", sleeveKey: "fidelity_bny" },
   { id: "per", label: "Personal", key: "PER", sleeveKey: "fidelity_per" },
@@ -92,11 +131,12 @@ merge = function (house, pilot, outside) {
   out.tape = out.tape || {};
   out.tape.live = (out.tape.combined || []).map(normPrint);
   var outsideAsOf = (outside && (outside.holdings_asof || outside.asof)) || "";
-  out.tape.fidelity = [{ t: outsideAsOf, equity: Number((out.accounts.fidelity || {}).equity) || 0 }];
-  out.tape.voya = [{ t: outsideAsOf, equity: Number((out.accounts.voya || {}).equity) || 0 }];
+  var closeT = (outside && outside.overall && outside.overall.asof) || (outside && outside.scanned_at) || outsideAsOf;
+  out.tape.fidelity = mergeEodTape("fidelity", outside, Number((out.accounts.fidelity || {}).equity) || 0, closeT);
+  out.tape.voya = mergeEodTape("voya", outside, Number((out.accounts.voya || {}).equity) || 0, closeT);
   var ovTape = (outside && outside.tape && outside.tape.overall) || [];
   out.tape.overall = ovTape.map(normPrint);
-  if (!out.tape.overall.length) out.tape.overall = [{ t: (outside && outside.scanned_at) || "", equity: rnd(eq) }];
+  if (!out.tape.overall.length) out.tape.overall = [{ t: closeT || "", equity: rnd(eq) }];
   out.combined.live_equity = rnd(liveEq);
   out.combined.live_cash = rnd(liveCash);
   out.combined.live_buying_power = rnd(liveBp);
@@ -175,7 +215,7 @@ function eodTapeHtml(key, title) {
     "<div class=\"tape-kpis\"><div><span>Last EOD</span><b>" + money(last) + "</b></div>" +
     "<div><span>Prints</span><b>" + prints.length + "</b></div></div>" +
     "<div class=\"tape-plot\">" + spark(vals) + "</div>" +
-    "<p class=\"hint\">Truthifi once a day. Not the Robinhood live tape. " + prints.length + " close print" + (prints.length === 1 ? "" : "s") + " so far.</p></div>";
+    "<p class=\"hint\">One Truthifi close per weekday. Not the Robinhood live tape. " + prints.length + " close print" + (prints.length === 1 ? "" : "s") + "."</p></div>";
 }
 function truthifiMetaHtml() {
   var t = snap.truthifi || {};
