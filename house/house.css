@@ -44,17 +44,28 @@ header .header-end { grid-area: end; margin-left: 0; }
 .menu-wrap { position: relative; flex: 0 0 auto; }
 #menuBtn {
   margin: 0;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
   min-height: 36px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--nav-line);
-  background: rgba(253, 246, 242, 0.16);
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   color: var(--header-fg);
-  font-family: Georgia, "Times New Roman", Times, serif;
-  font-size: 14px;
-  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-#menuBtn[aria-expanded="true"] { background: var(--mark-bg); color: var(--brand); }
+#menuBtn .menu-bars {
+  display: block;
+  width: 16px;
+  height: 1.5px;
+  background: currentColor;
+  box-shadow: 0 -5px 0 currentColor, 0 5px 0 currentColor;
+}
+#menuBtn[aria-expanded="true"],
+#menuBtn:hover { background: var(--nav-hover); }
 .desk-menu {
   position: absolute;
   right: 0;
