@@ -33,55 +33,95 @@ header a.brand-block:hover {
 header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "mark brand end"
-    "nav nav nav";
+  grid-template-areas: "mark brand end";
   align-items: center;
-  gap: 6px 12px;
-  padding: 8px 16px 6px;
+  gap: 8px 12px;
+  padding: 10px 16px;
 }
 header .mark { grid-area: mark; }
 header .brand-block { grid-area: brand; }
 header .header-end { grid-area: end; margin-left: 0; }
-header nav#tabs {
-  grid-area: nav;
-  display: flex;
-  gap: 2px;
-  flex-wrap: nowrap;
-  align-items: center;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  width: 100%;
-  padding: 2px 0 6px;
-}
-header nav#tabs button {
+.menu-wrap { position: relative; flex: 0 0 auto; }
+#menuBtn {
+  margin: 0;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--nav-line);
+  background: rgba(253, 246, 242, 0.16);
   color: var(--header-fg);
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+}
+#menuBtn[aria-expanded="true"] { background: var(--mark-bg); color: var(--brand); }
+.desk-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 40;
+  min-width: 220px;
+  padding: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(74, 44, 56, 0.16);
+}
+.desk-menu nav#tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 0;
+  overflow: visible;
+}
+.desk-menu nav#tabs button {
+  color: var(--ink);
   background: transparent !important;
   border: 0 !important;
-  flex: 0 0 auto;
-  min-height: 32px;
-  padding: 4px 10px;
-  font-size: 12px;
-  opacity: 0.65;
-  white-space: nowrap;
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 15px;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  opacity: 0.7;
+  border-radius: 10px !important;
+  text-align: left;
 }
-header nav#tabs button.on {
+.desk-menu nav#tabs button.on {
   opacity: 1;
-  text-decoration: underline;
-  text-underline-offset: 5px;
+  background: var(--row) !important;
+  color: var(--ink);
+}
+.desk-menu .theme-switch {
+  display: flex !important;
+  width: 100%;
+  margin-top: 8px;
+  border-color: var(--rule);
+  border-radius: 999px;
+}
+.desk-menu .theme-switch button {
+  flex: 1;
+  min-height: 36px;
+  color: var(--ink);
+  opacity: 0.7;
+}
+.desk-menu .theme-switch button.on {
+  background: var(--header);
+  color: var(--header-fg);
+  opacity: 1;
 }
 .book-scroll { max-height: 31.5rem; overflow: auto; }
 .acct-grid { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 720px) {
-  header .idx-strip,
-  header .theme-switch { display: none !important; }
+  header .idx-strip { display: none !important; }
   header .mark,
   header .mark img { width: 32px; height: 32px; }
   header .clock { display: block; min-width: 0; text-align: right; }
   header .clock .t { font-size: 12px; line-height: 1.15; }
   header .clock .d { font-size: 10px; }
-  header nav#tabs button { flex: 0 0 auto !important; min-height: 30px !important; padding: 2px 8px !important; font-size: 11px !important; }
   .acct-grid { grid-template-columns: 1fr 1fr; }
   .split-two { grid-template-columns: 1fr !important; }
   table.book.custodial th:nth-child(3),
