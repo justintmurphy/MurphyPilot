@@ -303,15 +303,15 @@
 
   function agenticOnlyHtml() {
     var ag = snap.accounts.agentic || {};
-    return stateHtml(ag, "Agentic") +
-      "<h2>Agentic book</h2>" + tableHtml(ag.names, false, true) +
+    return stateHtml(ag, "Marlowe") +
+      "<h2>Marlowe book</h2>" + tableHtml(ag.names, false, true) +
       "<h2>Sell / buy thresholds</h2><div class=\"card span\"><ul class=\"buy-lines\">" +
       "<li>Stall: day 2 must clear +5% from that name's cost; later blocks +4% from the survive-mark.</li>" +
       "<li>Floor \u22125% from cost. Hard cap \u22126% at any print. Flatten \u221210%.</li>" +
-      "<li>Slots = floor(Agentic equity / $75). 12h green lock. Same-symbol rebuy waits 24h.</li>" +
+      "<li>Slots = floor(Marlowe equity / $75). 12h green lock. Same-symbol rebuy waits 24h.</li>" +
       "</ul></div>" +
       splitClockCal() +
-      '<p class="hint"><a href="agentic.html">Open the full Agentic trading desk</a> for charts, pack links, and snapshot paste.</p>';
+      '<p class="hint"><a href="agentic.html">Open the full Marlowe trading desk</a> for charts, pack links, and snapshot paste.</p>';
   }
 
   function paint() {
@@ -355,7 +355,7 @@
       html += splitClockCal();
       html += overlayHtml();
     } else if (tab === "agentic") {
-      html += tapeHtml("agentic", "Agentic", false);
+      html += tapeHtml("agentic", "Marlowe", false);
       html += agenticOnlyHtml();
     } else {
       html += stateHtml(b, title);
@@ -363,7 +363,7 @@
       html += "<h2>Where it sits</h2>" + mixHtml(b, tab);
       html += "<h2>Book</h2>" + tableHtml(b.names, false, false);
     }
-    html += '<footer class="desk-foot">Murphy Pilot \u00b7 House rolls up Agentic, Individual, Auto-Grok, and Joint.</footer>';
+    html += '<footer class="desk-foot">Murphy Pilot \u00b7 House rolls up Marlowe, Individual, Auto-Grok, and Joint.</footer>';
     document.getElementById("desk").innerHTML = html;
     syncOverlay();
   }
