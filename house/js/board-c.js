@@ -214,7 +214,7 @@ function eodTapeHtml(key, title) {
   return "<h2>EOD equity \u00b7 " + esc(title) + "</h2><div class=\"card tape-card\">" +
     "<div class=\"tape-kpis\"><div><span>Last EOD</span><b>" + money(last) + "</b></div>" +
     improveKpis(prints, last) + "</div>" +
-    "<div class=\"tape-plot\">" + spark(vals) + "</div>" +
+    "<div class=\"tape-plot ov-plot\">" + overlayAxisChart(prints) + "</div>" +
     "<p class=\"hint\">Truthifi weekday close. Day / week / month vs the prior close.</p></div>";
 }
 function truthifiMetaHtml() {
@@ -270,7 +270,7 @@ function overallCardHtml() {
     "<div class=\"tape-kpis\">" +
     "<div><span>Last close</span><b>" + money(c.equity) + "</b></div>" +
     improveKpis(prints, c.equity) + "</div>" +
-    "<div class=\"tape-plot\">" + spark(vals) + "</div>" +
+    "<div class=\"tape-plot ov-plot\">" + overlayAxisChart(prints) + "</div>" +
     "<p class=\"hint\">Click for every book. Net worth at the 16:00 ET close. Robinhood " + money(c.live_equity) + " \u00b7 Fidelity + Voya " + money(c.custodial_equity) + "." +
     (asof ? " Holdings date " + esc(asof) + "." : "") + "</p></div>";
 }
