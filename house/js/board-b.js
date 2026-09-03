@@ -1,4 +1,5 @@
   var overlayOpen = false;
+  var overlayMode = "live";
 
   function paintNav() {
     var el = document.getElementById("tabs");
@@ -101,7 +102,7 @@
     if (!vals.length) vals = [last, last];
     var open = clickable ? ' data-open-books="1"' : "";
     var hint = clickable
-      ? '<p class="hint tape-open-hint">Robinhood session, not Fidelity or Voya. Click to overlay books.</p>'
+      ? '<p class="hint tape-open-hint">Robinhood session, not Fidelity or Voya. Click for live book charts.</p>'
       : '<p class="hint">Day / week / month vs this book\u2019s last print.</p>';
     return "<h2>Live equity \u00b7 " + esc(title) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
       '<div class="tape-kpis"><div><span>Now</span><b>' + money(last) + "</b></div>" +
@@ -176,25 +177,46 @@
       "<div><h2>Coming weeks</h2><div class=\"card\">" + cal + "</div></div></div>";
   }
 
+  function overlayIds(mode) {
+    var live = (typeof LIVE_IDS !== "undefined" && LIVE_IDS && LIVE_IDS.length) ? LIVE_IDS.slice() : ["agentic", "individual", "auto_grok", "joint"];
+    if (mode === "live") return ["combined"].concat(live);
+    var all = (typeof IDS !== "undefined" && IDS && IDS.length) ? IDS.slice() : live.slice();
+    return ["combined"].concat(all);
+  }
+  function overlayPrints(id, mode) {
+    var tape = (snap && snap.tape) || {};
+    if (mode === "all" && id === "combined") return tape.overall || tape.combined || [];
+    if (id === "fidelity" || id === "voya") return tape[id] || [];
+    var src = tape[id] || [];
+    if (id === "combined" && tape.live && tape.live.length) src = src.concat(tape.live);
+    return src;
+  }
+  function overlayChartCard(id, mode) {
+    var raw = overlayPrints(id, mode);
+    var prints = (typeof mergePrints === "function" ? mergePrints(raw) : (raw || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); }));
+    var vals = prints.map(function (p) { return p.equity; }).filter(function (v) { return isFinite(v); });
+    var last = vals.length ? vals[vals.length - 1] : Number(((id === "combined" ? snap.combined : snap.accounts[id]) || {}).equity) || 0;
+    if (!vals.length) vals = [last, last];
+    var eod = (id === "fidelity" || id === "voya" || (mode === "all" && id === "combined"));
+    var label = (mode === "all" && id === "combined") ? "Overall" : (LABEL[id] || id);
+    return '<button type="button" class="ov-book ov-chart" data-tab="' + id + '">' +
+      '<div class="k">' + esc(label) + " \u00b7 " + (eod ? "EOD" : "live") + "</div><b>" + money(last) + "</b>" +
+      '<div class="tape-plot ov-plot">' + spark(vals) + "</div></button>";
+  }
+  function overlaySheet(domId, mode, title, hint) {
+    var rows = overlayIds(mode).map(function (id) { return overlayChartCard(id, mode); }).join("");
+    var on = overlayOpen && overlayMode === mode;
+    return '<div class="books-overlay' + (on ? " on" : "") + '" id="' + domId + '"' + (on ? "" : " hidden") + '>' +
+      '<div class="books-sheet" role="dialog" aria-label="' + esc(title) + '">' +
+      '<div class="books-head"><h2 style="margin:0">' + esc(title) + "</h2>" +
+      '<button type="button" class="ov-close" data-close-books="1">Close</button></div>' +
+      '<p class="hint" style="margin:8px 0 10px">' + esc(hint) + "</p>" +
+      '<div class="ov-grid ov-charts">' + rows + "</div></div></div>";
+  }
   function overlayHtml() {
     if (!snap) return "";
-    var rows = IDS.map(function (id) {
-      var b = snap.accounts[id] || {};
-      var names = (b.names || []).slice().sort(function (a, c) { return (Number(c.value) || 0) - (Number(a.value) || 0); }).slice(0, 4);
-      var list = names.map(function (n) {
-        return '<span class="ov-name tone-' + tone(n.pnl) + '">' + esc(n.symbol) + " " + money(n.value) + "</span>";
-      }).join("") || '<span class="ov-name">No names</span>';
-      return '<button type="button" class="ov-book" data-tab="' + id + '">' +
-        '<div class="k">' + esc(LABEL[id]) + "</div><b>" + money(b.equity) + "</b>" +
-        '<div class="m">Cash ' + money(b.cash) + " \u00b7 " + (b.names || []).length + " names \u00b7 " +
-        (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(0) + "% in" : "") + "</div>" +
-        '<div class="ov-names">' + list + "</div></button>";
-    }).join("");
-    return '<div class="books-overlay' + (overlayOpen ? " on" : "") + '" id="booksOverlay"' + (overlayOpen ? "" : " hidden") + ">" +
-      '<div class="books-sheet" role="dialog" aria-label="House books">' +
-      '<div class="books-head"><h2 style="margin:0">Live equity \u00b7 books</h2>' +
-      '<button type="button" class="ov-close" data-close-books="1">Close</button></div>' +
-      '<div class="ov-grid">' + rows + "</div></div></div>";
+    return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints only. No Fidelity or Voya.") +
+      overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every book. Fidelity and Voya are EOD.");
   }
 
   function agenticOnlyHtml() {
@@ -264,17 +286,19 @@
   }
 
   function syncOverlay() {
-    var el = document.getElementById("booksOverlay");
-    if (!el) return;
-    if (overlayOpen) {
-      el.classList.add("on");
-      el.removeAttribute("hidden");
-      document.body.style.overflow = "hidden";
-    } else {
-      el.classList.remove("on");
-      el.setAttribute("hidden", "");
-      document.body.style.overflow = "";
-    }
+    ["booksOverlay", "booksOverlayAll"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var on = overlayOpen && ((id === "booksOverlay" && overlayMode === "live") || (id === "booksOverlayAll" && overlayMode === "all"));
+      if (on) {
+        el.classList.add("on");
+        el.removeAttribute("hidden");
+      } else {
+        el.classList.remove("on");
+        el.setAttribute("hidden", "");
+      }
+    });
+    document.body.style.overflow = overlayOpen ? "hidden" : "";
   }
 
   function load() {
@@ -297,13 +321,21 @@
       try { localStorage.setItem("murphyPilotTheme", t); } catch (err) {}
       return;
     }
-    if (e.target.closest("[data-open-books]")) {
+    if (e.target.closest("[data-open-all-books]")) {
+      overlayMode = "all";
       overlayOpen = true;
-      syncOverlay();
-      if (!document.getElementById("booksOverlay")) paint();
+      if (!document.getElementById("booksOverlayAll")) paint();
+      else syncOverlay();
       return;
     }
-    if (e.target.closest("[data-close-books]") || (e.target.id === "booksOverlay")) {
+    if (e.target.closest("[data-open-books]")) {
+      overlayMode = "live";
+      overlayOpen = true;
+      if (!document.getElementById("booksOverlay")) paint();
+      else syncOverlay();
+      return;
+    }
+    if (e.target.closest("[data-close-books]") || e.target.id === "booksOverlay" || e.target.id === "booksOverlayAll") {
       overlayOpen = false;
       syncOverlay();
       return;
