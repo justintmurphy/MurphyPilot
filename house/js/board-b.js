@@ -63,6 +63,18 @@
     var delta = cur - prior.equity;
     return { delta: delta, pct: prior.equity ? (delta / prior.equity) * 100 : null, prior: prior.equity };
   }
+  function vsYtd(prints, currentEq) {
+    var rows = lastByDay(prints);
+    if (!rows.length) return null;
+    var y = rows[rows.length - 1].day.slice(0, 4);
+    var yearStart = y + "-01-01";
+    var prior = null;
+    rows.forEach(function (row) { if (row.day < yearStart) prior = row; });
+    if (!prior) return null;
+    var cur = isFinite(Number(currentEq)) ? Number(currentEq) : rows[rows.length - 1].equity;
+    var delta = cur - prior.equity;
+    return { delta: delta, pct: prior.equity ? (delta / prior.equity) * 100 : null, prior: prior.equity };
+  }
   function improveLine(tag, d) {
     if (!d) return '<small class="dod tone-flat">' + tag + " \u2014</small>";
     return '<small class="dod tone-' + tone(d.delta) + '">' + tag + " " + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</small>";
@@ -81,6 +93,19 @@
     return improveCell("Day", vsLookback(prints, currentEq, 1)) +
       improveCell("Week", vsLookback(prints, currentEq, 7)) +
       improveCell("Month", vsLookback(prints, currentEq, 30));
+  }
+  function overallStripHtml() {
+    var c = (snap && snap.combined) || {};
+    var prints = dodTape("combined");
+    var eq = Number(c.equity) || 0;
+    return "<h2>Overall</h2><div class=\"card span overall-strip\"><div class=\"kpi\">" +
+      "<div><span>Total</span><b>" + money(eq) + "</b></div>" +
+      improveCell("Day", vsLookback(prints, eq, 1)) +
+      improveCell("Week", vsLookback(prints, eq, 7)) +
+      improveCell("Month", vsLookback(prints, eq, 30)) +
+      improveCell("YTD", vsYtd(prints, eq)) +
+      improveCell("Year", vsLookback(prints, eq, 365)) +
+      "</div></div>";
   }
 
   function stateHtml(b, title) {
@@ -159,21 +184,22 @@
     var n = a.n;
     return '<div class="next-alert alert-' + a.cls + '"><div class="next-alert-mark">' + esc(a.label) + "</div>" +
       '<div class="next"><div><div class="name">' + (n ? n.t + "  " + n.name : "No job queued") +
-      '</div><div class="hint">' + (n ? n.role : "") + "</div></div><div class=\"eta\">" + a.eta + "</div></div></div>";
+      '</div><div class="hint">' + (n ? ((n.who ? n.who + " · " : "") + n.role) : "") + "</div></div><div class=\"eta\">" + a.eta + "</div></div></div>";
   }
 
   function splitClockCal() {
     var now = nyNow();
     var today = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
     var clockRows = JOBS.map(function (j) {
-      return "<tr><td>" + j.t + "</td><td>" + esc(j.name) + "</td><td>" + esc(j.role) + "</td></tr>";
+      var when = (typeof jobWhen === "function") ? jobWhen(j) : j.t;
+      return "<tr><td>" + esc(when) + "</td><td>" + esc(j.name) + "</td><td>" + esc(j.who || "") + "</td><td>" + esc(j.role) + "</td></tr>";
     }).join("");
     var cal = CAL.map(function (row) {
       var cls = row[0] === today ? "tone-soon" : (row[0] < today ? "tone-flat" : "");
       return '<div class="cal-row ' + cls + '"><b>' + row[0] + "</b> \u00b7 " + esc(row[1]) + (row[0] === today ? " \u00b7 today" : "") + "</div>";
     }).join("");
     return '<div class="split-two">' +
-      "<div><h2>Weekday clock</h2><div class=\"card span\"><table><thead><tr><th>ET</th><th>Job</th><th>Role</th></tr></thead><tbody>" + clockRows + "</tbody></table></div></div>" +
+      "<div><h2>Weekly clock</h2><div class=\"card span\"><table><thead><tr><th>ET</th><th>Job</th><th>Who</th><th>Does</th></tr></thead><tbody>" + clockRows + "</tbody></table></div></div>" +
       "<div><h2>Coming weeks</h2><div class=\"card\">" + cal + "</div></div></div>";
   }
 
@@ -309,6 +335,7 @@
     }
     var html = nextAlertHtml();
     if (tab === "combined") {
+      html += overallStripHtml();
       html += cardsHtml();
       html += stateHtml(b, "House");
       html += tapeHtml("combined", "House", true);
