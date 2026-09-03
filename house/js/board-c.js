@@ -205,8 +205,10 @@ function fidelityDeskHtml() {
   sleeves.forEach(function (s) {
     html += "<h2 id=\"sleeve-" + esc(s.id) + "\">Account · " + esc(s.label) + "</h2>";
     html += custodialStateHtml(s, "Fidelity · " + s.label);
-    html += "<h2>Where it sits · " + esc(s.label) + "</h2>" + mixHtml(s, s.id);
-    html += "<h2>Holdings · " + esc(s.label) + "</h2>" + custodialTableHtml(s.names, s.equity);
+    if ((s.names || []).length) {
+      html += "<h2>Where it sits · " + esc(s.label) + "</h2>" + mixHtml(s, s.id);
+      html += "<h2>Holdings · " + esc(s.label) + "</h2>" + custodialTableHtml(s.names, s.equity);
+    }
   });
   return html;
 }
