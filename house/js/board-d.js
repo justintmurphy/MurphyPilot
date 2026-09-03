@@ -101,10 +101,9 @@ mixHtml = function (bookObj, t) {
       return;
     }
     if (e.target.closest("[data-open-all-books]")) {
+      overlayMode = "all";
       overlayOpen = true;
-      var all = document.getElementById("booksOverlayAll") || document.getElementById("booksOverlay");
-      if (all) { all.classList.add("on"); all.removeAttribute("hidden"); }
-      document.body.style.overflow = "hidden";
+      if (typeof syncOverlay === "function") syncOverlay();
     }
   });
   if (typeof load === "function") load();
