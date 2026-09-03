@@ -67,7 +67,7 @@ function tick(){
     const nameEl = document.getElementById("nextName");
     const roleEl = document.getElementById("nextRole");
     if (nameEl) nameEl.textContent = n.t + "  " + n.name;
-    if (roleEl) roleEl.textContent = n.role + (n.add ? " · " + n.add + "d" : " · today");
+    if (roleEl) roleEl.textContent = (n.who ? n.who + " · " : "") + n.role + (n.add ? " · " + n.add + "d" : " · today");
     etaEl.textContent = eta(now, n.when);
     etaEl.className = "eta " + heat;
     card.className = "card span " + heat;
@@ -152,9 +152,9 @@ const timers = [];
     const eq = pt.getAttribute("data-eq");
     const dtg = pt.getAttribute("data-dtg") || "";
     const i = pt.getAttribute("data-i");
-    const label = "$"+eq;
+    const label = usd(eq);
     const box = document.getElementById("tapeReadout");
-    if (box) box.innerHTML = "<b>$"+eq+"</b><span> · "+dtg+" · print on the tape</span>";
+    if (box) box.innerHTML = "<b>"+usd(eq)+"</b><span> · "+dtg+" · print on the tape</span>";
     card.querySelectorAll("button.tape-row.on").forEach(function(r){ r.classList.remove("on"); });
     const match = card.querySelector('button.tape-row[data-i="'+i+'"]');
     if (match) {
