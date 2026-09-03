@@ -20,9 +20,9 @@ function paintMix(s, parsed){
   }).join("");
   const rows = slices.map(function(sl, i){
     const col = mixColor(sl.kind === "cash" ? 0 : slices.slice(0, i).filter(function(x){ return x.kind === "name"; }).length, sl.kind, pal);
-    const sh = sl.kind === "cash" ? "remaining" : (sl.qty == null ? "—" : (sl.qty >= 1 ? sl.qty.toFixed(2) : sl.qty.toFixed(4)) + " sh");
+    const sh = sl.kind === "cash" ? "remaining" : (sl.qty == null ? "—" : (sl.qty >= 1 ? sl.qty.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}) : sl.qty.toLocaleString("en-US",{maximumFractionDigits:4})) + " sh");
     const on = i === 0 ? " on" : "";
-    return '<button type="button" class="mix-row'+on+'" data-i="'+i+'"><i style="background:'+col+'"></i><span class="mix-sym">'+escHtml(sl.symbol)+'</span><b>$'+sl.dollars.toFixed(2)+'</b><span class="mix-pct">'+sl.pct.toFixed(1)+'%</span><span class="mix-sh">'+sh+'</span></button>';
+    return '<button type="button" class="mix-row'+on+'" data-i="'+i+'"><i style="background:'+col+'"></i><span class="mix-sym">'+escHtml(sl.symbol)+'</span><b>'+usd(sl.dollars)+'</b><span class="mix-pct">'+sl.pct.toFixed(1)+'%</span><span class="mix-sh">'+sh+'</span></button>';
   }).join("");
   const firstName = slices.find(function(x){ return x.kind === "name"; }) || slices[0];
   const sel = firstName ? slices.indexOf(firstName) : 0;
@@ -32,16 +32,16 @@ function paintMix(s, parsed){
       '<div class="mix-open">'+
         pieSvg(slices, { fat: true, size: 220, sel: sel })+
         '<div class="mix-rows">'+rows+'</div>'+
-        '<p class="trail">Each name is market value now. Cash is remaining funds. Slices sum to 100% of $'+mix.total.toFixed(2)+'. Pending deposits are already inside equity — not an extra slice.</p>'+
+        '<p class="trail">Each name is market value now. Cash is remaining funds. Slices sum to 100% of '+usd(mix.total)+'. Pending deposits are already inside equity — not an extra slice.</p>'+
       '</div>'+
     '</details>';
 }
 function paintBook(s){
-  document.getElementById("kEquity").textContent = s.equity ? "$"+s.equity : "—";
-  document.getElementById("kBp").textContent = s.bp ? "$"+s.bp : "—";
+  document.getElementById("kEquity").textContent = s.equity ? usd(s.equity) : "—";
+  document.getElementById("kBp").textContent = s.bp ? usd(s.bp) : "—";
   document.getElementById("kInv").textContent = s.inv ? s.inv + (String(s.inv).includes("%")?"":"%") : "—";
-  document.getElementById("kCash").textContent = s.cash ? "$"+s.cash : "—";
-  document.getElementById("kPend").textContent = s.pending ? "$"+s.pending : "—";
+  document.getElementById("kCash").textContent = s.cash ? usd(s.cash) : "—";
+  document.getElementById("kPend").textContent = s.pending ? usd(s.pending) : "—";
   document.getElementById("kOrd").textContent = s.orders != null && s.orders !== "" ? s.orders : "—";
   document.getElementById("kSnap").textContent = (s.note && s.note.indexOf("Snapshot")===0) ? "email" : "local";
   const parsed = parseNames(s);
