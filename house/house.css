@@ -114,3 +114,15 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
   margin-top: 2px;
 }
 .ticker-item.idx .sym { letter-spacing: 0.6px; }
+
+.tape-kpis .dod {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-top: 2px;
+}
+.tape-kpis b.tone-go, .kpi b.tone-go { color: var(--go); }
+.tape-kpis b.tone-stop, .kpi b.tone-stop { color: var(--stop); }
+.tape-kpis b.tone-flat, .kpi b.tone-flat { color: var(--ink-soft); }
