@@ -195,10 +195,7 @@
     n = Number(n);
     if (!isFinite(n)) return "\u2014";
     var abs = Math.abs(n), sign = n < 0 ? "\u2212" : "";
-    if (abs >= 100000) return sign + "$" + Math.round(abs / 1000) + "k";
-    if (abs >= 10000) return sign + "$" + (abs / 1000).toFixed(1) + "k";
-    if (abs >= 1000) return sign + "$" + Math.round(abs).toLocaleString("en-US");
-    return (n < 0 ? "\u2212" : "") + "$" + abs.toFixed(2);
+    return sign + "$" + abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function axisWhen(t, multiDay) {
     var s = String(t || "");
