@@ -74,7 +74,9 @@ header nav#tabs button.on {
 .book-scroll { max-height: 31.5rem; overflow: auto; }
 .acct-grid { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 720px) {
-  header .clock { display: none; }
+  header .clock { display: block; min-width: 0; text-align: right; }
+  header .clock .t { font-size: 12px; line-height: 1.15; }
+  header .clock .d { font-size: 10px; }
   header nav#tabs button { flex: 0 0 auto !important; min-height: 34px !important; }
   .acct-grid { grid-template-columns: 1fr 1fr; }
   .split-two { grid-template-columns: 1fr !important; }

@@ -28,15 +28,21 @@
   }
 
   function tapeHtml(key, title, clickable) {
-    var prints = ((snap.tape && snap.tape[key]) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
+    var src = (snap.tape && snap.tape[key]) || [];
+    if (key === "combined" && snap.tape && snap.tape.live && snap.tape.live.length) src = src.concat(snap.tape.live);
+    var prints = (typeof mergePrints === "function" ? mergePrints(src) : src.map(normPrint).filter(function (p) { return p && isFinite(p.equity); }));
     var vals = prints.map(function (p) { return p.equity; });
     var last = vals.length ? vals[vals.length - 1] : (book().equity || 0);
     if (!vals.length) vals = [last, last];
     var open = clickable ? ' data-open-books="1"' : "";
-    var hint = clickable ? '<p class="hint tape-open-hint">Click the tape to overlay each book.</p>' : "";
+    var first = prints.length ? (prints[0].dtg || prints[0].t.slice(0, 10)) : "";
+    var hint = clickable
+      ? '<p class="hint tape-open-hint">Robinhood only, every House print since ' + esc(first) + '. Not Fidelity or Voya. Click to overlay books.</p>'
+      : '<p class="hint">Every snapshot print. ' + prints.length + " points" + (first ? " from " + esc(first) : "") + ".</p>";
     return "<h2>Live equity \u00b7 " + esc(title) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
       '<div class="tape-kpis"><div><span>Now</span><b>' + money(last) + "</b></div><div><span>Prints</span><b>" + prints.length + "</b></div>" +
-      (clickable ? '<div><span>Books</span><b>4</b></div>' : "") + "</div>" +
+      (clickable ? '<div><span>Books</span><b>4</b></div>' : "") +
+      (first ? '<div><span>Since</span><b>' + esc(first.split(" ")[0] || first) + "</b></div>" : "") + "</div>" +
       '<div class="tape-plot">' + spark(vals) + "</div>" + hint + "</div>";
   }
 
@@ -242,8 +248,24 @@
     var now = nyNow();
     var el = document.getElementById("clock");
     if (!el) return;
-    el.querySelector(".t").textContent = pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()) + " ET";
-    el.querySelector(".d").textContent = now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
+    var tEl = el.querySelector(".t");
+    var dEl = el.querySelector(".d");
+    var asof = snap && snap.asof;
+    var ago = "";
+    var asofLabel = "";
+    if (asof) {
+      var ms = Date.parse(asof);
+      if (isFinite(ms)) {
+        var mins = Math.max(0, Math.round((Date.now() - ms) / 60000));
+        ago = mins < 1 ? "just now" : (mins < 60 ? mins + "m ago" : Math.floor(mins / 60) + "h ago");
+        var ad = new Date(ms);
+        try {
+          asofLabel = ad.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
+        } catch (e) { asofLabel = ""; }
+      }
+    }
+    if (tEl) tEl.textContent = asofLabel ? (asofLabel + " print") : (pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()) + " ET");
+    if (dEl) dEl.textContent = ago ? ago : now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   }
   tickClock();
   setInterval(tickClock, 1000);

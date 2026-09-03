@@ -146,22 +146,23 @@ function overallCardHtml() {
   var vals = prints.map(function (p) { return p.equity; });
   var last = vals.length ? vals[vals.length - 1] : (c.equity || 0);
   if (!vals.length) vals = [last, last];
-  return "<h2 class=\"overall-eq\">Overall equity \u00b7 daily close</h2><div class=\"card tape-card tape-open\" data-open-all-books=\"1\">" +
+  var asof = c.outside_asof || (prints.length ? prints[prints.length - 1].t.slice(0, 10) : "");
+  return "<h2 class=\"overall-eq\">Overall \u00b7 last close</h2><div class=\"card tape-card tape-open\" data-open-all-books=\"1\">" +
     "<div class=\"tape-kpis\">" +
-    "<div><span>Overall</span><b>" + money(c.equity) + "</b></div>" +
-    "<div><span>Live</span><b>" + money(c.live_equity) + "</b></div>" +
-    "<div><span>Custodial</span><b>" + money(c.custodial_equity) + "</b></div>" +
-    "<div><span>Prints</span><b>" + prints.length + "</b></div></div>" +
+    "<div><span>Last close</span><b>" + money(c.equity) + "</b></div>" +
+    "<div><span>Robinhood now</span><b>" + money(c.live_equity) + "</b></div>" +
+    "<div><span>Fidelity + Voya</span><b>" + money(c.custodial_equity) + "</b></div>" +
+    "<div><span>EOD prints</span><b>" + prints.length + "</b></div></div>" +
     "<div class=\"tape-plot\">" + spark(vals) + "</div>" +
-    "<p class=\"hint\">Ticked weekdays at 16:00 ET. Click for every book." +
-    (c.outside_asof ? " Custodial as of " + esc(c.outside_asof) : "") + "</p></div>";
+    "<p class=\"hint\">Net worth at the 16:00 ET Truthifi close (Robinhood that afternoon + Fidelity/Voya holdings date). This chart is one print per weekday, not the live tape below." +
+    (asof ? " Holdings date " + esc(asof) + "." : "") + "</p></div>";
 }
 var _paint = paint;
 paint = function () {
   if (!snap) return;
   _paint();
   var foot = document.querySelector(".desk-foot");
-  if (foot) foot.textContent = "Murphy Pilot \u00b7 House rolls up live Robinhood books plus Fidelity and Voya.";
+  if (foot) foot.textContent = "Murphy Pilot \u00b7 Overall is last close (Truthifi 16:00). Live is Robinhood session, every House print.";
   var desk = document.getElementById("desk");
   if (!desk) return;
   if (tab === "fidelity" || tab === "voya") {
@@ -173,7 +174,7 @@ paint = function () {
   if (tab !== "combined") return;
   Array.from(desk.querySelectorAll("h2")).forEach(function (h) {
     var t = h.textContent || "";
-    if (t.indexOf("Live equity") === 0) h.textContent = "Live equity \u00b7 Robinhood";
+    if (t.indexOf("Live equity") === 0) h.textContent = "Live equity \u00b7 Robinhood session";
     if (t.indexOf("Book state") === 0) h.textContent = "Book state \u00b7 all books";
   });
   var liveH = Array.from(desk.querySelectorAll("h2")).filter(function (h) { return (h.textContent || "").indexOf("Live equity") === 0; })[0];

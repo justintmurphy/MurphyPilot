@@ -362,8 +362,12 @@ footer.desk-foot {
     min-height: 44px;
   }
   header .clock {
-    display: none;
+    display: block;
+    min-width: 0;
+    text-align: right;
   }
+  header .clock .t { font-size: 12px; line-height: 1.15; }
+  header .clock .d { font-size: 10px; opacity: 0.8; }
   main.desk {
     padding: 12px 12px calc(32px + env(safe-area-inset-bottom));
   }

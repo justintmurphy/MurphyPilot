@@ -7,6 +7,7 @@
   ];
   var LABEL = { agentic: "Agentic", individual: "Individual", auto_grok: "Auto-Grok", joint: "Joint", combined: "House" };
   var IDS = ["agentic", "individual", "auto_grok", "joint"];
+  var TAPE_SEED = [{"t":"2026-08-28T13:32:00-04:00","dtg":"281332R AUG 26","equity":2592.67,"max":2592.67},{"t":"2026-08-28T14:01:00-04:00","dtg":"281401R AUG 26","equity":2595.86,"max":2595.86},{"t":"2026-08-28T14:32:00-04:00","dtg":"281432R AUG 26","equity":2588.97,"max":2595.86},{"t":"2026-08-28T15:07:00-04:00","dtg":"281507R AUG 26","equity":2587.74,"max":2595.86},{"t":"2026-08-28T15:33:00-04:00","dtg":"281533R AUG 26","equity":2596.67,"max":2596.67},{"t":"2026-08-28T16:13:00-04:00","dtg":"281613R AUG 26","equity":2597.59,"max":2597.59},{"t":"2026-08-31T10:08:00-04:00","dtg":"311008R AUG 26","equity":2623.75,"max":2623.75},{"t":"2026-08-31T11:08:00-04:00","dtg":"311108R AUG 26","equity":2627.66,"max":2627.66},{"t":"2026-08-31T12:10:00-04:00","dtg":"311210R AUG 26","equity":2634.22,"max":2634.22},{"t":"2026-08-31T13:14:00-04:00","dtg":"311314R AUG 26","equity":2638.04,"max":2638.04},{"t":"2026-08-31T14:05:00-04:00","dtg":"311405R AUG 26","equity":2642.11,"max":2642.11},{"t":"2026-08-31T15:05:00-04:00","dtg":"311505R AUG 26","equity":2636.39,"max":2642.11},{"t":"2026-08-31T16:05:18-04:00","dtg":"311605R AUG 26","equity":2661.39,"max":2661.39},{"t":"2026-09-01T10:15:30-04:00","dtg":"011015R SEP 26","equity":2629.1,"max":2661.39},{"t":"2026-09-01T11:20:09-04:00","dtg":"011120R SEP 26","equity":2619.77,"max":2661.39},{"t":"2026-09-01T12:07:40-04:00","dtg":"011207R SEP 26","equity":2635.42,"max":2661.39},{"t":"2026-09-01T13:09:00-04:00","dtg":"011309R SEP 26","equity":2616.21,"max":2661.39},{"t":"2026-09-01T14:04:00-04:00","dtg":"011404R SEP 26","equity":2615.45,"max":2661.39},{"t":"2026-09-01T15:10:00-04:00","dtg":"011510R SEP 26","equity":2604.12,"max":2661.39},{"t":"2026-09-01T16:03:00-04:00","dtg":"011603R SEP 26","equity":2597.66,"max":2661.39},{"t":"2026-09-02T10:42:00-04:00","dtg":"021042R SEP 26","equity":2629.94,"max":2661.39},{"t":"2026-09-02T12:50:22-04:00","dtg":"021250R SEP 26","equity":2622.38,"max":2661.39},{"t":"2026-09-02T14:04:16-04:00","dtg":"021404R SEP 26","equity":2626.07,"max":2661.39},{"t":"2026-09-02T15:30:10-04:00","dtg":"021530R SEP 26","equity":2636.42,"max":2661.39},{"t":"2026-09-03T12:13:56-04:00","dtg":"031213R SEP 26","equity":2700.89,"max":2700.89},{"t":"2026-09-03T13:50:31-04:00","dtg":"031350R SEP 26","equity":2716.96,"max":2716.96},{"t":"2026-09-03T14:03:56-04:00","dtg":"031403R SEP 26","equity":2717.86,"max":2717.86},{"t":"2026-09-03T15:15:00-04:00","dtg":"031515R SEP 26","equity":2715.53,"max":2717.86},{"t":"2026-09-03T15:36:05-04:00","dtg":"031536R SEP 26","equity":2716.66,"max":2717.86}];
   var JOBS = [
     { t: "21:00", days: [0, 1, 2, 3, 4], name: "Policy Pack Evening", role: "No trading. World events + WH." },
     { t: "06:30", days: [1, 2, 3, 4, 5], name: "Policy Pack AM", role: "Overnight delta only." },
@@ -160,8 +161,10 @@
     };
     if (!out.tape) out.tape = {};
     out.tape.agentic = (out.accounts.agentic.tape || []).map(normPrint);
-    var rolled = { t: out.asof || (pilot && pilot.asof) || new Date().toISOString(), equity: out.combined.equity };
-    out.tape.combined = (out.tape.combined || []).map(normPrint).concat([rolled]);
+    var houseEq = house && house.combined ? Number(house.combined.equity) : NaN;
+    var rolled = isFinite(houseEq) ? { t: (house && house.asof) || out.asof, equity: houseEq } : null;
+    out.tape.combined = mergePrints([].concat(TAPE_SEED, out.tape.combined || [], rolled ? [rolled] : [], loadTape("combined")));
+    persistTape("combined", out.tape.combined);
     out.pilot = pilot;
     return out;
   }
@@ -170,6 +173,36 @@
     var t = p.t;
     if (typeof t === "number") t = new Date(t).toISOString();
     return { t: String(t || ""), dtg: p.dtg || "", equity: rnd(p.equity), max: p.max != null ? rnd(p.max) : rnd(p.equity) };
+  }
+  function mergePrints(arr) {
+    var byBucket = {};
+    (arr || []).forEach(function (raw) {
+      var p = normPrint(raw);
+      if (!p || !isFinite(p.equity) || !p.t) return;
+      var ms = Date.parse(p.t);
+      if (!isFinite(ms)) return;
+      var bucket = String(Math.round(ms / 120000));
+      var prev = byBucket[bucket];
+      if (!prev || Date.parse(p.t) >= Date.parse(prev.t)) byBucket[bucket] = p;
+    });
+    var keys = Object.keys(byBucket);
+    keys.sort(function (a, b) { return Number(a) - Number(b); });
+    var out = keys.map(function (k) { return byBucket[k]; });
+    var mx = null;
+    return out.map(function (p) {
+      mx = mx == null || p.equity > mx ? p.equity : mx;
+      return { t: p.t, dtg: p.dtg, equity: p.equity, max: mx };
+    });
+  }
+  function loadTape(key) {
+    try {
+      var raw = localStorage.getItem("murphyTape." + key);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function persistTape(key, prints) {
+    try { localStorage.setItem("murphyTape." + key, JSON.stringify(prints || [])); } catch (e) {}
   }
 
   function book() {
