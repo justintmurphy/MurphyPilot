@@ -1,13 +1,24 @@
 {
-  "asof": "2026-09-04 09:58 ET",
+  "asof": "2026-09-04 15:02 ET",
   "account": "Agentic",
-  "equity": 192.59,
-  "equity_value": 0,
-  "cash": 192.59,
-  "buying_power": 192.59,
+  "equity": 193.49,
+  "equity_value": 173.90,
+  "cash": 19.59,
+  "buying_power": 19.59,
   "pending_deposits": 100,
-  "invested_pct": 0.0,
-  "slots": 0,
+  "invested_pct": 89.9,
+  "slots": 1,
   "open_orders": 0,
-  "names": []
+  "names": ["KTOS"],
+  "positions": [
+    {
+      "symbol": "KTOS",
+      "qty": 3.636852,
+      "avg_cost": 47.57,
+      "last": 47.815,
+      "value": 173.90,
+      "pnl_pct": 0.51
+    }
+  ],
+  "actions": []
 }
