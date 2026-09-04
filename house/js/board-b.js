@@ -135,7 +135,7 @@
       growChip("Year", vsLookback(prints, eq, 365)) +
       "</div>" +
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" +
-      '<p class="hint">Click for every book. Robinhood ' + money(c.live_equity) + " \u00b7 Fidelity + Voya " + money(c.custodial_equity) + "." +
+      '<p class="hint">Click for every book. Live (Robinhood + Fidelity) ' + money(c.live_equity) + " \u00b7 Voya EOD " + money(c.custodial_equity) + "." +
       (asof ? " Holdings " + esc(String(asof).slice(0, 10)) + "." : "") + "</p></div>";
   }
 
@@ -155,13 +155,16 @@
     if (key === "combined" && snap.tape && snap.tape.live && snap.tape.live.length) src = src.concat(snap.tape.live);
     var prints = (typeof mergePrints === "function" ? mergePrints(src) : src.map(normPrint).filter(function (p) { return p && isFinite(p.equity); }));
     var vals = prints.map(function (p) { return p.equity; });
-    var last = vals.length ? vals[vals.length - 1] : (book().equity || 0);
+    var liveNow = (key === "combined" && snap.combined && snap.combined.live_equity != null)
+      ? Number(snap.combined.live_equity)
+      : null;
+    var last = (liveNow != null && isFinite(liveNow)) ? liveNow : (vals.length ? vals[vals.length - 1] : (book().equity || 0));
     if (!vals.length) vals = [last, last];
     var open = clickable ? ' data-open-books="1"' : "";
     var hint = clickable
-      ? '<p class="hint tape-open-hint">Robinhood session, not Fidelity or Voya. Click for live book charts.</p>'
+      ? '<p class="hint tape-open-hint">Live Robinhood + Fidelity session. Voya is EOD. Click for live book charts.</p>'
       : '<p class="hint">Day / week / month vs this book\u2019s last print.</p>';
-    return "<h2>Live equity \u00b7 " + esc(title) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
+    return "<h2>Live equity \u00b7 " + esc(title === "House" ? "Robinhood + Fidelity" : title) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
       '<div class="tape-kpis"><div><span>Now</span><b>' + money(last) + "</b></div>" +
       improveKpis(prints, last) + "</div>" +
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" + hint + "</div>";
@@ -300,7 +303,7 @@
     var vals = prints.map(function (p) { return p.equity; }).filter(function (v) { return isFinite(v); });
     var last = vals.length ? vals[vals.length - 1] : Number(((id === "combined" ? snap.combined : snap.accounts[id]) || {}).equity) || 0;
     if (!prints.length) prints = [{ t: "", equity: last }];
-    var eod = (id === "fidelity" || id === "voya" || (mode === "all" && id === "combined"));
+    var eod = (id === "voya" || (mode === "all" && id === "combined"));
     var label = (mode === "all" && id === "combined") ? "Overall" : (LABEL[id] || id);
     return '<button type="button" class="ov-book ov-chart" data-tab="' + id + '">' +
       '<div class="k">' + esc(label) + " \u00b7 " + (eod ? "EOD" : "live") + "</div><b>" + money(last) + "</b>" +
@@ -318,8 +321,8 @@
   }
   function overlayHtml() {
     if (!snap) return "";
-    return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints only. No Fidelity or Voya.") +
-      overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every book. Fidelity and Voya are EOD.");
+    return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood + Fidelity", "Session prints for Robinhood books and Fidelity. Voya is EOD-only.") +
+      overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every book. Only Voya is EOD.");
   }
 
   function agenticOnlyHtml() {
@@ -352,7 +355,7 @@
     }
     var tickerNames = b.names || [];
     var track = document.getElementById("tickerTrack");
-    var hideTape = tab === "fidelity" || tab === "voya";
+    var hideTape = tab === "voya";
     var names = hideTape ? [] : tickerNames.filter(function (n) { return n.last != null; });
     var items = idxLead.concat(names);
     document.getElementById("ticker").style.display = items.length ? "" : "none";

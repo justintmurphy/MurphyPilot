@@ -268,27 +268,33 @@ function fidelityTapeHtml() {
     "<p class=\"hint\">Session prints when SnapTrade/House updates. Day / week / month vs prior close.</p></div>";
 }
 function fidelityDeskHtml() {
-  var fid = snap.accounts.fidelity || { names: [], equity: 0 };
+  var fid = snap.accounts.fidelity || { names: [], equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, open_orders: 0, invested_pct: 0 };
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
   var sleeves = fid.sleeves || [];
   var mixBook = { books: sleeves, names: fid.names || [], cash: fid.cash || 0 };
-  var html = fidelityLiveStateHtml(fid, "Fidelity");
-  html += fidelityTapeHtml();
-  html += "<h2>Fidelity accounts · live sleeves</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
+  /* Same stack as a Robinhood book: live tape → book state → mix → table, then sleeves */
+  var html = "";
+  if (typeof tapeHtml === "function") html += tapeHtml("fidelity", "Fidelity", false);
+  else html += fidelityTapeHtml();
+  html += fidelityLiveStateHtml(fid, "Fidelity");
+  html += "<h2>Where it sits</h2>" + mixHtml(mixBook, "combined");
+  html += "<h2>Book</h2>" + custodialTableHtml(fid.names, fid.equity);
+  html += "<h2>Fidelity sleeves · live</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
     var st = nameStats(s.names);
+    var d = vsLookback(dodTape("fidelity"), s.equity, 1);
+    var day = !d ? '<div class="m"><span class="tone-flat">Day \u2014</span></div>'
+      : '<div class="m"><span class="tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</span></div>";
     var extra = s.names.length ? (s.names.length + " names") : (s.cash > 0.004 ? "cash sweep" : "empty");
-    return "<button type=\"button\" class=\"acct-mini\" data-scroll=\"sleeve-" + esc(s.id) + "\"><div class=\"k\">" + esc(s.label) + " · live</div><b>" + money(s.equity) + "</b><div class=\"m\">" + extra +
-      (st.pnl != null ? " · P&L " + money(st.pnl) : "") + "</div></button>";
+    return "<button type=\"button\" class=\"acct-mini\" data-scroll=\"sleeve-" + esc(s.id) + "\"><div class=\"k\">" + esc(s.label) + " \u00b7 live</div><b>" + money(s.equity) + "</b>" + day +
+      '<div class="m">' + extra + (st.pnl != null ? " \u00b7 P&L " + money(st.pnl) : "") + "</div></button>";
   }).join("") + "</div>";
-  html += "<p class=\"hint\">Fidelity is live (SnapTrade), same cadence goal as Robinhood House. Voya stays Truthifi EOD. No account numbers.</p>";
-  html += "<h2>Where it sits · Fidelity</h2>" + mixHtml(mixBook, "combined");
-  html += "<h2>All Fidelity names</h2>" + custodialTableHtml(fid.names, fid.equity);
+  html += "<p class=\"hint\">Fidelity sleeves roll into live equity with Robinhood. Voya stays Truthifi EOD. No account numbers.</p>";
   sleeves.forEach(function (s) {
-    html += "<h2 id=\"sleeve-" + esc(s.id) + "\">Account · " + esc(s.label) + "</h2>";
-    html += fidelityLiveStateHtml(s, "Fidelity · " + s.label);
+    html += "<h2 id=\"sleeve-" + esc(s.id) + "\">Sleeve \u00b7 " + esc(s.label) + "</h2>";
+    html += fidelityLiveStateHtml(s, "Fidelity \u00b7 " + s.label);
     if ((s.names || []).length) {
-      html += "<h2>Where it sits · " + esc(s.label) + "</h2>" + mixHtml(s, s.id);
-      html += "<h2>Holdings · " + esc(s.label) + "</h2>" + custodialTableHtml(s.names, s.equity);
+      html += "<h2>Where it sits \u00b7 " + esc(s.label) + "</h2>" + mixHtml(s, s.id);
+      html += "<h2>Book \u00b7 " + esc(s.label) + "</h2>" + custodialTableHtml(s.names, s.equity);
     }
   });
   return html;
@@ -320,7 +326,7 @@ paint = function () {
   if (!snap) return;
   _paint();
   var foot = document.querySelector(".desk-foot");
-  if (foot) foot.textContent = "Murphy Pilot \u00b7 Live is Robinhood + Fidelity (SnapTrade). Voya is Truthifi EOD.";
+  if (foot) foot.textContent = "Murphy Pilot \u00b7 Live equity = Robinhood + Fidelity. Voya is Truthifi EOD.";
   var desk = document.getElementById("desk");
   if (!desk) return;
   if (tab === "fidelity" || tab === "voya") {
@@ -332,7 +338,7 @@ paint = function () {
   if (tab !== "combined") return;
   Array.from(desk.querySelectorAll("h2")).forEach(function (h) {
     var t = h.textContent || "";
-    if (t.indexOf("Live equity") === 0) h.textContent = "Live equity \u00b7 Robinhood session";
+    if (t.indexOf("Live equity") === 0) h.textContent = "Live equity \u00b7 Robinhood + Fidelity";
     if (t.indexOf("Book state") === 0) h.textContent = "Book state \u00b7 all books";
   });
 };
