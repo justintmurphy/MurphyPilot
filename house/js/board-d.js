@@ -35,9 +35,10 @@ function collapseHouseNames(list) {
 }
 
 function mixGrowthCell(d) {
-  if (!d) return '<td class="num tone-flat">\u2014</td>';
-  return '<td class="num tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) +
-    '<small class="dod tone-' + tone(d.delta) + '">' + pct(d.pct) + "</small></td>";
+  if (!d) return '<td class="num mix-growth tone-flat">—</td>';
+  var amt = (d.delta > 0 ? "+" : "") + money(d.delta);
+  return '<td class="num mix-growth tone-' + tone(d.delta) + '"><span class="mix-amt">' + amt + '</span>' +
+    '<small class="mix-pct dod tone-' + tone(d.delta) + '">' + pct(d.pct) + "</small></td>";
 }
 
 function mixTopSlices() {
