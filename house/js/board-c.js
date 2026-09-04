@@ -1,16 +1,24 @@
 TABS = [
   { id: "combined", label: "House" },
-  { id: "agentic", label: "Marlowe" },
-  { id: "individual", label: "Individual" },
-  { id: "auto_grok", label: "Auto" },
-  { id: "joint", label: "Joint" },
+  { id: "robinhood", label: "Robinhood" },
   { id: "fidelity", label: "Fidelity" },
   { id: "voya", label: "Voya" }
 ];
+RH_IDS = ["agentic", "individual", "auto_grok", "joint"];
+LABEL.robinhood = "Robinhood";
 LABEL.auto_grok = "Auto";
 LABEL.fidelity = "Fidelity";
 LABEL.voya = "Voya";
-if (typeof hashTab === "function") hashTab();
+LABEL.combined = "House";
+hashTab = function () {
+  var h = (location.hash || "").replace(/^#/, "");
+  if (h === "house") h = "combined";
+  if (TABS.some(function (t) { return t.id === h; }) || RH_IDS.indexOf(h) >= 0) tab = h;
+};
+setHash = function () {
+  try { history.replaceState(null, "", "#" + (tab === "combined" ? "house" : tab)); } catch (e) {}
+};
+hashTab();
 IDS = ["agentic", "individual", "auto_grok", "joint", "fidelity", "voya"];
 var LIVE_IDS = ["agentic", "individual", "auto_grok", "joint", "fidelity"];
 var OUTSIDE_IDS = ["voya"];
@@ -180,12 +188,41 @@ merge = function (house, pilot, outside) {
   out.combined.open_orders = orders;
   out.combined.invested_pct = eq ? Math.min(100, (ev / eq) * 100) : 0;
   out.combined.names = names;
-  out.combined.books = IDS.map(function (id) {
-    var b = out.accounts[id] || {};
-    return { id: id, label: LABEL[id], equity: Number(b.equity) || 0, cash: Number(b.cash) || 0, pending_deposits: Number(b.pending_deposits) || 0, invested_pct: Number(b.invested_pct) || 0, names: (b.names || []).length };
+  var rhEq = 0, rhCash = 0, rhBp = 0, rhPend = 0, rhEv = 0, rhCv = 0, rhOrders = 0, rhNames = [], rhBooks = [];
+  RH_IDS.forEach(function (id) {
+    var b = out.accounts[id] || { names: [] };
+    rhEq += Number(b.equity) || 0;
+    rhCash += Number(b.cash) || 0;
+    rhBp += Number(b.buying_power) || 0;
+    rhPend += Number(b.pending_deposits) || 0;
+    rhEv += Number(b.equity_value) || 0;
+    rhCv += Number(b.crypto_value) || 0;
+    rhOrders += Number(b.open_orders) || 0;
+    rhBooks.push({ id: id, label: LABEL[id], equity: Number(b.equity) || 0, cash: Number(b.cash) || 0, pending_deposits: Number(b.pending_deposits) || 0, invested_pct: Number(b.invested_pct) || 0, names: (b.names || []).length });
+    (b.names || []).forEach(function (n) {
+      var row = JSON.parse(JSON.stringify(n));
+      row.account = row.account || id;
+      row.accounts = row.accounts && row.accounts.length ? row.accounts : [id];
+      rhNames.push(row);
+    });
   });
+  out.robinhood = {
+    id: "robinhood", label: "Robinhood",
+    equity: rnd(rhEq), cash: rnd(rhCash), buying_power: rnd(rhBp), pending_deposits: rnd(rhPend),
+    equity_value: rnd(rhEv), crypto_value: rnd(rhCv), open_orders: rhOrders,
+    invested_pct: rhEq ? Math.min(100, (rhEv / rhEq) * 100) : 0,
+    names: rhNames, books: rhBooks
+  };
+  var fidB = out.accounts.fidelity || {};
+  var voyaB = out.accounts.voya || {};
+  out.combined.books = [
+    { id: "robinhood", label: "Robinhood", equity: rnd(rhEq), cash: rnd(rhCash), pending_deposits: rnd(rhPend), invested_pct: out.robinhood.invested_pct, names: rhNames.length },
+    { id: "fidelity", label: "Fidelity", equity: Number(fidB.equity) || 0, cash: Number(fidB.cash) || 0, pending_deposits: Number(fidB.pending_deposits) || 0, invested_pct: Number(fidB.invested_pct) || 0, names: (fidB.names || []).length },
+    { id: "voya", label: "Voya", equity: Number(voyaB.equity) || 0, cash: Number(voyaB.cash) || 0, pending_deposits: Number(voyaB.pending_deposits) || 0, invested_pct: Number(voyaB.invested_pct) || 0, names: (voyaB.names || []).length }
+  ];
   out.tape = out.tape || {};
   out.tape.live = (out.tape.combined || []).map(normPrint);
+  out.tape.robinhood = (out.tape.combined || []).map(normPrint);
   var outsideAsOf = (outside && (outside.holdings_asof || outside.asof)) || "";
   var closeT = (outside && outside.overall && outside.overall.asof) || (outside && outside.scanned_at) || outsideAsOf;
   var fidEq = Number((out.accounts.fidelity || {}).equity) || 0;
@@ -207,16 +244,34 @@ merge = function (house, pilot, outside) {
   out.combined.overall_asof = (outside && outside.overall && outside.overall.asof) || (outside && outside.scanned_at) || "";
   return out;
 };
+function bookCardHtml(id, label, equity, tag, tapeKey) {
+  var d = vsLookback(dodTape(tapeKey || id), equity, 1);
+  var day = !d
+    ? '<div class="m"><span class="tone-flat">Day \u2014</span></div>'
+    : '<div class="m"><span class="tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</span></div>";
+  return "<button type=\"button\" class=\"acct-mini\" data-tab=\"" + id + "\"><div class=\"k\">" + esc(label) + " \u00b7 " + tag + "</div><b>" + money(equity) + "</b>" + day + "</button>";
+}
 cardsHtml = function () {
-  return "<h2>Books</h2><div class=\"acct-grid\">" + IDS.map(function (id) {
-    var b = snap.accounts[id] || {};
-    var tag = OUTSIDE_IDS.indexOf(id) >= 0 ? "EOD" : "live";
-    var d = vsLookback(dodTape(id), b.equity, 1);
-    var day = !d
-      ? '<div class="m"><span class="tone-flat">Day \u2014</span></div>'
-      : '<div class="m"><span class="tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</span></div>";
-    return "<button type=\"button\" class=\"acct-mini\" data-tab=\"" + id + "\"><div class=\"k\">" + esc(LABEL[id]) + " \u00b7 " + tag + "</div><b>" + money(b.equity) + "</b>" + day + "</button>";
-  }).join("") + "</div>";
+  if (tab === "robinhood") {
+    return "<h2>Books</h2><div class=\"acct-grid four\">" + RH_IDS.map(function (id) {
+      var b = snap.accounts[id] || {};
+      return bookCardHtml(id, LABEL[id] || id, b.equity, "live", id);
+    }).join("") + "</div>";
+  }
+  var rh = snap.robinhood || {};
+  var fid = snap.accounts.fidelity || {};
+  var voya = snap.accounts.voya || {};
+  return "<h2>Books</h2><div class=\"acct-grid\">" +
+    bookCardHtml("robinhood", "Robinhood", rh.equity != null ? rh.equity : 0, "live", "robinhood") +
+    bookCardHtml("fidelity", "Fidelity", fid.equity, "live", "fidelity") +
+    bookCardHtml("voya", "Voya", voya.equity, "EOD", "voya") +
+    "</div>";
+};
+book = function () {
+  if (!snap) return { names: [], equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, invested_pct: 0, open_orders: 0 };
+  if (tab === "combined") return snap.combined;
+  if (tab === "robinhood") return snap.robinhood || { names: [], equity: 0, books: [] };
+  return snap.accounts[tab] || { names: [] };
 };
 function eodNote(book, title) {
   var t = snap.truthifi || {};
@@ -378,7 +433,12 @@ paint = function () {
   if (!snap) return;
   _paint();
   var foot = document.querySelector(".desk-foot");
-  if (foot) foot.textContent = "Murphy Pilot \u00b7 Live equity = Robinhood + Fidelity. Voya is Truthifi EOD.";
+  if (foot) {
+    if (tab === "robinhood" || RH_IDS.indexOf(tab) >= 0) foot.textContent = "Murphy Pilot \u00b7 Robinhood live books only.";
+    else if (tab === "fidelity") foot.textContent = "Murphy Pilot \u00b7 Fidelity live.";
+    else if (tab === "voya") foot.textContent = "Murphy Pilot \u00b7 Voya is Truthifi EOD.";
+    else foot.textContent = "Murphy Pilot \u00b7 Live equity = Robinhood + Fidelity. Voya is Truthifi EOD.";
+  }
   var desk = document.getElementById("desk");
   if (!desk) return;
   if (tab === "fidelity" || tab === "voya") {
@@ -387,12 +447,13 @@ paint = function () {
     desk.innerHTML = (alertN ? alertN.outerHTML : "") + (tab === "fidelity" ? fidelityDeskHtml() : voyaDeskHtml()) + (footN ? footN.outerHTML : "");
     return;
   }
-  if (tab !== "combined") return;
-  Array.from(desk.querySelectorAll("h2")).forEach(function (h) {
-    var t = h.textContent || "";
-    if (t.indexOf("Live equity") === 0) h.textContent = "Live equity \u00b7 Robinhood + Fidelity";
-    if (t.indexOf("Book state") === 0) h.textContent = "Book state \u00b7 all books";
-  });
+  if (tab === "combined") {
+    Array.from(desk.querySelectorAll("h2")).forEach(function (h) {
+      var t = h.textContent || "";
+      if (t.indexOf("Live equity") === 0) h.textContent = "Live equity \u00b7 Robinhood + Fidelity";
+      if (t.indexOf("Book state") === 0) h.textContent = "Book state \u00b7 all books";
+    });
+  }
 };
 load = function () {
   var housePath = /\/house(\/|$)/.test(location.pathname);
@@ -416,4 +477,16 @@ document.addEventListener("click", function (e) {
   var id = btn.getAttribute("data-scroll");
   var el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+document.addEventListener("click", function (e) {
+  var keyEl = e.target.closest("[data-mix-key]");
+  if (!keyEl || !e.target.closest(".mix-card")) return;
+  var key = keyEl.getAttribute("data-mix-key");
+  if (!key || RH_IDS.indexOf(key) < 0) return;
+  overlayOpen = false;
+  tab = key;
+  closeDeskMenu();
+  setHash();
+  paint();
 });
