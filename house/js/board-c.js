@@ -407,16 +407,17 @@ function fidelityDeskHtml() {
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
   var sleeves = fid.sleeves || [];
   var mixBook = { books: sleeves, names: fid.names || [], cash: fid.cash || 0 };
+  /* Match Robinhood page order: Books → Book state → Tape → Where it sits → Book */
   var html = "";
+  html += fidelityBooksHtml(fid);
   if (fid.live) {
+    html += fidelityLiveStateHtml(fid, "Fidelity");
     if (typeof tapeHtml === "function") html += tapeHtml("fidelity", "Fidelity", false);
     else html += fidelityTapeHtml();
-    html += fidelityLiveStateHtml(fid, "Fidelity");
   } else {
-    html += eodTapeHtml("fidelity", "Fidelity");
     html += custodialStateHtml(fid, "Fidelity");
+    html += eodTapeHtml("fidelity", "Fidelity");
   }
-  html += fidelityBooksHtml(fid);
   html += "<h2>Where it sits</h2>" + mixHtml(mixBook, "combined");
   html += "<h2>Book</h2>" + custodialTableHtml(fid.names, fid.equity);
   return html;
@@ -440,10 +441,17 @@ function fidelitySleeveDeskHtml() {
 }
 function voyaDeskHtml() {
   var voya = snap.accounts.voya || { names: [], equity: 0 };
-  return truthifiMetaHtml() + custodialStateHtml(voya, "Voya 401(k)") + eodNote(voya, "Voya") +
-    eodTapeHtml("voya", "Voya") +
-    "<h2>Where it sits · Voya</h2>" + mixHtml(voya, "voya") +
-    "<h2>Holdings · Voya</h2>" + custodialTableHtml(voya.names, voya.equity);
+  /* Match Robinhood page order: Books → Book state → Tape → Where it sits → Book */
+  var html = "";
+  html += "<h2>Books</h2><div class=\"acct-grid\">" +
+    bookCardHtml("voya", "Voya 401(k)", voya.equity, "EOD", "voya") +
+    "</div>" +
+    "<p class=\"hint\">Voya is a single Truthifi EOD book (401(k)). No account numbers.</p>";
+  html += custodialStateHtml(voya, "Voya 401(k)");
+  html += eodTapeHtml("voya", "Voya");
+  html += "<h2>Where it sits</h2>" + mixHtml(voya, "voya");
+  html += "<h2>Book</h2>" + custodialTableHtml(voya.names, voya.equity);
+  return html;
 }
 function overallCardHtml() {
   var c = snap.combined || {};
