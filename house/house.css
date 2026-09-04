@@ -1,5 +1,5 @@
 @import url("house-a.css");
-@import url("house-b.css");
+@import url("house-b.css?v=20260904b");
 @import url("mix.css");
 
 header .brand-block {
@@ -32,12 +32,13 @@ header a.brand-block:hover {
 }
 header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "mark brand end";
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "menu mark brand end";
   align-items: center;
   gap: 8px 12px;
   padding: 10px 16px;
 }
+header .menu-wrap { grid-area: menu; }
 header .mark { grid-area: mark; }
 header .brand-block { grid-area: brand; }
 header .header-end { grid-area: end; margin-left: 0; }
@@ -68,7 +69,8 @@ header .header-end { grid-area: end; margin-left: 0; }
 #menuBtn:hover { background: var(--nav-hover); }
 .desk-menu {
   position: absolute;
-  right: 0;
+  left: 0;
+  right: auto;
   top: calc(100% + 8px);
   z-index: 40;
   min-width: 220px;
