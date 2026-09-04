@@ -278,6 +278,13 @@ merge = function (house, pilot, outside) {
   out.combined.custodial_equity = rnd(custEq);
   out.combined.outside_asof = outsideAsOf;
   out.combined.overall_asof = (outside && outside.overall && outside.overall.asof) || (outside && outside.scanned_at) || "";
+  if (typeof collapseHouseNames === "function") {
+    out.combined.names = collapseHouseNames(out.combined.names || []);
+    if (out.robinhood) out.robinhood.names = collapseHouseNames(out.robinhood.names || []);
+    if (out.accounts && out.accounts.fidelity) out.accounts.fidelity.names = collapseHouseNames(out.accounts.fidelity.names || []);
+    if (out.accounts && out.accounts.voya) out.accounts.voya.names = collapseHouseNames(out.accounts.voya.names || []);
+  }
+
   return out;
 };
 function bookCardHtml(id, label, equity, tag, tapeKey) {
@@ -409,6 +416,7 @@ function custodialStateHtml(b, title) {
     ". Once a day. Sleeves by name only.</p></div>";
 }
 function custodialTableHtml(names, totalEq) {
+  if (typeof collapseHouseNames === "function") names = collapseHouseNames(names || []);
   names = (names || []).slice().sort(function (a, b) { return (Number(b.value) || 0) - (Number(a.value) || 0); });
   var total = totalEq || names.reduce(function (s, n) { return s + (Number(n.value) || 0); }, 0) || 1;
   if (!names.length) return "<div class=\"card\"><p class=\"hint\" style=\"margin:0\">No names on this sleeve. Cash-only or empty.</p></div>";
