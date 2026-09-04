@@ -21,9 +21,11 @@
   }
   function paintNav() {
     var el = document.getElementById("tabs");
+    var onId = tab;
+    if (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0) onId = "robinhood";
     if (el) {
       el.innerHTML = TABS.map(function (item) {
-        return '<button type="button" data-tab="' + item.id + '" class="' + (tab === item.id ? "on" : "") + '">' + item.label + "</button>";
+        return '<button type="button" data-tab="' + item.id + '" class="' + (onId === item.id ? "on" : "") + '">' + item.label + "</button>";
       }).join("");
     }
     var sub = document.getElementById("deskSub");
@@ -43,6 +45,7 @@
   function dodTape(key) {
     var tape = (typeof snap !== "undefined" && snap && snap.tape) || {};
     if (key === "combined" && tape.overall && tape.overall.length >= 2) return tape.overall;
+    if (key === "robinhood") return tape.robinhood || tape.combined || [];
     return tape[key] || [];
   }
   function ymdAdd(ymd, days) {
@@ -152,19 +155,22 @@
 
   function tapeHtml(key, title, clickable) {
     var src = (snap.tape && snap.tape[key]) || [];
+    if (key === "robinhood") src = (snap.tape && (snap.tape.robinhood || snap.tape.combined)) || [];
     if (key === "combined" && snap.tape && snap.tape.live && snap.tape.live.length) src = src.concat(snap.tape.live);
     var prints = (typeof mergePrints === "function" ? mergePrints(src) : src.map(normPrint).filter(function (p) { return p && isFinite(p.equity); }));
     var vals = prints.map(function (p) { return p.equity; });
-    var liveNow = (key === "combined" && snap.combined && snap.combined.live_equity != null)
-      ? Number(snap.combined.live_equity)
-      : null;
+    var liveNow = null;
+    if (key === "combined" && snap.combined && snap.combined.live_equity != null) liveNow = Number(snap.combined.live_equity);
+    else if (key === "robinhood" && snap.robinhood && snap.robinhood.equity != null) liveNow = Number(snap.robinhood.equity);
     var last = (liveNow != null && isFinite(liveNow)) ? liveNow : (vals.length ? vals[vals.length - 1] : (book().equity || 0));
     if (!vals.length) vals = [last, last];
     var open = clickable ? ' data-open-books="1"' : "";
-    var hint = clickable
-      ? '<p class="hint tape-open-hint">Live Robinhood + Fidelity session. Voya is EOD. Click for live book charts.</p>'
-      : '<p class="hint">Day / week / month vs this book\u2019s last print.</p>';
-    return "<h2>Live equity \u00b7 " + esc(title === "House" ? "Robinhood + Fidelity" : title) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
+    var hint;
+    if (clickable && key === "robinhood") hint = '<p class="hint tape-open-hint">Robinhood session only. Click for Marlowe / Individual / Auto / Joint charts.</p>';
+    else if (clickable) hint = '<p class="hint tape-open-hint">Live Robinhood + Fidelity session. Voya is EOD. Click for live book charts.</p>';
+    else hint = '<p class="hint">Day / week / month vs this book\u2019s last print.</p>';
+    var liveTitle = title === "House" ? "Robinhood + Fidelity" : title;
+    return "<h2>Live equity \u00b7 " + esc(liveTitle) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
       '<div class="tape-kpis"><div><span>Now</span><b>' + money(last) + "</b></div>" +
       improveKpis(prints, last) + "</div>" +
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" + hint + "</div>";
@@ -185,7 +191,7 @@
       paths.map(function (p) { return '<path d="' + p.d + '" fill="' + p.color + '"/>'; }).join("") + "</svg>";
     var legend = paths.map(function (p) {
       return '<div class="mix-leg"><i style="background:' + p.color + '"></i><span>' + esc(p.label) + "</span><b>" + p.pct.toFixed(0) + "% \u00b7 " + money(p.value) + "</b></div>";
-    }).join("") + '<div class="mix-hint">' + (t === "combined" ? "Four books \u00b7 where the money sits" : "Names by market value") + "</div>";
+    }).join("") + '<div class="mix-hint">' + (t === "combined" ? "Brokers \u00b7 where the money sits" : "Names by market value") + "</div>";
     return '<div class="card mix-card"><div class="mix-compact">' + svg + '<div class="mix-legend">' + legend + "</div></div></div>";
   }
 
@@ -239,6 +245,7 @@
   }
 
   function overlayIds(mode) {
+    if (typeof RH_IDS !== "undefined" && tab === "robinhood") return RH_IDS.slice();
     var live = (typeof LIVE_IDS !== "undefined" && LIVE_IDS && LIVE_IDS.length) ? LIVE_IDS.slice() : ["agentic", "individual", "auto_grok", "joint"];
     if (mode === "live") return ["combined"].concat(live);
     var all = (typeof IDS !== "undefined" && IDS && IDS.length) ? IDS.slice() : live.slice();
@@ -247,6 +254,7 @@
   function overlayPrints(id, mode) {
     var tape = (snap && snap.tape) || {};
     if (mode === "all" && id === "combined") return tape.overall || tape.combined || [];
+    if (id === "robinhood") return tape.robinhood || tape.combined || [];
     if (id === "fidelity" || id === "voya") return tape[id] || [];
     var src = tape[id] || [];
     if (id === "combined" && tape.live && tape.live.length) src = src.concat(tape.live);
@@ -301,7 +309,7 @@
     var raw = overlayPrints(id, mode);
     var prints = (typeof mergePrints === "function" ? mergePrints(raw) : (raw || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); }));
     var vals = prints.map(function (p) { return p.equity; }).filter(function (v) { return isFinite(v); });
-    var last = vals.length ? vals[vals.length - 1] : Number(((id === "combined" ? snap.combined : snap.accounts[id]) || {}).equity) || 0;
+    var last = vals.length ? vals[vals.length - 1] : Number(((id === "combined" ? snap.combined : id === "robinhood" ? snap.robinhood : snap.accounts[id]) || {}).equity) || 0;
     if (!prints.length) prints = [{ t: "", equity: last }];
     var eod = (id === "voya" || (mode === "all" && id === "combined"));
     var label = (mode === "all" && id === "combined") ? "Overall" : (LABEL[id] || id);
@@ -321,6 +329,9 @@
   }
   function overlayHtml() {
     if (!snap) return "";
+    if (tab === "robinhood") {
+      return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Marlowe, Individual, Auto, and Joint.");
+    }
     return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood + Fidelity", "Session prints for Robinhood books and Fidelity. Voya is EOD-only.") +
       overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every book. Only Voya is EOD.");
   }
@@ -378,6 +389,14 @@
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
       html += splitClockCal();
       html += overlayHtml();
+    } else if (tab === "robinhood") {
+      html += cardsHtml();
+      html += stateHtml(b, "Robinhood");
+      html += tapeHtml("robinhood", "Robinhood", true);
+      html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
+      html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
+      html += splitClockCal();
+      html += overlayHtml();
     } else if (tab === "agentic") {
       html += tapeHtml("agentic", "Marlowe", false);
       html += agenticOnlyHtml();
@@ -387,7 +406,11 @@
       html += "<h2>Where it sits</h2>" + mixHtml(b, tab);
       html += "<h2>Book</h2>" + tableHtml(b.names, false, false);
     }
-    html += '<footer class="desk-foot">Murphy Pilot \u00b7 House rolls up Marlowe, Individual, Auto-Grok, and Joint.</footer>';
+    var footMsg = "Murphy Pilot \u00b7 Live = Robinhood + Fidelity. Voya is EOD.";
+    if (tab === "robinhood" || (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0)) footMsg = "Murphy Pilot \u00b7 Robinhood live books only.";
+    else if (tab === "fidelity") footMsg = "Murphy Pilot \u00b7 Fidelity live.";
+    else if (tab === "voya") footMsg = "Murphy Pilot \u00b7 Voya is Truthifi EOD.";
+    html += '<footer class="desk-foot">' + footMsg + "</footer>";
     document.getElementById("desk").innerHTML = html;
     syncOverlay();
   }
