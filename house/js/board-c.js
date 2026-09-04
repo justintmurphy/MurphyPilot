@@ -10,6 +10,8 @@ LABEL.auto_grok = "Auto";
 LABEL.fidelity = "Fidelity";
 LABEL.voya = "Voya";
 LABEL.combined = "House";
+
+
 hashTab = function () {
   var h = (location.hash || "").replace(/^#/, "");
   if (h === "house") h = "combined";
@@ -64,7 +66,7 @@ function mergeEodTape(key, outside, currentEq, closeT) {
 }
 var FID_SLEEVE_LABELS = {
   BNY: "Brokerage", PER: "Personal", Roth: "Roth IRA", Trad: "Traditional IRA",
-  ESPP: "ESPP", RSU: "RSU", HIGH: "HIGH", UNKNOWN: "Other"
+  ESPP: "ESPP", RSU: "RSU", HIGH: "HIGH", UNKNOWN: "Other", "401k": "401(k)", "401(k)": "401(k)"
 };
 var FID_SLEEVES = [
   { id: "bny", label: "Brokerage", key: "BNY", sleeveKey: "fidelity_bny" },
@@ -178,6 +180,12 @@ merge = function (house, pilot, outside) {
   }
   if (out.accounts && out.accounts.fidelity) {
     out.accounts.fidelity.sleeves = buildFidelitySleeves(out.accounts.fidelity, outside || out.truthifi);
+  }
+  if (out.accounts) {
+    (typeof RH_IDS !== "undefined" ? RH_IDS : ["agentic", "individual", "auto_grok", "joint"]).forEach(function (id) {
+      if (out.accounts[id]) bookDisplayLabel(id, out.accounts[id]);
+    });
+    if (out.accounts.voya) bookDisplayLabel("voya", out.accounts.voya);
   }
   var eq = 0, cash = 0, bp = 0, pend = 0, ev = 0, cv = 0, orders = 0, names = [];
   IDS.forEach(function (id) {
@@ -346,7 +354,7 @@ cardsHtml = function () {
   if (tab === "robinhood") {
     return "<h2>Books</h2><div class=\"acct-grid four\">" + RH_IDS.map(function (id) {
       var b = snap.accounts[id] || {};
-      return bookCardHtml(id, LABEL[id] || id, b.equity, "live", id);
+      return bookCardHtml(id, bookDisplayLabel(id, b), b.equity, "live", id);
     }).join("") + "</div>";
   }
   var rh = snap.robinhood || {};
@@ -407,8 +415,9 @@ function custodialTableHtml(names, totalEq) {
   var head = "<tr><th>Name</th><th>Sleeve</th><th>Kind</th><th class=\"num\">Qty</th><th class=\"num\">Avg</th><th class=\"num\">Last</th><th class=\"num\">Value</th><th class=\"num\">Wt</th><th class=\"num\">Cost</th><th class=\"num\">P&L</th></tr>";
   var rows = names.map(function (n) {
     var wt = (Number(n.value) || 0) / total * 100;
-    return "<tr><td class=\"name-cell tone-" + tone(n.pnl_pct) + "\"><span class=\"sym\">" + esc(n.symbol) + "</span><span class=\"sub\">" + esc(n.name || "") + "</span></td>" +
-      "<td>" + esc(n.sleeve || "—") + "</td><td>" + esc(n.kind || "equity") + "</td>" +
+    var inner = "<span class=\"sym\">" + esc(n.symbol) + "</span><span class=\"sub\">" + esc(n.name || "") + "</span>";
+    return "<tr><td class=\"name-cell tone-" + tone(n.pnl_pct) + "\">" + nameSiteLink(n, inner) + "</td>" +
+      "<td>" + esc(tidySleeveLabel(n.sleeve || n.account_name || "—")) + "</td><td>" + esc(n.kind || "equity") + "</td>" +
       "<td class=\"num\">" + qty(n.qty) + "</td>" +
       "<td class=\"num\">" + (n.avg == null ? "—" : money(n.avg)) + "</td>" +
       "<td class=\"num\">" + (n.last == null ? "—" : money(n.last)) + "</td>" +
@@ -518,11 +527,12 @@ function voyaDeskHtml() {
   var voya = snap.accounts.voya || { names: [], equity: 0 };
   /* Match Robinhood page order: Books → Book state → Tape → Where it sits → Book */
   var html = "";
+  var voyaLabel = bookDisplayLabel("voya", voya);
   html += "<h2>Books</h2><div class=\"acct-grid\">" +
-    bookCardHtml("voya", "Voya 401(k)", voya.equity, "EOD", "voya") +
+    bookCardHtml("voya", voyaLabel, voya.equity, "EOD", "voya") +
     "</div>" +
-    "<p class=\"hint\">Voya is a single Truthifi EOD book (401(k)). No account numbers.</p>";
-  html += custodialStateHtml(voya, "Voya 401(k)");
+    "<p class=\"hint\">Voya is a single Truthifi EOD book. Labels match Fidelity style (tidy name + ···last-4 when the feed has it).</p>";
+  html += custodialStateHtml(voya, "Voya · " + voyaLabel);
   html += eodTapeHtml("voya", "Voya");
   html += "<h2>Where it sits</h2>" + mixHtml(voya, "voya");
   html += "<h2>Book</h2>" + custodialTableHtml(voya.names, voya.equity);
