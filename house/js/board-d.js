@@ -159,20 +159,16 @@ mixHtml = function (bookObj, t) {
   if (houseMix) {
     slices = mixTopSlices();
   } else if (fidSleeveMix) {
-    /* Fidelity page: donut = sleeves; click detail marks noGrowth + Fid · all */
+    /* Fidelity page: donut = sleeves only (sums to pie). Fid · all is detail-only. */
+    var mixC = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
     slices = (bookObj.books || []).map(function (b, i) {
-      var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
       var key = (typeof fidTabId === "function") ? fidTabId(b.id) : ("fid-" + b.id);
-      return { key: key, label: "Fid · " + (b.label || b.id), value: Number(b.equity) || 0, color: mix[i % mix.length], tapeKey: null, noGrowth: true };
-    }).filter(function (s) { return s.value > 0.004 || true; }).filter(function (s) { return s.value > 0.004; });
-    var fid = (snap.accounts && snap.accounts.fidelity) || {};
-    if ((Number(fid.equity) || 0) > 0.004) {
-      var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)"];
-      slices.push({ key: "fidelity", label: "Fid · all", value: Number(fid.equity) || 0, color: mix[slices.length % mix.length], tapeKey: "fidelity" });
-    }
+      return { key: key, label: "Fid · " + (b.label || b.id), value: Number(b.equity) || 0, color: mixC[i % mixC.length], tapeKey: null, noGrowth: true };
+    }).filter(function (s) { return s.value > 0.004; });
   } else {
     slices = mixSlices(bookObj, t);
   }
+  slices = (slices || []).filter(function (s) { return !s.detailOnly; });
   var total = slices.reduce(function (s, x) { return s + x.value; }, 0) || 1;
   var gap = 0.04;
   var a = -Math.PI / 2;
@@ -196,17 +192,37 @@ mixHtml = function (bookObj, t) {
       "<b>" + p.pct.toFixed(0) + "% \u00b7 " + money(p.value) + "</b></button>";
   }).join("");
 
-  var detailSrc = houseMix ? mixDetailSlices() : slices.map(function (s, idx) {
-    var p = paths[idx] || s;
-    return {
-      key: s.key || p.key,
-      label: s.label || p.label,
-      color: s.color || p.color,
-      value: s.value != null ? s.value : p.value,
-      tapeKey: s.tapeKey,
-      noGrowth: !!s.noGrowth
-    };
-  });
+  var detailSrc;
+  if (houseMix) {
+    detailSrc = mixDetailSlices();
+  } else {
+    detailSrc = slices.map(function (s, idx) {
+      var p = paths[idx] || s;
+      return {
+        key: s.key || p.key,
+        label: s.label || p.label,
+        color: s.color || p.color,
+        value: s.value != null ? s.value : p.value,
+        tapeKey: s.tapeKey,
+        noGrowth: !!s.noGrowth,
+        detailOnly: !!s.detailOnly
+      };
+    });
+    if (fidSleeveMix) {
+      var pieTotal = slices.reduce(function (sum, s) { return sum + (Number(s.value) || 0); }, 0);
+      if (pieTotal > 0.004) {
+        var mixC2 = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)"];
+        detailSrc.push({
+          key: "fidelity",
+          label: "Fid · all",
+          value: pieTotal,
+          color: mixC2[detailSrc.length % mixC2.length],
+          tapeKey: "fidelity",
+          detailOnly: true
+        });
+      }
+    }
+  }
       var detailRows = detailSrc.map(function (p) {
     var day = null, week = null, month = null, year = null;
     var canGrow = !p.noGrowth && p.tapeKey;
