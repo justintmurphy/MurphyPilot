@@ -34,29 +34,68 @@ function collapseHouseNames(list) {
   });
 }
 
+function mixGrowthCell(d) {
+  if (!d) return '<td class="num tone-flat">\u2014</td>';
+  return '<td class="num tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) +
+    '<small class="dod tone-' + tone(d.delta) + '">' + pct(d.pct) + "</small></td>";
+}
+
 mixHtml = function (bookObj, t) {
-  var slices = mixSlices(bookObj, t);
+  var slices;
+  if (t === "combined" && typeof snap !== "undefined" && snap) {
+    var rows = [];
+    var i = 0;
+    var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
+    (typeof RH_IDS !== "undefined" ? RH_IDS : ["agentic", "individual", "auto_grok", "joint"]).forEach(function (id) {
+      var b = (snap.accounts && snap.accounts[id]) || {};
+      var eq = Number(b.equity) || 0;
+      if (eq > 0.004) rows.push({ key: id, label: (LABEL && LABEL[id]) || id, value: eq, color: mix[i++ % mix.length] });
+    });
+    var fid = (snap.accounts && snap.accounts.fidelity) || {};
+    if ((Number(fid.equity) || 0) > 0.004) rows.push({ key: "fidelity", label: "Fidelity", value: Number(fid.equity) || 0, color: mix[i++ % mix.length] });
+    var voya = (snap.accounts && snap.accounts.voya) || {};
+    if ((Number(voya.equity) || 0) > 0.004) rows.push({ key: "voya", label: "Voya", value: Number(voya.equity) || 0, color: mix[i++ % mix.length] });
+    slices = rows;
+  } else {
+    slices = mixSlices(bookObj, t);
+  }
   var total = slices.reduce(function (s, x) { return s + x.value; }, 0) || 1;
+  var gap = 0.04;
   var a = -Math.PI / 2;
   var paths = slices.map(function (s) {
     var da = (s.value / total) * Math.PI * 2;
-    var d = donutPath(56, 56, 28, 52, a, a + Math.max(da, 0.01));
+    var span = Math.max(da - gap, 0.02);
+    var d = donutPath(70, 70, 38, 64, a + gap / 2, a + gap / 2 + span);
     a += da;
     return { key: s.key, label: s.label, color: s.color, d: d, pct: (s.value / total) * 100, value: s.value };
   });
   if (!paths.length) return '<div class="card mix-card"><p class="hint" style="margin:0">No mix yet.</p></div>';
-  var svg = '<svg class="mix-svg" viewBox="0 0 112 112">' + paths.map(function (p) {
-    return '<path d="' + p.d + '" fill="' + p.color + '" data-mix-key="' + esc(p.key) + '"></path>';
-  }).join("") + "</svg>";
+  var top = paths.slice().sort(function (x, y) { return y.value - x.value; })[0];
+  var svg = '<div class="mix-ring"><svg class="mix-svg" viewBox="0 0 140 140" aria-hidden="true">' +
+    paths.map(function (p) { return '<path d="' + p.d + '" fill="' + p.color + '" data-mix-key="' + esc(p.key) + '"></path>'; }).join("") +
+    '</svg><div class="mix-center"><b>' + money(total) + '</b><span>' + esc(top.label) + " " + top.pct.toFixed(0) + "%</span></div></div>";
   var legend = paths.map(function (p) {
-    return '<div class="mix-leg" data-mix-key="' + esc(p.key) + '"><i style="background:' + p.color + '"></i><span>' + esc(p.label) + "</span><b>" + p.pct.toFixed(1) + "% \u00b7 " + money(p.value) + "</b></div>";
+    return '<button type="button" class="mix-leg" data-mix-key="' + esc(p.key) + '">' +
+      '<i style="background:' + p.color + '"></i>' +
+      '<span class="mix-leg-meta"><span class="mix-leg-name">' + esc(p.label) + "</span>" +
+      '<span class="mix-bar"><span style="width:' + Math.max(p.pct, 2).toFixed(1) + "%;background:" + p.color + '"></span></span></span>' +
+      "<b>" + p.pct.toFixed(0) + "% \u00b7 " + money(p.value) + "</b></button>";
   }).join("");
-  var rows = paths.map(function (p) {
-    return '<tr data-mix-key="' + esc(p.key) + '"><td>' + esc(p.label) + '</td><td class="num">' + money(p.value) + '</td><td class="num">' + p.pct.toFixed(2) + "%</td></tr>";
+  var detailRows = paths.map(function (p) {
+    var prints = (typeof dodTape === "function") ? dodTape(p.key) : [];
+    var day = (typeof vsLookback === "function") ? vsLookback(prints, p.value, 1) : null;
+    var week = (typeof vsLookback === "function") ? vsLookback(prints, p.value, 7) : null;
+    var month = (typeof vsLookback === "function") ? vsLookback(prints, p.value, 30) : null;
+    var year = (typeof vsYtd === "function") ? vsYtd(prints, p.value) : ((typeof vsLookback === "function") ? vsLookback(prints, p.value, 365) : null);
+    return '<tr data-mix-key="' + esc(p.key) + '"><td><i style="background:' + p.color + '"></i> ' + esc(p.label) + "</td>" +
+      '<td class="num">' + money(p.value) + "</td>" +
+      mixGrowthCell(day) + mixGrowthCell(week) + mixGrowthCell(month) + mixGrowthCell(year) + "</tr>";
   }).join("");
+  var hint = '<p class="mix-hint-click">Tap a book for Day / Week / Month / Year vs its tape (dash if the tape is too short).</p>';
   return '<div class="card mix-card"><div class="mix-compact">' + svg + '<div class="mix-legend">' + legend + "</div></div>" +
-    '<p class="mix-hint-click">Click the pie or a slice for detail.</p>' +
-    '<div class="mix-detail"><table><thead><tr><th>Slice</th><th class="num">Value</th><th class="num">Share</th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
+    hint +
+    '<div class="mix-detail"><table><thead><tr><th>Book</th><th class="num">Now</th><th class="num">Day</th><th class="num">Week</th><th class="num">Month</th><th class="num">Year</th></tr></thead><tbody>' +
+    detailRows + "</tbody></table></div></div>";
 };
 
 (function () {
@@ -75,12 +114,7 @@ mixHtml = function (bookObj, t) {
     var liveOv = document.getElementById("booksOverlay");
     if (liveOv) {
       var h = liveOv.querySelector(".books-head h2");
-      if (h) h.textContent = "Live equity \u00b7 Robinhood";
-    }
-    var ovCard = desk.querySelector("h2.overall-eq");
-    if (ovCard && ovCard.nextElementSibling) {
-      ovCard.nextElementSibling.setAttribute("data-open-all-books", "1");
-      ovCard.nextElementSibling.classList.add("tape-open");
+      if (h) h.textContent = "Live equity \u00b7 Robinhood + Fidelity books";
     }
   };
   document.addEventListener("click", function (e) {
@@ -89,15 +123,10 @@ mixHtml = function (bookObj, t) {
       var keyEl = e.target.closest("[data-mix-key]");
       var key = keyEl ? keyEl.getAttribute("data-mix-key") : "";
       card.classList.add("mix-open");
-      Array.from(card.querySelectorAll(".mix-leg")).forEach(function (el) {
+      Array.from(card.querySelectorAll(".mix-leg, .mix-detail tr")).forEach(function (el) {
         el.classList.toggle("on", key && el.getAttribute("data-mix-key") === key);
       });
-      if (key && LABEL[key] && typeof TABS !== "undefined" && TABS.some(function (t) { return t.id === key; })) {
-        overlayOpen = false; tab = key; setHash(); paint(); return;
-      }
-      if (key && document.getElementById("sleeve-" + key)) {
-        document.getElementById("sleeve-" + key).scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      /* Stay on House mix — show growth detail; do not navigate away on slice click. */
       return;
     }
     if (e.target.closest("[data-open-all-books]")) {
