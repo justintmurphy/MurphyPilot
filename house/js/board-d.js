@@ -101,7 +101,7 @@ function mixTopSlices() {
 }
 
 function mixDetailSlices() {
-  /* Click detail: Rob books + Rob · all, Fid sleeves + Fid · all, Voy/Voya */
+  /* Detail table only. Pie uses mixTopSlices / sleeve slices — never · all. */
   var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
   var rows = [];
   var i = 0;
@@ -115,27 +115,28 @@ function mixDetailSlices() {
     rows.push({ key: id, label: "Rob \u00b7 " + name, value: eq, color: mix[i++ % mix.length], tapeKey: id });
   });
   if (rhEq > 0.004) {
-    var rhRoot = (snap.robinhood && Number(snap.robinhood.equity)) || rhEq;
-    rows.push({ key: "robinhood", label: "Rob \u00b7 all", value: Number(rhRoot) || rhEq, color: mix[i++ % mix.length], tapeKey: "robinhood" });
+    rows.push({ key: "robinhood", label: "Rob \u00b7 all", value: rhEq, color: mix[i++ % mix.length], tapeKey: "robinhood", detailOnly: true });
   }
   var fid = (snap.accounts && snap.accounts.fidelity) || {};
   if (!fid.sleeves && typeof buildFidelitySleeves === "function") {
     fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
   }
   var sleeves = fid.sleeves || [];
+  var fidSum = 0;
   if (sleeves.length) {
     sleeves.forEach(function (s) {
       var eq = Number(s.equity) || 0;
       if (eq <= 0.004 && !(s.names || []).length) return;
+      fidSum += eq;
       var key = (typeof fidTabId === "function") ? fidTabId(s.id) : ("fid-" + s.id);
       if (LABEL) LABEL[key] = s.label || s.id;
       rows.push({ key: key, label: "Fid \u00b7 " + (s.label || s.id), value: eq, color: mix[i++ % mix.length], tapeKey: null, noGrowth: true });
     });
-    if ((Number(fid.equity) || 0) > 0.004) {
-      rows.push({ key: "fidelity", label: "Fid \u00b7 all", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity" });
+    if (fidSum > 0.004) {
+      rows.push({ key: "fidelity", label: "Fid \u00b7 all", value: fidSum, color: mix[i++ % mix.length], tapeKey: "fidelity", detailOnly: true });
     }
   } else if ((Number(fid.equity) || 0) > 0.004) {
-    rows.push({ key: "fidelity", label: "Fid \u00b7 all", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity" });
+    rows.push({ key: "fidelity", label: "Fid \u00b7 all", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity", detailOnly: true });
   }
   var voya = (snap.accounts && snap.accounts.voya) || {};
   if ((Number(voya.equity) || 0) > 0.004) {
