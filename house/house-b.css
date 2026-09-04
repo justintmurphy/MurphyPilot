@@ -372,9 +372,10 @@ footer.desk-foot {
     display: block;
     min-width: 0;
     text-align: right;
+    line-height: 1.15;
   }
-  header .clock .t { font-size: 12px; line-height: 1.15; }
-  header .clock .d { font-size: 10px; opacity: 0.8; }
+  header .clock .t { display: block; font-size: 11px; line-height: 1.15; }
+  header .clock .d { display: block; font-size: 9px; opacity: 0.8; }
   main.desk {
     padding: 12px 12px calc(32px + env(safe-area-inset-bottom));
   }

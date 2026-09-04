@@ -493,8 +493,8 @@
         } catch (e) { asofLabel = ""; }
       }
     }
-    if (tEl) tEl.textContent = asofLabel ? (asofLabel + " print") : (pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()) + " ET");
-    if (dEl) dEl.textContent = ago ? ago : now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    if (tEl) tEl.textContent = pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()) + " ET";
+    if (dEl) dEl.textContent = asofLabel ? (asofLabel + " print") : now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   }
   tickClock();
   setInterval(tickClock, 1000);

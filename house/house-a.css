@@ -184,13 +184,16 @@ header .header-end {
 header .clock {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  line-height: 1.15;
 }
 header .clock .t {
-  font-size: 20px;
-  letter-spacing: 1px;
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.5px;
 }
 header .clock .d {
-  font-size: 11px;
+  display: block;
+  font-size: 10px;
   opacity: 0.8;
 }
 header .theme-switch {

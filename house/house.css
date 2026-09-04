@@ -1,5 +1,5 @@
-@import url("house-a.css");
-@import url("house-b.css?v=20260904b");
+@import url("house-a.css?v=20260904c");
+@import url("house-b.css?v=20260904c");
 @import url("mix.css");
 
 header .brand-block {
@@ -132,9 +132,9 @@ header .header-end { grid-area: end; margin-left: 0; }
   header .idx-strip { display: none !important; }
   header .mark,
   header .mark img { width: 32px; height: 32px; }
-  header .clock { display: block; min-width: 0; text-align: right; }
-  header .clock .t { font-size: 12px; line-height: 1.15; }
-  header .clock .d { font-size: 10px; }
+  header .clock { display: block; min-width: 0; text-align: right; line-height: 1.15; }
+  header .clock .t { display: block; font-size: 11px; line-height: 1.15; }
+  header .clock .d { display: block; font-size: 9px; }
   .acct-grid { grid-template-columns: 1fr 1fr; }
   .split-two { grid-template-columns: 1fr !important; }
   table.book.custodial th:nth-child(3),
