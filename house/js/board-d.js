@@ -1,4 +1,11 @@
 function collapseHouseNames(list) {
+  /* Merge same ticker across books/sleeves into one Book row. */
+  function normSym(s) { return String(s || "").trim().toUpperCase(); }
+  function normKind(k) {
+    k = String(k || "equity").trim().toLowerCase();
+    if (!k || k === "null" || k === "undefined") return "equity";
+    return k;
+  }
   function keyName(s) { return String(s || "").toLowerCase().replace(/class [a-z]/g, "").replace(/[^a-z0-9]+/g, " ").trim(); }
   function sameName(a, b) {
     a = keyName(a); b = keyName(b);
@@ -10,25 +17,57 @@ function collapseHouseNames(list) {
   }
   var groups = [];
   (list || []).forEach(function (n) {
+    if (!n) return;
+    var sym = normSym(n.symbol);
+    if (!sym) return;
+    var kind = normKind(n.kind);
     var hit = null;
     for (var i = 0; i < groups.length; i++) {
       var g = groups[i];
-      if (g.symbol === n.symbol && String(g.kind || "") === String(n.kind || "") && sameName(g.name, n.name || n.symbol)) { hit = g; break; }
+      if (g.symbol === sym && g.kind === kind && sameName(g.name, n.name || sym)) { hit = g; break; }
     }
-    var cost = n.cost != null ? Number(n.cost) : ((n.avg != null && n.qty != null) ? Number(n.avg) * Number(n.qty) : 0);
+    var qty = Number(n.qty) || 0;
+    var value = Number(n.value) || 0;
+    var cost = n.cost != null ? Number(n.cost) : ((n.avg != null && qty) ? Number(n.avg) * qty : 0);
+    if (!isFinite(cost)) cost = 0;
     if (!hit) {
-      groups.push({ symbol: n.symbol, name: n.name || n.symbol, kind: n.kind || "equity", qty: Number(n.qty) || 0, value: Number(n.value) || 0, cost: cost, last: n.last != null ? Number(n.last) : null, last_fill: n.last_fill || n.first_fill || "", accounts: (n.accounts || [n.account]).filter(Boolean), sleeves: n.sleeve ? [n.sleeve] : [], account: n.account });
+      groups.push({
+        symbol: sym,
+        name: n.name || sym,
+        kind: kind,
+        qty: qty,
+        value: value,
+        cost: cost,
+        last: n.last != null ? Number(n.last) : null,
+        day_pct: n.day_pct != null ? Number(n.day_pct) : null,
+        last_fill: n.last_fill || n.first_fill || "",
+        first_fill: n.first_fill || "",
+        next_stall: n.next_stall || "",
+        accounts: (n.accounts || [n.account]).filter(Boolean),
+        sleeves: n.sleeve ? [String(n.sleeve)] : [],
+        account: n.account
+      });
       return;
     }
-    hit.qty += Number(n.qty) || 0; hit.value += Number(n.value) || 0; hit.cost += cost;
+    hit.qty += qty;
+    hit.value += value;
+    hit.cost += cost;
     if (hit.last == null && n.last != null) hit.last = Number(n.last);
+    if (hit.day_pct == null && n.day_pct != null) hit.day_pct = Number(n.day_pct);
+    if (!hit.last_fill && (n.last_fill || n.first_fill)) hit.last_fill = n.last_fill || n.first_fill;
+    if (!hit.first_fill && n.first_fill) hit.first_fill = n.first_fill;
+    if (!hit.next_stall && n.next_stall) hit.next_stall = n.next_stall;
     (n.accounts || [n.account]).forEach(function (a) { if (a && hit.accounts.indexOf(a) < 0) hit.accounts.push(a); });
-    if (n.sleeve && hit.sleeves.indexOf(n.sleeve) < 0) hit.sleeves.push(n.sleeve);
+    if (n.sleeve && hit.sleeves.indexOf(String(n.sleeve)) < 0) hit.sleeves.push(String(n.sleeve));
     if ((n.name || "").length > (hit.name || "").length) hit.name = n.name;
   });
+  var _rnd = (typeof rnd === "function") ? rnd : function (x) { return Math.round(Number(x) * 100) / 100; };
   return groups.map(function (g) {
-    g.avg = g.qty ? rnd(g.cost / g.qty) : null; g.value = rnd(g.value); g.cost = rnd(g.cost);
-    g.pnl = rnd(g.value - g.cost); g.pnl_pct = g.cost ? rnd((g.pnl / g.cost) * 100) : null;
+    g.avg = g.qty ? _rnd(g.cost / g.qty) : null;
+    g.value = _rnd(g.value);
+    g.cost = _rnd(g.cost);
+    g.pnl = _rnd(g.value - g.cost);
+    g.pnl_pct = g.cost ? _rnd((g.pnl / g.cost) * 100) : null;
     if (g.sleeves.length) g.sleeve = g.sleeves.join(" \u00b7 ");
     return g;
   });
@@ -160,7 +199,15 @@ mixHtml = function (bookObj, t) {
   var prev = merge;
   merge = function (house, pilot, outside) {
     var out = prev(house, pilot, outside);
-    if (out && out.combined) out.combined.names = collapseHouseNames(out.combined.names || []);
+    if (!out) return out;
+    if (out.combined) out.combined.names = collapseHouseNames(out.combined.names || []);
+    if (out.robinhood) out.robinhood.names = collapseHouseNames(out.robinhood.names || []);
+    if (out.accounts && out.accounts.fidelity) {
+      out.accounts.fidelity.names = collapseHouseNames(out.accounts.fidelity.names || []);
+    }
+    if (out.accounts && out.accounts.voya) {
+      out.accounts.voya.names = collapseHouseNames(out.accounts.voya.names || []);
+    }
     return out;
   };
   var prevPaint = paint;
