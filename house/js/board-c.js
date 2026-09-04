@@ -12,8 +12,9 @@ LABEL.fidelity = "Fidelity";
 LABEL.voya = "Voya";
 if (typeof hashTab === "function") hashTab();
 IDS = ["agentic", "individual", "auto_grok", "joint", "fidelity", "voya"];
-var LIVE_IDS = ["agentic", "individual", "auto_grok", "joint"];
-var OUTSIDE_IDS = ["fidelity", "voya"];
+var LIVE_IDS = ["agentic", "individual", "auto_grok", "joint", "fidelity"];
+var OUTSIDE_IDS = ["voya"];
+var EOD_IDS = ["voya"];
 var EOD_TAPE_SEED = {
   fidelity: [
     { t: "2026-09-01T16:00:00-04:00", dtg: "011600R SEP 26", equity: 2755.07 },
@@ -79,9 +80,12 @@ merge = function (house, pilot, outside) {
   outside = outside || (typeof snap !== "undefined" && snap && snap.truthifi) || null;
   var out = _mergeCore(house, pilot, outside);
   if (outside && outside.accounts) {
-    OUTSIDE_IDS.forEach(function (id) {
-      if (outside.accounts[id]) out.accounts[id] = outside.accounts[id];
-    });
+    if (outside.accounts.voya) out.accounts.voya = outside.accounts.voya;
+    if (outside.accounts.fidelity) {
+      var houseFid = house && house.accounts && house.accounts.fidelity;
+      var liveFid = houseFid && ((houseFid.names || []).length || houseFid.source === "snaptrade" || houseFid.live);
+      if (!liveFid) out.accounts.fidelity = outside.accounts.fidelity;
+    }
     out.truthifi = outside;
   }
   if (out.accounts && out.accounts.fidelity) {
@@ -132,7 +136,13 @@ merge = function (house, pilot, outside) {
   out.tape.live = (out.tape.combined || []).map(normPrint);
   var outsideAsOf = (outside && (outside.holdings_asof || outside.asof)) || "";
   var closeT = (outside && outside.overall && outside.overall.asof) || (outside && outside.scanned_at) || outsideAsOf;
-  out.tape.fidelity = mergeEodTape("fidelity", outside, Number((out.accounts.fidelity || {}).equity) || 0, closeT);
+  var fidEq = Number((out.accounts.fidelity || {}).equity) || 0;
+  var houseFidTape = (out.tape && out.tape.fidelity) || [];
+  if (houseFidTape.length) {
+    out.tape.fidelity = houseFidTape.map(normPrint);
+  } else {
+    out.tape.fidelity = mergeEodTape("fidelity", outside, fidEq, closeT);
+  }
   out.tape.voya = mergeEodTape("voya", outside, Number((out.accounts.voya || {}).equity) || 0, closeT);
   var ovTape = (outside && outside.tape && outside.tape.overall) || [];
   out.tape.overall = ovTape.map(normPrint);
@@ -230,31 +240,57 @@ function truthifiMetaHtml() {
     "<div><span>Day</span><b>" + (function () { var d = vsLookback((t.tape && t.tape.overall) || [], (snap.combined || {}).equity, 1); return d ? ((d.delta > 0 ? "+" : "") + money(d.delta)) : "\u2014"; })() + "</b></div></div>" +
     "<p class=\"hint\">" + esc(t.note || "Custodial EOD. Sleeves labeled as Truthifi names. No account numbers.") + "</p></div>";
 }
+function fidelityLiveStateHtml(b, title) {
+  var s = nameStats(b.names);
+  var held = b.equity_value != null ? Number(b.equity_value) : s.value;
+  var pnl = s.pnl;
+  var pnlPct = s.hasCost && s.cost ? (pnl / s.cost) * 100 : null;
+  var src = b.source || (snap.truthifi && !(b.live || b.source === "snaptrade") ? "Truthifi" : "SnapTrade");
+  return "<h2>Book state · " + esc(title) + "</h2><div class=\"card span\"><div class=\"kpi\">" +
+    "<div><span>Equity</span><b>" + money(b.equity) + "</b>" + dodHtml(dodTape("fidelity"), b.equity) + "</div>" +
+    "<div><span>Holdings</span><b>" + money(held) + "</b></div>" +
+    "<div><span>Cash</span><b>" + money(b.cash) + "</b></div>" +
+    "<div><span>P&L</span><b class=\"tone-" + tone(pnl) + "\">" + (pnl == null ? "—" : money(pnl) + " " + pct(pnlPct)) + "</b></div>" +
+    "</div><p class=\"hint\">Invested " + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "—") +
+    " · " + s.n + " names · live like Robinhood · " + esc(src) +
+    " · asof " + esc(b.asof || (snap.asof || "—")) +
+    ". No account numbers.</p></div>";
+}
+function fidelityTapeHtml() {
+  var prints = ((snap.tape && snap.tape.fidelity) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
+  var vals = prints.map(function (p) { return p.equity; });
+  var last = vals.length ? vals[vals.length - 1] : Number((snap.accounts.fidelity || {}).equity) || 0;
+  if (!vals.length) vals = [last, last];
+  return "<h2>Live equity · Fidelity</h2><div class=\"card tape-card\">" +
+    "<div class=\"tape-kpis\"><div><span>Now</span><b>" + money(last) + "</b></div>" +
+    improveKpis(prints, last) + "</div>" +
+    "<div class=\"tape-plot ov-plot\">" + overlayAxisChart(prints) + "</div>" +
+    "<p class=\"hint\">Session prints when SnapTrade/House updates. Day / week / month vs prior close.</p></div>";
+}
 function fidelityDeskHtml() {
   var fid = snap.accounts.fidelity || { names: [], equity: 0 };
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
   var sleeves = fid.sleeves || [];
   var mixBook = { books: sleeves, names: fid.names || [], cash: fid.cash || 0 };
-  var html = custodialStateHtml(fid, "Fidelity") + eodNote(fid, "Fidelity");
-  html += eodTapeHtml("fidelity", "Fidelity");
-  html += "<h2>Fidelity accounts · Truthifi sleeves</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
+  var html = fidelityLiveStateHtml(fid, "Fidelity");
+  html += fidelityTapeHtml();
+  html += "<h2>Fidelity accounts · live sleeves</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
     var st = nameStats(s.names);
     var extra = s.names.length ? (s.names.length + " names") : (s.cash > 0.004 ? "cash sweep" : "empty");
-    return "<button type=\"button\" class=\"acct-mini\" data-scroll=\"sleeve-" + esc(s.id) + "\"><div class=\"k\">" + esc(s.label) + "</div><b>" + money(s.equity) + "</b><div class=\"m\">" + extra +
+    return "<button type=\"button\" class=\"acct-mini\" data-scroll=\"sleeve-" + esc(s.id) + "\"><div class=\"k\">" + esc(s.label) + " · live</div><b>" + money(s.equity) + "</b><div class=\"m\">" + extra +
       (st.pnl != null ? " · P&L " + money(st.pnl) : "") + "</div></button>";
   }).join("") + "</div>";
-  html += "<p class=\"hint\">Fidelity accounts as Truthifi sleeves. Totals and holdings only. No account numbers.</p>";
+  html += "<p class=\"hint\">Fidelity is live (SnapTrade), same cadence goal as Robinhood House. Voya stays Truthifi EOD. No account numbers.</p>";
   html += "<h2>Where it sits · Fidelity</h2>" + mixHtml(mixBook, "combined");
   html += "<h2>All Fidelity names</h2>" + custodialTableHtml(fid.names, fid.equity);
   sleeves.forEach(function (s) {
     html += "<h2 id=\"sleeve-" + esc(s.id) + "\">Account · " + esc(s.label) + "</h2>";
-    html += custodialStateHtml(s, "Fidelity · " + s.label);
+    html += fidelityLiveStateHtml(s, "Fidelity · " + s.label);
     if ((s.names || []).length) {
       html += "<h2>Where it sits · " + esc(s.label) + "</h2>" + mixHtml(s, s.id);
       html += "<h2>Holdings · " + esc(s.label) + "</h2>" + custodialTableHtml(s.names, s.equity);
     }
   });
-  html += truthifiMetaHtml();
   return html;
 }
 function voyaDeskHtml() {
@@ -276,7 +312,7 @@ function overallCardHtml() {
     "<div><span>Last close</span><b>" + money(c.equity) + "</b></div>" +
     improveKpis(prints, c.equity) + "</div>" +
     "<div class=\"tape-plot ov-plot\">" + overlayAxisChart(prints) + "</div>" +
-    "<p class=\"hint\">Click for every book. Net worth at the 16:00 ET close. Robinhood " + money(c.live_equity) + " \u00b7 Fidelity + Voya " + money(c.custodial_equity) + "." +
+    "<p class=\"hint\">Click for every book. Live Robinhood + Fidelity " + money(c.live_equity) + " \u00b7 Voya EOD " + money(c.custodial_equity) + "." +
     (asof ? " Holdings date " + esc(asof) + "." : "") + "</p></div>";
 }
 var _paint = paint;
@@ -284,7 +320,7 @@ paint = function () {
   if (!snap) return;
   _paint();
   var foot = document.querySelector(".desk-foot");
-  if (foot) foot.textContent = "Murphy Pilot \u00b7 Overall is last close (Truthifi 16:00). Live is Robinhood session, every House print.";
+  if (foot) foot.textContent = "Murphy Pilot \u00b7 Live is Robinhood + Fidelity (SnapTrade). Voya is Truthifi EOD.";
   var desk = document.getElementById("desk");
   if (!desk) return;
   if (tab === "fidelity" || tab === "voya") {
