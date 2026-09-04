@@ -573,3 +573,33 @@ a.ticker-item { cursor: pointer; text-decoration: none; color: inherit; }
 a.ticker-item:hover .sym { text-decoration: underline; }
 a.name-link { display: inline-flex; flex-direction: column; gap: 0.08rem; text-decoration: none; color: inherit; cursor: pointer; }
 a.name-link:hover .sym { text-decoration: underline; }
+
+/* Weekly clock — denser type for the job grid */
+.clock-card { padding: 10px 12px; }
+table.clock-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  line-height: 1.25;
+}
+table.clock-table th {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+}
+table.clock-table td {
+  font-size: 11px;
+  padding: 4px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--rule) 70%, transparent);
+  vertical-align: top;
+}
+table.clock-table tr:last-child td { border-bottom: 0; }
+@media (max-width: 640px) {
+  table.clock-table, table.clock-table th, table.clock-table td { font-size: 10px; }
+  table.clock-table th { font-size: 9px; }
+}
