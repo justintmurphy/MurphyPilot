@@ -61,14 +61,16 @@ function mixTopSlices() {
 }
 
 function mixDetailSlices() {
-  /* Click detail: split Robinhood books AND Fidelity sleeves; Voya stays one */
+  /* Click detail: Rob · books, Fid · sleeves, Voy · only when we have extra (else plain Voya) */
   var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
   var rows = [];
   var i = 0;
   (typeof RH_IDS !== "undefined" ? RH_IDS : ["agentic", "individual", "auto_grok", "joint"]).forEach(function (id) {
     var b = (snap.accounts && snap.accounts[id]) || {};
     var eq = Number(b.equity) || 0;
-    if (eq > 0.004) rows.push({ key: id, label: (LABEL && LABEL[id]) || id, value: eq, color: mix[i++ % mix.length], tapeKey: id });
+    if (eq <= 0.004) return;
+    var name = (typeof bookDisplayLabel === "function") ? bookDisplayLabel(id, b) : ((LABEL && LABEL[id]) || id);
+    rows.push({ key: id, label: "Rob \u00b7 " + name, value: eq, color: mix[i++ % mix.length], tapeKey: id });
   });
   var fid = (snap.accounts && snap.accounts.fidelity) || {};
   if (!fid.sleeves && typeof buildFidelitySleeves === "function") {
@@ -84,11 +86,20 @@ function mixDetailSlices() {
       rows.push({ key: key, label: "Fid \u00b7 " + (s.label || s.id), value: eq, color: mix[i++ % mix.length], tapeKey: "fidelity" });
     });
   } else if ((Number(fid.equity) || 0) > 0.004) {
-    rows.push({ key: "fidelity", label: "Fidelity", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity" });
+    rows.push({ key: "fidelity", label: "Fid \u00b7 Fidelity", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity" });
   }
   var voya = (snap.accounts && snap.accounts.voya) || {};
   if ((Number(voya.equity) || 0) > 0.004) {
-    rows.push({ key: "voya", label: "Voya", value: Number(voya.equity) || 0, color: mix[i++ % mix.length], tapeKey: "voya" });
+    var voyBits = [];
+    var tidy = (typeof bookDisplayLabel === "function") ? bookDisplayLabel("voya", voya) : (voya.label || "Voya");
+    /* Prefer plain "Voya" unless we have something beyond the broker name (401k / ···last-4) */
+    if (tidy && tidy !== "Voya" && tidy !== "Voya 401(k)") voyBits.push(tidy);
+    else if (voya.suffix) voyBits.push("···" + String(voya.suffix).replace(/\D/g, "").slice(-4));
+    else if (voya.sleeve && String(voya.sleeve).toLowerCase() !== "voya") {
+      voyBits.push((typeof tidySleeveLabel === "function") ? tidySleeveLabel(voya.sleeve) : voya.sleeve);
+    }
+    var voyLabel = voyBits.length ? ("Voy \u00b7 " + voyBits.join(" \u00b7 ")) : "Voya";
+    rows.push({ key: "voya", label: voyLabel, value: Number(voya.equity) || 0, color: mix[i++ % mix.length], tapeKey: "voya" });
   }
   return rows;
 }
@@ -136,7 +147,7 @@ mixHtml = function (bookObj, t) {
       mixGrowthCell(day) + mixGrowthCell(week) + mixGrowthCell(month) + mixGrowthCell(year) + "</tr>";
   }).join("");
   var hint = '<p class="mix-hint-click">' + (t === "combined"
-    ? "Tap to expand: Robinhood books + Fidelity sleeves + Voya with Day / Week / Month / Year (dash if tape is short)."
+    ? "Tap to expand: Rob · books, Fid · sleeves, Voy/Voya — Day / Week / Month / Year (dash if tape is short)."
     : "Tap for Day / Week / Month / Year vs this book\u2019s tape.") + "</p>";
   return '<div class="card mix-card"><div class="mix-compact">' + svg + '<div class="mix-legend">' + legend + "</div></div>" +
     hint +
