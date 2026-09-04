@@ -294,7 +294,7 @@ function bookDisplayLabel(id, book) {
       return '<div class="cal-row ' + cls + '"><b>' + row[0] + "</b> \u00b7 " + esc(row[1]) + (row[0] === today ? " \u00b7 today" : "") + "</div>";
     }).join("");
     return '<div class="split-two">' +
-      "<div><h2>Weekly clock</h2><div class=\"card span\"><table><thead><tr><th>ET</th><th>Job</th><th>Who</th><th>Does</th></tr></thead><tbody>" + clockRows + "</tbody></table></div></div>" +
+      "<div><h2>Weekly clock</h2><div class=\"card span clock-card\"><table class=\"clock-table\"><thead><tr><th>ET</th><th>Job</th><th>Who</th><th>Does</th></tr></thead><tbody>" + clockRows + "</tbody></table></div></div>" +
       "<div><h2>Coming weeks</h2><div class=\"card\">" + cal + "</div></div></div>";
   }
 
