@@ -40,22 +40,63 @@ function mixGrowthCell(d) {
     '<small class="dod tone-' + tone(d.delta) + '">' + pct(d.pct) + "</small></td>";
 }
 
+function mixTopSlices() {
+  /* Compact donut: three rollups only — Robinhood / Fidelity / Voya */
+  var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)"];
+  var rows = [];
+  var rh = (snap && snap.robinhood) || {};
+  var rhEq = Number(rh.equity);
+  if (!isFinite(rhEq) || rhEq <= 0) {
+    rhEq = 0;
+    (typeof RH_IDS !== "undefined" ? RH_IDS : []).forEach(function (id) {
+      rhEq += Number((snap.accounts && snap.accounts[id] || {}).equity) || 0;
+    });
+  }
+  if (rhEq > 0.004) rows.push({ key: "robinhood", label: "Robinhood", value: rhEq, color: mix[0] });
+  var fid = (snap.accounts && snap.accounts.fidelity) || {};
+  if ((Number(fid.equity) || 0) > 0.004) rows.push({ key: "fidelity", label: "Fidelity", value: Number(fid.equity) || 0, color: mix[1] });
+  var voya = (snap.accounts && snap.accounts.voya) || {};
+  if ((Number(voya.equity) || 0) > 0.004) rows.push({ key: "voya", label: "Voya", value: Number(voya.equity) || 0, color: mix[2] });
+  return rows;
+}
+
+function mixDetailSlices() {
+  /* Click detail: split Robinhood books AND Fidelity sleeves; Voya stays one */
+  var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
+  var rows = [];
+  var i = 0;
+  (typeof RH_IDS !== "undefined" ? RH_IDS : ["agentic", "individual", "auto_grok", "joint"]).forEach(function (id) {
+    var b = (snap.accounts && snap.accounts[id]) || {};
+    var eq = Number(b.equity) || 0;
+    if (eq > 0.004) rows.push({ key: id, label: (LABEL && LABEL[id]) || id, value: eq, color: mix[i++ % mix.length], tapeKey: id });
+  });
+  var fid = (snap.accounts && snap.accounts.fidelity) || {};
+  if (!fid.sleeves && typeof buildFidelitySleeves === "function") {
+    fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
+  }
+  var sleeves = fid.sleeves || [];
+  if (sleeves.length) {
+    sleeves.forEach(function (s) {
+      var eq = Number(s.equity) || 0;
+      if (eq <= 0.004 && !(s.names || []).length) return;
+      var key = (typeof fidTabId === "function") ? fidTabId(s.id) : ("fid-" + s.id);
+      if (LABEL) LABEL[key] = s.label || s.id;
+      rows.push({ key: key, label: "Fid \u00b7 " + (s.label || s.id), value: eq, color: mix[i++ % mix.length], tapeKey: "fidelity" });
+    });
+  } else if ((Number(fid.equity) || 0) > 0.004) {
+    rows.push({ key: "fidelity", label: "Fidelity", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity" });
+  }
+  var voya = (snap.accounts && snap.accounts.voya) || {};
+  if ((Number(voya.equity) || 0) > 0.004) {
+    rows.push({ key: "voya", label: "Voya", value: Number(voya.equity) || 0, color: mix[i++ % mix.length], tapeKey: "voya" });
+  }
+  return rows;
+}
+
 mixHtml = function (bookObj, t) {
   var slices;
   if (t === "combined" && typeof snap !== "undefined" && snap) {
-    var rows = [];
-    var i = 0;
-    var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
-    (typeof RH_IDS !== "undefined" ? RH_IDS : ["agentic", "individual", "auto_grok", "joint"]).forEach(function (id) {
-      var b = (snap.accounts && snap.accounts[id]) || {};
-      var eq = Number(b.equity) || 0;
-      if (eq > 0.004) rows.push({ key: id, label: (LABEL && LABEL[id]) || id, value: eq, color: mix[i++ % mix.length] });
-    });
-    var fid = (snap.accounts && snap.accounts.fidelity) || {};
-    if ((Number(fid.equity) || 0) > 0.004) rows.push({ key: "fidelity", label: "Fidelity", value: Number(fid.equity) || 0, color: mix[i++ % mix.length] });
-    var voya = (snap.accounts && snap.accounts.voya) || {};
-    if ((Number(voya.equity) || 0) > 0.004) rows.push({ key: "voya", label: "Voya", value: Number(voya.equity) || 0, color: mix[i++ % mix.length] });
-    slices = rows;
+    slices = mixTopSlices();
   } else {
     slices = mixSlices(bookObj, t);
   }
@@ -81,17 +122,22 @@ mixHtml = function (bookObj, t) {
       '<span class="mix-bar"><span style="width:' + Math.max(p.pct, 2).toFixed(1) + "%;background:" + p.color + '"></span></span></span>' +
       "<b>" + p.pct.toFixed(0) + "% \u00b7 " + money(p.value) + "</b></button>";
   }).join("");
-  var detailRows = paths.map(function (p) {
-    var prints = (typeof dodTape === "function") ? dodTape(p.key) : [];
+
+  var detailSrc = (t === "combined" && snap) ? mixDetailSlices() : paths;
+  var detailRows = detailSrc.map(function (p) {
+    var tapeKey = p.tapeKey || p.key;
+    var prints = (typeof dodTape === "function") ? dodTape(tapeKey) : [];
     var day = (typeof vsLookback === "function") ? vsLookback(prints, p.value, 1) : null;
     var week = (typeof vsLookback === "function") ? vsLookback(prints, p.value, 7) : null;
     var month = (typeof vsLookback === "function") ? vsLookback(prints, p.value, 30) : null;
     var year = (typeof vsYtd === "function") ? vsYtd(prints, p.value) : ((typeof vsLookback === "function") ? vsLookback(prints, p.value, 365) : null);
-    return '<tr data-mix-key="' + esc(p.key) + '"><td><i style="background:' + p.color + '"></i> ' + esc(p.label) + "</td>" +
+    return '<tr data-mix-key="' + esc(p.key) + '"><td><i class="mix-dot" style="background:' + p.color + '"></i> ' + esc(p.label) + "</td>" +
       '<td class="num">' + money(p.value) + "</td>" +
       mixGrowthCell(day) + mixGrowthCell(week) + mixGrowthCell(month) + mixGrowthCell(year) + "</tr>";
   }).join("");
-  var hint = '<p class="mix-hint-click">Tap a book for Day / Week / Month / Year vs its tape (dash if the tape is too short).</p>';
+  var hint = '<p class="mix-hint-click">' + (t === "combined"
+    ? "Tap to expand: Robinhood books + Fidelity sleeves + Voya with Day / Week / Month / Year (dash if tape is short)."
+    : "Tap for Day / Week / Month / Year vs this book\u2019s tape.") + "</p>";
   return '<div class="card mix-card"><div class="mix-compact">' + svg + '<div class="mix-legend">' + legend + "</div></div>" +
     hint +
     '<div class="mix-detail"><table><thead><tr><th>Book</th><th class="num">Now</th><th class="num">Day</th><th class="num">Week</th><th class="num">Month</th><th class="num">Year</th></tr></thead><tbody>' +
@@ -109,8 +155,6 @@ mixHtml = function (bookObj, t) {
   paint = function () {
     prevPaint();
     if (!snap || tab !== "combined") return;
-    var desk = document.getElementById("desk");
-    if (!desk) return;
     var liveOv = document.getElementById("booksOverlay");
     if (liveOv) {
       var h = liveOv.querySelector(".books-head h2");
@@ -126,7 +170,6 @@ mixHtml = function (bookObj, t) {
       Array.from(card.querySelectorAll(".mix-leg, .mix-detail tr")).forEach(function (el) {
         el.classList.toggle("on", key && el.getAttribute("data-mix-key") === key);
       });
-      /* Stay on House mix — show growth detail; do not navigate away on slice click. */
       return;
     }
     if (e.target.closest("[data-open-all-books]")) {
