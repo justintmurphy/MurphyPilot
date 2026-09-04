@@ -1,1 +1,17 @@
-{"asof": "2026-09-03T16:00:00-04:00", "spx": {"symbol": "SPX", "label": "S&P", "last": 7747.71, "prev": 7666.6, "pct": 1.06}, "ndx": {"symbol": "NDX", "label": "Nasdaq", "last": 29482.32, "prev": 29143.33, "pct": 1.16}}
+{
+  "asof": "2026-09-04T16:00:00-04:00",
+  "spx": {
+    "symbol": "SPX",
+    "label": "S&P",
+    "last": 7718.6,
+    "prev": 7747.71,
+    "pct": -0.38
+  },
+  "ndx": {
+    "symbol": "NDX",
+    "label": "Nasdaq",
+    "last": 29544.15,
+    "prev": 29482.32,
+    "pct": 0.21
+  }
+}
