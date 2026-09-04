@@ -54,6 +54,10 @@ function mergeEodTape(key, outside, currentEq, closeT) {
   try { localStorage.setItem("murphyTape." + key, JSON.stringify(out)); } catch (e2) {}
   return out;
 }
+var FID_SLEEVE_LABELS = {
+  BNY: "Brokerage", PER: "Personal", Roth: "Roth IRA", Trad: "Traditional IRA",
+  ESPP: "ESPP", RSU: "RSU", UNKNOWN: "Other"
+};
 var FID_SLEEVES = [
   { id: "bny", label: "Brokerage", key: "BNY", sleeveKey: "fidelity_bny" },
   { id: "per", label: "Personal", key: "PER", sleeveKey: "fidelity_per" },
@@ -62,17 +66,65 @@ var FID_SLEEVES = [
   { id: "espp", label: "ESPP", key: "ESPP", sleeveKey: "fidelity_espp" },
   { id: "rsu", label: "RSU", key: "RSU", sleeveKey: "fidelity_rsu" }
 ];
+function slugId(s) {
+  return String(s || "acct").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "acct";
+}
+function fidelityAccountCard(a, i) {
+  var names = a.names || [];
+  var held = names.reduce(function (sum, n) { return sum + (Number(n.value) || 0); }, 0);
+  var equity = a.equity != null ? Number(a.equity) : (held + (Number(a.cash) || 0));
+  var cash = a.cash != null ? Number(a.cash) : Math.max(0, equity - held);
+  var id = a.id || slugId((a.label || a.name || "acct") + "-" + (a.suffix || i));
+  var label = a.label || a.name || ("Account " + (i + 1));
+  if (a.suffix && String(label).indexOf(String(a.suffix)) < 0) label = label + " ···" + a.suffix;
+  return {
+    id: id,
+    label: label,
+    key: a.sleeve || a.key || label,
+    suffix: a.suffix || "",
+    equity: rnd(equity),
+    cash: rnd(cash),
+    buying_power: rnd(a.buying_power != null ? a.buying_power : cash),
+    pending_deposits: Number(a.pending_deposits) || 0,
+    equity_value: rnd(a.equity_value != null ? a.equity_value : held),
+    invested_pct: equity ? Math.min(100, (held / equity) * 100) : 0,
+    open_orders: Number(a.open_orders) || 0,
+    names: names,
+    source: a.source || "SnapTrade"
+  };
+}
 function buildFidelitySleeves(fid, outside) {
   var totals = (outside && outside.sleeves) || {};
   fid = fid || { names: [] };
-  return FID_SLEEVES.map(function (s) {
+  /* Prefer one card per real Fidelity account (SnapTrade / hybrid feed). */
+  if (Array.isArray(fid.accounts) && fid.accounts.length) {
+    return fid.accounts.map(function (a, i) { return fidelityAccountCard(a, i); });
+  }
+  var byKey = {};
+  FID_SLEEVES.forEach(function (s) { byKey[s.key.toLowerCase()] = s; });
+  (fid.names || []).forEach(function (n) {
+    var k = String(n.sleeve || n.account_name || "UNKNOWN");
+    var lk = k.toLowerCase();
+    if (!byKey[lk]) {
+      byKey[lk] = { id: slugId(k), label: FID_SLEEVE_LABELS[k] || k, key: k, sleeveKey: "fidelity_" + slugId(k).replace(/-/g, "_") };
+    }
+  });
+  var ordered = FID_SLEEVES.slice();
+  Object.keys(byKey).forEach(function (lk) {
+    if (!FID_SLEEVES.some(function (s) { return s.key.toLowerCase() === lk; })) ordered.push(byKey[lk]);
+  });
+  return ordered.map(function (s) {
     var names = (fid.names || []).filter(function (n) {
-      return String(n.sleeve || "").toLowerCase() === s.key.toLowerCase();
+      return String(n.sleeve || "").toLowerCase() === String(s.key).toLowerCase();
     });
     var held = names.reduce(function (sum, n) { return sum + (Number(n.value) || 0); }, 0);
     var equity = totals[s.sleeveKey] != null ? Number(totals[s.sleeveKey]) : held;
     var cash = Math.max(0, rnd(equity - held));
     return { id: s.id, label: s.label, key: s.key, equity: rnd(equity), cash: cash, buying_power: cash, pending_deposits: 0, equity_value: rnd(held), invested_pct: equity ? Math.min(100, (held / equity) * 100) : 0, open_orders: 0, names: names };
+  }).filter(function (s) {
+    /* Keep known empty sleeves for Truthifi fallback; drop empty UNKNOWN */
+    if (String(s.key).toUpperCase() === "UNKNOWN" && !(s.names || []).length && !(s.equity > 0.004)) return false;
+    return true;
   });
 }
 var _mergeCore = merge;
@@ -288,7 +340,7 @@ function fidelityDeskHtml() {
     return "<button type=\"button\" class=\"acct-mini\" data-scroll=\"sleeve-" + esc(s.id) + "\"><div class=\"k\">" + esc(s.label) + " \u00b7 live</div><b>" + money(s.equity) + "</b>" + day +
       '<div class="m">' + extra + (st.pnl != null ? " \u00b7 P&L " + money(st.pnl) : "") + "</div></button>";
   }).join("") + "</div>";
-  html += "<p class=\"hint\">Fidelity sleeves roll into live equity with Robinhood. Voya stays Truthifi EOD. No account numbers.</p>";
+  html += "<p class=\"hint\">Every Fidelity account shows as its own live sleeve (Brokerage, Personal, Roth, Trad, ESPP, RSU, and any extras). Voya stays Truthifi EOD. No account numbers.</p>";
   sleeves.forEach(function (s) {
     html += "<h2 id=\"sleeve-" + esc(s.id) + "\">Sleeve \u00b7 " + esc(s.label) + "</h2>";
     html += fidelityLiveStateHtml(s, "Fidelity \u00b7 " + s.label);
