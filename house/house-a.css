@@ -136,7 +136,8 @@ header .mark img {
   height: 52px;
   display: block;
   background: var(--mark-bg);
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
 }
 header .brand-block {
   min-width: 0;
