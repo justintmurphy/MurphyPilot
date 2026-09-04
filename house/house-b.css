@@ -568,3 +568,8 @@ nav.docs-foot a {
   border-bottom: 1px solid color-mix(in srgb, var(--brand-fg) 35%, transparent);
 }
 nav.docs-foot a:hover { border-bottom-color: var(--brand-fg); }
+
+a.ticker-item { cursor: pointer; text-decoration: none; color: inherit; }
+a.ticker-item:hover .sym { text-decoration: underline; }
+a.name-link { display: inline-flex; flex-direction: column; gap: 0.08rem; text-decoration: none; color: inherit; cursor: pointer; }
+a.name-link:hover .sym { text-decoration: underline; }
