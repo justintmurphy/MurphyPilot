@@ -1,23 +1,165 @@
 {
-  "asof": "2026-09-02 21:11 ET",
-  "subject": "Agentic policy pack: 2026-09-03",
-  "expiry": "2026-09-03 21:00 ET",
-  "sectors": ["energy", "utilities", "defense", "aerospace", "shipbuilding", "autos", "dairy", "agriculture", "rates"],
+  "asof": "2026-09-04 06:41 ET",
+  "subject": "Agentic policy pack: 2026-09-04",
+  "expiry": "2026-09-07 06:30 ET",
+  "sectors": [
+    "energy",
+    "utilities",
+    "rates",
+    "tech",
+    "utilities-data-centers",
+    "defense",
+    "aerospace",
+    "shipbuilding",
+    "autos",
+    "dairy",
+    "agriculture",
+    "education"
+  ],
   "items": [
-    {"tag": "White House", "title": "Establishing the United States Space Academy", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/establishing-the-united-states-space-academy/", "text": "Space / defense workforce — Aug 28"},
-    {"tag": "White House", "title": "Honoring the American History of the Great Lakes and Renaming Lake Ontario as Lake America", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/honoring-the-american-history-of-the-great-lakes-and-renaming-lake-ontario-as-lake-america-3a36/", "text": "Regional / symbolic — Aug 27"},
-    {"tag": "White House", "title": "Further Ensuring Affordable Beef for the American Consumer", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/further-ensuring-affordable-beef-for-the-american-consumer/", "text": "Agriculture / food prices — Aug 26"},
-    {"tag": "White House", "title": "Declaring a National Emergency to Secure the United States Bulk-Power System", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/declaring-a-national-emergency-to-secure-the-united-states-bulk-power-system/", "text": "Energy / grid / utilities — Aug 26"},
-    {"tag": "White House", "title": "The National Space Transportation Policy", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/national-security-presidential-memorandum-nspm-17/", "text": "Space / launch / aerospace — Aug 20"},
-    {"tag": "White House", "title": "Temporary Suspension of Additional Duties to Offset Canadian Discrimination Against the Commerce of the United States with Respect to Alcoholic Beverages, Dairy, and Motor Vehicles", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/temporary-suspension-of-additional-duties-to-offset-canadian-discrimination-against-the-commerce-of-the-united-states-with-respect-to-alcoholic-beverages-dairy-and-motor-vehicles/", "text": "Trade / Canada / autos / dairy — Aug 18"},
-    {"tag": "White House", "title": "Adjusting Imports of Unmanned Aircraft Systems and Unmanned Aircraft Systems Components into the United States", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/adjusting-imports-of-unmanned-aircraft-systems-and-unmanned-aircraft-systems-components-into-the-united-states/", "text": "Drones / defense / trade — Aug 13"},
-    {"tag": "White House", "title": "Rebuilding the United States Navy and America’s Shipbuilding Industrial Base", "url": "https://www.whitehouse.gov/presidential-actions/2026/08/rebuilding-the-united-states-navy-and-americas-shipbuilding-industrial-base/", "text": "Defense / industrials / shipyards — Aug 13"},
-    {"tag": "Calendar", "title": "BLS Employment Situation (August)", "url": "https://www.bls.gov/schedule/2026/09_sched_list.htm", "text": "NFP Sep 4 8:30 AM ET"},
-    {"tag": "Calendar", "title": "Labor Day market holiday", "url": "https://www.nyse.com/markets/hours-calendars", "text": "NYSE/Nasdaq closed Mon Sep 7"},
-    {"tag": "Calendar", "title": "OPEC+ production adjustment meeting", "url": "https://www.opec.org/pr-detail/1854611-2-august-2026.html", "text": "Next meeting 6 Sep 2026"},
-    {"tag": "Calendar", "title": "EIA Weekly Petroleum Status Report", "url": "https://www.eia.gov/petroleum/supply/weekly/schedule.php", "text": "Post-Labor Day release ~Sep 10"},
-    {"tag": "Calendar", "title": "BLS Consumer Price Index (August)", "url": "https://www.bls.gov/schedule/2026/09_sched_list.htm", "text": "CPI Sep 11 8:30 AM ET"},
-    {"tag": "Calendar", "title": "FOMC meeting September 15-16 with SEP", "url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm", "text": "Decision + press conf Sep 16"},
-    {"tag": "Calendar", "title": "BEA GDP third estimate Q2 + Personal Income and Outlays August", "url": "https://www.bea.gov/news/schedule", "text": "Sep 30 8:30 AM ET"}
+    {
+      "tag": "White House",
+      "title": "Establishing the United States Space Academy",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/establishing-the-united-states-space-academy/",
+      "text": "Space / defense workforce — signed Aug 28; FR published Sep 3 (EO 14423)"
+    },
+    {
+      "tag": "White House",
+      "title": "Establishing the United States Space Academy (Federal Register)",
+      "url": "https://www.federalregister.gov/documents/2026/09/03/2026-18141/establishing-the-united-states-space-academy",
+      "text": "Official FR publication of EO 14423 — Sep 3; NASA commission within 120 days"
+    },
+    {
+      "tag": "White House",
+      "title": "Honoring the American History of the Great Lakes and Renaming Lake Ontario as Lake America",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/honoring-the-american-history-of-the-great-lakes-and-renaming-lake-ontario-as-lake-america-3a36/",
+      "text": "Regional / symbolic — Aug 27 (still on desk)"
+    },
+    {
+      "tag": "White House",
+      "title": "Further Ensuring Affordable Beef for the American Consumer",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/further-ensuring-affordable-beef-for-the-american-consumer/",
+      "text": "Agriculture / food prices — Aug 26"
+    },
+    {
+      "tag": "White House",
+      "title": "Declaring a National Emergency to Secure the United States Bulk-Power System",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/declaring-a-national-emergency-to-secure-the-united-states-bulk-power-system/",
+      "text": "Energy / grid / utilities — Aug 26"
+    },
+    {
+      "tag": "White House",
+      "title": "The National Space Transportation Policy",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/national-security-presidential-memorandum-nspm-17/",
+      "text": "Space / launch / aerospace — Aug 20"
+    },
+    {
+      "tag": "White House",
+      "title": "Temporary Suspension of Additional Duties to Offset Canadian Discrimination Against the Commerce of the United States with Respect to Alcoholic Beverages, Dairy, and Motor Vehicles",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/temporary-suspension-of-additional-duties-to-offset-canadian-discrimination-against-the-commerce-of-the-united-states-with-respect-to-alcoholic-beverages-dairy-and-motor-vehicles/",
+      "text": "Trade / Canada / autos / dairy — Aug 18"
+    },
+    {
+      "tag": "White House",
+      "title": "Adjusting Imports of Unmanned Aircraft Systems and Unmanned Aircraft Systems Components into the United States",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/adjusting-imports-of-unmanned-aircraft-systems-and-unmanned-aircraft-systems-components-into-the-united-states/",
+      "text": "Drones / defense / trade — Aug 13"
+    },
+    {
+      "tag": "White House",
+      "title": "Rebuilding the United States Navy and America’s Shipbuilding Industrial Base",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/rebuilding-the-united-states-navy-and-americas-shipbuilding-industrial-base/",
+      "text": "Defense / industrials / shipyards — Aug 13"
+    },
+    {
+      "tag": "White House",
+      "title": "Treasury, IRS Move to End Tax-Exempt Status for Discriminatory Practices in Private Schools",
+      "url": "https://home.treasury.gov/news/press-releases/sb0621",
+      "text": "Education / tax-exempt private schools proposed rule — Sep 3; final years begin May 31 2027"
+    },
+    {
+      "tag": "State",
+      "title": "SB-886 California Technology Innovation and Ratepayer Protection Act",
+      "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB886",
+      "text": "Enrolled Aug 31; Newsom sign/veto deadline ~Sep 30 — data-center tariffs / ratepayer protection (utilities, hyperscale tech)"
+    },
+    {
+      "tag": "State",
+      "title": "AB-2383 Electricity: data centers",
+      "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260AB2383",
+      "text": "Companion to SB 886; contingent on SB 886; separate data-center electricity class / tariffs"
+    },
+    {
+      "tag": "calendar",
+      "title": "BLS Employment Situation (August)",
+      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
+      "text": "NFP Fri Sep 4 8:30 AM ET — session-day print"
+    },
+    {
+      "tag": "calendar",
+      "title": "OPEC+ Group of Seven production review",
+      "url": "https://www.opec.org/pr-detail/1854611-2-august-2026.html",
+      "text": "Next meeting Sat Sep 6 2026 (virtual) — oil supply path"
+    },
+    {
+      "tag": "calendar",
+      "title": "Labor Day market holiday",
+      "url": "https://www.nyse.com/markets/hours-calendars",
+      "text": "NYSE/Nasdaq closed Mon Sep 7; next session Tue Sep 8"
+    },
+    {
+      "tag": "calendar",
+      "title": "BLS Producer Price Index (August)",
+      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
+      "text": "PPI Thu Sep 10 8:30 AM ET"
+    },
+    {
+      "tag": "calendar",
+      "title": "EIA Weekly Petroleum Status Report (post–Labor Day)",
+      "url": "https://www.eia.gov/petroleum/supply/weekly/schedule.php",
+      "text": "Thu Sep 10 12:00 PM ET (holiday shift) — crude / product balances"
+    },
+    {
+      "tag": "calendar",
+      "title": "Oracle and Adobe fiscal earnings (announced)",
+      "url": "https://beta.earningswhispers.com/calweek/20260907",
+      "text": "ORCL + ADBE after close Thu Sep 10 — liquid mega-cap software; corroborator investing.com earnings calendar"
+    },
+    {
+      "tag": "calendar",
+      "title": "BLS Consumer Price Index (August)",
+      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
+      "text": "CPI Fri Sep 11 8:30 AM ET — key into FOMC"
+    },
+    {
+      "tag": "calendar",
+      "title": "FOMC meeting September 15–16 with SEP",
+      "url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+      "text": "Decision ~2:00 PM ET + press conference ~2:30 PM ET Wed Sep 16"
+    },
+    {
+      "tag": "calendar",
+      "title": "BLS U.S. Import and Export Price Indexes (August)",
+      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
+      "text": "Wed Sep 16 8:30 AM ET — same day as FOMC decision"
+    },
+    {
+      "tag": "World",
+      "title": "US–Iran kinetic risk and Strait of Hormuz oil transit",
+      "url": "https://www.reuters.com/business/energy/oil-up-nearly-1-us-iran-trade-fresh-strikes-2026-09-02/",
+      "text": "Concept: wartime Hormuz chokepoint keeps crude elevated (~Brent mid-$90s) into next sessions — veto energy/beta until two-session window clears. Corroborators: Reuters oil settle Sep 2; US DOE/Wright Hormuz flow claim Sep 2 Reuters."
+    },
+    {
+      "tag": "World",
+      "title": "Fed Governor Waller conditional hold into September FOMC",
+      "url": "https://www.federalreserve.gov/newsevents/speech/waller20260903a.htm",
+      "text": "Concept: Sept hike odds softened if Aug CPI cools — rates/duration repricing across liquid names next two sessions. Corroborators: Fed speech Sep 3; AP/PBS Sep 3."
+    },
+    {
+      "tag": "World",
+      "title": "Equity relief rally after dovish Fed tone ahead of NFP",
+      "url": "https://www.cnbc.com/2026/09/03/fed-governor-waller-indicates-he-will-support-holding-rates-steady-at-september-meeting.html",
+      "text": "Concept: risk-on into Friday NFP after Waller; fragile if payrolls hot — broad beta / megacap. Corroborators: CNBC Sep 3; Deutsche Bank/FXStreet Sep 4 equities note."
+    }
   ]
 }
