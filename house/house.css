@@ -1,5 +1,5 @@
-@import url("house-a.css?v=20260904s");
-@import url("house-b.css?v=20260904s");
+@import url("house-a.css?v=20260904t");
+@import url("house-b.css?v=20260904t");
 @import url("mix.css");
 
 header .brand-block {
@@ -126,7 +126,7 @@ header .header-end { grid-area: end; margin-left: 0; }
   color: var(--header-fg);
   opacity: 1;
 }
-.book-scroll { max-height: 31.5rem; overflow: auto; }
+.book-scroll { max-height: 38rem; overflow: auto; }
 .acct-grid { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 720px) {
   header .idx-strip { display: none !important; }
