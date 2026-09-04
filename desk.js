@@ -88,7 +88,9 @@
         var avg=Number(n.avg||n.cost), last=Number(n.last||avg);
         var vs = (avg && last) ? ((last/avg-1)*100).toFixed(2)+"%" : "—";
         var tr=document.createElement("tr");
-        tr.innerHTML="<td>"+(n.symbol||"")+(n.name?" · "+n.name:"")+"</td><td>"+(n.avg||"—")+"</td><td>"+(n.first_fill||"—")+"</td><td>"+(n.next_stall||"—")+"</td><td>"+vs+"</td>";
+        var nm=(n.symbol||"")+(n.name?" · "+n.name:"");
+        var url="https://duckduckgo.com/?q="+encodeURIComponent("!ducky "+((n.name&&n.symbol&&String(n.name).toUpperCase()!==String(n.symbol).toUpperCase())?(n.name+" "+n.symbol):(n.name||n.symbol||""))+" official website");
+        tr.innerHTML="<td><a class='name-link' href='"+url+"' target='_blank' rel='noopener noreferrer'>"+nm+"</a></td><td>"+(n.avg||"—")+"</td><td>"+(n.first_fill||"—")+"</td><td>"+(n.next_stall||"—")+"</td><td>"+vs+"</td>";
         tb.appendChild(tr);
       });
     }
@@ -129,7 +131,11 @@
     if(buy) buy.innerHTML="<li>Slots = floor(equity / $75). 12h green lock. Same-symbol rebuy 24h. Stall 2bd +5% then +4%.</li>";
     var track=document.getElementById("tickerTrack");
     if(track){
-      var bits=names.map(function(n){ return "<span class='ticker-item'><span class='sym'>"+n.symbol+"</span><span class='px'>"+(n.last||n.avg||"")+"</span></span>"; }).join("");
+      var bits=names.map(function(n){
+        var url="https://duckduckgo.com/?q="+encodeURIComponent("!ducky "+((n.name&&n.symbol&&String(n.name).toUpperCase()!==String(n.symbol).toUpperCase())?(n.name+" "+n.symbol):(n.name||n.symbol||""))+" official website");
+        var body="<span class='sym'>"+n.symbol+"</span><span class='px'>"+(n.last||n.avg||"")+"</span>";
+        return "<a class='ticker-item' href='"+url+"' target='_blank' rel='noopener noreferrer' title='Company website'>"+body+"</a>";
+      }).join("");
       track.innerHTML=bits+bits;
     }
     try{ localStorage.setItem("murphyPilotDesk", JSON.stringify(j)); }catch(e){}
