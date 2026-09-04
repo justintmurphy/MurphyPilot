@@ -149,7 +149,11 @@ cardsHtml = function () {
   return "<h2>Books</h2><div class=\"acct-grid\">" + IDS.map(function (id) {
     var b = snap.accounts[id] || {};
     var tag = OUTSIDE_IDS.indexOf(id) >= 0 ? "EOD" : "live";
-    return "<button type=\"button\" class=\"acct-mini\" data-tab=\"" + id + "\"><div class=\"k\">" + esc(LABEL[id]) + " \u00b7 " + tag + "</div><b>" + money(b.equity) + "</b><div class=\"m\">" + (b.names || []).length + " names</div></button>";
+    var d = vsLookback(dodTape(id), b.equity, 1);
+    var day = !d
+      ? '<div class="m"><span class="tone-flat">Day \u2014</span></div>'
+      : '<div class="m"><span class="tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</span></div>";
+    return "<button type=\"button\" class=\"acct-mini\" data-tab=\"" + id + "\"><div class=\"k\">" + esc(LABEL[id]) + " \u00b7 " + tag + "</div><b>" + money(b.equity) + "</b>" + day + "</button>";
   }).join("") + "</div>";
 };
 function eodNote(book, title) {
