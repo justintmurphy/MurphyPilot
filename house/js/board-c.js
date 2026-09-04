@@ -80,6 +80,43 @@ var FID_SLEEVES = [
 FID_SLEEVES.forEach(function (s) { LABEL["fid-" + s.id] = s.label; });
 function fidTabId(sleeveId) { return "fid-" + String(sleeveId || ""); }
 function isFidSleeveTab(t) { return /^fid-/.test(String(t || "")); }
+
+function bookNavHtml() {
+  if (!snap) return "";
+  if (tab === "robinhood" || (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0)) {
+    var chips = '<button type="button" class="book-chip' + (tab === "robinhood" ? " on" : "") + '" data-tab="robinhood">All</button>';
+    (RH_IDS || []).forEach(function (id) {
+      var b = (snap.accounts && snap.accounts[id]) || {};
+      var lab = (typeof bookDisplayLabel === "function") ? bookDisplayLabel(id, b) : ((LABEL && LABEL[id]) || id);
+      chips += '<button type="button" class="book-chip' + (tab === id ? " on" : "") + '" data-tab="' + id + '">' + esc(lab) + "</button>";
+    });
+    return '<nav class="book-nav" aria-label="Robinhood books"><span class="book-nav-k">Robinhood books</span><div class="book-nav-chips">' + chips + "</div></nav>";
+  }
+  if (tab === "fidelity" || (typeof isFidSleeveTab === "function" && isFidSleeveTab(tab))) {
+    var fid = (snap.accounts && snap.accounts.fidelity) || {};
+    if (!fid.sleeves && typeof buildFidelitySleeves === "function") fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
+    var sleeves = fid.sleeves || [];
+    var chips2 = '<button type="button" class="book-chip' + (tab === "fidelity" ? " on" : "") + '" data-tab="fidelity">All</button>';
+    sleeves.forEach(function (s) {
+      if (!s || !s.id) return;
+      if ((Number(s.equity) || 0) <= 0.004 && !(s.names || []).length) return;
+      var id = fidTabId(s.id);
+      registerFidSleeveLabel(s);
+      chips2 += '<button type="button" class="book-chip' + (tab === id ? " on" : "") + '" data-tab="' + id + '">' + esc(s.label || s.id) + "</button>";
+    });
+    return '<nav class="book-nav" aria-label="Fidelity books"><span class="book-nav-k">Fidelity books</span><div class="book-nav-chips">' + chips2 + "</div></nav>";
+  }
+  return "";
+}
+function injectBookNav(desk) {
+  if (!desk) return;
+  var nav = bookNavHtml();
+  if (!nav) return;
+  var alertN = desk.querySelector(".next-alert");
+  if (alertN) alertN.insertAdjacentHTML("afterend", nav);
+  else desk.insertAdjacentHTML("afterbegin", nav);
+}
+
 function registerFidSleeveLabel(s) {
   if (!s || !s.id) return s;
   LABEL[fidTabId(s.id)] = s.label || s.id;
@@ -308,7 +345,7 @@ function bookCardHtml(id, label, equity, tag, tapeKey) {
       if (d) day = '<div class="m"><span class="tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) + " · " + pct(d.pct) + "</span></div>";
     }
   }
-  return '<button type="button" class="acct-mini" data-tab="' + id + '"><div class="k">' + esc(label) + " · " + tag + "</div><b>" + money(equity) + "</b>" + day + "</button>";
+  return '<button type="button" class="acct-mini' + (tab === id ? ' on' : '') + '" data-tab="' + id + '"><div class="k">' + esc(label) + " · " + tag + "</div><b>" + money(equity) + "</b>" + day + "</button>";
 }
 
 function liveFidSleeveIds() {
@@ -512,12 +549,13 @@ function fidelityBooksHtml(fid) {
     "<p class=\"hint\">Each Truthifi/SnapTrade Fidelity account is its own book. Click a sleeve for book state, mix, and holdings. No account numbers.</p>";
 }
 function fidelityDeskHtml() {
+  var nav = bookNavHtml();
   var fid = snap.accounts.fidelity || { names: [], equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, open_orders: 0, invested_pct: 0 };
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
   var sleeves = fid.sleeves || [];
   var mixBook = { books: sleeves, names: fid.names || [], cash: fid.cash || 0 };
   /* Match Robinhood page order: Books → Book state → Tape → Where it sits → Book */
-  var html = "";
+  var html = nav || "";
   html += fidelityBooksHtml(fid);
   if (fid.live) {
     html += fidelityLiveStateHtml(fid, "Fidelity");
@@ -540,12 +578,11 @@ function fidelitySleeveDeskHtml() {
   }
   registerFidSleeveLabel(s);
   var title = "Fidelity \u00b7 " + s.label;
-  var html = "";
+  var html = bookNavHtml();
   if (fid.live) html += fidelityLiveStateHtml(s, title);
   else html += custodialStateHtml(s, title);
   html += "<h2>Where it sits</h2>" + mixHtml(s, s.id);
   html += "<h2>Book</h2>" + custodialTableHtml(s.names, s.equity);
-  html += "<p class=\"hint\"><button type=\"button\" class=\"acct-mini\" data-tab=\"fidelity\" style=\"display:inline-block;width:auto;padding:8px 12px\"><div class=\"k\">All Fidelity books</div></button></p>";
   return html;
 }
 function voyaDeskHtml() {
