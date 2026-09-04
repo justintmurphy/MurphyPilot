@@ -101,17 +101,23 @@ function mixTopSlices() {
 }
 
 function mixDetailSlices() {
-  /* Click detail: Rob · books, Fid · sleeves (no fake day%), Fid · all + Voya with real tape */
+  /* Click detail: Rob books + Rob · all, Fid sleeves + Fid · all, Voy/Voya */
   var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
   var rows = [];
   var i = 0;
+  var rhEq = 0;
   (typeof RH_IDS !== "undefined" ? RH_IDS : ["agentic", "individual", "auto_grok", "joint"]).forEach(function (id) {
     var b = (snap.accounts && snap.accounts[id]) || {};
     var eq = Number(b.equity) || 0;
     if (eq <= 0.004) return;
+    rhEq += eq;
     var name = (typeof bookDisplayLabel === "function") ? bookDisplayLabel(id, b) : ((LABEL && LABEL[id]) || id);
     rows.push({ key: id, label: "Rob \u00b7 " + name, value: eq, color: mix[i++ % mix.length], tapeKey: id });
   });
+  if (rhEq > 0.004) {
+    var rhRoot = (snap.robinhood && Number(snap.robinhood.equity)) || rhEq;
+    rows.push({ key: "robinhood", label: "Rob \u00b7 all", value: Number(rhRoot) || rhEq, color: mix[i++ % mix.length], tapeKey: "robinhood" });
+  }
   var fid = (snap.accounts && snap.accounts.fidelity) || {};
   if (!fid.sleeves && typeof buildFidelitySleeves === "function") {
     fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
@@ -123,14 +129,13 @@ function mixDetailSlices() {
       if (eq <= 0.004 && !(s.names || []).length) return;
       var key = (typeof fidTabId === "function") ? fidTabId(s.id) : ("fid-" + s.id);
       if (LABEL) LABEL[key] = s.label || s.id;
-      /* No per-sleeve tape — never borrow rollup Fidelity tape (makes Day/Week nonsense). */
       rows.push({ key: key, label: "Fid \u00b7 " + (s.label || s.id), value: eq, color: mix[i++ % mix.length], tapeKey: null, noGrowth: true });
     });
     if ((Number(fid.equity) || 0) > 0.004) {
       rows.push({ key: "fidelity", label: "Fid \u00b7 all", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity" });
     }
   } else if ((Number(fid.equity) || 0) > 0.004) {
-    rows.push({ key: "fidelity", label: "Fid \u00b7 Fidelity", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity" });
+    rows.push({ key: "fidelity", label: "Fid \u00b7 all", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity" });
   }
   var voya = (snap.accounts && snap.accounts.voya) || {};
   if ((Number(voya.equity) || 0) > 0.004) {
@@ -149,8 +154,22 @@ function mixDetailSlices() {
 
 mixHtml = function (bookObj, t) {
   var slices;
-  if (t === "combined" && typeof snap !== "undefined" && snap) {
+  var houseMix = (t === "combined" && typeof snap !== "undefined" && snap && tab === "combined");
+  var fidSleeveMix = bookObj && bookObj.books && bookObj.books.length && (tab === "fidelity" || t === "fidelity");
+  if (houseMix) {
     slices = mixTopSlices();
+  } else if (fidSleeveMix) {
+    /* Fidelity page: donut = sleeves; click detail marks noGrowth + Fid · all */
+    slices = (bookObj.books || []).map(function (b, i) {
+      var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
+      var key = (typeof fidTabId === "function") ? fidTabId(b.id) : ("fid-" + b.id);
+      return { key: key, label: "Fid · " + (b.label || b.id), value: Number(b.equity) || 0, color: mix[i % mix.length], tapeKey: null, noGrowth: true };
+    }).filter(function (s) { return s.value > 0.004 || true; }).filter(function (s) { return s.value > 0.004; });
+    var fid = (snap.accounts && snap.accounts.fidelity) || {};
+    if ((Number(fid.equity) || 0) > 0.004) {
+      var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)"];
+      slices.push({ key: "fidelity", label: "Fid · all", value: Number(fid.equity) || 0, color: mix[slices.length % mix.length], tapeKey: "fidelity" });
+    }
   } else {
     slices = mixSlices(bookObj, t);
   }
@@ -177,7 +196,17 @@ mixHtml = function (bookObj, t) {
       "<b>" + p.pct.toFixed(0) + "% \u00b7 " + money(p.value) + "</b></button>";
   }).join("");
 
-  var detailSrc = (t === "combined" && snap) ? mixDetailSlices() : paths;
+  var detailSrc = houseMix ? mixDetailSlices() : slices.map(function (s, idx) {
+    var p = paths[idx] || s;
+    return {
+      key: s.key || p.key,
+      label: s.label || p.label,
+      color: s.color || p.color,
+      value: s.value != null ? s.value : p.value,
+      tapeKey: s.tapeKey,
+      noGrowth: !!s.noGrowth
+    };
+  });
       var detailRows = detailSrc.map(function (p) {
     var day = null, week = null, month = null, year = null;
     var canGrow = !p.noGrowth && p.tapeKey;
