@@ -101,7 +101,7 @@ function mixTopSlices() {
 }
 
 function mixDetailSlices() {
-  /* Click detail: Rob · books, Fid · sleeves, Voy · only when we have extra (else plain Voya) */
+  /* Click detail: Rob · books, Fid · sleeves (no fake day%), Fid · all + Voya with real tape */
   var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
   var rows = [];
   var i = 0;
@@ -123,8 +123,12 @@ function mixDetailSlices() {
       if (eq <= 0.004 && !(s.names || []).length) return;
       var key = (typeof fidTabId === "function") ? fidTabId(s.id) : ("fid-" + s.id);
       if (LABEL) LABEL[key] = s.label || s.id;
-      rows.push({ key: key, label: "Fid \u00b7 " + (s.label || s.id), value: eq, color: mix[i++ % mix.length], tapeKey: "fidelity" });
+      /* No per-sleeve tape — never borrow rollup Fidelity tape (makes Day/Week nonsense). */
+      rows.push({ key: key, label: "Fid \u00b7 " + (s.label || s.id), value: eq, color: mix[i++ % mix.length], tapeKey: null, noGrowth: true });
     });
+    if ((Number(fid.equity) || 0) > 0.004) {
+      rows.push({ key: "fidelity", label: "Fid \u00b7 all", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity" });
+    }
   } else if ((Number(fid.equity) || 0) > 0.004) {
     rows.push({ key: "fidelity", label: "Fid \u00b7 Fidelity", value: Number(fid.equity) || 0, color: mix[i++ % mix.length], tapeKey: "fidelity" });
   }
@@ -132,7 +136,6 @@ function mixDetailSlices() {
   if ((Number(voya.equity) || 0) > 0.004) {
     var voyBits = [];
     var tidy = (typeof bookDisplayLabel === "function") ? bookDisplayLabel("voya", voya) : (voya.label || "Voya");
-    /* Prefer plain "Voya" unless we have something beyond the broker name (401k / ···last-4) */
     if (tidy && tidy !== "Voya" && tidy !== "Voya 401(k)") voyBits.push(tidy);
     else if (voya.suffix) voyBits.push("···" + String(voya.suffix).replace(/\D/g, "").slice(-4));
     else if (voya.sleeve && String(voya.sleeve).toLowerCase() !== "voya") {
@@ -175,19 +178,33 @@ mixHtml = function (bookObj, t) {
   }).join("");
 
   var detailSrc = (t === "combined" && snap) ? mixDetailSlices() : paths;
-  var detailRows = detailSrc.map(function (p) {
-    var tapeKey = p.tapeKey || p.key;
-    var prints = (typeof dodTape === "function") ? dodTape(tapeKey) : [];
-    var day = (typeof vsLookback === "function") ? vsLookback(prints, p.value, 1) : null;
-    var week = (typeof vsLookback === "function") ? vsLookback(prints, p.value, 7) : null;
-    var month = (typeof vsLookback === "function") ? vsLookback(prints, p.value, 30) : null;
-    var year = (typeof vsYtd === "function") ? vsYtd(prints, p.value) : ((typeof vsLookback === "function") ? vsLookback(prints, p.value, 365) : null);
+      var detailRows = detailSrc.map(function (p) {
+    var day = null, week = null, month = null, year = null;
+    var canGrow = !p.noGrowth && p.tapeKey;
+    if (canGrow && typeof dodTape === "function" && typeof vsLookback === "function") {
+      var prints = dodTape(p.tapeKey);
+      var tapeLast = null;
+      (prints || []).forEach(function (raw) {
+        var eq = Number((raw && raw.equity != null) ? raw.equity : (raw && raw.e));
+        if (!isFinite(eq)) return;
+        var t = raw && (raw.t || raw.asof || "");
+        if (!tapeLast || String(t) >= String(tapeLast.t || "")) tapeLast = { t: t, equity: eq };
+      });
+      var scaleOk = !tapeLast || tapeLast.equity < 0.01 || !(p.value > 0.004)
+        || (p.value / tapeLast.equity >= 0.7 && p.value / tapeLast.equity <= 1.35);
+      if (scaleOk) {
+        day = vsLookback(prints, p.value, 1);
+        week = vsLookback(prints, p.value, 7);
+        month = vsLookback(prints, p.value, 30);
+        year = (typeof vsYtd === "function") ? vsYtd(prints, p.value) : vsLookback(prints, p.value, 365);
+      }
+    }
     return '<tr data-mix-key="' + esc(p.key) + '"><td><i class="mix-dot" style="background:' + p.color + '"></i> ' + esc(p.label) + "</td>" +
       '<td class="num">' + money(p.value) + "</td>" +
       mixGrowthCell(day) + mixGrowthCell(week) + mixGrowthCell(month) + mixGrowthCell(year) + "</tr>";
   }).join("");
   var hint = '<p class="mix-hint-click">' + (t === "combined"
-    ? "Tap to expand: Rob · books, Fid · sleeves, Voy/Voya — Day / Week / Month / Year (dash if tape is short)."
+    ? "Tap to expand: Rob books + Fid sleeves (Day/Week on Fid · all / Voya / Rob only — sleeve tapes not kept) + growth $ above %."
     : "Tap for Day / Week / Month / Year vs this book\u2019s tape.") + "</p>";
   return '<div class="card mix-card"><div class="mix-compact">' + svg + '<div class="mix-legend">' + legend + "</div></div>" +
     hint +
