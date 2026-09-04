@@ -144,13 +144,15 @@
   }
 
   function stateHtml(b, title) {
-    var eqCell = tab === "combined" ? "" : ("<div><span>Equity</span><b>" + money(b.equity) + "</b>" + dodHtml(dodTape(tab), b.equity) + "</div>");
+    var eqCell = tab === "combined"
+      ? ("<div><span>Cash</span><b>" + money(b.cash) + "</b></div>")
+      : ("<div><span>Equity</span><b>" + money(b.equity) + "</b>" + dodHtml(dodTape(tab), b.equity) + "</div>");
     return "<h2>Book state \u00b7 " + esc(title) + "</h2><div class=\"card span\"><div class=\"kpi\">" +
       eqCell +
       "<div><span>Buying power</span><b>" + money(b.buying_power) + "</b></div>" +
       "<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>" +
       "<div><span>Names</span><b>" + (b.names || []).length + "</b></div></div>" +
-      '<p class="hint">Cash ' + money(b.cash) + " \u00b7 pending already in " + money(b.pending_deposits) + " \u00b7 orders " + (b.open_orders || 0) +
+      '<p class="hint">' + (tab === "combined" ? "" : ("Cash " + money(b.cash) + " \u00b7 ")) + "pending already in " + money(b.pending_deposits) + " \u00b7 orders " + (b.open_orders || 0) +
       (b.slots != null ? " \u00b7 slots " + b.slots : "") + "</p></div>";
   }
 
