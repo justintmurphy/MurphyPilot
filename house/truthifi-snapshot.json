@@ -1,1 +1,827 @@
-{"asof":"2026-09-03","source":"Truthifi","note":"Holdings EOD 2026-09-03. Scanned 2026-09-04 ~16:10 ET. Both links complete. Cash sweeps counted as cash. RSU book is empty.","accounts":{"fidelity":{"id":"fidelity","label":"Fidelity","source":"Truthifi","asof":"2026-09-03","equity":2803.32,"equity_value":2582.97,"cash":220.35,"buying_power":220.35,"pending_deposits":0,"invested_pct":92.14,"open_orders":0,"names":[]},"voya":{"id":"voya","label":"Voya 401(k)","source":"Truthifi","asof":"2026-09-03","equity":62462.94,"equity_value":62462.94,"cash":0,"buying_power":0,"pending_deposits":0,"invested_pct":100,"open_orders":0,"names":[]}},"sleeves":{"fidelity_bny":{"id":"fidelity_bny","label":"BNY","source":"Truthifi","asof":"2026-09-03","equity":1948.81,"equity_value":1948.77,"cash":0.04,"buying_power":0.04,"pending_deposits":0,"invested_pct":100,"open_orders":0,"names":[]},"fidelity_roth":{"id":"fidelity_roth","label":"Roth","source":"Truthifi","asof":"2026-09-03","equity":328.88,"equity_value":327.18,"cash":1.7,"buying_power":1.7,"pending_deposits":0,"invested_pct":99.48,"open_orders":0,"names":[]},"fidelity_per":{"id":"fidelity_per","label":"PER","source":"Truthifi","asof":"2026-09-03","equity":200.81,"equity_value":200.75,"cash":0.06,"buying_power":0.06,"pending_deposits":0,"invested_pct":99.97,"open_orders":0,"names":[]},"fidelity_trad":{"id":"fidelity_trad","label":"Trad","source":"Truthifi","asof":"2026-09-03","equity":106.86,"equity_value":106.27,"cash":0.59,"buying_power":0.59,"pending_deposits":0,"invested_pct":99.45,"open_orders":0,"names":[]},"fidelity_espp":{"id":"fidelity_espp","label":"ESPP","source":"Truthifi","asof":"2026-09-03","equity":217.96,"equity_value":0,"cash":217.96,"buying_power":217.96,"pending_deposits":0,"invested_pct":0,"open_orders":0,"names":[]},"fidelity_rsu":{"id":"fidelity_rsu","label":"RSU","source":"Truthifi","asof":"2026-09-03","equity":0,"equity_value":0,"cash":0,"buying_power":0,"pending_deposits":0,"invested_pct":0,"open_orders":0,"names":[]},"voya_401k":{"id":"voya_401k","label":"401k","source":"Truthifi","asof":"2026-09-03","equity":62462.94,"equity_value":62462.94,"cash":0,"buying_power":0,"pending_deposits":0,"invested_pct":100,"open_orders":0,"names":[]}},"scanned_at":"2026-09-04T16:09:32-04:00","holdings_asof":"2026-09-03","overall":{"equity":68177.65,"live_equity":2911.39,"custodial_equity":65266.26,"asof":"2026-09-04T16:00:00-04:00","holdings_asof":"2026-09-03","live_asof":"2026-09-03T15:36:05-04:00"},"tape":{"overall":[{"t":"2026-09-01T16:00:00-04:00","dtg":"011600R SEP 26","equity":67723.44,"live":2794.04,"custodial":64929.4},{"t":"2026-09-02T16:00:00-04:00","dtg":"021600R SEP 26","equity":67373.61,"live":2831.76,"custodial":64541.85},{"t":"2026-09-03T16:00:00-04:00","dtg":"031600R SEP 26","equity":67627.26,"live":2911.39,"custodial":64715.88},{"t":"2026-09-04T16:00:00-04:00","dtg":"041600R SEP 26","equity":68177.65,"live":2911.39,"custodial":65266.26}]}}
+{
+  "asof": "2026-09-02",
+  "source": "Truthifi",
+  "note": "Holdings EOD 2026-09-02. Scanned 2026-09-03 ~16:15 ET. Both links complete. Cash sweeps counted as cash. RSU book is empty. Fidelity accounts[] live from SnapTrade; names/equity still Truthifi until positions sync.",
+  "accounts": {
+    "fidelity": {
+      "id": "fidelity",
+      "label": "Fidelity",
+      "source": "snaptrade+truthifi",
+      "asof": "2026-09-04",
+      "equity": 2749.62,
+      "equity_value": 2529.27,
+      "cash": 220.35,
+      "buying_power": 220.35,
+      "pending_deposits": 0,
+      "invested_pct": 91.99,
+      "open_orders": 0,
+      "names": [
+        {
+          "symbol": "BNY",
+          "name": "Bank of New York Mellon",
+          "kind": "equity",
+          "qty": 7.332,
+          "last": 162.04,
+          "value": 1188.077,
+          "cost": 755.59,
+          "sleeve": "BNY",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 432.49,
+          "pnl_pct": 57.24,
+          "avg": 103.05
+        },
+        {
+          "symbol": "SPCX",
+          "name": "SpaceX Class A",
+          "kind": "equity",
+          "qty": 3.208,
+          "last": 140.71,
+          "value": 451.398,
+          "cost": 516.06,
+          "sleeve": "BNY",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": -64.66,
+          "pnl_pct": -12.53,
+          "avg": 160.87
+        },
+        {
+          "symbol": "FDFIX",
+          "name": "Fidelity Flex 500 Index",
+          "kind": "fund",
+          "qty": 5.375,
+          "last": 32.62,
+          "value": 175.332,
+          "cost": 157.33,
+          "sleeve": "Roth",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 18.0,
+          "pnl_pct": 11.44,
+          "avg": 29.27
+        },
+        {
+          "symbol": "FITFX",
+          "name": "Fidelity Flex International Index",
+          "kind": "fund",
+          "qty": 4.173,
+          "last": 19.64,
+          "value": 81.958,
+          "cost": 75.84,
+          "sleeve": "Roth",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 6.12,
+          "pnl_pct": 8.07,
+          "avg": 18.17
+        },
+        {
+          "symbol": "MU",
+          "name": "Micron Technology",
+          "kind": "equity",
+          "qty": 0.065,
+          "last": 956.08,
+          "value": 62.145,
+          "cost": 57.52,
+          "sleeve": "BNY",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 4.63,
+          "pnl_pct": 8.04,
+          "avg": 884.92
+        },
+        {
+          "symbol": "NRG",
+          "name": "NRG Energy",
+          "kind": "equity",
+          "qty": 0.557,
+          "last": 111.09,
+          "value": 61.877,
+          "cost": 74.37,
+          "sleeve": "PER",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": -12.49,
+          "pnl_pct": -16.8,
+          "avg": 133.52
+        },
+        {
+          "symbol": "FDFIX",
+          "name": "Fidelity Flex 500 Index",
+          "kind": "fund",
+          "qty": 1.746,
+          "last": 32.62,
+          "value": 56.955,
+          "cost": 56.54,
+          "sleeve": "Trad",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 0.42,
+          "pnl_pct": 0.73,
+          "avg": 32.38
+        },
+        {
+          "symbol": "TMUS",
+          "name": "T-Mobile US",
+          "kind": "equity",
+          "qty": 0.292,
+          "last": 187.3,
+          "value": 54.692,
+          "cost": 54.75,
+          "sleeve": "BNY",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": -0.06,
+          "pnl_pct": -0.11,
+          "avg": 187.5
+        },
+        {
+          "symbol": "LMT",
+          "name": "Lockheed Martin",
+          "kind": "equity",
+          "qty": 0.094,
+          "last": 531.55,
+          "value": 49.966,
+          "cost": 49.89,
+          "sleeve": "BNY",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 0.08,
+          "pnl_pct": 0.15,
+          "avg": 530.74
+        },
+        {
+          "symbol": "NVDA",
+          "name": "NVIDIA",
+          "kind": "equity",
+          "qty": 0.222,
+          "last": 224.41,
+          "value": 49.819,
+          "cost": 49.79,
+          "sleeve": "BNY",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 0.03,
+          "pnl_pct": 0.06,
+          "avg": 224.28
+        },
+        {
+          "symbol": "FIBUX",
+          "name": "Fidelity Flex U.S. Bond Index",
+          "kind": "fund",
+          "qty": 5.311,
+          "last": 8.96,
+          "value": 47.587,
+          "cost": 48.21,
+          "sleeve": "Roth",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": -0.62,
+          "pnl_pct": -1.29,
+          "avg": 9.08
+        },
+        {
+          "symbol": "TSLA",
+          "name": "Tesla",
+          "kind": "equity",
+          "qty": 0.121,
+          "last": 357.01,
+          "value": 43.198,
+          "cost": 49.99,
+          "sleeve": "BNY",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": -6.79,
+          "pnl_pct": -13.59,
+          "avg": 413.14
+        },
+        {
+          "symbol": "DXCM",
+          "name": "Dexcom",
+          "kind": "equity",
+          "qty": 0.296,
+          "last": 89.69,
+          "value": 26.548,
+          "cost": 19.99,
+          "sleeve": "PER",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 6.56,
+          "pnl_pct": 32.81,
+          "avg": 67.53
+        },
+        {
+          "symbol": "FITFX",
+          "name": "Fidelity Flex International Index",
+          "kind": "fund",
+          "qty": 1.356,
+          "last": 19.64,
+          "value": 26.632,
+          "cost": 26.07,
+          "sleeve": "Trad",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 0.56,
+          "pnl_pct": 2.16,
+          "avg": 19.23
+        },
+        {
+          "symbol": "ABT",
+          "name": "Abbott Laboratories",
+          "kind": "equity",
+          "qty": 0.225,
+          "last": 110.47,
+          "value": 24.856,
+          "cost": 20.09,
+          "sleeve": "PER",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 4.77,
+          "pnl_pct": 23.73,
+          "avg": 89.29
+        },
+        {
+          "symbol": "EW",
+          "name": "Edwards Lifesciences",
+          "kind": "equity",
+          "qty": 0.242,
+          "last": 90.82,
+          "value": 21.978,
+          "cost": 19.94,
+          "sleeve": "PER",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 2.04,
+          "pnl_pct": 10.22,
+          "avg": 82.4
+        },
+        {
+          "symbol": "VST",
+          "name": "Vistra",
+          "kind": "equity",
+          "qty": 0.148,
+          "last": 143.46,
+          "value": 21.232,
+          "cost": 19.96,
+          "sleeve": "PER",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 1.27,
+          "pnl_pct": 6.37,
+          "avg": 134.86
+        },
+        {
+          "symbol": "ALGN",
+          "name": "Align Technology",
+          "kind": "equity",
+          "qty": 0.129,
+          "last": 159.15,
+          "value": 20.53,
+          "cost": 19.98,
+          "sleeve": "PER",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 0.55,
+          "pnl_pct": 2.75,
+          "avg": 154.88
+        },
+        {
+          "symbol": "FIBUX",
+          "name": "Fidelity Flex U.S. Bond Index",
+          "kind": "fund",
+          "qty": 1.725,
+          "last": 8.96,
+          "value": 15.456,
+          "cost": 15.54,
+          "sleeve": "Trad",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": -0.08,
+          "pnl_pct": -0.54,
+          "avg": 9.01
+        },
+        {
+          "symbol": "BDX",
+          "name": "Becton Dickinson",
+          "kind": "equity",
+          "qty": 0.068,
+          "last": 187.52,
+          "value": 12.751,
+          "cost": 9.99,
+          "sleeve": "PER",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 2.76,
+          "pnl_pct": 27.64,
+          "avg": 146.91
+        },
+        {
+          "symbol": "FLAPX",
+          "name": "Fidelity Flex Mid Cap Index",
+          "kind": "fund",
+          "qty": 0.454,
+          "last": 25.45,
+          "value": 11.554,
+          "cost": 10.56,
+          "sleeve": "Roth",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 0.99,
+          "pnl_pct": 9.41,
+          "avg": 23.26
+        },
+        {
+          "symbol": "FTI",
+          "name": "TechnipFMC",
+          "kind": "equity",
+          "qty": 0.137,
+          "last": 79.67,
+          "value": 10.915,
+          "cost": 9.98,
+          "sleeve": "PER",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 0.94,
+          "pnl_pct": 9.37,
+          "avg": 72.85
+        },
+        {
+          "symbol": "FLXSX",
+          "name": "Fidelity Flex Small Cap Index",
+          "kind": "fund",
+          "qty": 0.357,
+          "last": 21.29,
+          "value": 7.601,
+          "cost": 6.86,
+          "sleeve": "Roth",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 0.74,
+          "pnl_pct": 10.8,
+          "avg": 19.22
+        },
+        {
+          "symbol": "FLAPX",
+          "name": "Fidelity Flex Mid Cap Index",
+          "kind": "fund",
+          "qty": 0.147,
+          "last": 25.45,
+          "value": 3.741,
+          "cost": 3.74,
+          "sleeve": "Trad",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 0.0,
+          "pnl_pct": 0.03,
+          "avg": 25.44
+        },
+        {
+          "symbol": "FLXSX",
+          "name": "Fidelity Flex Small Cap Index",
+          "kind": "fund",
+          "qty": 0.116,
+          "last": 21.29,
+          "value": 2.47,
+          "cost": 2.47,
+          "sleeve": "Trad",
+          "account": "fidelity",
+          "accounts": [
+            "fidelity"
+          ],
+          "pnl": 0.0,
+          "pnl_pct": 0.0,
+          "avg": 21.29
+        }
+      ],
+      "live": true,
+      "accounts": [
+        {
+          "id": "individual-per-6913",
+          "label": "INDIVIDUAL - PER",
+          "suffix": "6913",
+          "sleeve": "PER",
+          "sleeve_key": "fidelity_per",
+          "equity": 200.75,
+          "equity_value": 200.75,
+          "cash": 0.06,
+          "buying_power": 0.06,
+          "pending_deposits": 0,
+          "invested_pct": 0,
+          "open_orders": 0,
+          "names": [],
+          "source": "SnapTrade Personal LIVE",
+          "status": "ok",
+          "currency": "USD",
+          "sleeveKey": "fidelity_per",
+          "holdings_source": "truthifi_sleeve_until_snaptrade_positions"
+        },
+        {
+          "id": "justin-s-roth-ira-fidelity-go-5550",
+          "label": "Justin's Roth IRA Fidelity Go",
+          "suffix": "5550",
+          "sleeve": "Roth",
+          "sleeve_key": "fidelity_roth",
+          "equity": 325.73,
+          "equity_value": 325.73,
+          "cash": 1.7,
+          "buying_power": 1.7,
+          "pending_deposits": 0,
+          "invested_pct": 0,
+          "open_orders": 0,
+          "names": [],
+          "source": "SnapTrade Personal LIVE",
+          "status": "ok",
+          "currency": "USD",
+          "sleeveKey": "fidelity_roth",
+          "holdings_source": "truthifi_sleeve_until_snaptrade_positions"
+        },
+        {
+          "id": "bny-espp-9907",
+          "label": "BNY ESPP",
+          "suffix": "9907",
+          "sleeve": "ESPP",
+          "sleeve_key": "fidelity_espp",
+          "equity": 217.96,
+          "equity_value": 217.96,
+          "cash": 0,
+          "buying_power": 0,
+          "pending_deposits": 0,
+          "invested_pct": 0,
+          "open_orders": 0,
+          "names": [],
+          "source": "SnapTrade Personal LIVE",
+          "status": "ok",
+          "currency": "USD",
+          "sleeveKey": "fidelity_espp",
+          "holdings_source": "truthifi_sleeve_until_snaptrade_positions"
+        },
+        {
+          "id": "individual-high-2744",
+          "label": "INDIVIDUAL-HIGH",
+          "suffix": "2744",
+          "sleeve": "HIGH",
+          "sleeve_key": "fidelity_unknown",
+          "equity": 0,
+          "equity_value": 0,
+          "cash": 0,
+          "buying_power": 0,
+          "pending_deposits": 0,
+          "invested_pct": 0,
+          "open_orders": 0,
+          "names": [],
+          "source": "SnapTrade Personal LIVE",
+          "status": "ok",
+          "currency": "USD",
+          "sleeveKey": "fidelity_high",
+          "holdings_source": "truthifi_sleeve_until_snaptrade_positions"
+        },
+        {
+          "id": "bny-rsu-9382",
+          "label": "BNY RSU",
+          "suffix": "9382",
+          "sleeve": "RSU",
+          "sleeve_key": "fidelity_rsu",
+          "equity": 0.0,
+          "equity_value": 0.0,
+          "cash": 0,
+          "buying_power": 0,
+          "pending_deposits": 0,
+          "invested_pct": 0,
+          "open_orders": 0,
+          "names": [],
+          "source": "SnapTrade Personal LIVE",
+          "status": "ok",
+          "currency": "USD",
+          "sleeveKey": "fidelity_rsu",
+          "holdings_source": "truthifi_sleeve_until_snaptrade_positions"
+        },
+        {
+          "id": "justin-s-trad-ira-fidelity-go-0306",
+          "label": "Justin's Trad IRA Fidelity Go",
+          "suffix": "0306",
+          "sleeve": "Trad",
+          "sleeve_key": "fidelity_trad",
+          "equity": 105.84,
+          "equity_value": 105.84,
+          "cash": 0.59,
+          "buying_power": 0.59,
+          "pending_deposits": 0,
+          "invested_pct": 0,
+          "open_orders": 0,
+          "names": [],
+          "source": "SnapTrade Personal LIVE",
+          "status": "ok",
+          "currency": "USD",
+          "sleeveKey": "fidelity_trad",
+          "holdings_source": "truthifi_sleeve_until_snaptrade_positions"
+        },
+        {
+          "id": "individual-bny-9084",
+          "label": "INDIVIDUAL - BNY",
+          "suffix": "9084",
+          "sleeve": "BNY",
+          "sleeve_key": "fidelity_bny",
+          "equity": 1899.34,
+          "equity_value": 1899.34,
+          "cash": 0.04,
+          "buying_power": 0.04,
+          "pending_deposits": 0,
+          "invested_pct": 0,
+          "open_orders": 0,
+          "names": [],
+          "source": "SnapTrade Personal LIVE",
+          "status": "ok",
+          "currency": "USD",
+          "sleeveKey": "fidelity_bny",
+          "holdings_source": "truthifi_sleeve_until_snaptrade_positions"
+        }
+      ],
+      "snaptrade_meta": {
+        "account_count": 7,
+        "positions": 0,
+        "cash_only_equity": 2.39,
+        "note": "Holdings/equity from Truthifi until SnapTrade positions sync; accounts[] from SnapTrade",
+        "scanned_at": "2026-09-04T15:48:47-04:00"
+      }
+    },
+    "voya": {
+      "id": "voya",
+      "label": "Voya 401(k)",
+      "source": "Truthifi",
+      "asof": "2026-09-02",
+      "equity": 61966.26,
+      "equity_value": 61966.26,
+      "cash": 0,
+      "buying_power": 0,
+      "pending_deposits": 0,
+      "invested_pct": 100,
+      "open_orders": 0,
+      "names": [
+        {
+          "symbol": "LCIDX",
+          "name": "BNY 401(k) Large Cap Stock Index",
+          "kind": "fund",
+          "qty": 8.516,
+          "last": 2495.36,
+          "value": 21249.488,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "INTIDX",
+          "name": "Intl ACWI Ex-U.S. Index",
+          "kind": "fund",
+          "qty": 35.352,
+          "last": 501.34,
+          "value": 17723.622,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "SMIDX",
+          "name": "BNY 401(k) Small-Mid Cap Stock Index",
+          "kind": "fund",
+          "qty": 8.429,
+          "last": 1020.82,
+          "value": 8604.288,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "AGGIDX",
+          "name": "Aggregate Bond Index",
+          "kind": "fund",
+          "qty": 21.246,
+          "last": 272.3,
+          "value": 5785.367,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "CPBND",
+          "name": "Core Plus Bond Fund",
+          "kind": "fund",
+          "qty": 241.916,
+          "last": 18.623,
+          "value": 4505.185,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "LCV",
+          "name": "BNY 401(k) Large Cap Value Equity",
+          "kind": "fund",
+          "qty": 31.361,
+          "last": 103.238,
+          "value": 3237.613,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "INTGRO",
+          "name": "International Growth Equity",
+          "kind": "fund",
+          "qty": 16.391,
+          "last": 52.51,
+          "value": 860.693,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        }
+      ]
+    }
+  },
+  "sleeves": {
+    "fidelity_bny": 1899.34,
+    "fidelity_roth": 325.73,
+    "fidelity_per": 200.75,
+    "fidelity_trad": 105.84,
+    "fidelity_espp": 217.96,
+    "fidelity_rsu": 0.0,
+    "voya_401k": 61966.26,
+    "fidelity_high": 0
+  },
+  "scanned_at": "2026-09-04T16:12:57-04:00",
+  "holdings_asof": "2026-09-02",
+  "overall": {
+    "equity": 67627.26,
+    "live_equity": 2911.39,
+    "custodial_equity": 64715.88,
+    "asof": "2026-09-03T16:00:00-04:00",
+    "holdings_asof": "2026-09-02",
+    "live_asof": "2026-09-03T15:36:05-04:00"
+  },
+  "tape": {
+    "overall": [
+      {
+        "t": "2026-09-01T16:00:00-04:00",
+        "dtg": "011600R SEP 26",
+        "equity": 67723.44,
+        "live": 2794.04,
+        "custodial": 64929.4
+      },
+      {
+        "t": "2026-09-02T16:00:00-04:00",
+        "dtg": "021600R SEP 26",
+        "equity": 67373.61,
+        "live": 2831.76,
+        "custodial": 64541.85
+      },
+      {
+        "t": "2026-09-03T16:00:00-04:00",
+        "dtg": "031600R SEP 26",
+        "equity": 67627.26,
+        "live": 2911.39,
+        "custodial": 64715.88
+      }
+    ],
+    "fidelity": [
+      {
+        "t": "2026-09-01T16:00:00-04:00",
+        "dtg": "011600R SEP 26",
+        "equity": 2755.07,
+        "holdings_asof": "2026-08-31"
+      },
+      {
+        "t": "2026-09-02T16:00:00-04:00",
+        "dtg": "021600R SEP 26",
+        "equity": 2735.53,
+        "holdings_asof": "2026-09-01"
+      },
+      {
+        "t": "2026-09-03T16:00:00-04:00",
+        "dtg": "031600R SEP 26",
+        "equity": 2749.62,
+        "holdings_asof": "2026-09-02"
+      },
+      {
+        "t": "2026-09-04T16:12:57-04:00",
+        "dtg": "041612R SEP 26",
+        "equity": 2749.62
+      }
+    ],
+    "voya": [
+      {
+        "t": "2026-09-01T16:00:00-04:00",
+        "dtg": "011600R SEP 26",
+        "equity": 62174.33,
+        "holdings_asof": "2026-08-31"
+      },
+      {
+        "t": "2026-09-02T16:00:00-04:00",
+        "dtg": "021600R SEP 26",
+        "equity": 61806.32,
+        "holdings_asof": "2026-09-01"
+      },
+      {
+        "t": "2026-09-03T16:00:00-04:00",
+        "dtg": "031600R SEP 26",
+        "equity": 61966.26,
+        "holdings_asof": "2026-09-02"
+      }
+    ]
+  },
+  "fidelity_mode": "live",
+  "live": {
+    "fidelity": true,
+    "positions_pending_snaptrade": true,
+    "cadence": "House ~30m weekdays 09:00\u201316:00 ET"
+  }
+}
