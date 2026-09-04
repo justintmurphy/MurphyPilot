@@ -23,6 +23,7 @@
     var el = document.getElementById("tabs");
     var onId = tab;
     if (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0) onId = "robinhood";
+    if (typeof isFidSleeveTab === "function" ? isFidSleeveTab(tab) : /^fid-/.test(String(tab || ""))) onId = "fidelity";
     if (el) {
       el.innerHTML = TABS.map(function (item) {
         return '<button type="button" data-tab="' + item.id + '" class="' + (onId === item.id ? "on" : "") + '">' + item.label + "</button>";
@@ -408,7 +409,12 @@
     }
     var footMsg = "Murphy Pilot \u00b7 Live = Robinhood + Fidelity. Voya is EOD.";
     if (tab === "robinhood" || (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0)) footMsg = "Murphy Pilot \u00b7 Robinhood live books only.";
-    else if (tab === "fidelity") footMsg = "Murphy Pilot \u00b7 Fidelity live.";
+    else if (tab === "fidelity" || (typeof isFidSleeveTab === "function" ? isFidSleeveTab(tab) : /^fid-/.test(String(tab || "")))) {
+      var fidB = (snap.accounts && snap.accounts.fidelity) || {};
+      footMsg = fidB.live
+        ? "Murphy Pilot \u00b7 Fidelity live overlay on Truthifi books."
+        : "Murphy Pilot \u00b7 Fidelity books from Truthifi EOD.";
+    }
     else if (tab === "voya") footMsg = "Murphy Pilot \u00b7 Voya is Truthifi EOD.";
     html += '<footer class="desk-foot">' + footMsg + "</footer>";
     document.getElementById("desk").innerHTML = html;
