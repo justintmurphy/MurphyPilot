@@ -340,6 +340,53 @@ overlayHtml = function () {
   return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood + Fidelity books", "Robinhood books plus each Fidelity sleeve. Voya is EOD-only.") +
     overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every Robinhood and Fidelity book. Only Voya is EOD.");
 };
+
+mixHtml = function (bookObj, t) {
+  var slices;
+  if (t === "combined" && typeof snap !== "undefined" && snap) {
+    /* House: show each Robinhood book + Fidelity + Voya (not one RH blob). */
+    var rows = [];
+    var i = 0;
+    var mix = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
+    (typeof RH_IDS !== "undefined" ? RH_IDS : ["agentic", "individual", "auto_grok", "joint"]).forEach(function (id) {
+      var b = (snap.accounts && snap.accounts[id]) || {};
+      var eq = Number(b.equity) || 0;
+      if (eq > 0.004) rows.push({ key: id, label: (LABEL && LABEL[id]) || id, value: eq, color: mix[i++ % mix.length] });
+    });
+    var fid = (snap.accounts && snap.accounts.fidelity) || {};
+    if ((Number(fid.equity) || 0) > 0.004) rows.push({ key: "fidelity", label: "Fidelity", value: Number(fid.equity) || 0, color: mix[i++ % mix.length] });
+    var voya = (snap.accounts && snap.accounts.voya) || {};
+    if ((Number(voya.equity) || 0) > 0.004) rows.push({ key: "voya", label: "Voya", value: Number(voya.equity) || 0, color: mix[i++ % mix.length] });
+    slices = rows;
+  } else {
+    slices = mixSlices(bookObj, t);
+  }
+  var total = slices.reduce(function (s, x) { return s + x.value; }, 0) || 1;
+  var gap = 0.04;
+  var a = -Math.PI / 2;
+  var paths = slices.map(function (s) {
+    var da = (s.value / total) * Math.PI * 2;
+    var span = Math.max(da - gap, 0.02);
+    var d = donutPath(70, 70, 38, 64, a + gap / 2, a + gap / 2 + span);
+    a += da;
+    return { key: s.key, label: s.label, color: s.color, d: d, pct: (s.value / total) * 100, value: s.value };
+  });
+  if (!paths.length) return '<div class="card mix-card"><p class="hint" style="margin:0">No mix yet.</p></div>';
+  var top = paths.slice().sort(function (x, y) { return y.value - x.value; })[0];
+  var svg = '<div class="mix-ring"><svg class="mix-svg" viewBox="0 0 140 140" aria-hidden="true">' +
+    paths.map(function (p) { return '<path d="' + p.d + '" fill="' + p.color + '"/>'; }).join("") +
+    '</svg><div class="mix-center"><b>' + money(total) + '</b><span>' + esc(top.label) + " " + top.pct.toFixed(0) + "%</span></div></div>";
+  var legend = paths.map(function (p) {
+    return '<button type="button" class="mix-leg" data-mix-key="' + esc(p.key) + '">' +
+      '<i style="background:' + p.color + '"></i>' +
+      '<span class="mix-leg-meta"><span class="mix-leg-name">' + esc(p.label) + "</span>" +
+      '<span class="mix-bar"><span style="width:' + Math.max(p.pct, 2).toFixed(1) + "%;background:" + p.color + '"></span></span></span>' +
+      "<b>" + p.pct.toFixed(0) + "% \u00b7 " + money(p.value) + "</b></button>";
+  }).join("");
+  var hint = '<div class="mix-hint">' + (t === "combined" ? "Robinhood books + Fidelity + Voya \u00b7 share of net" : "Names by market value") + "</div>";
+  return '<div class="card mix-card"><div class="mix-compact">' + svg + '<div class="mix-legend">' + legend + "</div></div>" + hint + "</div>";
+};
+
 cardsHtml = function () {
   if (tab === "robinhood") {
     return "<h2>Books</h2><div class=\"acct-grid four\">" + RH_IDS.map(function (id) {
