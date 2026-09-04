@@ -93,13 +93,25 @@ function fidSleeveFromTab(t) {
 function slugId(s) {
   return String(s || "acct").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "acct";
 }
+function tidyFidAccountLabel(name) {
+  var n = String(name || "");
+  if (/ESPP/i.test(n)) return "ESPP";
+  if (/\bRSU\b/i.test(n)) return "RSU";
+  if (/Roth/i.test(n)) return "Roth IRA";
+  if (/Trad/i.test(n)) return "Traditional IRA";
+  if (/HIGH/i.test(n)) return "HIGH";
+  if (/\bPER\b|Personal/i.test(n)) return "Personal";
+  if (/BNY/i.test(n) || /Brokerage/i.test(n)) return "Brokerage";
+  return n || "Fidelity";
+}
 function fidelityAccountCard(a, i) {
   var names = a.names || [];
   var held = names.reduce(function (sum, n) { return sum + (Number(n.value) || 0); }, 0);
   var equity = a.equity != null ? Number(a.equity) : (held + (Number(a.cash) || 0));
   var cash = a.cash != null ? Number(a.cash) : Math.max(0, equity - held);
-  var id = a.id || slugId((a.label || a.name || "acct") + "-" + (a.suffix || i));
-  var label = a.label || a.name || ("Account " + (i + 1));
+  var rawName = a.label || a.name || ("Account " + (i + 1));
+  var id = a.id || slugId(rawName + "-" + (a.suffix || i));
+  var label = tidyFidAccountLabel(rawName);
   if (a.suffix && String(label).indexOf(String(a.suffix)) < 0) label = label + " ···" + a.suffix;
   return registerFidSleeveLabel({
     id: id,
@@ -267,6 +279,67 @@ function bookCardHtml(id, label, equity, tag, tapeKey) {
     : '<div class="m"><span class="tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</span></div>";
   return "<button type=\"button\" class=\"acct-mini\" data-tab=\"" + id + "\"><div class=\"k\">" + esc(label) + " \u00b7 " + tag + "</div><b>" + money(equity) + "</b>" + day + "</button>";
 }
+function liveFidSleeveIds() {
+  var sleeves = ((snap && snap.accounts && snap.accounts.fidelity) || {}).sleeves || [];
+  var ids = [];
+  sleeves.forEach(function (s) {
+    if (!s || !s.id) return;
+    if ((Number(s.equity) || 0) > 0.004 || (s.names || []).length) ids.push(fidTabId(s.id));
+  });
+  return ids;
+}
+overlayIds = function (mode) {
+  if (typeof RH_IDS !== "undefined" && tab === "robinhood") return RH_IDS.slice();
+  var fidIds = liveFidSleeveIds();
+  if (mode === "live") return ["combined"].concat(RH_IDS.slice()).concat(fidIds);
+  return ["combined"].concat(RH_IDS.slice()).concat(fidIds).concat(["voya"]);
+};
+var _overlayPrints = typeof overlayPrints === "function" ? overlayPrints : null;
+overlayPrints = function (id, mode) {
+  if (isFidSleeveTab(id)) {
+    var tape = (snap && snap.tape) || {};
+    if (tape[id] && tape[id].length) return tape[id];
+    var s = fidSleeveFromTab(id);
+    var eq = s ? (Number(s.equity) || 0) : 0;
+    var t = (snap && snap.combined && (snap.combined.outside_asof || snap.combined.overall_asof)) || (snap && snap.asof) || "";
+    if (t && String(t).length === 10) t = t + "T16:00:00-04:00";
+    return [{ t: t, equity: eq }];
+  }
+  if (_overlayPrints) return _overlayPrints(id, mode);
+  var tape0 = (snap && snap.tape) || {};
+  if (mode === "all" && id === "combined") return tape0.overall || tape0.combined || [];
+  if (id === "robinhood") return tape0.robinhood || tape0.combined || [];
+  if (id === "fidelity" || id === "voya") return tape0[id] || [];
+  var src = tape0[id] || [];
+  if (id === "combined" && tape0.live && tape0.live.length) src = src.concat(tape0.live);
+  return src;
+};
+var _overlayChartCard = typeof overlayChartCard === "function" ? overlayChartCard : null;
+overlayChartCard = function (id, mode) {
+  var raw = overlayPrints(id, mode);
+  var prints = (typeof mergePrints === "function" ? mergePrints(raw) : (raw || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); }));
+  var vals = prints.map(function (p) { return p.equity; }).filter(function (v) { return isFinite(v); });
+  var book = null;
+  if (id === "combined") book = snap.combined;
+  else if (id === "robinhood") book = snap.robinhood;
+  else if (isFidSleeveTab(id)) book = fidSleeveFromTab(id);
+  else book = (snap.accounts && snap.accounts[id]) || {};
+  var last = vals.length ? vals[vals.length - 1] : Number((book || {}).equity) || 0;
+  if (!prints.length) prints = [{ t: "", equity: last }];
+  var eod = (id === "voya" || (mode === "all" && id === "combined"));
+  var label = (mode === "all" && id === "combined") ? "Overall" : (LABEL[id] || (book && book.label) || id);
+  return '<button type="button" class="ov-book ov-chart" data-tab="' + id + '">' +
+    '<div class="k">' + esc(label) + " \u00b7 " + (eod ? "EOD" : "live") + "</div><b>" + money(last) + "</b>" +
+    '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div></button>";
+};
+overlayHtml = function () {
+  if (!snap) return "";
+  if (tab === "robinhood") {
+    return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Marlowe, Individual, Auto, and Joint.");
+  }
+  return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood + Fidelity books", "Robinhood books plus each Fidelity sleeve. Voya is EOD-only.") +
+    overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every Robinhood and Fidelity book. Only Voya is EOD.");
+};
 cardsHtml = function () {
   if (tab === "robinhood") {
     return "<h2>Books</h2><div class=\"acct-grid four\">" + RH_IDS.map(function (id) {
@@ -465,7 +538,7 @@ function overallCardHtml() {
     "<div><span>Last close</span><b>" + money(c.equity) + "</b></div>" +
     improveKpis(prints, c.equity) + "</div>" +
     "<div class=\"tape-plot ov-plot\">" + overlayAxisChart(prints) + "</div>" +
-    "<p class=\"hint\">Click for every book. Live Robinhood + Fidelity " + money(c.live_equity) + " \u00b7 Voya EOD " + money(c.custodial_equity) + "." +
+    "<p class=\"hint\">Click for every book. Live RH + Fidelity sleeves " + money(c.live_equity) + " \u00b7 Voya EOD " + money(c.custodial_equity) + "." +
     (asof ? " Holdings date " + esc(asof) + "." : "") + "</p></div>";
 }
 var _paint = paint;
