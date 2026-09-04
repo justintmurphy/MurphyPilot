@@ -1,16 +1,13 @@
 {
-  "asof": "2026-09-03 15:23 ET",
+  "asof": "2026-09-04 10:58 ET",
   "account": "Agentic",
-  "equity": 194.28,
-  "equity_value": 174.75,
-  "cash": 19.53,
-  "buying_power": 19.53,
+  "equity": 192.59,
+  "equity_value": 0,
+  "cash": 192.59,
+  "buying_power": 192.59,
   "pending_deposits": 100,
-  "invested_pct": 90.0,
-  "slots": 2,
+  "invested_pct": 0.0,
+  "slots": 0,
   "open_orders": 0,
-  "names": [
-    {"symbol": "XOM", "qty": 0.530966, "avg": 165.49, "last": 162.84, "first_fill": "2026-09-03", "next_stall": "2026-09-08", "lock_until": "2026-09-03 22:40 ET"},
-    {"symbol": "LMT", "qty": 0.166036, "avg": 529.22, "last": 531.17, "first_fill": "2026-09-03", "next_stall": "2026-09-08", "lock_until": "2026-09-03 22:40 ET"}
-  ]
+  "names": []
 }
