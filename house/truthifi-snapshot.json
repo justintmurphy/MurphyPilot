@@ -1,7 +1,7 @@
 {
   "asof": "2026-09-03",
   "source": "Truthifi",
-  "note": "Holdings EOD 2026-09-03. Scanned 2026-09-04 ~16:10 ET. Both links complete. Cash sweeps counted as cash. RSU book is empty. Fidelity accounts[] live from SnapTrade; names/equity from Truthifi close until positions sync.",
+  "note": "Holdings EOD 2026-09-03. Scanned 2026-09-04 ~16:10 ET. Both links complete. Cash sweeps counted as cash. RSU book is empty. Fidelity accounts[] live from SnapTrade; names/equity from Truthifi close until positions sync. Voya holdings restored from 2026-09-03 Truthifi print (names were emptied).",
   "accounts": {
     "fidelity": {
       "id": "fidelity",
@@ -172,7 +172,127 @@
       "pending_deposits": 0,
       "invested_pct": 100,
       "open_orders": 0,
-      "names": []
+      "names": [
+        {
+          "symbol": "LCIDX",
+          "name": "BNY 401(k) Large Cap Stock Index",
+          "kind": "fund",
+          "qty": 8.516,
+          "last": 2495.36,
+          "value": 21249.488,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "INTIDX",
+          "name": "Intl ACWI Ex-U.S. Index",
+          "kind": "fund",
+          "qty": 35.352,
+          "last": 501.34,
+          "value": 17723.622,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "SMIDX",
+          "name": "BNY 401(k) Small-Mid Cap Stock Index",
+          "kind": "fund",
+          "qty": 8.429,
+          "last": 1020.82,
+          "value": 8604.288,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "AGGIDX",
+          "name": "Aggregate Bond Index",
+          "kind": "fund",
+          "qty": 21.246,
+          "last": 272.3,
+          "value": 5785.367,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "CPBND",
+          "name": "Core Plus Bond Fund",
+          "kind": "fund",
+          "qty": 241.916,
+          "last": 18.623,
+          "value": 4505.185,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "LCV",
+          "name": "BNY 401(k) Large Cap Value Equity",
+          "kind": "fund",
+          "qty": 31.361,
+          "last": 103.238,
+          "value": 3237.613,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "INTGRO",
+          "name": "International Growth Equity",
+          "kind": "fund",
+          "qty": 16.391,
+          "last": 52.51,
+          "value": 860.693,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        }
+      ]
     }
   },
   "sleeves": {
@@ -272,7 +392,127 @@
       "pending_deposits": 0,
       "invested_pct": 100,
       "open_orders": 0,
-      "names": []
+      "names": [
+        {
+          "symbol": "LCIDX",
+          "name": "BNY 401(k) Large Cap Stock Index",
+          "kind": "fund",
+          "qty": 8.516,
+          "last": 2495.36,
+          "value": 21249.488,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "INTIDX",
+          "name": "Intl ACWI Ex-U.S. Index",
+          "kind": "fund",
+          "qty": 35.352,
+          "last": 501.34,
+          "value": 17723.622,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "SMIDX",
+          "name": "BNY 401(k) Small-Mid Cap Stock Index",
+          "kind": "fund",
+          "qty": 8.429,
+          "last": 1020.82,
+          "value": 8604.288,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "AGGIDX",
+          "name": "Aggregate Bond Index",
+          "kind": "fund",
+          "qty": 21.246,
+          "last": 272.3,
+          "value": 5785.367,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "CPBND",
+          "name": "Core Plus Bond Fund",
+          "kind": "fund",
+          "qty": 241.916,
+          "last": 18.623,
+          "value": 4505.185,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "LCV",
+          "name": "BNY 401(k) Large Cap Value Equity",
+          "kind": "fund",
+          "qty": 31.361,
+          "last": 103.238,
+          "value": 3237.613,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        },
+        {
+          "symbol": "INTGRO",
+          "name": "International Growth Equity",
+          "kind": "fund",
+          "qty": 16.391,
+          "last": 52.51,
+          "value": 860.693,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ],
+          "pnl": null,
+          "pnl_pct": null,
+          "avg": null
+        }
+      ]
     }
   },
   "scanned_at": "2026-09-04T16:09:32-04:00",
