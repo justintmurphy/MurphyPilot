@@ -2,33 +2,34 @@
 :root,
 [data-theme="justin"],
 [data-theme="dark"] {
-  --ink: #e8eaed;
-  --ink-soft: #a8adb4;
-  --cream: #0d0f12;
-  --paper: #16191e;
-  --rule: #2c3138;
-  --row: #1c2026;
-  --go: #5dcea6;
-  --stop: #e07a7a;
-  --warn: #e0b05c;
+  /* Charcoal base with cool teal undertone — less flat grey */
+  --ink: #eef3f8;
+  --ink-soft: #9eb0c3;
+  --cream: #0a0e14;
+  --paper: #121a24;
+  --rule: #2a3a4d;
+  --row: #182230;
+  --go: #3dd68c;
+  --stop: #ff7b72;
+  --warn: #f0b429;
   --radius: 6px;
-  --header: #08090b;
-  --header-fg: #e8eaed;
-  --brand: #1a1d22;
-  --brand-fg: #e8eaed;
-  --mark-bg: #e8eaed;
-  --nav-line: rgba(232, 234, 237, 0.28);
-  --nav-hover: rgba(232, 234, 237, 0.1);
-  --mix-a: #8ab4f8;
-  --mix-b: #5dcea6;
-  --mix-c: #e0b05c;
-  --mix-d: #a8adb4;
-  --mix-e: #7b828c;
-  --mix-f: #3a4049;
-  --mix-cash: #5a616b;
-  --chart-axis: #e8eaed;
-  --chart-grid: rgba(232, 234, 237, 0.12);
-  --chart-dash: #8ab4f8;
+  --header: #070b11;
+  --header-fg: #eef3f8;
+  --brand: #143447;
+  --brand-fg: #7dd3fc;
+  --mark-bg: #7dd3fc;
+  --nav-line: rgba(125, 211, 252, 0.4);
+  --nav-hover: rgba(125, 211, 252, 0.14);
+  --mix-a: #7dd3fc;
+  --mix-b: #3dd68c;
+  --mix-c: #f0b429;
+  --mix-d: #a78bfa;
+  --mix-e: #fb7185;
+  --mix-f: #38bdf8;
+  --mix-cash: #64748b;
+  --chart-axis: #eef3f8;
+  --chart-grid: rgba(125, 211, 252, 0.14);
+  --chart-dash: #7dd3fc;
   color-scheme: dark;
 }
 [data-theme="nina"],
