@@ -640,6 +640,9 @@ paint = function () {
     desk.innerHTML = (alertN ? alertN.outerHTML : "") + body + (footN ? footN.outerHTML : "");
     return;
   }
+  if (tab === "robinhood" || RH_IDS.indexOf(tab) >= 0) {
+    injectBookNav(desk);
+  }
   if (tab === "combined") {
     Array.from(desk.querySelectorAll("h2")).forEach(function (h) {
       var t = h.textContent || "";
