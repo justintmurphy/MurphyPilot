@@ -667,3 +667,50 @@ button.mix-leg, .mix-leg {
   line-height: 1.1;
   margin-top: 1px;
 }
+
+/* Book switcher — Robinhood / Fidelity dig-in */
+.book-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+.book-nav-k {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.book-nav-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+button.book-chip {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--row) 85%, transparent);
+  color: inherit;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+button.book-chip:hover {
+  border-color: var(--nav-line);
+}
+button.book-chip.on {
+  border-color: var(--nav-line);
+  background: color-mix(in srgb, var(--brand-fg, #7dd3fc) 16%, var(--row));
+  font-weight: 700;
+}
+@media (max-width: 640px) {
+  button.book-chip { font-size: 10px; padding: 5px 8px; }
+}
