@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Murphy Pilot Operating Manual v7.1</title>
+<title>Murphy Pilot Operating Manual v7.2</title>
 <meta name="theme-color" content="#1B3A2F">
 <script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
 <link rel="stylesheet" href="site.css">
@@ -22,7 +22,7 @@
       </a>
       <a class="brand-block" id="navBrand" href="Murphy_Pilot_Desk.html">
         <div class="brand">MURPHY PILOT</div>
-        <div class="sub">OPERATING MANUAL v7.1</div>
+        <div class="sub">OPERATING MANUAL v7.2</div>
       </a>
       
       <nav aria-label="Official docs">
@@ -43,8 +43,8 @@
     </header>
 
 <main class="doc-main">
-  <article class="card manual doc-article" aria-label="Murphy Pilot Operating Manual v7.1">
-<p class="lede">Murphy Pilot · Standing mandate · 3 September 2026 · America/New_York. The brand is Murphy Pilot. The account is Agentic only. The executable source is the live job text. This book is the standing mandate those jobs must obey. No brokerage account numbers.</p>
+  <article class="card manual doc-article" aria-label="Murphy Pilot Operating Manual v7.2">
+<p class="lede">Murphy Pilot · Standing mandate · 4 September 2026 · America/New_York. The brand is Murphy Pilot. The account is Agentic only. The executable source is the live job text. This book is the standing mandate those jobs must obey. Custodial desk prints may show ···last-4 only — never full account numbers.</p>
       <h3>1. Mission</h3>
       <p>Murphy Pilot is unattended long-only stock and ETF trading in the Robinhood account labeled Agentic (agentic_allowed). Agentic Trading researches, picks names, and emails orders. Grok.com is hands only: Robinhood snapshot, mechanical stops, and <code>Agentic order:</code> execution. The owner funds the account, watches the MurphyPilot desk, and does not approve tickers. There is no per-trade approval. Success is process obedience plus 2-session stall hits, not a single green day. The Ladder-M mark is the stall ladder: each name climbs its own steps or it is sold.</p>
       <h3>2. Hard bans</h3>
@@ -71,7 +71,7 @@
         </tbody>
       </table>
       <h3>5. The clock</h3>
-      <p>All times are America/New_York on regular cash sessions. Agentic Trading (this desk’s brain) does not use SuperGrok. Grok.com runs only on email callables plus Truthifi 16:00. Notification on these jobs is OFF. The only mail is what the prompt itself sends (fill, fault, pack, snapshot, process review, order).</p>
+      <p>All times are America/New_York on regular cash sessions. Agentic Trading (this desk’s brain) does not use SuperGrok. Grok.com runs on email callables plus Truthifi (10:00 Fid-only and 16:00 Close Scan day-rules). Notification on these jobs is OFF. The only mail is what the prompt itself sends (fill, fault, pack, snapshot, process review, order, truthifi-fidelity, house).</p>
       <table>
         <thead><tr><th>ET</th><th>Job</th><th>Who</th><th>Does</th><th>Mail</th></tr></thead>
         <tbody>
@@ -84,13 +84,15 @@
           <tr><td>13:50</td><td>Eyes</td><td>Agentic</td><td>Same as 11:50.</td><td>Agentic order: if needed</td></tr>
           <tr><td>14:50</td><td>Autopilot PM</td><td>Agentic</td><td>Last same-day pick so Grok can still exec.</td><td>Agentic order: BUY/SELL</td></tr>
           <tr><td>15:00</td><td>Snapshot</td><td>Grok</td><td>Same as 10:00. Hard-cap / stall watch.</td><td>Agentic fn: snapshot</td></tr>
-          <tr><td>16:00</td><td>Truthifi</td><td>Grok</td><td>Custodial EOD only. Not Agentic trading.</td><td>desk JSON</td></tr>
-          <tr><td>20:05</td><td>House AH</td><td>Grok</td><td>After-hours House print. All Robinhood books including Agentic.</td><td>Agentic fn: house</td></tr>
+          <tr><td>10:00</td><td>Truthifi Fid</td><td>Grok</td><td>Fidelity-only midday Truthifi. Keep prior Voya. Full names[]. Meter may skip if monthly path &gt;~140. Not Agentic trading.</td><td>Agentic fn: truthifi-fidelity</td></tr>
+          <tr><td>16:00</td><td>Truthifi Close</td><td>Grok</td><td>Custodial close. Tue/Thu dual Fid+Voya; Mon/Wed/Fri Fid-only (keep prior Voya). ≈36 cr/wk ≈144/mo under 150. Not Agentic trading.</td><td>desk JSON / Close Scan</td></tr>
+          <tr><td>20:05</td><td>House AH</td><td>Grok</td><td>After-hours House print. All Robinhood books including Agentic. accounts.*.suffix ···last-4 only.</td><td>Agentic fn: house</td></tr>
           <tr><td>On each SELL</td><td>Process review</td><td>Agentic</td><td>Picker’s scorecard: 3 KEEP and 3 CHANGE on the next pick. Owner does not adjudicate.</td><td>Agentic process review</td></tr>
         </tbody>
       </table>
       <h3>6. Book-state card</h3>
-      <p>Snapshot watchdog at 10:00 and 15:00 emails <code>Agentic fn: snapshot</code>. Grok dumps Agentic book-state and runs mechanical stops. Later research jobs read the latest snapshot / book-state mail instead of re-deriving clocks. House prints are a separate doorbell (<code>Agentic fn: house</code>) and stay paused when SuperGrok is tight.</p>
+      <p>Snapshot watchdog at 10:00 and 15:00 emails <code>Agentic fn: snapshot</code>. Grok dumps Agentic book-state and runs mechanical stops. Later research jobs read the latest snapshot / book-state mail instead of re-deriving clocks. House prints are a separate doorbell (<code>Agentic fn: house</code>) and stay paused when SuperGrok is tight. House may set <code>accounts.*.suffix</code> to ···last-4 only.</p>
+      <p><b>Custodial Truthifi (House desk, 2026-09-04)</b> — KEEP Truthifi for Fid + Voya. HARD NO SnapTrade Fidelity reconnect and no manual CSV. SOV is <code>house/truthifi-snapshot.json</code>. Proof requires asof movement and holdings completeness (Fid/Voya <code>names[]</code> not empty when equity &gt; $1). House Live Equity shows Fidelity as separate sleeve books beside Robinhood; Voya stays last-close. Where it sits mixes RH + Fid + Voya (denser donut; growth click detail not required). Books pages: Books → book state → tape → where it sits → book. Justin theme charcoal + teal/sky; Nina purple unchanged; logo mark fills the badge. How to read the desk: Setup Guide §7.</p>
       <h3>7. Quiet-after-deploy</h3>
       <p>If the latest snapshot shows the book ≥ 80% invested, unique names ≤ slots, no name is through a stop, and no stall clock is due that day, the 11:50 and 13:50 Eyes jobs stay silent. They still email a SELL if a live stop or due stall is still held. PM 14:50 still does a last risk-and-redeploy pick.</p>
       <h3>8. What a 15-minute trading stamp actually checks</h3>
@@ -178,6 +180,7 @@
           <tr><td>Picker to Grok</td><td>Agentic order: BUY SYMBOL or Agentic order: SELL SYMBOL</td></tr>
           <tr><td>Snapshot watchdog 10:00 / 15:00</td><td>Agentic fn: snapshot</td></tr>
           <tr><td>House doorbell (when armed)</td><td>Agentic fn: house</td></tr>
+          <tr><td>Truthifi Fid midday Mon–Fri 10:00</td><td>Agentic fn: truthifi-fidelity</td></tr>
           <tr><td>Evening policy pack</td><td>Agentic policy pack: YYYY-MM-DD</td></tr>
           <tr><td>Morning pack refresh, only if new</td><td>Agentic policy pack: YYYY-MM-DD AM</td></tr>
           <tr><td>Tool / order / empty-book AM fault</td><td>Agentic fault: [short reason]</td></tr>
@@ -186,9 +189,9 @@
         </tbody>
       </table>
       <h3>19. Owner halt</h3>
-      <p>Disconnect the agent on Agentic in Robinhood, pause Agentic Trading routines, and pause grok.com email callables (<code>Agentic fn: snapshot</code>, <code>Agentic fn: house</code>, <code>Agentic order:</code>). Always-allow for place and cancel lives at grok.com/connectors. Stop depositing. The agent cannot pull the primary Robinhood account.</p>
+      <p>Disconnect the agent on Agentic in Robinhood, pause Agentic Trading routines, and pause grok.com email callables (<code>Agentic fn: snapshot</code>, <code>Agentic fn: house</code>, <code>Agentic fn: truthifi-fidelity</code>, <code>Agentic order:</code>) and Truthifi Close Scan. Always-allow for place and cancel lives at grok.com/connectors. Stop depositing. The agent cannot pull the primary Robinhood account.</p>
       <h3>20. Book as of this manual</h3>
-      <p>As of 3 September 2026 the Agentic book is XOM and LMT (first fills that session). A one-time stall bypass is authorized for the morning of 4 September 2026 after SuperGrok resets: flatten both names for a clean slate, then pick under this v7.1 screen. No whole-share broker stops attach to fractional stubs — snapshot watchdog watches them.</p>
+      <p>As of 4 September 2026 the Agentic clean-slate sequence from v7.1 still stands: flatten legacy names when authorized, then pick under this screen. No whole-share broker stops attach to fractional stubs — snapshot watchdog watches them. Custodial House/Truthifi rules above are standing process, not Agentic trading.</p>
       <p class="lede">AI agents can misread markets or fail to run. The owner owns every fill and can lose the entire Agentic balance. Brokerage through Robinhood Financial LLC / Robinhood Securities, LLC, members SIPC.</p>
 
   </article>
@@ -252,7 +255,7 @@
       var frame = document.getElementById("docFrame");
       if (!ov || !frame) return;
       if (e) e.preventDefault();
-      var title = view === "manual" ? "Operating Manual v7.1" : "Setup Guide v5.1";
+      var title = view === "manual" ? "Operating Manual v7.2" : "Setup Guide v5.2";
       var t = document.getElementById("docTitle");
       if (t) t.textContent = title;
       ov.hidden = false;

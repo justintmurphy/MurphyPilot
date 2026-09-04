@@ -1,8 +1,8 @@
 # Murphy Pilot + House
 
-Private local boards hosted from this repo. **Do not use Google Apps Script /exec.**
+Private boards for Agentic Pilot and House. Prefer the hosted desk at **https://www.murphysbn.com/** (CNAME) or serve locally. **Do not use Google Apps Script /exec.**
 
-## Run
+## Run locally
 
 ```bash
 git clone https://github.com/justintmurphy/MurphyPilot.git
@@ -17,6 +17,10 @@ Then `git pull` and refresh when a snapshot lands.
 
 Do not open as `file://` if you want the JSON files to load.
 
+## How to read the desk
+
+Standing how-to-read (Truthifi KEEP / HARD NOs, Fid 2× + Voya Tue/Thu cadence, Proof asof + holdings, House Live Equity sleeves, Where it sits, Justin theme, books page order): **Setup Guide §7** in `Murphy_Pilot_Setup.html`. Operating rules: `Murphy_Pilot_Manual.html` (v7.2). Account masks on desk are **···last-4 only** — never full account numbers.
+
 ## Layout
 
 | Path | Role |
@@ -24,10 +28,12 @@ Do not open as `file://` if you want the JSON files to load.
 | `index.html` | Pilot desk (Agentic) |
 | `desk.js` / `site.css` | Pilot board |
 | `pilot-snapshot.json` | Latest Agentic print |
-| `Murphy_Pilot_Manual.html` | Operating Manual v7 |
-| `Murphy_Pilot_Setup.html` | Setup Guide v5 |
+| `Murphy_Pilot_Manual.html` | Operating Manual v7.2 |
+| `Murphy_Pilot_Setup.html` | Setup Guide v5.2 |
+| `Murphy_Pilot_Desk.html` | Desk chrome / docs entry |
 | `house/index.html` | House desk |
 | `house/house.js` | House board |
 | `house/house-snapshot.json` | Latest House print |
+| `house/truthifi-snapshot.json` | Truthifi custodial SOV (Fid + Voya) |
 
-House is data only. Repo is private. GitHub Pages is off on purpose.
+House is data only. Repo is private. Snapshot jobs write JSON here; Gmail is backup.
