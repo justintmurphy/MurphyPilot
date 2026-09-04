@@ -549,3 +549,22 @@ button.mix-leg:hover,
   .mix-compact { flex-direction: column; align-items: stretch; }
   .mix-ring, svg.mix-svg { margin: 0 auto; }
 }
+
+nav.docs-foot {
+  margin: 8px 16px 28px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--ink-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+}
+nav.docs-foot span { opacity: 0.8; }
+nav.docs-foot a {
+  color: var(--brand-fg);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand-fg) 35%, transparent);
+}
+nav.docs-foot a:hover { border-bottom-color: var(--brand-fg); }
