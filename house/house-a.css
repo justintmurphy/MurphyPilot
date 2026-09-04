@@ -403,3 +403,8 @@ h2 {
   display: block;
   overflow: visible;
 }
+
+a.ticker-item { cursor: pointer; text-decoration: none; color: inherit; }
+a.ticker-item:hover .sym { text-decoration: underline; }
+a.name-link { display: inline-flex; flex-direction: column; gap: 0.08rem; text-decoration: none; color: inherit; cursor: pointer; }
+a.name-link:hover .sym { text-decoration: underline; }
