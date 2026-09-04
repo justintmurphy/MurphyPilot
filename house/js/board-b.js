@@ -1,3 +1,51 @@
+function companySiteUrl(n) {
+  if (!n) return "";
+  if (n.index) {
+    var s = String(n.symbol || "").toLowerCase();
+    if (s.indexOf("s&p") >= 0 || s === "spx" || s.indexOf("500") >= 0) return "https://www.spglobal.com/spdji/en/indices/equity/sp-500/";
+    if (s.indexOf("nasdaq") >= 0 || s === "ndx") return "https://www.nasdaq.com/market-activity/index/ndx";
+    return "https://finance.yahoo.com/";
+  }
+  var label = String(n.name || "").trim();
+  var sym = String(n.symbol || "").trim();
+  if (!label && !sym) return "";
+  var q = (label && sym && label.toUpperCase() !== sym.toUpperCase())
+    ? (label + " " + sym + " official website")
+    : ((label || sym) + " official website");
+  return "https://duckduckgo.com/?q=" + encodeURIComponent("!ducky " + q);
+}
+function nameSiteLink(n, innerHtml) {
+  var url = companySiteUrl(n);
+  if (!url) return innerHtml;
+  return '<a class="name-link" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" title="Company website">' + innerHtml + "</a>";
+}
+function tidySleeveLabel(raw) {
+  var k = String(raw || "").trim();
+  if (!k || k === "\u2014" || k === "—") return "—";
+  if (typeof FID_SLEEVE_LABELS !== "undefined" && FID_SLEEVE_LABELS[k]) return FID_SLEEVE_LABELS[k];
+  if (/^401k$/i.test(k) || /401\s*\(k\)/i.test(k)) return "401(k)";
+  if (typeof tidyFidAccountLabel === "function") {
+    var t = tidyFidAccountLabel(k);
+    if (t && t !== "Fidelity") return t;
+  }
+  if (typeof LABEL !== "undefined" && LABEL[k]) return LABEL[k];
+  return k;
+}
+function bookDisplayLabel(id, book) {
+  book = book || (typeof snap !== "undefined" && snap && snap.accounts && snap.accounts[id]) || {};
+  var base = (book && book.label) || (typeof LABEL !== "undefined" && LABEL[id]) || id;
+  if (id === "voya" || (book && book.id === "voya")) {
+    base = tidySleeveLabel(book.label || book.sleeve || "401(k)");
+    if (base === "Voya" || base === "Voya 401(k)") base = "401(k)";
+  }
+  if (id === "auto_grok" || base === "Auto-Grok") base = "Auto";
+  if (id === "agentic" || base === "Agentic") base = "Marlowe";
+  var suffix = (book && book.suffix) ? String(book.suffix).replace(/\D/g, "").slice(-4) : "";
+  if (suffix && String(base).indexOf(suffix) < 0) base = base + " ···" + suffix;
+  if (typeof LABEL !== "undefined" && id) LABEL[id] = base;
+  return base;
+}
+
   var overlayOpen = false;
   var overlayMode = "live";
 
@@ -38,7 +86,7 @@
   function cardsHtml() {
     return "<h2>Four books</h2><div class=\"acct-grid four\">" + IDS.map(function (id) {
       var b = snap.accounts[id] || {};
-      return '<button type="button" class="acct-mini" data-tab="' + id + '"><div class="k">' + esc(LABEL[id]) + "</div><b>" + money(b.equity) + '</b><div class="m">' + (b.names || []).length + " names</div></button>";
+      return '<button type="button" class="acct-mini" data-tab="' + id + '"><div class="k">' + esc(bookDisplayLabel(id, b)) + "</div><b>" + money(b.equity) + '</b><div class="m">' + (b.names || []).length + " names</div></button>";
     }).join("") + "</div>";
   }
 
@@ -208,10 +256,13 @@
       "<th>Last fill</th>" +
       '<th class="num">Value</th><th class="num">P&L</th></tr>';
     var rows = names.map(function (n) {
-      var books = (n.accounts || []).map(function (a) { return LABEL[a] || a; }).join(" \u00b7 ") || LABEL[n.account] || "";
+      var books = (n.accounts || []).map(function (a) {
+        return (typeof bookDisplayLabel === "function") ? bookDisplayLabel(a, (snap.accounts && snap.accounts[a]) || {}) : (LABEL[a] || a);
+      }).join(" \u00b7 ") || ((typeof bookDisplayLabel === "function" && n.account) ? bookDisplayLabel(n.account, (snap.accounts && snap.accounts[n.account]) || {}) : (LABEL[n.account] || ""));
       var chg = n.day_pct != null ? n.day_pct : n.pnl_pct;
       var nameTone = tone(chg);
-      return "<tr><td class=\"name-cell tone-" + nameTone + "\"><span class=\"sym\">" + esc(n.symbol) + '</span><span class="sub">' + esc(n.name || "") + "</span></td>" +
+      var inner = "<span class=\"sym\">" + esc(n.symbol) + '</span><span class="sub">' + esc(n.name || "") + "</span>";
+      return "<tr><td class=\"name-cell tone-" + nameTone + "\">" + nameSiteLink(n, inner) + "</td>" +
         (showBook ? "<td>" + esc(books) + "</td>" : "") +
         '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (n.avg == null ? "\u2014" : money(n.avg)) + "</td>" +
         '<td class="num">' + (n.last == null ? "\u2014" : money(n.last)) + "</td>" +
@@ -379,7 +430,11 @@
         var chg = n.day_pct != null ? n.day_pct : n.pnl_pct;
         var chgHtml = (chg == null || !isFinite(Number(chg))) ? "" : pct(chg);
         var px = n.index ? Number(n.last).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : money(n.last);
-        return '<span class="ticker-item ' + (n.index ? "idx " : "") + (tone(chg) === "go" ? "up" : tone(chg) === "stop" ? "down" : "flat") + '"><span class="sym">' + esc(n.symbol) + '</span><span class="px">' + px + '</span><span class="chg">' + chgHtml + "</span></span>";
+        var cls = 'ticker-item ' + (n.index ? "idx " : "") + (tone(chg) === "go" ? "up" : tone(chg) === "stop" ? "down" : "flat");
+        var body = '<span class="sym">' + esc(n.symbol) + '</span><span class="px">' + px + '</span><span class="chg">' + chgHtml + "</span>";
+        var url = companySiteUrl(n);
+        if (url) return '<a class="' + cls + '" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" title="Company website">' + body + "</a>";
+        return '<span class="' + cls + '">' + body + "</span>";
       }).join("");
     }
     var html = nextAlertHtml();
