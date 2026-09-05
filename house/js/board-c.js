@@ -11,6 +11,23 @@ LABEL.fidelity = "Fidelity";
 LABEL.voya = "Voya";
 LABEL.combined = "House";
 
+function rhBookVisible(id) {
+  /* Hide chip/dig-in when House print omits the book or equity is empty. */
+  if (!snap || !snap.accounts || !Object.prototype.hasOwnProperty.call(snap.accounts, id)) return false;
+  var b = snap.accounts[id] || {};
+  if ((Number(b.equity) || 0) > 0.004) return true;
+  return !!(b.names && b.names.length);
+}
+function visibleRhIds() {
+  return (RH_IDS || []).filter(rhBookVisible);
+}
+function ensureVisibleRhTab() {
+  if (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0 && !rhBookVisible(tab)) {
+    tab = "robinhood";
+    if (typeof setHash === "function") setHash();
+  }
+}
+
 
 hashTab = function () {
   var h = (location.hash || "").replace(/^#/, "");
@@ -85,7 +102,7 @@ function bookNavHtml() {
   if (!snap) return "";
   if (tab === "robinhood" || (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0)) {
     var chips = '<button type="button" class="book-chip' + (tab === "robinhood" ? " on" : "") + '" data-tab="robinhood">All</button>';
-    (RH_IDS || []).forEach(function (id) {
+    visibleRhIds().forEach(function (id) {
       var b = (snap.accounts && snap.accounts[id]) || {};
       var lab = (typeof bookDisplayLabel === "function") ? bookDisplayLabel(id, b) : ((LABEL && LABEL[id]) || id);
       chips += '<button type="button" class="book-chip' + (tab === id ? " on" : "") + '" data-tab="' + id + '">' + esc(lab) + "</button>";
@@ -358,7 +375,7 @@ function liveFidSleeveIds() {
   return ids;
 }
 overlayIds = function (mode) {
-  if (typeof RH_IDS !== "undefined" && tab === "robinhood") return RH_IDS.slice();
+  if (typeof RH_IDS !== "undefined" && tab === "robinhood") return visibleRhIds();
   var fidIds = liveFidSleeveIds();
   if (mode === "live") return ["combined"].concat(RH_IDS.slice()).concat(fidIds);
   return ["combined"].concat(RH_IDS.slice()).concat(fidIds).concat(["voya"]);
@@ -413,7 +430,9 @@ overlayHtml = function () {
 
 cardsHtml = function () {
   if (tab === "robinhood") {
-    return "<h2>Books</h2><div class=\"acct-grid four\">" + RH_IDS.map(function (id) {
+    var rhIds = visibleRhIds();
+    var grid = rhIds.length === 4 ? "acct-grid four" : "acct-grid";
+    return "<h2>Books</h2><div class=\"" + grid + "\">" + rhIds.map(function (id) {
       var b = snap.accounts[id] || {};
       return bookCardHtml(id, bookDisplayLabel(id, b), b.equity, "live", id);
     }).join("") + "</div>";
@@ -540,7 +559,10 @@ function fidelityTapeHtml() {
     "<p class=\"hint\">Session prints when SnapTrade/House updates. Day / week / month vs prior close.</p></div>";
 }
 function fidelityBooksHtml(fid) {
-  var sleeves = fid.sleeves || [];
+  var sleeves = (fid.sleeves || []).filter(function (s) {
+    if (!s || !s.id) return false;
+    return (Number(s.equity) || 0) > 0.004 || (s.names || []).length > 0;
+  });
   var tag = fid.live ? "live" : "EOD";
   return "<h2>Books</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
     registerFidSleeveLabel(s);
@@ -618,6 +640,7 @@ function overallCardHtml() {
 var _paint = paint;
 paint = function () {
   if (!snap) return;
+  ensureVisibleRhTab();
   _paint();
   var foot = document.querySelector(".desk-foot");
   if (foot) {
