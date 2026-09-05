@@ -291,10 +291,11 @@ function collapseHouseNames(list) {
       var mi = Number(parts[1]) - 1;
       return (months[mi] || d.ym) + " P&L";
     })() : "Month P&L";
-    var pnlHtml = delta == null ? "\u2014" : ((delta > 0 ? "+" : "") + money(delta));
-    var floorHtml = delta == null ? ("vs $" + floor + " floor") : (met ? ("met $" + floor + " floor") : ("$" + money(shortBy).replace(/^\$/, "") + " to $" + floor));
-    /* money() already has $ — fix shortBy display */
-    floorHtml = delta == null ? ("vs $" + floor + " floor") : (met ? ("met $" + floor + " floor") : ((shortBy > 0 ? money(shortBy) : "$0") + " to $" + floor));
+    var pnlHtml = delta == null ? "—" : ((delta > 0 ? "+" : "") + money(delta));
+    var floorHtml;
+    if (delta == null) floorHtml = "vs $" + floor + " floor";
+    else if (met) floorHtml = "met $" + floor + " floor";
+    else floorHtml = (shortBy > 0 ? money(shortBy) : "$0") + " to $" + floor;
     var open = opts.clickable ? ' data-tab="agentic" role="button"' : "";
     var cls = "card span selfpay-strip" + (opts.clickable ? " selfpay-open" : "");
     return '<div class="' + cls + '"' + open + ">" +
