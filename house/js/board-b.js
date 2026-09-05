@@ -390,8 +390,6 @@ function collapseHouseNames(list) {
     });
     if (!names.length) return '<div class="card"><p class="hint" style="margin:0">No names on this book.</p></div>';
     var head = "<tr><th>Name</th>" + (showBook ? "<th>Book</th>" : "") + '<th class="num">Qty</th><th class="num">Avg</th><th class="num">Last</th>' +
-      (showStall ? "<th>First fill</th><th>Next stall</th>" : "") +
-      "<th>Last fill</th>" +
       '<th class="num">Value</th><th class="num">P&L</th></tr>';
     var rows = names.map(function (n) {
       var books = (n.accounts || []).map(function (a) {
@@ -404,8 +402,6 @@ function collapseHouseNames(list) {
         (showBook ? "<td>" + esc(books) + "</td>" : "") +
         '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (n.avg == null ? "\u2014" : money(n.avg)) + "</td>" +
         '<td class="num">' + (n.last == null ? "\u2014" : money(n.last)) + "</td>" +
-        (showStall ? "<td>" + esc(n.first_fill || "\u2014") + "</td><td>" + esc(n.next_stall || "\u2014") + "</td>" : "") +
-        "<td>" + esc(n.last_fill || n.first_fill || "\u2014") + "</td>" +
         '<td class="num">' + money(n.value) + '</td><td class="num tone-' + tone(n.pnl) + '">' + money(n.pnl) + " " + pct(n.pnl_pct) + "</td></tr>";
     }).join("");
     var wrap = (showBook || names.length > 10) ? "card book-scroll" : "card";

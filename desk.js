@@ -90,7 +90,7 @@
         var tr=document.createElement("tr");
         var nm=(n.symbol||"")+(n.name?" · "+n.name:"");
         var url="https://duckduckgo.com/?q="+encodeURIComponent("!ducky "+((n.name&&n.symbol&&String(n.name).toUpperCase()!==String(n.symbol).toUpperCase())?(n.name+" "+n.symbol):(n.name||n.symbol||""))+" official website");
-        tr.innerHTML="<td><a class='name-link' href='"+url+"' target='_blank' rel='noopener noreferrer'>"+nm+"</a></td><td>"+(n.avg||"—")+"</td><td>"+(n.first_fill||"—")+"</td><td>"+(n.next_stall||"—")+"</td><td>"+vs+"</td>";
+        tr.innerHTML="<td><a class='name-link' href='"+url+"' target='_blank' rel='noopener noreferrer'>"+nm+"</a></td><td>"+(n.avg||"—")+"</td><td>"+(n.qty!=null?n.qty:"—")+"</td><td>"+(n.last||"—")+"</td><td>"+vs+"</td>";
         tb.appendChild(tr);
       });
     }
@@ -106,7 +106,7 @@
     var charts=document.getElementById("charts");
     if(charts){
       charts.innerHTML=names.map(function(n){
-        return "<div class='co'><b>"+n.symbol+"</b> first fill "+(n.first_fill||"—")+" · next stall "+(n.next_stall||"—")+" · avg "+(n.avg||"—")+" · last "+(n.last||"—")+"</div>";
+        return "<div class='co'><b>"+n.symbol+"</b> qty "+(n.qty!=null?n.qty:"—")+" · avg "+(n.avg||"—")+" · last "+(n.last||"—")+"</div>";
       }).join("") || "<p class='hint'>No names in the latest snapshot.</p>";
     }
     var cos=document.getElementById("coRows");

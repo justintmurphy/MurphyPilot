@@ -51,7 +51,7 @@ function paintBook(s){
     const tr = document.createElement("tr");
     const vsN = (n.last && n.cost) ? ((n.last/n.cost)-1)*100 : null;
     const vs = vsN!=null ? signedSpan(vsN,2,"%") : (n.extra||"—");
-    tr.innerHTML = "<td>"+n.symbol+"</td><td>"+(n.cost||"—")+"</td><td>"+(n.fill||"—")+"</td><td>"+(n.stall||"—")+"</td><td>"+vs+"</td>";
+    tr.innerHTML = "<td>"+n.symbol+"</td><td>"+(n.cost||"—")+"</td><td>"+(n.qty!=null?n.qty:"—")+"</td><td>"+(n.last||"—")+"</td><td>"+vs+"</td>";
     tb.appendChild(tr);
   });
   const eq = parseFloat(String(s.equity).replace(/[^0-9.]/g,""));

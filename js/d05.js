@@ -105,7 +105,7 @@ function applyJson(){
   catch(e){ alert("JSON did not parse"); return; }
   const names = (j.names||[]).map(n => {
     if (typeof n === "string") return n;
-    const bits = [n.symbol, n.avg ?? n.cost ?? "—", n.first_fill || "—", n.next_stall || "—"];
+    const bits = [n.symbol, n.avg ?? n.cost ?? "—", n.qty ?? "—", n.last ?? "—"];
     if (n.qty != null) bits.push("qty "+n.qty);
     if (n.last != null) bits.push("last "+n.last);
     if (n.previous_close != null) bits.push("prev "+n.previous_close);
