@@ -714,3 +714,60 @@ button.book-chip.on {
 @media (max-width: 640px) {
   button.book-chip { font-size: 10px; padding: 5px 8px; }
 }
+
+
+/* Agentic monthly P&L vs $70 self-pay floor */
+.selfpay-strip {
+  padding: 10px 12px 8px;
+  margin: 0 0 10px;
+}
+.selfpay-strip.selfpay-open { cursor: pointer; }
+.selfpay-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+.selfpay-pnl span,
+.selfpay-floor span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 2px;
+}
+.selfpay-pnl b,
+.selfpay-floor b {
+  font-size: 18px;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.selfpay-floor {
+  text-align: right;
+}
+.selfpay-floor small {
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.selfpay-bar {
+  margin-top: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+.selfpay-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--stop);
+}
+.selfpay-bar i.tone-go { background: var(--go); }
+.selfpay-bar i.tone-stop { background: var(--stop); }
+.selfpay-bar i.tone-flat { background: var(--ink-soft); }
+.selfpay-strip .hint { margin: 6px 0 0; font-size: 10px; }
+@media (max-width: 420px) {
+  .selfpay-pnl b, .selfpay-floor b { font-size: 16px; }
+}

@@ -247,6 +247,67 @@ function collapseHouseNames(list) {
     return '<div class="ov-chip"><span>' + label + '</span><b class="tone-' + tone(d.delta) + '">' +
       (d.delta > 0 ? "+" : "") + money(d.delta) + '</b><i class="tone-' + tone(d.delta) + '">' + pct(d.pct) + "</i></div>";
   }
+
+  var AGENTIC_SELF_PAY_FLOOR = 70;
+  function vsMonthStart(prints, currentEq) {
+    var rows = lastByDay(prints);
+    if (!rows.length) return null;
+    var lastDay = rows[rows.length - 1].day;
+    var ym = String(lastDay).slice(0, 7);
+    var first = null;
+    rows.forEach(function (row) {
+      if (String(row.day).slice(0, 7) === ym && !first) first = row;
+    });
+    if (!first) return null;
+    var cur = isFinite(Number(currentEq)) ? Number(currentEq) : rows[rows.length - 1].equity;
+    var delta = cur - first.equity;
+    return { delta: delta, pct: first.equity ? (delta / first.equity) * 100 : null, prior: first.equity, from: first.day, ym: ym };
+  }
+  function agenticMonthPnL(ag) {
+    ag = ag || (snap && snap.accounts && snap.accounts.agentic) || {};
+    var src = (snap && snap.tape && snap.tape.agentic) || [];
+    var prints = (typeof mergePrints === "function" ? mergePrints(src) : (src || []).map(function (raw) {
+      return typeof normPrint === "function" ? normPrint(raw) : raw;
+    }).filter(function (p) { return p && isFinite(Number(p.equity)); }));
+    var eq = Number(ag.equity);
+    if (!isFinite(eq) && prints.length) eq = Number(prints[prints.length - 1].equity);
+    return vsMonthStart(prints, eq);
+  }
+  function agenticSelfPayStripHtml(opts) {
+    opts = opts || {};
+    var ag = (snap && snap.accounts && snap.accounts.agentic) || {};
+    if ((Number(ag.equity) || 0) <= 0.004 && !(ag.names || []).length) return "";
+    var d = agenticMonthPnL(ag);
+    var floor = AGENTIC_SELF_PAY_FLOOR;
+    var delta = d ? d.delta : null;
+    var met = delta != null && delta >= floor;
+    var shortBy = delta == null ? null : Math.max(0, floor - delta);
+    var barPct = delta == null ? 0 : Math.max(0, Math.min(100, (delta / floor) * 100));
+    var pnlTone = delta == null ? "flat" : tone(delta);
+    var floorTone = delta == null ? "flat" : (met ? "go" : "stop");
+    var monthLab = d && d.ym ? (function () {
+      var parts = String(d.ym).split("-");
+      var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      var mi = Number(parts[1]) - 1;
+      return (months[mi] || d.ym) + " P&L";
+    })() : "Month P&L";
+    var pnlHtml = delta == null ? "\u2014" : ((delta > 0 ? "+" : "") + money(delta));
+    var floorHtml = delta == null ? ("vs $" + floor + " floor") : (met ? ("met $" + floor + " floor") : ("$" + money(shortBy).replace(/^\$/, "") + " to $" + floor));
+    /* money() already has $ — fix shortBy display */
+    floorHtml = delta == null ? ("vs $" + floor + " floor") : (met ? ("met $" + floor + " floor") : ((shortBy > 0 ? money(shortBy) : "$0") + " to $" + floor));
+    var open = opts.clickable ? ' data-tab="agentic" role="button"' : "";
+    var cls = "card span selfpay-strip" + (opts.clickable ? " selfpay-open" : "");
+    return '<div class="' + cls + '"' + open + ">" +
+      '<div class="selfpay-row">' +
+      '<div class="selfpay-pnl"><span>Marlowe \u00b7 ' + monthLab + '</span><b class="tone-' + pnlTone + '">' + pnlHtml + "</b></div>" +
+      '<div class="selfpay-floor"><span>Self-pay</span><b class="tone-' + floorTone + '">' + (met ? "on track" : "short") + "</b>" +
+      '<small class="tone-' + floorTone + '">' + floorHtml + "</small></div>" +
+      "</div>" +
+      '<div class="selfpay-bar" aria-hidden="true"><i class="tone-' + floorTone + '" style="width:' + barPct.toFixed(0) + '%"></i></div>' +
+      '<p class="hint">Tape calendar-month equity \u0394 from first Marlowe print this month \u00b7 no invented fills \u00b7 floor $' + floor + "/mo</p>" +
+      "</div>";
+  }
+
   function overallStripHtml() {
     var c = (snap && snap.combined) || {};
     var prints = dodTape("combined");
@@ -468,7 +529,8 @@ function collapseHouseNames(list) {
 
   function agenticOnlyHtml() {
     var ag = snap.accounts.agentic || {};
-    return stateHtml(ag, "Marlowe") +
+    return agenticSelfPayStripHtml({ clickable: false }) +
+      stateHtml(ag, "Marlowe") +
       "<h2>Marlowe book</h2>" + tableHtml(ag.names, false, true) +
       "<h2>Sell / buy thresholds</h2><div class=\"card span\"><ul class=\"buy-lines\">" +
       "<li>Stall: day 2 must clear +5% from that name's cost; later blocks +4% from the survive-mark.</li>" +
@@ -516,6 +578,7 @@ function collapseHouseNames(list) {
     var html = nextAlertHtml();
     if (tab === "combined") {
       html += overallStripHtml();
+      html += agenticSelfPayStripHtml({ clickable: true });
       html += cardsHtml();
       html += stateHtml(b, "House");
       html += tapeHtml("combined", "House", true);
