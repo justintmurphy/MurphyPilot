@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Seat source of truth in GitHub. Cloudflare Access must allowlist the same emails. Replace Nina placeholder when Justin provides it. Soft localStorage theme KEEP until Access email→theme (A2). Do not invent emails.",
+  "note": "Seat source of truth in GitHub. Cloudflare Access allowlist must match these emails exactly. Soft localStorage theme KEEP until Access email→theme (A2). No DNS/Access flip without Marlowe GO.",
   "seats": [
     {
       "id": "justin",
@@ -9,12 +9,10 @@
     },
     {
       "id": "nina",
-      "email": null,
-      "theme": "nina",
-      "pending": true,
-      "email_placeholder": "nina@PLACEHOLDER.pending"
+      "email": "elle.nina27@gmail.com",
+      "theme": "nina"
     }
   ],
   "enforcement": "cloudflare_access",
-  "status": "prep_waiting_nina_email"
+  "status": "seats_ready_awaiting_marlowe_go"
 }
