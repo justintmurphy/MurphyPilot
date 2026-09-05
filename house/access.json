@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "note": "Seat source of truth in GitHub. Cloudflare Access must allowlist the same emails. Replace Nina placeholder when Justin provides it. Soft localStorage theme KEEP until Access email→theme (A2). Do not invent emails.",
+  "seats": [
+    {
+      "id": "justin",
+      "email": "justin.tucker.murphy@gmail.com",
+      "theme": "justin"
+    },
+    {
+      "id": "nina",
+      "email": null,
+      "theme": "nina",
+      "pending": true,
+      "email_placeholder": "nina@PLACEHOLDER.pending"
+    }
+  ],
+  "enforcement": "cloudflare_access",
+  "status": "prep_waiting_nina_email"
+}
