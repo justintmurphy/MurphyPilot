@@ -708,11 +708,15 @@ function collapseHouseNames(list) {
     var asof = snap && snap.asof;
     var ago = "";
     var asofLabel = "";
+    var mins = null;
     if (asof) {
       var ms = Date.parse(asof);
       if (isFinite(ms)) {
-        var mins = Math.max(0, Math.round((Date.now() - ms) / 60000));
-        ago = mins < 1 ? "just now" : (mins < 60 ? mins + "m ago" : Math.floor(mins / 60) + "h ago");
+        mins = Math.max(0, Math.round((Date.now() - ms) / 60000));
+        if (mins < 1) ago = "just now";
+        else if (mins < 60) ago = mins + "m ago";
+        else if (mins < 1440) ago = Math.floor(mins / 60) + "h ago";
+        else ago = Math.floor(mins / 1440) + "d ago";
         var ad = new Date(ms);
         try {
           asofLabel = ad.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
@@ -726,6 +730,8 @@ function collapseHouseNames(list) {
       } else {
         dEl.textContent = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
       }
+      if (mins != null && mins >= 1440) dEl.classList.add("asof-stale");
+      else dEl.classList.remove("asof-stale");
     }
   }
   tickClock();

@@ -377,6 +377,7 @@ footer.desk-foot {
   }
   header .clock .t { display: block; font-size: 11px; line-height: 1.15; }
   header .clock .d { display: block; font-size: 9px; opacity: 0.8; }
+  header .clock .d.asof-stale { color: var(--stop); opacity: 1; }
   main.desk {
     padding: 12px 12px calc(32px + env(safe-area-inset-bottom));
   }

@@ -127,6 +127,13 @@ header .header-end { grid-area: end; margin-left: 0; }
   opacity: 1;
 }
 .book-scroll { max-height: 38rem; overflow: auto; }
+.book-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--paper);
+}
+#clock .d.asof-stale { color: var(--stop); opacity: 1; }
 .acct-grid { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 720px) {
   header .idx-strip { display: none !important; }
