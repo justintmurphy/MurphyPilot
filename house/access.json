@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Seat source of truth in GitHub. Cloudflare Access allowlist must match these emails exactly. Soft localStorage theme KEEP until Access email→theme (A2). No DNS/Access flip without Marlowe GO.",
+  "note": "Seat source of truth in GitHub. Live gate is Worker email OTP (Justin & Nina only) — not Cloudflare Zero Trust. Soft localStorage theme KEEP until email→theme (A2).",
   "seats": [
     {
       "id": "justin",
@@ -13,6 +13,7 @@
       "theme": "nina"
     }
   ],
-  "enforcement": "cloudflare_access",
-  "status": "seats_ready_awaiting_marlowe_go"
+  "enforcement": "worker_otp",
+  "status": "live_seat_gate",
+  "qa_note": "Lens continuous pixel QA blocked without a seat OTP session — Studio/Marlowe decide smoke path; do not ping Justin from Lens."
 }
