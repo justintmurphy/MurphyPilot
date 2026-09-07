@@ -248,7 +248,7 @@ function collapseHouseNames(list) {
       (d.delta > 0 ? "+" : "") + money(d.delta) + '</b><i class="tone-' + tone(d.delta) + '">' + pct(d.pct) + "</i></div>";
   }
 
-  var AGENTIC_SELF_PAY_FLOOR = 70;
+  var AGENTIC_SELF_PAY_FLOOR = 58;
   function vsMonthStart(prints, currentEq) {
     var rows = lastByDay(prints);
     if (!rows.length) return null;
