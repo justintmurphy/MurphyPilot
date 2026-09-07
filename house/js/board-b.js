@@ -720,7 +720,13 @@ function collapseHouseNames(list) {
       }
     }
     if (tEl) tEl.textContent = pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()) + " ET";
-    if (dEl) dEl.textContent = asofLabel ? (asofLabel + " print") : now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    if (dEl) {
+      if (asofLabel) {
+        dEl.textContent = asofLabel + " print" + (ago ? (" · " + ago) : "");
+      } else {
+        dEl.textContent = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      }
+    }
   }
   tickClock();
   setInterval(tickClock, 1000);
