@@ -530,9 +530,10 @@ function collapseHouseNames(list) {
       stateHtml(ag, "Marlowe") +
       "<h2>Marlowe book</h2>" + tableHtml(ag.names, false, true) +
       "<h2>Sell / buy thresholds</h2><div class=\"card span\"><ul class=\"buy-lines\">" +
-      "<li>Stall: day 2 must clear +5% from that name's cost; later blocks +4% from the survive-mark.</li>" +
-      "<li>Floor \u22125% from cost. Hard cap \u22126% at any print. Flatten \u221210%.</li>" +
-      "<li>Slots = floor(Marlowe equity / $75). 12h green lock. Same-symbol rebuy waits 24h.</li>" +
+      "<li>Self-pay <b>$58/mo</b> (ODDS <code>to_$58</code>). Prefer no new cash \u2014 compound Agentic equity.</li>" +
+      "<li>Marlowe free reign on Agentic RH only; rails below are Marlowe defaults (changeable).</li>" +
+      "<li>Stall default: day 2 +5% from cost; later blocks +4% from survive-mark.</li>" +
+      "<li>Stop defaults: \u22125% / \u22126% / \u221210% \u00b7 slots floor(equity/$75) \u00b7 12h green \u00b7 24h rebuy.</li>" +
       "</ul></div>" +
       splitClockCal() +
       '<p class="hint"><a href="agentic.html">Open the full Marlowe trading desk</a> for charts, pack links, and snapshot paste.</p>';

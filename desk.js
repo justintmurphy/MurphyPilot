@@ -128,7 +128,7 @@
       }).join("");
     }
     var buy=document.getElementById("buyNote");
-    if(buy) buy.innerHTML="<li>Slots = floor(equity / $75). 12h green lock. Same-symbol rebuy 24h. Stall 2bd +5% then +4%.</li>";
+    if(buy) buy.innerHTML="<li>Self-pay $58/mo (to_$58). Prefer no new cash. Marlowe free reign on Agentic; defaults changeable (slots/stall/stops).</li>";
     var track=document.getElementById("tickerTrack");
     if(track){
       var bits=names.map(function(n){
