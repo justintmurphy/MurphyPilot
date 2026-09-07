@@ -1,0 +1,24 @@
+{
+  "asof": "2026-09-07 10:58 ET",
+  "subject": "Weekly process scorecard 2026-09-07",
+  "window": "2026-09-01..2026-09-04 (Labor Day Mon closed)",
+  "book_note": "KTOS held; stall due Tue 2026-09-08 close. Book SOV = Gmail fills + holdings/agentic-live.json (no invented fills).",
+  "keep": [
+    "Clean-slate when stall odds \u226a50% before day-2",
+    "ATR-body redeploy after slow-mega miss",
+    "Per-symbol stall clock + 12h green lock + mechanical \u22126/\u22125/\u221210 honesty"
+  ],
+  "change": [
+    "Empty-book second-slot gate: stall-odds \u226515% and 14d ATR% > 3, else stagger \u22651 session (no dual slow megas)",
+    "Ticket file before every BUY incl. post-clean-slate; stale same-session/6h \u2192 SKIPPED",
+    "Same-sector/same-macro doubles need stagger or named override; skip PPI/CPI/FOMC corridor deploys unless print is the concept"
+  ],
+  "applied_to": [
+    "playbook.md",
+    "odds-card.md",
+    "tickets/README.md",
+    "agentic-name-pick skill",
+    "Eyes/Autopilot/process-review routines",
+    "Murphy_Pilot_Manual.html \u00a711/\u00a718"
+  ]
+}
