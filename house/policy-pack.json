@@ -1,5 +1,5 @@
 {
-  "asof": "2026-09-07 06:40 ET",
+  "asof": "2026-09-07 06:54 ET (desk enrich)",
   "subject": "Agentic policy pack: 2026-09-07",
   "expiry": "2026-09-08 06:30 ET",
   "sectors": [
@@ -17,7 +17,12 @@
     "agriculture",
     "protein",
     "meat-processors",
-    "education"
+    "education",
+    "sanctions",
+    "insurance",
+    "platforms",
+    "geothermal",
+    "ceqa"
   ],
   "items": [
     {
@@ -145,6 +150,66 @@
       "title": "OPEC+ seven hold October quotas flat amid Hormuz war",
       "url": "https://www.opec.org/pr-detail/1835613-6-september-2026.html",
       "text": "Concept: Sep 6 virtual G7 decision keeps October required production at September levels \u2014 limited OPEC offset to Hormuz supply shock; oil path still geopolitics-led into next sessions. Corroborators: OPEC.org PR Sep 6; Bloomberg/World Oil Sep 6."
+    },
+    {
+      "tag": "White House",
+      "title": "Honoring the American History of the Great Lakes and Renaming Lake Ontario as Lake America (Federal Register)",
+      "url": "https://www.federalregister.gov/documents/2026/09/02/2026-18020/honoring-the-american-history-of-the-great-lakes-and-renaming-lake-ontario-as-lake-america",
+      "text": "Regional / Great Lakes \u2014 FR published Sep 2 (EO 14422 signed Aug 27); in 7-day FR-landing window"
+    },
+    {
+      "tag": "White House",
+      "title": "Further Ensuring Affordable Beef for the American Consumer (Federal Register)",
+      "url": "https://www.federalregister.gov/documents/2026/08/31/2026-17842/further-ensuring-affordable-beef-for-the-american-consumer",
+      "text": "Agriculture / beef TRQ \u2014 FR published Aug 31; tranches open Sep 1"
+    },
+    {
+      "tag": "White House",
+      "title": "Declaring a National Emergency to Secure the United States Bulk-Power System (Federal Register)",
+      "url": "https://www.federalregister.gov/documents/2026/08/31/2026-17843/declaring-a-national-emergency-to-secure-the-united-states-bulk-power-system",
+      "text": "Energy / grid / utilities \u2014 FR published Aug 31 (EO 14421)"
+    },
+    {
+      "tag": "White House",
+      "title": "Treasury Severs Iranian Regime\u2019s Financial Lifelines in T\u00fcrkiye",
+      "url": "https://home.treasury.gov/news/press-releases/treasury-severs-iranian-regime-s-financial-lifelines-turkiye/",
+      "text": "Sanctions / Iran financial networks \u2014 Treasury press Sep 4"
+    },
+    {
+      "tag": "State",
+      "title": "SB-887 CEQA: environmental leadership projects: data centers; geothermal",
+      "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB887",
+      "text": "Enrolled Sep 4 (passed Aug 31); Newsom desk ~Sep 30 \u2014 CEQA/siting for data centers / geothermal (pairs with SB 886)"
+    },
+    {
+      "tag": "State",
+      "title": "AB-1577 Data centers: reporting",
+      "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260AB1577",
+      "text": "Presented to Governor Sep 4 \u2014 energy-commission DC reporting (PUE/load); secondary to SB 886/AB 2383"
+    },
+    {
+      "tag": "State",
+      "title": "SB-1119 Companion chatbots: children\u2019s safety (Adam\u2019s Law)",
+      "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB1119",
+      "text": "Passed Aug 31; enrolling/desk ~Sep 30 \u2014 AI companion chatbot youth safety rules"
+    },
+    {
+      "tag": "State",
+      "title": "AB-1709 Covered platforms: age restriction; e-Safety Advisory Commission",
+      "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260AB1709",
+      "text": "Enrolled Sep 4; Newsom desk ~Sep 30 \u2014 under-16 addictive feed restrictions on covered platforms"
+    },
+    {
+      "tag": "calendar",
+      "title": "Costco Q4 FY2026 earnings (announced)",
+      "url": "https://investor.costco.com/events-and-presentations/events/event-details/2026/Q4-2026-Earnings-Call/default.aspx",
+      "text": "COST after close Thu Sep 24; call 2:00 PM PT \u2014 liquid consumer; corroborator wallstreethorizon / IR"
+    },
+    {
+      "tag": "World",
+      "title": "US Ukraine peace shuttle (Witkoff/Kushner) \u2014 diplomacy live, no breakthrough",
+      "url": "https://www.aljazeera.com/news/2026/9/6/us-envoys-hold-substantive-talks-with-zelenskyy-in-first-visit-to-kyiv",
+      "text": "Concept: Sat\u2013Sun Moscow\u2192Kyiv shuttle called substantive but no deal \u2014 1\u20133wk process, soft veto on binary peace/war trades into next sessions. Corroborators: Al Jazeera Sep 6; AFP/France24 Sep 7."
     }
   ]
 }
