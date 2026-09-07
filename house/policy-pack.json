@@ -1,165 +1,150 @@
 {
-  "asof": "2026-09-04 06:41 ET",
-  "subject": "Agentic policy pack: 2026-09-04",
-  "expiry": "2026-09-07 06:30 ET",
+  "asof": "2026-09-07 06:40 ET",
+  "subject": "Agentic policy pack: 2026-09-07",
+  "expiry": "2026-09-08 06:30 ET",
   "sectors": [
     "energy",
+    "oil",
     "utilities",
     "rates",
+    "duration",
     "tech",
+    "software",
     "utilities-data-centers",
+    "hyperscale",
     "defense",
     "aerospace",
-    "shipbuilding",
-    "autos",
-    "dairy",
     "agriculture",
+    "protein",
+    "meat-processors",
     "education"
   ],
   "items": [
     {
       "tag": "White House",
-      "title": "Establishing the United States Space Academy",
-      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/establishing-the-united-states-space-academy/",
-      "text": "Space / defense workforce — signed Aug 28; FR published Sep 3 (EO 14423)"
+      "title": "Supporting America's Ranchers",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/09/supporting-americas-ranchers/",
+      "text": "Agriculture / protein / grazing / ESA wolf review \u2014 signed Sep 4; USDA\u2013Interior\u2013USTR 90-day rancher policy review + COOL study"
+    },
+    {
+      "tag": "White House",
+      "title": "Promoting Fair Competition In Livestock Markets And Expanding Market Access for American Meat Producers",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/09/promoting-fair-competition-in-livestock-markets-and-expanding-market-access-for-american-meat-producers/",
+      "text": "Meat processors / Packers and Stockyards enforcement / interstate meat shipment \u2014 Sep 4"
     },
     {
       "tag": "White House",
       "title": "Establishing the United States Space Academy (Federal Register)",
       "url": "https://www.federalregister.gov/documents/2026/09/03/2026-18141/establishing-the-united-states-space-academy",
-      "text": "Official FR publication of EO 14423 — Sep 3; NASA commission within 120 days"
-    },
-    {
-      "tag": "White House",
-      "title": "Honoring the American History of the Great Lakes and Renaming Lake Ontario as Lake America",
-      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/honoring-the-american-history-of-the-great-lakes-and-renaming-lake-ontario-as-lake-america-3a36/",
-      "text": "Regional / symbolic — Aug 27 (still on desk)"
-    },
-    {
-      "tag": "White House",
-      "title": "Further Ensuring Affordable Beef for the American Consumer",
-      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/further-ensuring-affordable-beef-for-the-american-consumer/",
-      "text": "Agriculture / food prices — Aug 26"
-    },
-    {
-      "tag": "White House",
-      "title": "Declaring a National Emergency to Secure the United States Bulk-Power System",
-      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/declaring-a-national-emergency-to-secure-the-united-states-bulk-power-system/",
-      "text": "Energy / grid / utilities — Aug 26"
-    },
-    {
-      "tag": "White House",
-      "title": "The National Space Transportation Policy",
-      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/national-security-presidential-memorandum-nspm-17/",
-      "text": "Space / launch / aerospace — Aug 20"
-    },
-    {
-      "tag": "White House",
-      "title": "Temporary Suspension of Additional Duties to Offset Canadian Discrimination Against the Commerce of the United States with Respect to Alcoholic Beverages, Dairy, and Motor Vehicles",
-      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/temporary-suspension-of-additional-duties-to-offset-canadian-discrimination-against-the-commerce-of-the-united-states-with-respect-to-alcoholic-beverages-dairy-and-motor-vehicles/",
-      "text": "Trade / Canada / autos / dairy — Aug 18"
-    },
-    {
-      "tag": "White House",
-      "title": "Adjusting Imports of Unmanned Aircraft Systems and Unmanned Aircraft Systems Components into the United States",
-      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/adjusting-imports-of-unmanned-aircraft-systems-and-unmanned-aircraft-systems-components-into-the-united-states/",
-      "text": "Drones / defense / trade — Aug 13"
-    },
-    {
-      "tag": "White House",
-      "title": "Rebuilding the United States Navy and America’s Shipbuilding Industrial Base",
-      "url": "https://www.whitehouse.gov/presidential-actions/2026/08/rebuilding-the-united-states-navy-and-americas-shipbuilding-industrial-base/",
-      "text": "Defense / industrials / shipyards — Aug 13"
+      "text": "Space / defense workforce \u2014 FR published Sep 3 (EO 14423 signed Aug 28); NASA commission within 120 days"
     },
     {
       "tag": "White House",
       "title": "Treasury, IRS Move to End Tax-Exempt Status for Discriminatory Practices in Private Schools",
       "url": "https://home.treasury.gov/news/press-releases/sb0621",
-      "text": "Education / tax-exempt private schools proposed rule — Sep 3; final years begin May 31 2027"
+      "text": "Education / tax-exempt private schools proposed rule \u2014 Sep 3; final years begin May 31 2027"
     },
     {
       "tag": "State",
       "title": "SB-886 California Technology Innovation and Ratepayer Protection Act",
       "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB886",
-      "text": "Enrolled Aug 31; Newsom sign/veto deadline ~Sep 30 — data-center tariffs / ratepayer protection (utilities, hyperscale tech)"
+      "text": "Enrolled Sep 4 (passed both houses Aug 31); Newsom sign/veto by ~Sep 30 (Art. IV Sec. 10) \u2014 data-center interconnection tariffs / ratepayer protection (utilities, hyperscale tech)"
     },
     {
       "tag": "State",
       "title": "AB-2383 Electricity: data centers",
       "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260AB2383",
-      "text": "Companion to SB 886; contingent on SB 886; separate data-center electricity class / tariffs"
+      "text": "Enrolled Sep 4 (passed Aug 31); companion data-center T&D and generation tariffs / CCA rules \u2014 same Newsom window"
     },
     {
       "tag": "calendar",
-      "title": "BLS Employment Situation (August)",
-      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
-      "text": "NFP Fri Sep 4 8:30 AM ET — session-day print"
-    },
-    {
-      "tag": "calendar",
-      "title": "OPEC+ Group of Seven production review",
-      "url": "https://www.opec.org/pr-detail/1854611-2-august-2026.html",
-      "text": "Next meeting Sat Sep 6 2026 (virtual) — oil supply path"
-    },
-    {
-      "tag": "calendar",
-      "title": "Labor Day market holiday",
+      "title": "Labor Day market holiday \u2014 next regular session Tuesday",
       "url": "https://www.nyse.com/markets/hours-calendars",
-      "text": "NYSE/Nasdaq closed Mon Sep 7; next session Tue Sep 8"
+      "text": "NYSE closed Mon Sep 7; next core session Tue Sep 8 9:30 AM ET \u2014 first post-weekend reprice window"
+    },
+    {
+      "tag": "calendar",
+      "title": "BLS Employer Costs for Employee Compensation (June)",
+      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
+      "text": "Wed Sep 9 10:00 AM ET"
     },
     {
       "tag": "calendar",
       "title": "BLS Producer Price Index (August)",
       "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
-      "text": "PPI Thu Sep 10 8:30 AM ET"
+      "text": "PPI Thu Sep 10 8:30 AM ET \u2014 upstream inflation into FOMC"
     },
     {
       "tag": "calendar",
-      "title": "EIA Weekly Petroleum Status Report (post–Labor Day)",
+      "title": "EIA Weekly Petroleum Status Report (post\u2013Labor Day)",
       "url": "https://www.eia.gov/petroleum/supply/weekly/schedule.php",
-      "text": "Thu Sep 10 12:00 PM ET (holiday shift) — crude / product balances"
+      "text": "Thu Sep 10 (holiday shift from Sep 4) \u2014 crude / product balances amid Hormuz disruption"
     },
     {
       "tag": "calendar",
-      "title": "Oracle and Adobe fiscal earnings (announced)",
-      "url": "https://beta.earningswhispers.com/calweek/20260907",
-      "text": "ORCL + ADBE after close Thu Sep 10 — liquid mega-cap software; corroborator investing.com earnings calendar"
+      "title": "Oracle Q1 FY2027 earnings (announced)",
+      "url": "https://www.prnewswire.com/news-releases/oracle-sets-the-date-for-its-first-quarter-fiscal-year-2027-earnings-announcement-302868030.html",
+      "text": "ORCL after close Thu Sep 10; call 4:00 PM CT \u2014 liquid mega-cap software / AI cloud; corroborator Yahoo Finance earnings calendar"
     },
     {
       "tag": "calendar",
-      "title": "BLS Consumer Price Index (August)",
+      "title": "Adobe Q3 FY2026 earnings (announced)",
+      "url": "https://news.adobe.com/news/2026/09/adobe-announces-anil-chakravarthy-to-become-president-and-ceo",
+      "text": "ADBE earnings call Thu Sep 10 (IR webcast) \u2014 liquid software; same Adobe newsroom notes CEO succession Dec 1; corroborator Yahoo Finance AMC calendar"
+    },
+    {
+      "tag": "calendar",
+      "title": "BLS Consumer Price Index and Real Earnings (August)",
       "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
-      "text": "CPI Fri Sep 11 8:30 AM ET — key into FOMC"
+      "text": "CPI + Real Earnings Fri Sep 11 8:30 AM ET \u2014 decisive print into Sep FOMC"
     },
     {
       "tag": "calendar",
-      "title": "FOMC meeting September 15–16 with SEP",
+      "title": "FOMC meeting September 15\u201316 with SEP",
       "url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
-      "text": "Decision ~2:00 PM ET + press conference ~2:30 PM ET Wed Sep 16"
+      "text": "Decision ~2:00 PM ET + press conference ~2:30 PM ET Wed Sep 16 (*SEP meeting)"
     },
     {
       "tag": "calendar",
       "title": "BLS U.S. Import and Export Price Indexes (August)",
       "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
-      "text": "Wed Sep 16 8:30 AM ET — same day as FOMC decision"
+      "text": "Wed Sep 16 8:30 AM ET \u2014 same day as FOMC decision"
+    },
+    {
+      "tag": "calendar",
+      "title": "OPEC+ Group of Seven next production review",
+      "url": "https://www.opec.org/pr-detail/1835613-6-september-2026.html",
+      "text": "Next meeting Sun Oct 4 2026 \u2014 after Sep 6 hold of October quotas at September levels"
+    },
+    {
+      "tag": "calendar",
+      "title": "BEA U.S. International Transactions (Q2 2026)",
+      "url": "https://www.bea.gov/news/schedule",
+      "text": "Thu Sep 24 8:30 AM ET"
+    },
+    {
+      "tag": "calendar",
+      "title": "BEA GDP third estimate / Personal Income and Outlays (August)",
+      "url": "https://www.bea.gov/news/schedule",
+      "text": "Tue Sep 30 8:30 AM ET \u2014 GDP Q2 third + August PCE/personal income"
     },
     {
       "tag": "World",
-      "title": "US–Iran kinetic risk and Strait of Hormuz oil transit",
-      "url": "https://www.reuters.com/business/energy/oil-up-nearly-1-us-iran-trade-fresh-strikes-2026-09-02/",
-      "text": "Concept: wartime Hormuz chokepoint keeps crude elevated (~Brent mid-$90s) into next sessions — veto energy/beta until two-session window clears. Corroborators: Reuters oil settle Sep 2; US DOE/Wright Hormuz flow claim Sep 2 Reuters."
+      "title": "US\u2013Iran tanker strikes cut Hormuz traffic; crude extends gains",
+      "url": "https://www.reuters.com/world/middle-east/hormuz-traffic-dips-lowest-since-may-after-us-iranian-strikes-ships-2026-09-06/",
+      "text": "Concept: weekend kinetic exchange + Hormuz 10-day transit avg ~10 ships (lowest since May) keeps Brent near mid/high-$90s into Tue\u2013Wed sessions \u2014 pack-flag VETO energy/oil beta and energy-sensitive duration until two-session window clears. Corroborators: Reuters Hormuz traffic Sep 6/7; Reuters/Business Times oil extends gains Sep 7."
     },
     {
       "tag": "World",
-      "title": "Fed Governor Waller conditional hold into September FOMC",
-      "url": "https://www.federalreserve.gov/newsevents/speech/waller20260903a.htm",
-      "text": "Concept: Sept hike odds softened if Aug CPI cools — rates/duration repricing across liquid names next two sessions. Corroborators: Fed speech Sep 3; AP/PBS Sep 3."
+      "title": "Hot August NFP lifts September FOMC hike odds into CPI week",
+      "url": "https://www.reuters.com/business/us-nonfarm-payrolls-surge-august-unemployment-rate-steady-41-2026-09-04/",
+      "text": "Concept: +162k payrolls / 4.1% U-rate flipped rate-hike pricing higher (~60% zone on FedWatch per Reuters) \u2014 rates/duration and broad equity beta reprice on Tue open and into Sep 10\u201311 PPI/CPI. Corroborators: Reuters Sep 4; BLS Employment Situation Aug 2026 / CNBC jobs wrap."
     },
     {
       "tag": "World",
-      "title": "Equity relief rally after dovish Fed tone ahead of NFP",
-      "url": "https://www.cnbc.com/2026/09/03/fed-governor-waller-indicates-he-will-support-holding-rates-steady-at-september-meeting.html",
-      "text": "Concept: risk-on into Friday NFP after Waller; fragile if payrolls hot — broad beta / megacap. Corroborators: CNBC Sep 3; Deutsche Bank/FXStreet Sep 4 equities note."
+      "title": "OPEC+ seven hold October quotas flat amid Hormuz war",
+      "url": "https://www.opec.org/pr-detail/1835613-6-september-2026.html",
+      "text": "Concept: Sep 6 virtual G7 decision keeps October required production at September levels \u2014 limited OPEC offset to Hormuz supply shock; oil path still geopolitics-led into next sessions. Corroborators: OPEC.org PR Sep 6; Bloomberg/World Oil Sep 6."
     }
   ]
 }
