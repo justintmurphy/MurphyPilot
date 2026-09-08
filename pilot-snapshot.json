@@ -1,24 +1,38 @@
 {
-  "asof": "2026-09-08 15:31 ET",
+  "asof": "2026-09-08 15:34 ET",
   "account": "Agentic",
-  "equity": 296.36,
-  "equity_value": 176.77,
+  "equity": 295.76,
+  "equity_value": 176.17,
   "cash": 119.59,
   "buying_power": 119.59,
   "pending_deposits": 100,
   "invested_pct": 59.6,
   "slots": 1,
   "open_orders": 0,
-  "names": ["KTOS"],
-  "positions": [
+  "names": [
     {
       "symbol": "KTOS",
+      "name": "Kratos Defense",
       "qty": 3.636852,
+      "avg": 47.5686,
       "avg_cost": 47.57,
-      "last": 48.605,
-      "value": 176.77,
-      "pnl_pct": 2.18
+      "last": 48.44,
+      "value": 176.17,
+      "pnl_pct": 1.83,
+      "account": "agentic",
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      },
+      "stop_hit": null,
+      "quote_source": "yahoo_chart_1d"
     }
   ],
-  "actions": []
+  "eye": {
+    "checked_et": "2026-09-08 15:34 ET",
+    "status": "ok",
+    "nearest_stop_pct": -5,
+    "distance_to_floor_pct": 6.83
+  }
 }
