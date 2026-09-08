@@ -1,38 +1,44 @@
 {
-  "asof": "2026-09-08 15:34 ET",
+  "asof": "2026-09-08 15:48 ET",
   "account": "Agentic",
-  "equity": 295.76,
-  "equity_value": 176.17,
-  "cash": 119.59,
-  "buying_power": 119.59,
+  "equity": 295.80,
+  "equity_value": 291.21,
+  "cash": 4.59,
+  "buying_power": 4.59,
   "pending_deposits": 100,
-  "invested_pct": 59.6,
-  "slots": 1,
+  "invested_pct": 98.4,
+  "slots": 2,
   "open_orders": 0,
   "names": [
     {
       "symbol": "KTOS",
-      "name": "Kratos Defense",
       "qty": 3.636852,
-      "avg": 47.5686,
+      "avg": 47.57,
       "avg_cost": 47.57,
-      "last": 48.44,
-      "value": 176.17,
-      "pnl_pct": 1.83,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
         "floor_pct": -5,
         "flatten_pct": -10
       },
-      "stop_hit": null,
-      "quote_source": "yahoo_chart_1d"
+      "stop_hit": null
+    },
+    {
+      "symbol": "RKLB",
+      "qty": 1.745335,
+      "avg": 65.89,
+      "avg_cost": 65.89,
+      "account": "agentic",
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      },
+      "stop_hit": null
     }
   ],
   "eye": {
-    "checked_et": "2026-09-08 15:34 ET",
-    "status": "ok",
-    "nearest_stop_pct": -5,
-    "distance_to_floor_pct": 6.83
+    "checked_et": "2026-09-08 15:48 ET",
+    "status": "ok"
   }
 }
