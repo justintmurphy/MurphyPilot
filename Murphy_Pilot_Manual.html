@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Murphy Pilot Operating Manual v7.3</title>
+<title>Murphy Pilot Operating Manual v7.4</title>
 <meta name="theme-color" content="#1B3A2F">
 <script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k);if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
 <link rel="stylesheet" href="site.css">
@@ -22,7 +22,7 @@
       </a>
       <a class="brand-block" id="navBrand" href="Murphy_Pilot_Desk.html">
         <div class="brand">MURPHY PILOT</div>
-        <div class="sub">OPERATING MANUAL v7.3</div>
+        <div class="sub">OPERATING MANUAL v7.4</div>
       </a>
       
       <nav aria-label="Official docs">
@@ -43,8 +43,8 @@
     </header>
 
 <main class="doc-main">
-  <article class="card manual doc-article" aria-label="Murphy Pilot Operating Manual v7.3">
-<p class="lede">Murphy Pilot · Standing mandate · 6 September 2026 · America/New_York. The brand is Murphy Pilot. The account is Agentic only. The executable source is the live job text. This book is the standing mandate those jobs must obey. Custodial desk prints may show ···last-4 only — never full account numbers.</p>
+  <article class="card manual doc-article" aria-label="Murphy Pilot Operating Manual v7.4">
+<p class="lede">Murphy Pilot · Standing mandate · 8 September 2026 · America/New_York. The brand is Murphy Pilot. The account is Agentic only. The executable source is the live job text. This book is the standing mandate those jobs must obey. Custodial desk prints may show ···last-4 only — never full account numbers.</p>
       <h3>1. Mission</h3>
       <p>Murphy Pilot is unattended long-only stock and ETF trading in the Robinhood account labeled Agentic (agentic_allowed). Agentic Trading (Marlowe) researches, picks names, and emails orders. Grok.com is hands only: Robinhood snapshot, mechanical stops, and <code>Agentic order:</code> execution. The owner watches the MurphyPilot desk and does not approve tickers. There is no per-trade approval. Success is process obedience plus 2-session stall hits that compound the book toward the self-pay floor (§5), not a single green day. The Ladder-M mark is the stall ladder: each name climbs its own steps or it is sold.</p>
       <h3>2. Hard bans</h3>
@@ -53,14 +53,15 @@
         <li>Money transfers between accounts. Options, crypto, short sales, and inverse products as a core book are Marlowe-owned defaults (see §5) — not Justin-locked forever.</li>
         <li>Fail closed on tool errors, unread buying power, or $0 readable value. Do not invent fills or high-water marks.</li>
         <li>Do not dump a fresh green winner to chase a headline or a new theme.</li>
-        <li>Do not sit idle in cash when the book is empty and buying power is spendable.</li>
+        <li>Do not sit idle when Agentic buying power can fill an open slot (or the book is empty) — deploy in-session; do not wait for the owner to notice.</li>
         <li>Check anywhere reachable. X and all social media are allowed. Two independent corroborators required for social, wires, and non-official items.</li>
       </ul>
       <h3>3. Capital — 90 / 10</h3>
       <p>Deploy toward 90% of current Agentic equity. Hold about 10% cash. One name may use the full 90% if it is the only slot filled. Multiple names split the 90%. Percentages do not loosen after a win. Pending deposits on this account are instant — already counted in equity and buying power. Do not add pending to cash, equity, or BP, do not wait for them to clear, and do not treat them as extra money arriving. Deploy on the next job from the buying power you can already read. Profits stay in Agentic.</p>
       <p>Limited margin. Sale proceeds, including losses, are reusable the same session. Do not wait T+1. Same-symbol rebuy still waits 24 hours from that sale. Loss proceeds may go into a different ticker immediately.</p>
+      <p><b>Idle buying power (first-class, 2026-09-08).</b> Available funds / idle Agentic cash and buying_power are a standing watch. When readable BP can fill an open name slot (unique names &lt; slots) under 90/10 and Marlowe’s current defaults, Marlowe deploys <b>in-session</b>: scout ticket + <code>Agentic order: BUY</code>. Do not wait for Justin to notice idle cash. Empty book + spendable BP remains an immediate deploy. Prefer adding to an existing allowed name when that is the higher-conviction use of the 90%; open a new name only when a slot is free. Holding-eye and trading stamps treat deployable idle BP the same as a due stall — act, don’t log-and-wait. Tape owns the IDLE_BP watch; Marlowe places the order.</p>
       <h3>4. Name slots — every $75</h3>
-      <p>Slots = floor(current Agentic equity / $75). Each full $75 of equity from deposits or accrued gains unlocks one unique name. A new ticker may be researched and opened only when unique names &lt; slots. Opening a new name is allowed, not forced — idle cash may add to an existing allowed name if that is the higher-conviction use of the 90%. Do not exceed slots. Do not fill remaining free slots in the same session — stagger the next slot by at least one NYSE session so stall clocks do not cluster. Legacy extra names may be held until an exit rule sells one. The retired hard max-two-names cap is gone.</p>
+      <p>Slots = floor(current Agentic equity / $75). Each full $75 of equity from deposits or accrued gains unlocks one unique name. A new ticker may be researched and opened only when unique names &lt; slots. Opening a new name is allowed, not forced — idle cash may add to an existing allowed name if that is the higher-conviction use of the 90%. Do not exceed slots. Do not fill remaining free slots in the same session — stagger the next slot by at least one NYSE session so stall clocks do not cluster. <b>Exception (idle BP):</b> If spendable BP can already fill an open slot mid-session, that deploy is first-class and may use the open slot in-session; the stagger rule does not force waiting for Justin or the next calendar session when BP is idle and a slot is free. Legacy extra names may be held until an exit rule sells one. The retired hard max-two-names cap is gone.</p>
       <table>
         <thead><tr><th>Equity</th><th>Slots</th><th>What is allowed</th></tr></thead>
         <tbody>
@@ -109,6 +110,7 @@
         <li>Odds, not a story. A 2-session +5% stall must sit in the body of that name’s recent ATR / daily range. Skip slow 1–2% ATR mega-caps for this stall. Scout tickets carry an <b>ODDS CARD</b>: <code>slot_$</code>, <code>+5%_$</code>, ATR body vs tail, <code>implied_move</code>, devil’s-advocate bear, <code>mention_z</code>, Form4 thin catalyst, and <code>to_$58</code>. Stale tickets and playbook verb stops apply — Marlowe owns the verbs.</li>
         <li>A Reuters, AP, X, or social headline printed since the pack still needs two independent corroborators before it can veto or select a name. Calendars and announced events are required inputs.</li>
         <li>Deploy or rotate only after the checks above. Empty book + spendable BP is a deploy. New name only if a slot is free. May add to an existing allowed name. Eyes may rotate a weak flat or red name. Must not dump a fresh green winner.</li>
+        <li>Idle BP that can fill an open slot is <b>not</b> quiet — Eyes/Autopilot still ticket + <code>Agentic order: BUY</code> in-session even if invested &lt; 80% only because of leftover cash.</li>
       </ul>
       <h3>10. Policy pack, sources, and the coming-weeks calendar</h3>
       <p>Overnight research is the information layer. Daytime jobs bounce candidates off it. They do not re-crawl fifty legislatures.</p>
@@ -196,7 +198,7 @@
       <h3>20. Owner halt</h3>
       <p>Disconnect the agent on Agentic in Robinhood, pause Agentic Trading routines, and pause grok.com email callables (<code>Agentic fn: snapshot</code>, <code>Agentic fn: house</code>, <code>Agentic fn: truthifi-fidelity</code>, <code>Agentic order:</code>) and Truthifi Close Scan. Always-allow for place and cancel lives at grok.com/connectors. Stop depositing. The agent cannot pull the primary Robinhood account.</p>
       <h3>21. Book as of this manual</h3>
-      <p>As of 6 September 2026 §5 charter is standing (free reign, $58/mo self-pay, compound / prefer no new cash). History: 4 September clean-slate (v7.1) when authorized. No whole-share broker stops attach to fractional stubs — snapshot watchdog watches them. Custodial House/Truthifi rules above are standing process, not Agentic trading.</p>
+      <p>As of 8 September 2026 §5 charter is standing (free reign, $58/mo self-pay, compound / prefer no new cash) and idle Agentic BP deploy is first-class (§3). History: 4 September clean-slate (v7.1) when authorized. No whole-share broker stops attach to fractional stubs — snapshot watchdog watches them. Custodial House/Truthifi rules above are standing process, not Agentic trading.</p>
       <p class="lede">AI agents can misread markets or fail to run. The owner owns every fill and can lose the entire Agentic balance. Brokerage through Robinhood Financial LLC / Robinhood Securities, LLC, members SIPC.</p>
 
   </article>
@@ -260,7 +262,7 @@
       var frame = document.getElementById("docFrame");
       if (!ov || !frame) return;
       if (e) e.preventDefault();
-      var title = view === "manual" ? "Operating Manual v7.3" : "Setup Guide v5.3";
+      var title = view === "manual" ? "Operating Manual v7.4" : "Setup Guide v5.3";
       var t = document.getElementById("docTitle");
       if (t) t.textContent = title;
       ov.hidden = false;
