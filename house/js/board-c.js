@@ -210,7 +210,9 @@ function buildFidelitySleeves(fid, outside) {
       return String(n.sleeve || "").toLowerCase() === String(s.key).toLowerCase();
     });
     var held = names.reduce(function (sum, n) { return sum + (Number(n.value) || 0); }, 0);
-    var equity = totals[s.sleeveKey] != null ? Number(totals[s.sleeveKey]) : held;
+    var tot = totals[s.sleeveKey];
+    var fromTot = tot == null ? NaN : Number(typeof tot === "object" ? tot.equity : tot);
+    var equity = isFinite(fromTot) ? fromTot : held;
     var cash = Math.max(0, rnd(equity - held));
     return registerFidSleeveLabel({ id: s.id, label: s.label, key: s.key, equity: rnd(equity), cash: cash, buying_power: cash, pending_deposits: 0, equity_value: rnd(held), invested_pct: equity ? Math.min(100, (held / equity) * 100) : 0, open_orders: 0, names: names });
   }).filter(function (s) {
