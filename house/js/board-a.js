@@ -81,6 +81,34 @@
   var AGENTIC_OWNER_DEPOSITS = [
     { date: "2026-09-08", amount: 100, note: "Justin capital — not trading P&L / not the $58 floor" }
   ];
+  /* Fill MATCH overlay when House doorbell omits accounts.agentic. Qty/avg only — no invented last. */
+  var AGENTIC_FILL_MATCH = {
+    asof: "2026-09-08 15:48 ET",
+    account: "Agentic",
+    equity: 295.80,
+    equity_value: 291.21,
+    cash: 4.59,
+    buying_power: 4.59,
+    pending_deposits: 100,
+    invested_pct: 98.4,
+    slots: 2,
+    open_orders: 0,
+    book_source: "fill-confirmed MATCH overlay \u00b7 House omitted accounts.agentic \u00b7 not a Grok House print \u00b7 live last waits on Agentic fn: house",
+    owner_deposits: AGENTIC_OWNER_DEPOSITS.slice(),
+    names: [
+      { symbol: "KTOS", name: "Kratos Defense", qty: 3.636852, avg: 47.5686, avg_cost: 47.5686, account: "agentic", source: "fill-confirmed" },
+      { symbol: "RKLB", name: "Rocket Lab", qty: 1.745335, avg: 65.8899, avg_cost: 65.8899, account: "agentic", source: "fill-confirmed" }
+    ]
+  };
+  function agenticHasNames(b) {
+    return !!(b && b.names && b.names.length);
+  }
+  function resolveAgenticOverlay(house, pilot) {
+    var fromHouse = house && house.accounts && house.accounts.agentic;
+    if (agenticHasNames(fromHouse)) return fromHouse;
+    if (agenticHasNames(pilot)) return pilot;
+    return AGENTIC_FILL_MATCH;
+  }
   var tab = "combined";
   var snap = null;
 
@@ -144,7 +172,7 @@
   function merge(house, pilot) {
     var out = JSON.parse(JSON.stringify(house || { accounts: {}, combined: {}, tape: {} }));
     if (!out.accounts) out.accounts = {};
-    out.accounts.agentic = agenticBook(pilot);
+    out.accounts.agentic = agenticBook(resolveAgenticOverlay(house, pilot));
     var eq = 0, cash = 0, bp = 0, pend = 0, ev = 0, cv = 0, orders = 0, names = [];
     IDS.forEach(function (id) {
       var b = out.accounts[id] || { names: [] };

@@ -53,7 +53,7 @@
         <li>Desktop browser → https://grok.com/connectors → New Connector → Custom / Other / Bring Your Own MCP.</li>
         <li>Paste https://agent.robinhood.com/mcp/trading and finish Robinhood OAuth. Grok never sees the password.</li>
         <li>When prompted, open the Agentic account on desktop and complete disclosures.</li>
-        <li>Prefer no new deposits (Manual §5). When owner cash does arrive (e.g. Justin’s $100 on 2026-09-08), it is capital — it does <b>not</b> count toward the $58/mo self-pay floor, which is trading P&amp;L only. Pending deposits are instant and already in buying power — do not wait for ACH to settle and do not count pending twice. Deploy when BP is readable.</li>
+        <li>Prefer no new deposits (Manual §5). When owner cash does arrive (e.g. Justin’s $100 on 2026-09-08), it is capital — <b>deposits ≠ earnings</b> and do <b>not</b> count toward the $58/mo self-pay floor, which is trading P&amp;L only. Pending deposits are instant and already in buying power — do not wait for ACH to settle and do not count pending twice. Deploy when BP is readable.</li>
         <li>Agentic → Investing Settings → limited margin (reuse unsettled sale proceeds).</li>
         <li>Learn disconnect on Agentic so you can halt without touching the primary account. Optional: enable broker fill pushes in addition to Grok trade emails.</li>
       </ul>
@@ -127,6 +127,7 @@
       <p><b>Books pages</b></p>
       <ul>
         <li>House books rollup is Robinhood / Fidelity / Voya. Fidelity sleeves each count as their own book.</li>
+        <li>Robinhood books must include <b>Marlowe / Agentic</b>. <code>Agentic fn: house</code> writes <code>accounts.agentic</code> with <code>names[]</code>. If a print omits it, the desk overlays fill-confirmed MATCH (KTOS / RKLB qty·avg) or <code>pilot-snapshot.json</code> — labeled, no invented last — until Grok emits Agentic.</li>
         <li>On a broker page the section order is: <b>Books → book state → tape → where it sits → book</b>.</li>
       </ul>
       <p><b>Theme and mark</b></p>

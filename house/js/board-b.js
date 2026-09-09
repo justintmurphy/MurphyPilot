@@ -556,14 +556,15 @@ function collapseHouseNames(list) {
 
   function agenticOnlyHtml() {
     var ag = snap.accounts.agentic || {};
-    var fillHint = (ag.names || []).some(function (n) { return n && (n.source === "fill-confirmed" || n.fill_source === "fill-confirmed"); })
-      ? '<p class="hint">Qty/avg from fill MATCH notes (fill-confirmed). Not from House snap \u2014 live last/value wait on Grok House doorbells. Do not invent quotes.</p>'
-      : "";
+    var fillHint = "";
+    if ((ag.names || []).some(function (n) { return n && (n.source === "fill-confirmed" || n.fill_source === "fill-confirmed"); }) || (ag.book_source && /fill-confirmed|MATCH|omitted/i.test(ag.book_source))) {
+      fillHint = '<p class="hint">' + esc(ag.book_source || "Qty/avg from fill MATCH notes (fill-confirmed). Not from House snap \u2014 live last/value wait on Grok House doorbells. Do not invent quotes.") + "</p>";
+    }
     return agenticSelfPayStripHtml({ clickable: false }) +
       stateHtml(ag, "Marlowe") +
       "<h2>Marlowe book</h2>" + tableHtml(ag.names, false, true) + fillHint +
       "<h2>Sell / buy thresholds</h2><div class=\"card span\"><ul class=\"buy-lines\">" +
-      "<li>Self-pay <b>$58/mo trading P&amp;L</b> (ODDS <code>to_$58</code>). Owner deposits (e.g. $100 on 2026-09-08) are capital \u2014 they do not count toward the floor. Prefer no new cash \u2014 compound Agentic equity.</li>" +
+      "<li>Self-pay <b>$58/mo trading P&amp;L</b> (ODDS <code>to_$58</code>). Deposits \u2260 earnings. Owner deposits (e.g. $100 on 2026-09-08) are capital \u2014 they do not count toward the floor. Prefer no new cash \u2014 compound Agentic equity.</li>" +
       "<li>Marlowe free reign on Agentic RH only; rails below are Marlowe defaults (changeable).</li>" +
       "<li>Stall default: day 2 +5% from cost; later blocks +4% from survive-mark.</li>" +
       "<li>Stop defaults: \u22125% / \u22126% / \u221210% \u00b7 slots floor(equity/$75) \u00b7 12h green \u00b7 24h rebuy.</li>" +
