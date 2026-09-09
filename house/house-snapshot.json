@@ -1,1 +1,128 @@
-{"asof":"2026-09-09T13:02:06-04:00","brand":"Murphy House","note":"House snapshot ticker. Data only. Open orders 0. Pending deposits are a label only (already inside equity). Books: Individual · Auto-Grok · Joint · Agentic/Marlowe. Suffix last-4 only.","accounts":{"individual":{"id":"individual","label":"Individual","suffix":"8723","equity":715.64,"equity_value":518.43,"crypto_value":197.2,"cash":0.02,"buying_power":0.02,"pending_deposits":0.0,"invested_pct":100.0,"open_orders":0,"names":[{"symbol":"SPCX","name":"SpaceX","qty":2.105144,"avg":136.51,"last":146.27,"value":307.92,"pnl_pct":7.15,"account":"individual"},{"symbol":"BTC","name":"Bitcoin","qty":0.001862,"avg":0.0,"last":78787.324,"value":146.7,"pnl_pct":0.0,"account":"individual"},{"symbol":"NVDA","name":"NVIDIA","qty":0.47381,"avg":211.06,"last":224.12,"value":106.19,"pnl_pct":6.19,"account":"individual"},{"symbol":"TSLA","name":"Tesla","qty":0.284086,"avg":352.01,"last":368.9472,"value":104.81,"pnl_pct":4.81,"account":"individual"},{"symbol":"XRP","name":"XRP","qty":35.556,"avg":0.0,"last":1.4229,"value":50.59,"pnl_pct":0.0,"account":"individual"}]},"auto_grok":{"id":"auto_grok","label":"Auto-Grok","suffix":"6577","equity":1090.29,"equity_value":1090.22,"crypto_value":0.0,"cash":0.07,"buying_power":0.07,"pending_deposits":0.0,"open_orders":0,"names":[{"symbol":"MU","name":"Micron","qty":0.106321,"avg":935.85,"last":1021.81,"value":108.64,"pnl_pct":9.19,"account":"auto_grok"},{"symbol":"ARIS","name":"Aris Water","qty":4.608833,"avg":20.03,"last":20.175,"value":92.98,"pnl_pct":0.72,"account":"auto_grok"},{"symbol":"AUGO","name":"Aura Minerals","qty":0.980518,"avg":85.39,"last":85.81,"value":84.14,"pnl_pct":0.49,"account":"auto_grok"},{"symbol":"FSM","name":"Fortuna Mining","qty":6.649538,"avg":11.97,"last":12.3788,"value":82.31,"pnl_pct":3.42,"account":"auto_grok"},{"symbol":"AVGO","name":"Broadcom","qty":0.208356,"avg":363.32,"last":362.19,"value":75.46,"pnl_pct":-0.31,"account":"auto_grok"},{"symbol":"KGC","name":"Kinross Gold","qty":2.324545,"avg":30.83,"last":30.405,"value":70.68,"pnl_pct":-1.38,"account":"auto_grok"},{"symbol":"VST","name":"Vistra","qty":0.454934,"avg":140.81,"last":150.1125,"value":68.29,"pnl_pct":6.61,"account":"auto_grok"},{"symbol":"CDE","name":"Coeur Mining","qty":3.063222,"avg":21.15,"last":21.195,"value":64.92,"pnl_pct":0.21,"account":"auto_grok"},{"symbol":"AU","name":"AngloGold","qty":0.514952,"avg":111.74,"last":108.885,"value":56.07,"pnl_pct":-2.56,"account":"auto_grok"},{"symbol":"EXK","name":"Endeavour Silver","qty":4.542686,"avg":11.02,"last":11.205,"value":50.9,"pnl_pct":1.68,"account":"auto_grok"},{"symbol":"OSCR","name":"Oscar Health","qty":1.606716,"avg":32.34,"last":31.41,"value":50.47,"pnl_pct":-2.88,"account":"auto_grok"},{"symbol":"KTOS","name":"Kratos Defense","qty":1.065521,"avg":56.62,"last":46.775,"value":49.84,"pnl_pct":-17.39,"account":"auto_grok"},{"symbol":"SNDK","name":"Sandisk","qty":0.02756,"avg":1569.67,"last":1777.98,"value":49.0,"pnl_pct":13.27,"account":"auto_grok"},{"symbol":"ZETA","name":"Zeta Global","qty":1.381878,"avg":28.55,"last":30.645,"value":42.35,"pnl_pct":7.34,"account":"auto_grok"},{"symbol":"CECO","name":"CECO Environmental","qty":0.510508,"avg":73.36,"last":78.45,"value":40.05,"pnl_pct":6.94,"account":"auto_grok"},{"symbol":"ASM","name":"Avino Silver","qty":5.228899,"avg":7.72,"last":7.465,"value":39.03,"pnl_pct":-3.3,"account":"auto_grok"},{"symbol":"LBTYA","name":"Liberty Global","qty":3.340853,"avg":10.74,"last":10.51,"value":35.11,"pnl_pct":-2.14,"account":"auto_grok"},{"symbol":"SRRK","name":"Scholar Rock","qty":0.549872,"avg":56.83,"last":54.9456,"value":30.21,"pnl_pct":-3.32,"account":"auto_grok"}],"invested_pct":99.99},"joint":{"id":"joint","label":"Joint","suffix":"4446","equity":981.59,"equity_value":981.53,"crypto_value":0.0,"cash":0.06,"buying_power":0.06,"pending_deposits":0.0,"open_orders":0,"names":[{"symbol":"FRO","name":"Frontline","qty":1.802122,"avg":41.21,"last":47.02,"value":84.74,"pnl_pct":14.1,"account":"joint"},{"symbol":"MU","name":"Micron","qty":0.081124,"avg":932.03,"last":1021.81,"value":82.89,"pnl_pct":9.63,"account":"joint"},{"symbol":"ABCL","name":"AbCellera","qty":7.35717,"avg":10.97,"last":11.235,"value":82.66,"pnl_pct":2.42,"account":"joint"},{"symbol":"ARIS","name":"Aris Water","qty":3.60951,"avg":19.12,"last":20.175,"value":72.82,"pnl_pct":5.52,"account":"joint"},{"symbol":"NG","name":"NovaGold","qty":8.599129,"avg":8.48,"last":8.165,"value":70.21,"pnl_pct":-3.71,"account":"joint"},{"symbol":"PGY","name":"Pagaya","qty":3.166817,"avg":21.35,"last":21.7,"value":68.72,"pnl_pct":1.64,"account":"joint"},{"symbol":"NVDA","name":"NVIDIA","qty":0.293907,"avg":223.44,"last":224.12,"value":65.87,"pnl_pct":0.3,"account":"joint"},{"symbol":"MLTX","name":"MoonLake","qty":4.576494,"avg":16.6,"last":14.04,"value":64.25,"pnl_pct":-15.42,"account":"joint"},{"symbol":"KTOS","name":"Kratos Defense","qty":1.273293,"avg":59.67,"last":46.775,"value":59.56,"pnl_pct":-21.61,"account":"joint"},{"symbol":"SNDK","name":"Sandisk","qty":0.031635,"avg":1452.82,"last":1777.98,"value":56.25,"pnl_pct":22.38,"account":"joint"},{"symbol":"BW","name":"Babcock & Wilcox","qty":7.142907,"avg":8.88,"last":7.435,"value":53.11,"pnl_pct":-16.27,"account":"joint"},{"symbol":"RUM","name":"Rumble","qty":6.066128,"avg":8.12,"last":7.715,"value":46.8,"pnl_pct":-4.99,"account":"joint"},{"symbol":"IOVA","name":"Iovance","qty":5.187358,"avg":7.31,"last":8.695,"value":45.1,"pnl_pct":18.95,"account":"joint"},{"symbol":"ZETA","name":"Zeta Global","qty":1.170755,"avg":28.78,"last":30.645,"value":35.88,"pnl_pct":6.48,"account":"joint"},{"symbol":"STRL","name":"Sterling Infrastructure","qty":0.067587,"avg":531.91,"last":499.86,"value":33.78,"pnl_pct":-6.03,"account":"joint"},{"symbol":"OPRA","name":"Opera","qty":1.705189,"avg":19.56,"last":17.91,"value":30.54,"pnl_pct":-8.44,"account":"joint"},{"symbol":"VST","name":"Vistra","qty":0.194132,"avg":144.03,"last":150.1125,"value":29.14,"pnl_pct":4.22,"account":"joint"}],"invested_pct":99.99},"agentic":{"id":"agentic","label":"Marlowe","suffix":"3794","equity":286.54,"equity_value":281.95,"crypto_value":0.0,"cash":4.59,"buying_power":4.59,"pending_deposits":0.0,"open_orders":0,"names":[{"symbol":"KTOS","name":"Kratos Defense","qty":3.636852,"avg":47.57,"last":46.775,"value":170.11,"pnl_pct":-1.67,"account":"agentic","avg_cost":47.57,"stops":{"hard_cap_pct":-6,"floor_pct":-5,"flatten_pct":-10},"stop_hit":null},{"symbol":"RKLB","name":"Rocket Lab","qty":1.745335,"avg":65.89,"last":64.08,"value":111.84,"pnl_pct":-2.75,"account":"agentic","avg_cost":65.89,"stops":{"hard_cap_pct":-6,"floor_pct":-5,"flatten_pct":-10},"stop_hit":null}],"slots":2,"source":"RH live Agentic/Marlowe","invested_pct":98.4}},"combined":{"equity":3074.06,"equity_value":2872.13,"crypto_value":197.2,"cash":4.74,"buying_power":4.74,"pending_deposits":0.0,"invested_pct":99.85,"open_orders":0,"books":[{"id":"individual","label":"Individual","suffix":"8723","equity":715.64,"cash":0.02,"buying_power":0.02,"pending_deposits":0.0,"invested_pct":100.0,"names":5},{"id":"auto_grok","label":"Auto-Grok","suffix":"6577","equity":1090.29,"cash":0.07,"buying_power":0.07,"pending_deposits":0.0,"invested_pct":99.99,"names":18},{"id":"joint","label":"Joint","suffix":"4446","equity":981.59,"cash":0.06,"buying_power":0.06,"pending_deposits":0.0,"invested_pct":99.99,"names":17},{"id":"agentic","label":"Marlowe","suffix":"3794","equity":286.54,"cash":4.59,"buying_power":4.59,"pending_deposits":0.0,"invested_pct":98.4,"names":2}],"names":[]}}
+{
+  "asof": "2026-09-09T13:31:09-04:00",
+  "brand": "Murphy House",
+  "note": "House snapshot ticker. Data only. Open orders 0. Pending deposits are a label only (already inside equity). Books: Individual · Auto-Grok · Joint · Agentic/Marlowe. Suffix last-4 only.",
+  "accounts": {
+    "individual": {
+      "id": "individual",
+      "label": "Individual",
+      "suffix": "8723",
+      "equity": 715.34,
+      "equity_value": 517.88,
+      "crypto_value": 197.44,
+      "cash": 0.02,
+      "buying_power": 0.02,
+      "pending_deposits": 0.0,
+      "invested_pct": 100.0,
+      "open_orders": 0,
+      "names": [
+        {"symbol": "SPCX", "name": "SpaceX", "qty": 2.105144, "avg": 136.51, "last": 145.93, "value": 307.2, "pnl_pct": 6.9, "account": "individual"},
+        {"symbol": "BTC", "name": "Bitcoin", "qty": 0.001862, "avg": 0.0, "last": 78839.11, "value": 146.8, "pnl_pct": 0.0, "account": "individual"},
+        {"symbol": "NVDA", "name": "NVIDIA", "qty": 0.47381, "avg": 211.06, "last": 224.27, "value": 106.26, "pnl_pct": 6.26, "account": "individual"},
+        {"symbol": "TSLA", "name": "Tesla", "qty": 0.284086, "avg": 352.01, "last": 368.21, "value": 104.6, "pnl_pct": 4.6, "account": "individual"},
+        {"symbol": "XRP", "name": "XRP", "qty": 35.556, "avg": 0.0, "last": 1.4232, "value": 50.6, "pnl_pct": 0.0, "account": "individual"}
+      ]
+    },
+    "auto_grok": {
+      "id": "auto_grok",
+      "label": "Auto-Grok",
+      "suffix": "6577",
+      "equity": 1090.79,
+      "equity_value": 1090.72,
+      "crypto_value": 0.0,
+      "cash": 0.07,
+      "buying_power": 0.07,
+      "pending_deposits": 0.0,
+      "open_orders": 0,
+      "names": [
+        {"symbol": "MU", "name": "Micron", "qty": 0.106321, "avg": 935.85, "last": 1022.7, "value": 108.73, "pnl_pct": 9.28, "account": "auto_grok"},
+        {"symbol": "ARIS", "name": "Aris Water", "qty": 4.608833, "avg": 20.03, "last": 20.16, "value": 92.91, "pnl_pct": 0.65, "account": "auto_grok"},
+        {"symbol": "AUGO", "name": "Aura Minerals", "qty": 0.980518, "avg": 85.39, "last": 86.25, "value": 84.57, "pnl_pct": 1.01, "account": "auto_grok"},
+        {"symbol": "FSM", "name": "Fortuna Mining", "qty": 6.649538, "avg": 11.97, "last": 12.371, "value": 82.26, "pnl_pct": 3.35, "account": "auto_grok"},
+        {"symbol": "AVGO", "name": "Broadcom", "qty": 0.208356, "avg": 363.32, "last": 364.125, "value": 75.87, "pnl_pct": 0.22, "account": "auto_grok"},
+        {"symbol": "KGC", "name": "Kinross Gold", "qty": 2.324545, "avg": 30.83, "last": 30.375, "value": 70.61, "pnl_pct": -1.48, "account": "auto_grok"},
+        {"symbol": "VST", "name": "Vistra", "qty": 0.454934, "avg": 140.81, "last": 150.37, "value": 68.41, "pnl_pct": 6.79, "account": "auto_grok"},
+        {"symbol": "CDE", "name": "Coeur Mining", "qty": 3.063222, "avg": 21.15, "last": 21.1982, "value": 64.93, "pnl_pct": 0.23, "account": "auto_grok"},
+        {"symbol": "AU", "name": "AngloGold", "qty": 0.514952, "avg": 111.74, "last": 109.005, "value": 56.13, "pnl_pct": -2.45, "account": "auto_grok"},
+        {"symbol": "EXK", "name": "Endeavour Silver", "qty": 4.542686, "avg": 11.02, "last": 11.175, "value": 50.76, "pnl_pct": 1.41, "account": "auto_grok"},
+        {"symbol": "OSCR", "name": "Oscar Health", "qty": 1.606716, "avg": 32.34, "last": 31.43, "value": 50.5, "pnl_pct": -2.81, "account": "auto_grok"},
+        {"symbol": "KTOS", "name": "Kratos Defense", "qty": 1.065521, "avg": 56.62, "last": 46.5753, "value": 49.63, "pnl_pct": -17.74, "account": "auto_grok"},
+        {"symbol": "SNDK", "name": "Sandisk", "qty": 0.02756, "avg": 1569.67, "last": 1775.49, "value": 48.93, "pnl_pct": 13.11, "account": "auto_grok"},
+        {"symbol": "ZETA", "name": "Zeta Global", "qty": 1.381878, "avg": 28.55, "last": 30.73, "value": 42.47, "pnl_pct": 7.64, "account": "auto_grok"},
+        {"symbol": "CECO", "name": "CECO Environmental", "qty": 0.510508, "avg": 73.36, "last": 78.1806, "value": 39.91, "pnl_pct": 6.57, "account": "auto_grok"},
+        {"symbol": "ASM", "name": "Avino Silver", "qty": 5.228899, "avg": 7.72, "last": 7.445, "value": 38.93, "pnl_pct": -3.56, "account": "auto_grok"},
+        {"symbol": "LBTYA", "name": "Liberty Global", "qty": 3.340853, "avg": 10.74, "last": 10.52, "value": 35.15, "pnl_pct": -2.05, "account": "auto_grok"},
+        {"symbol": "SRRK", "name": "Scholar Rock", "qty": 0.549872, "avg": 56.83, "last": 54.87, "value": 30.17, "pnl_pct": -3.45, "account": "auto_grok"}
+      ],
+      "invested_pct": 99.99
+    },
+    "joint": {
+      "id": "joint",
+      "label": "Joint",
+      "suffix": "4446",
+      "equity": 981.75,
+      "equity_value": 981.69,
+      "crypto_value": 0.0,
+      "cash": 0.06,
+      "buying_power": 0.06,
+      "pending_deposits": 0.0,
+      "open_orders": 0,
+      "names": [
+        {"symbol": "FRO", "name": "Frontline", "qty": 1.802122, "avg": 41.21, "last": 47.33, "value": 85.29, "pnl_pct": 14.85, "account": "joint"},
+        {"symbol": "MU", "name": "Micron", "qty": 0.081124, "avg": 932.03, "last": 1022.7, "value": 82.97, "pnl_pct": 9.73, "account": "joint"},
+        {"symbol": "ABCL", "name": "AbCellera", "qty": 7.35717, "avg": 10.97, "last": 11.18, "value": 82.25, "pnl_pct": 1.91, "account": "joint"},
+        {"symbol": "ARIS", "name": "Aris Water", "qty": 3.60951, "avg": 19.12, "last": 20.16, "value": 72.77, "pnl_pct": 5.44, "account": "joint"},
+        {"symbol": "NG", "name": "NovaGold", "qty": 8.599129, "avg": 8.48, "last": 8.21, "value": 70.6, "pnl_pct": -3.18, "account": "joint"},
+        {"symbol": "PGY", "name": "Pagaya", "qty": 3.166817, "avg": 21.35, "last": 21.695, "value": 68.7, "pnl_pct": 1.62, "account": "joint"},
+        {"symbol": "NVDA", "name": "NVIDIA", "qty": 0.293907, "avg": 223.44, "last": 224.27, "value": 65.91, "pnl_pct": 0.37, "account": "joint"},
+        {"symbol": "MLTX", "name": "MoonLake", "qty": 4.576494, "avg": 16.6, "last": 13.985, "value": 64.0, "pnl_pct": -15.75, "account": "joint"},
+        {"symbol": "KTOS", "name": "Kratos Defense", "qty": 1.273293, "avg": 59.67, "last": 46.5753, "value": 59.3, "pnl_pct": -21.95, "account": "joint"},
+        {"symbol": "SNDK", "name": "Sandisk", "qty": 0.031635, "avg": 1452.82, "last": 1775.49, "value": 56.17, "pnl_pct": 22.21, "account": "joint"},
+        {"symbol": "BW", "name": "Babcock & Wilcox", "qty": 7.142907, "avg": 8.88, "last": 7.415, "value": 52.96, "pnl_pct": -16.5, "account": "joint"},
+        {"symbol": "RUM", "name": "Rumble", "qty": 6.066128, "avg": 8.12, "last": 7.685, "value": 46.62, "pnl_pct": -5.36, "account": "joint"},
+        {"symbol": "IOVA", "name": "Iovance", "qty": 5.187358, "avg": 7.31, "last": 8.675, "value": 45.0, "pnl_pct": 18.67, "account": "joint"},
+        {"symbol": "ZETA", "name": "Zeta Global", "qty": 1.170755, "avg": 28.78, "last": 30.73, "value": 35.98, "pnl_pct": 6.78, "account": "joint"},
+        {"symbol": "STRL", "name": "Sterling Infrastructure", "qty": 0.067587, "avg": 531.91, "last": 496.45, "value": 33.55, "pnl_pct": -6.67, "account": "joint"},
+        {"symbol": "OPRA", "name": "Opera", "qty": 1.705189, "avg": 19.56, "last": 17.9, "value": 30.52, "pnl_pct": -8.49, "account": "joint"},
+        {"symbol": "VST", "name": "Vistra", "qty": 0.194132, "avg": 144.03, "last": 150.37, "value": 29.19, "pnl_pct": 4.4, "account": "joint"}
+      ],
+      "invested_pct": 99.99
+    },
+    "agentic": {
+      "id": "agentic",
+      "label": "Marlowe",
+      "suffix": "3794",
+      "equity": 285.4,
+      "equity_value": 274.72,
+      "crypto_value": 0.0,
+      "cash": 10.68,
+      "buying_power": 10.68,
+      "pending_deposits": 0.0,
+      "open_orders": 0,
+      "names": [
+        {"symbol": "ORCL", "name": "Oracle", "qty": 1.0, "avg": 163.42, "last": 163.195, "value": 163.2, "pnl_pct": -0.14, "account": "agentic", "avg_cost": 163.42, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "RKLB", "name": "Rocket Lab", "qty": 1.745335, "avg": 65.89, "last": 63.96, "value": 111.63, "pnl_pct": -2.93, "account": "agentic", "avg_cost": 65.89, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null}
+      ],
+      "slots": 2,
+      "source": "RH live Agentic/Marlowe",
+      "invested_pct": 96.26
+    }
+  },
+  "combined": {
+    "equity": 3073.28,
+    "equity_value": 2865.02,
+    "crypto_value": 197.44,
+    "cash": 10.83,
+    "buying_power": 10.83,
+    "pending_deposits": 0.0,
+    "invested_pct": 99.65,
+    "open_orders": 0,
+    "books": [
+      {"id": "individual", "label": "Individual", "suffix": "8723", "equity": 715.34, "cash": 0.02, "buying_power": 0.02, "pending_deposits": 0.0, "invested_pct": 100.0, "names": 5},
+      {"id": "auto_grok", "label": "Auto-Grok", "suffix": "6577", "equity": 1090.79, "cash": 0.07, "buying_power": 0.07, "pending_deposits": 0.0, "invested_pct": 99.99, "names": 18},
+      {"id": "joint", "label": "Joint", "suffix": "4446", "equity": 981.75, "cash": 0.06, "buying_power": 0.06, "pending_deposits": 0.0, "invested_pct": 99.99, "names": 17},
+      {"id": "agentic", "label": "Marlowe", "suffix": "3794", "equity": 285.4, "cash": 10.68, "buying_power": 10.68, "pending_deposits": 0.0, "invested_pct": 96.26, "names": 2}
+    ],
+    "names": []
+  }
+}
