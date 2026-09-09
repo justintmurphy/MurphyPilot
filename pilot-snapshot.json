@@ -1,21 +1,21 @@
 {
-  "asof": "2026-09-09 11:48 ET",
+  "asof": "2026-09-09 12:30 ET",
   "account": "Agentic",
-  "equity": 287.12,
-  "equity_value": 282.53,
-  "cash": 4.59,
-  "buying_power": 4.59,
+  "equity": 285.56,
+  "equity_value": 274.88,
+  "cash": 10.68,
+  "buying_power": 10.68,
   "pending_deposits": 0,
-  "invested_pct": 98.4,
+  "invested_pct": 96.3,
   "slots": 2,
   "open_orders": 0,
   "names": [
     {
-      "symbol": "KTOS",
-      "qty": 3.636852,
-      "avg": 47.57,
-      "avg_cost": 47.57,
-      "last": 46.83,
+      "symbol": "ORCL",
+      "qty": 1.0,
+      "avg": 163.42,
+      "avg_cost": 163.42,
+      "last": 163.43,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -29,7 +29,7 @@
       "qty": 1.745335,
       "avg": 65.89,
       "avg_cost": 65.89,
-      "last": 64.225,
+      "last": 63.855,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -40,7 +40,7 @@
     }
   ],
   "eye": {
-    "checked_et": "2026-09-09 11:48 ET",
+    "checked_et": "2026-09-09 12:30 ET",
     "status": "ok"
   }
 }
