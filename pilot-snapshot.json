@@ -9,13 +9,23 @@
   "invested_pct": 98.4,
   "slots": 2,
   "open_orders": 0,
+  "book_source": "pilot overlay · qty/avg fill-confirmed MATCH (not House snap)",
+  "owner_deposits": [
+    {
+      "date": "2026-09-08",
+      "amount": 100,
+      "note": "Justin capital — not trading P&L / not the $58 self-pay floor"
+    }
+  ],
   "names": [
     {
       "symbol": "KTOS",
+      "name": "Kratos Defense",
       "qty": 3.636852,
-      "avg": 47.57,
-      "avg_cost": 47.57,
+      "avg": 47.5686,
+      "avg_cost": 47.5686,
       "account": "agentic",
+      "source": "fill-confirmed",
       "stops": {
         "hard_cap_pct": -6,
         "floor_pct": -5,
@@ -25,10 +35,12 @@
     },
     {
       "symbol": "RKLB",
+      "name": "Rocket Lab",
       "qty": 1.745335,
-      "avg": 65.89,
-      "avg_cost": 65.89,
+      "avg": 65.8899,
+      "avg_cost": 65.8899,
       "account": "agentic",
+      "source": "fill-confirmed",
       "stops": {
         "hard_cap_pct": -6,
         "floor_pct": -5,

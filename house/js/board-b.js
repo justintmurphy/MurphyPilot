@@ -249,6 +249,20 @@ function collapseHouseNames(list) {
   }
 
   var AGENTIC_SELF_PAY_FLOOR = 58;
+  function ownerCapitalInWindow(ag, ym, fromDay) {
+    var rows = (ag && ag.owner_deposits && ag.owner_deposits.length)
+      ? ag.owner_deposits
+      : ((typeof AGENTIC_OWNER_DEPOSITS !== "undefined" && AGENTIC_OWNER_DEPOSITS) ? AGENTIC_OWNER_DEPOSITS : []);
+    var from = String(fromDay || "").slice(0, 10);
+    var sum = 0;
+    rows.forEach(function (d) {
+      var day = String((d && (d.date || d.t)) || "").slice(0, 10);
+      if (!day || day.slice(0, 7) !== ym) return;
+      if (from && day <= from) return;
+      sum += Number(d.amount) || 0;
+    });
+    return sum;
+  }
   function vsMonthStart(prints, currentEq) {
     var rows = lastByDay(prints);
     if (!rows.length) return null;
@@ -271,7 +285,13 @@ function collapseHouseNames(list) {
     }).filter(function (p) { return p && isFinite(Number(p.equity)); }));
     var eq = Number(ag.equity);
     if (!isFinite(eq) && prints.length) eq = Number(prints[prints.length - 1].equity);
-    return vsMonthStart(prints, eq);
+    var d = vsMonthStart(prints, eq);
+    if (!d) return d;
+    var capital = ownerCapitalInWindow(ag, d.ym, d.from);
+    d.capital = capital;
+    d.delta = d.delta - capital;
+    d.pct = d.prior ? (d.delta / d.prior) * 100 : null;
+    return d;
   }
   function agenticSelfPayStripHtml(opts) {
     opts = opts || {};
@@ -305,7 +325,7 @@ function collapseHouseNames(list) {
       '<small class="tone-' + floorTone + '">' + floorHtml + "</small></div>" +
       "</div>" +
       '<div class="selfpay-bar" aria-hidden="true"><i class="tone-' + floorTone + '" style="width:' + barPct.toFixed(0) + '%"></i></div>' +
-      '<p class="hint">Tape calendar-month equity \u0394 from first Marlowe print this month \u00b7 no invented fills \u00b7 floor $' + floor + "/mo</p>" +
+      '<p class="hint">Trading P&amp;L only \u00b7 calendar-month equity \u0394 minus owner deposits \u00b7 deposits are capital, not the floor \u00b7 no invented fills \u00b7 floor $' + floor + "/mo</p>" +
       "</div>";
   }
 
@@ -397,12 +417,22 @@ function collapseHouseNames(list) {
       }).join(" \u00b7 ") || ((typeof bookDisplayLabel === "function" && n.account) ? bookDisplayLabel(n.account, (snap.accounts && snap.accounts[n.account]) || {}) : (LABEL[n.account] || ""));
       var chg = n.day_pct != null ? n.day_pct : n.pnl_pct;
       var nameTone = tone(chg);
-      var inner = "<span class=\"sym\">" + esc(n.symbol) + '</span><span class="sub">' + esc(n.name || "") + "</span>";
+      var fillSrc = n.source === "fill-confirmed" || n.fill_source === "fill-confirmed";
+      var subBits = [];
+      if (n.name && n.name !== n.symbol) subBits.push(n.name);
+      if (fillSrc) subBits.push("fill-confirmed MATCH");
+      var avgTxt;
+      if (n.avg == null || !isFinite(Number(n.avg))) avgTxt = "\u2014";
+      else if (fillSrc) avgTxt = "$" + Number(n.avg).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+      else avgTxt = money(n.avg);
+      var valTxt = n.value == null || !isFinite(Number(n.value)) ? "\u2014" : money(n.value);
+      var pnlTxt = n.pnl == null || !isFinite(Number(n.pnl)) ? "\u2014" : (money(n.pnl) + " " + pct(n.pnl_pct));
+      var inner = "<span class=\"sym\">" + esc(n.symbol) + '</span><span class="sub">' + esc(subBits.join(" \u00b7 ")) + "</span>";
       return "<tr><td class=\"name-cell tone-" + nameTone + "\">" + nameSiteLink(n, inner) + "</td>" +
         (showBook ? "<td>" + esc(books) + "</td>" : "") +
-        '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (n.avg == null ? "\u2014" : money(n.avg)) + "</td>" +
+        '<td class="num">' + qty(n.qty) + '</td><td class="num">' + avgTxt + "</td>" +
         '<td class="num">' + (n.last == null ? "\u2014" : money(n.last)) + "</td>" +
-        '<td class="num">' + money(n.value) + '</td><td class="num tone-' + tone(n.pnl) + '">' + money(n.pnl) + " " + pct(n.pnl_pct) + "</td></tr>";
+        '<td class="num">' + valTxt + '</td><td class="num tone-' + tone(n.pnl) + '">' + pnlTxt + "</td></tr>";
     }).join("");
     var wrap = (showBook || names.length > 10) ? "card book-scroll" : "card";
     return '<div class="' + wrap + '"><table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
@@ -526,11 +556,14 @@ function collapseHouseNames(list) {
 
   function agenticOnlyHtml() {
     var ag = snap.accounts.agentic || {};
+    var fillHint = (ag.names || []).some(function (n) { return n && (n.source === "fill-confirmed" || n.fill_source === "fill-confirmed"); })
+      ? '<p class="hint">Qty/avg from fill MATCH notes (fill-confirmed). Not from House snap \u2014 live last/value wait on Grok House doorbells. Do not invent quotes.</p>'
+      : "";
     return agenticSelfPayStripHtml({ clickable: false }) +
       stateHtml(ag, "Marlowe") +
-      "<h2>Marlowe book</h2>" + tableHtml(ag.names, false, true) +
+      "<h2>Marlowe book</h2>" + tableHtml(ag.names, false, true) + fillHint +
       "<h2>Sell / buy thresholds</h2><div class=\"card span\"><ul class=\"buy-lines\">" +
-      "<li>Self-pay <b>$58/mo</b> (ODDS <code>to_$58</code>). Prefer no new cash \u2014 compound Agentic equity.</li>" +
+      "<li>Self-pay <b>$58/mo trading P&amp;L</b> (ODDS <code>to_$58</code>). Owner deposits (e.g. $100 on 2026-09-08) are capital \u2014 they do not count toward the floor. Prefer no new cash \u2014 compound Agentic equity.</li>" +
       "<li>Marlowe free reign on Agentic RH only; rails below are Marlowe defaults (changeable).</li>" +
       "<li>Stall default: day 2 +5% from cost; later blocks +4% from survive-mark.</li>" +
       "<li>Stop defaults: \u22125% / \u22126% / \u221210% \u00b7 slots floor(equity/$75) \u00b7 12h green \u00b7 24h rebuy.</li>" +

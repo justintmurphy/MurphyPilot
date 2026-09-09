@@ -78,6 +78,9 @@
     "agentic|XLE": "2026-09-01",
     "agentic|RTX": "2026-09-01"
   };
+  var AGENTIC_OWNER_DEPOSITS = [
+    { date: "2026-09-08", amount: 100, note: "Justin capital — not trading P&L / not the $58 floor" }
+  ];
   var tab = "combined";
   var snap = null;
 
@@ -114,7 +117,7 @@
   }
 
   function agenticBook(p) {
-    if (!p) return { id: "agentic", label: "Marlowe", equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, invested_pct: 0, open_orders: 0, equity_value: 0, slots: 0, names: [], tape: [] };
+    if (!p) return { id: "agentic", label: "Marlowe", equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, invested_pct: 0, open_orders: 0, equity_value: 0, slots: 0, names: [], tape: [], owner_deposits: AGENTIC_OWNER_DEPOSITS.slice(), book_source: "" };
     var names = (p.names || []).map(function (n) {
       var last = n.last != null ? Number(n.last) : null;
       var avg = n.avg != null ? Number(n.avg) : null;
@@ -123,15 +126,18 @@
       var cost = n.cost != null ? Number(n.cost) : (avg != null && q != null ? avg * q : null);
       var pnl = value != null && cost != null ? value - cost : null;
       var pnl_pct = cost ? (pnl / cost) * 100 : (avg && last ? ((last / avg) - 1) * 100 : null);
-      return { symbol: n.symbol, name: n.name || n.symbol, kind: "equity", qty: q, avg: avg, last: last, value: value, cost: cost, pnl: pnl, pnl_pct: pnl_pct, first_fill: n.first_fill || "", last_fill: n.last_fill || LAST_FILL["agentic|" + n.symbol] || n.first_fill || "", next_stall: n.next_stall || "", account: "agentic", accounts: ["agentic"] };
+      var src = n.source || n.fill_source || "";
+      return { symbol: n.symbol, name: n.name || n.symbol, kind: "equity", qty: q, avg: avg, last: last, value: value, cost: cost, pnl: pnl, pnl_pct: pnl_pct, source: src, first_fill: n.first_fill || "", last_fill: n.last_fill || LAST_FILL["agentic|" + n.symbol] || n.first_fill || "", next_stall: n.next_stall || "", account: "agentic", accounts: ["agentic"] };
     });
+    var deposits = (p.owner_deposits && p.owner_deposits.length) ? p.owner_deposits : AGENTIC_OWNER_DEPOSITS;
     return {
       id: "agentic", label: "Marlowe",
       equity: Number(p.equity) || 0, equity_value: Number(p.equity_value) || 0,
       cash: Number(p.cash) || 0, buying_power: Number(p.buying_power) || 0,
       pending_deposits: Number(p.pending_deposits) || 0, invested_pct: Number(p.invested_pct) || 0,
       open_orders: Number(p.open_orders) || 0, slots: p.slots != null ? Number(p.slots) : Math.floor((Number(p.equity) || 0) / 75),
-      names: names, tape: p.tape || [], asof: p.asof || ""
+      names: names, tape: p.tape || [], asof: p.asof || "",
+      owner_deposits: deposits, book_source: p.book_source || ""
     };
   }
 

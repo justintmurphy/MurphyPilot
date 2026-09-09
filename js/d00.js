@@ -54,7 +54,7 @@
       var frame = document.getElementById("docFrame");
       if (!ov || !frame) return;
       if (e) e.preventDefault();
-      var title = view === "manual" ? "Operating Manual v7.0" : "Setup Guide v5.0";
+      var title = view === "manual" ? "Operating Manual v7.5" : "Setup Guide v5.5";
       var t = document.getElementById("docTitle");
       if (t) t.textContent = title;
       ov.hidden = false;
