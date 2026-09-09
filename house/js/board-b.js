@@ -249,6 +249,21 @@ function collapseHouseNames(list) {
   }
 
   var AGENTIC_SELF_PAY_FLOOR = 58;
+  /* Owner cash into Agentic. Self-pay strip only — Day/Week/Month chips stay raw equity Δ. */
+  var AGENTIC_OWNER_DEPOSITS = [
+    { date: "2026-09-08", amount: 100 }
+  ];
+  function ownerDepositsInYm(ym) {
+    ym = String(ym || "");
+    var sum = 0;
+    (AGENTIC_OWNER_DEPOSITS || []).forEach(function (row) {
+      if (!row) return;
+      if (String(row.date || "").slice(0, 7) !== ym) return;
+      var amt = Number(row.amount);
+      if (isFinite(amt)) sum += amt;
+    });
+    return sum;
+  }
   function vsMonthStart(prints, currentEq) {
     var rows = lastByDay(prints);
     if (!rows.length) return null;
@@ -271,7 +286,18 @@ function collapseHouseNames(list) {
     }).filter(function (p) { return p && isFinite(Number(p.equity)); }));
     var eq = Number(ag.equity);
     if (!isFinite(eq) && prints.length) eq = Number(prints[prints.length - 1].equity);
-    return vsMonthStart(prints, eq);
+    var d = vsMonthStart(prints, eq);
+    if (!d) return d;
+    var deposits = ownerDepositsInYm(d.ym);
+    /* Self-pay P&L = calendar-month equity Δ − owner deposits in that ym. */
+    return {
+      delta: d.delta - deposits,
+      pct: d.prior ? ((d.delta - deposits) / d.prior) * 100 : null,
+      prior: d.prior,
+      from: d.from,
+      ym: d.ym,
+      deposits: deposits
+    };
   }
   function agenticSelfPayStripHtml(opts) {
     opts = opts || {};
@@ -305,7 +331,7 @@ function collapseHouseNames(list) {
       '<small class="tone-' + floorTone + '">' + floorHtml + "</small></div>" +
       "</div>" +
       '<div class="selfpay-bar" aria-hidden="true"><i class="tone-' + floorTone + '" style="width:' + barPct.toFixed(0) + '%"></i></div>' +
-      '<p class="hint">Tape calendar-month equity \u0394 \u00b7 deposits do not count toward floor \u00b7 trading P&amp;L vs $' + floor + "/mo \u00b7 no invented fills</p>" +
+      '<p class="hint">Tape calendar-month equity \u0394 minus owner deposits \u00b7 deposits do not count toward floor \u00b7 trading P&amp;L vs $' + floor + "/mo \u00b7 no invented fills</p>" +
       "</div>";
   }
 
