@@ -117,12 +117,12 @@
     if (!p) return { id: "agentic", label: "Marlowe", equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, invested_pct: 0, open_orders: 0, equity_value: 0, slots: 0, names: [], tape: [] };
     var names = (p.names || []).map(function (n) {
       var last = n.last != null ? Number(n.last) : null;
-      var avg = n.avg != null ? Number(n.avg) : null;
+      var avg = n.avg != null ? Number(n.avg) : (n.avg_cost != null ? Number(n.avg_cost) : null);
       var q = n.qty != null ? Number(n.qty) : null;
-      var value = n.value != null ? Number(n.value) : (last != null && q != null ? last * q : null);
       var cost = n.cost != null ? Number(n.cost) : (avg != null && q != null ? avg * q : null);
-      var pnl = value != null && cost != null ? value - cost : null;
-      var pnl_pct = cost ? (pnl / cost) * 100 : (avg && last ? ((last / avg) - 1) * 100 : null);
+      var value = n.value != null ? Number(n.value) : (last != null && q != null ? last * q : (cost != null ? cost : null));
+      var pnl = (last != null && cost != null && value != null) ? value - cost : null;
+      var pnl_pct = (pnl != null && cost) ? (pnl / cost) * 100 : (avg && last ? ((last / avg) - 1) * 100 : null);
       return { symbol: n.symbol, name: n.name || n.symbol, kind: "equity", qty: q, avg: avg, last: last, value: value, cost: cost, pnl: pnl, pnl_pct: pnl_pct, first_fill: n.first_fill || "", last_fill: n.last_fill || LAST_FILL["agentic|" + n.symbol] || n.first_fill || "", next_stall: n.next_stall || "", account: "agentic", accounts: ["agentic"] };
     });
     return {
