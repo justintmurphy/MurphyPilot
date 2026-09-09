@@ -305,7 +305,7 @@ function collapseHouseNames(list) {
       '<small class="tone-' + floorTone + '">' + floorHtml + "</small></div>" +
       "</div>" +
       '<div class="selfpay-bar" aria-hidden="true"><i class="tone-' + floorTone + '" style="width:' + barPct.toFixed(0) + '%"></i></div>' +
-      '<p class="hint">Tape calendar-month equity \u0394 from first Marlowe print this month \u00b7 no invented fills \u00b7 floor $' + floor + "/mo</p>" +
+      '<p class="hint">Tape calendar-month equity \u0394 \u00b7 deposits do not count toward floor \u00b7 trading P&amp;L vs $' + floor + "/mo \u00b7 no invented fills</p>" +
       "</div>";
   }
 
@@ -530,7 +530,7 @@ function collapseHouseNames(list) {
       stateHtml(ag, "Marlowe") +
       "<h2>Marlowe book</h2>" + tableHtml(ag.names, false, true) +
       "<h2>Sell / buy thresholds</h2><div class=\"card span\"><ul class=\"buy-lines\">" +
-      "<li>Self-pay <b>$58/mo</b> (ODDS <code>to_$58</code>). Prefer no new cash \u2014 compound Agentic equity.</li>" +
+      "<li>Self-pay <b>$58/mo</b> trading P&amp;L only (ODDS <code>to_$58</code>) — deposits do not count toward the floor. Prefer no new cash — compound Agentic equity.</li>" +
       "<li>Marlowe free reign on Agentic RH only; rails below are Marlowe defaults (changeable).</li>" +
       "<li>Stall default: day 2 +5% from cost; later blocks +4% from survive-mark.</li>" +
       "<li>Stop defaults: \u22125% / \u22126% / \u221210% \u00b7 slots floor(equity/$75) \u00b7 12h green \u00b7 24h rebuy.</li>" +
