@@ -1,46 +1,36 @@
 {
-  "asof": "2026-09-10 09:12 CDT",
+  "asof": "2026-09-10 14:12 CDT",
   "account": "Agentic",
-  "equity": 279.35,
-  "equity_value": 269.03,
-  "cash": 10.32,
-  "buying_power": 10.32,
+  "equity": 273.36,
+  "equity_value": 0,
+  "cash": 273.36,
+  "buying_power": 273.36,
   "pending_deposits": 0,
-  "invested_pct": 96.3,
-  "slots": 2,
+  "invested_pct": 0,
+  "slots": 3,
   "open_orders": 0,
-  "names": [
+  "names": [],
+  "exits": [
     {
       "symbol": "ORCL",
       "qty": 1.0,
       "avg": 163.42,
-      "avg_cost": 163.42,
-      "last": 157.255,
-      "account": "agentic",
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null
+      "exit": 154.65,
+      "rule": "floor",
+      "pct": -5.37
     },
     {
       "symbol": "RKLB",
       "qty": 1.745335,
       "avg": 65.89,
-      "avg_cost": 65.89,
-      "last": 64.00,
-      "account": "agentic",
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null
+      "exit": 62.10,
+      "rule": "floor",
+      "pct": -5.75
     }
   ],
   "eye": {
-    "checked_et": "2026-09-10 09:12 CDT",
-    "status": "ok"
+    "checked_et": "2026-09-10 14:12 CDT",
+    "status": "ok",
+    "actions": "sold ORCL+RKLB on -5% floor"
   }
 }
