@@ -1,5 +1,5 @@
 {
-  "asof": "2026-09-09T16:20:01-04:00",
+  "asof": "2026-09-09T20:18:00-04:00",
   "brand": "Murphy House",
   "note": "House snapshot ticker. Data only. Open orders 0. Pending deposits are a label only (already inside equity). Books: Individual · Auto-Grok · Joint · Agentic/Marlowe. Suffix last-4 only.",
   "accounts": {
@@ -7,9 +7,9 @@
       "id": "individual",
       "label": "Individual",
       "suffix": "8723",
-      "equity": 715.51,
-      "equity_value": 519.9,
-      "crypto_value": 195.59,
+      "equity": 715.61,
+      "equity_value": 520.31,
+      "crypto_value": 195.27,
       "cash": 0.02,
       "buying_power": 0.02,
       "pending_deposits": 0.0,
@@ -17,18 +17,18 @@
       "open_orders": 0,
       "names": [
         {"symbol": "SPCX", "name": "SpaceX", "qty": 2.105144, "avg": 136.51, "last": 147.56, "value": 310.64, "pnl_pct": 8.09, "account": "individual"},
-        {"symbol": "BTC", "name": "Bitcoin", "qty": 0.001862, "avg": 0.0, "last": 78268.91, "value": 145.74, "pnl_pct": 0.0, "account": "individual"},
+        {"symbol": "BTC", "name": "Bitcoin", "qty": 0.001862, "avg": 0.0, "last": 78246.18, "value": 145.69, "pnl_pct": 0.0, "account": "individual"},
         {"symbol": "NVDA", "name": "NVIDIA", "qty": 0.47381, "avg": 211.06, "last": 223.7, "value": 105.99, "pnl_pct": 5.99, "account": "individual"},
         {"symbol": "TSLA", "name": "Tesla", "qty": 0.284086, "avg": 352.01, "last": 367.8, "value": 104.49, "pnl_pct": 4.49, "account": "individual"},
-        {"symbol": "XRP", "name": "XRP", "qty": 35.556, "avg": 0.0, "last": 1.4021, "value": 49.85, "pnl_pct": 0.0, "account": "individual"}
+        {"symbol": "XRP", "name": "XRP", "qty": 35.556, "avg": 0.0, "last": 1.3932, "value": 49.54, "pnl_pct": 0.0, "account": "individual"}
       ]
     },
     "auto_grok": {
       "id": "auto_grok",
       "label": "Auto-Grok",
       "suffix": "6577",
-      "equity": 1089.09,
-      "equity_value": 1089.02,
+      "equity": 1088.38,
+      "equity_value": 1088.31,
       "crypto_value": 0.0,
       "cash": 0.07,
       "buying_power": 0.07,
@@ -60,8 +60,8 @@
       "id": "joint",
       "label": "Joint",
       "suffix": "4446",
-      "equity": 976.25,
-      "equity_value": 976.19,
+      "equity": 978.2,
+      "equity_value": 978.14,
       "crypto_value": 0.0,
       "cash": 0.06,
       "buying_power": 0.06,
@@ -92,8 +92,8 @@
       "id": "agentic",
       "label": "Marlowe",
       "suffix": "3794",
-      "equity": 282.95,
-      "equity_value": 272.4,
+      "equity": 283.36,
+      "equity_value": 272.81,
       "crypto_value": 7.87,
       "cash": 2.68,
       "buying_power": 2.68,
@@ -102,7 +102,7 @@
       "names": [
         {"symbol": "ORCL", "name": "Oracle", "qty": 1.0, "avg": 163.42, "last": 161.7, "value": 161.7, "pnl_pct": -1.05, "account": "agentic", "avg_cost": 163.42, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
         {"symbol": "RKLB", "name": "Rocket Lab", "qty": 1.745335, "avg": 65.89, "last": 63.06, "value": 110.06, "pnl_pct": -4.3, "account": "agentic", "avg_cost": 65.89, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
-        {"symbol": "BTC", "name": "Bitcoin", "qty": 0.00010058, "avg": 79538.68, "last": 78268.91, "value": 7.87, "pnl_pct": -1.6, "account": "agentic"}
+        {"symbol": "BTC", "name": "Bitcoin", "qty": 0.00010058, "avg": 79538.68, "last": 78246.18, "value": 7.87, "pnl_pct": -1.62, "account": "agentic"}
       ],
       "slots": 2,
       "source": "RH live Agentic/Marlowe",
@@ -110,19 +110,19 @@
     }
   },
   "combined": {
-    "equity": 3063.8,
-    "equity_value": 2857.51,
-    "crypto_value": 203.46,
+    "equity": 3065.55,
+    "equity_value": 2859.57,
+    "crypto_value": 203.14,
     "cash": 2.83,
     "buying_power": 2.83,
     "pending_deposits": 0.0,
     "invested_pct": 99.91,
     "open_orders": 0,
     "books": [
-      {"id": "individual", "label": "Individual", "suffix": "8723", "equity": 715.51, "cash": 0.02, "buying_power": 0.02, "pending_deposits": 0.0, "invested_pct": 100.0, "names": 5},
-      {"id": "auto_grok", "label": "Auto-Grok", "suffix": "6577", "equity": 1089.09, "cash": 0.07, "buying_power": 0.07, "pending_deposits": 0.0, "invested_pct": 99.99, "names": 18},
-      {"id": "joint", "label": "Joint", "suffix": "4446", "equity": 976.25, "cash": 0.06, "buying_power": 0.06, "pending_deposits": 0.0, "invested_pct": 99.99, "names": 17},
-      {"id": "agentic", "label": "Marlowe", "suffix": "3794", "equity": 282.95, "cash": 2.68, "buying_power": 2.68, "pending_deposits": 0.0, "invested_pct": 99.05, "names": 3}
+      {"id": "individual", "label": "Individual", "suffix": "8723", "equity": 715.61, "cash": 0.02, "buying_power": 0.02, "pending_deposits": 0.0, "invested_pct": 100.0, "names": 5},
+      {"id": "auto_grok", "label": "Auto-Grok", "suffix": "6577", "equity": 1088.38, "cash": 0.07, "buying_power": 0.07, "pending_deposits": 0.0, "invested_pct": 99.99, "names": 18},
+      {"id": "joint", "label": "Joint", "suffix": "4446", "equity": 978.2, "cash": 0.06, "buying_power": 0.06, "pending_deposits": 0.0, "invested_pct": 99.99, "names": 17},
+      {"id": "agentic", "label": "Marlowe", "suffix": "3794", "equity": 283.36, "cash": 2.68, "buying_power": 2.68, "pending_deposits": 0.0, "invested_pct": 99.05, "names": 3}
     ],
     "names": []
   }
