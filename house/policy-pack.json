@@ -1,5 +1,5 @@
 {
-  "asof": "2026-09-10 06:45 ET",
+  "asof": "2026-09-10 06:50 ET",
   "subject": "Agentic policy pack: 2026-09-10",
   "expiry": "2026-09-11 06:30 ET",
   "sectors": [
@@ -43,7 +43,17 @@
     "handsets",
     "semis",
     "displays",
-    "apple-supply-chain"
+    "apple-supply-chain",
+    "ai-audit",
+    "asset-managers",
+    "pensions",
+    "grid",
+    "virginia-datacenters",
+    "delaware",
+    "oklahoma",
+    "south-dakota",
+    "natgas",
+    "memory"
   ],
   "items": [
     {
@@ -109,7 +119,7 @@
     {
       "tag": "White House",
       "title": "Racial Nondiscrimination in Private Schools (Federal Register proposed rule)",
-      "url": "https://www.federalregister.gov/documents/2026/09/04/2026-18127/racial-nondiscrimination-in-private-schools",
+      "url": "https://www.federalregister.gov/documents/2026/09/04/2026-18127/updating-racial-nondiscrimination-requirements-for-tax-exempt-private-schools",
       "text": "Education / \u00a7501(c)(3) private schools \u2014 FR proposed rule Sep 4 companion to Treasury sb0621"
     },
     {
@@ -127,8 +137,8 @@
     {
       "tag": "White House",
       "title": "Treasury Severs Iranian Regime's Financial Lifelines in T\u00fcrkiye",
-      "url": "https://home.treasury.gov/news/press-releases/treasury-severs-iranian-regime-s-financial-lifelines-turkiye/",
-      "text": "Sanctions / Iran financial networks in T\u00fcrkiye \u2014 Treasury press Sep 4; OFAC recent actions 20260904"
+      "url": "https://home.treasury.gov/news/press-releases/sb0622",
+      "text": "Sanctions / Iran financial networks in T\u00fcrkiye \u2014 Treasury sb0622 Sep 4; OFAC recent actions 20260904 (Golden Global Bank + GL CC wind-down through Sep 19)"
     },
     {
       "tag": "State",
@@ -327,6 +337,102 @@
       "title": "Apple foldable + Pro cycle launch reprices handset/semis supply chain",
       "url": "https://www.apple.com/newsroom/2026/09/apple-unveils-iphone-duo/",
       "text": "Concept: first foldable iPhone Duo + iPhone 18 Pro cycle announced Sep 9 \u2014 ASP/mix and component demand into next two sessions. Corroborators: Apple Newsroom Sep 9; TechCrunch Sep 9; Guardian Sep 9."
+    },
+    {
+      "tag": "White House",
+      "title": "Modifying the Scope of Products of Canada Subject to the Additional Duties Imposed to Offset Canadian Discrimination Against the United States with Respect to Motor Vehicles",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/09/modifying-the-scope-of-products-of-canada-subject-to-the-additional-duties-imposed-to-offset-canadian-discrimination-against-the-united-states-with-respect-to-motor-vehicles/",
+      "text": "Autos/auto parts \u2014 Sep 8; revises 50% \u00a7338 duty product scope effective Sep 15 ET; stacks with \u00a7232"
+    },
+    {
+      "tag": "White House",
+      "title": "Modifying the Scope of Products of Canada Subject to the Additional Duties Imposed to Offset Canadian Discrimination Against the Commerce of the United States with Respect to Alcoholic Beverages",
+      "url": "https://www.whitehouse.gov/presidential-actions/2026/09/modifying-the-scope-of-products-of-canada-subject-to-the-additional-duties-imposed-to-offset-canadian-discrimination-against-the-commerce-of-the-united-states-with-respect-to-alcoholic-beverages/",
+      "text": "Alcohol/beverage trade \u2014 Sep 8; revises 50% \u00a7338 duty list effective Sep 15 ET"
+    },
+    {
+      "tag": "White House",
+      "title": "Iranian Transactions and Sanctions Regulations (Federal Register stay)",
+      "url": "https://www.federalregister.gov/documents/2026/09/10/2026-18461/iranian-transactions-and-sanctions-regulations",
+      "text": "Aviation/shipping/energy \u2014 FR Sep 10; indefinitely stays ITSR GLs on overflight/aircraft safety/bunkering (eff. Sep 8)"
+    },
+    {
+      "tag": "White House",
+      "title": "Political Contributions by Certain Investment Advisers (SEC proposed rescission)",
+      "url": "https://www.federalregister.gov/documents/2026/09/10/2026-18424/political-contributions-by-certain-investment-advisers",
+      "text": "Asset managers / public pensions \u2014 SEC proposes rescission of Advisers Act pay-to-play rule 206(4)-5; comments due Nov 9"
+    },
+    {
+      "tag": "White House",
+      "title": "Securing the United States Bulk-Power System (DOE RFI)",
+      "url": "https://www.federalregister.gov/documents/2026/09/09/2026-18370/securing-the-united-states-bulk-power-system",
+      "text": "Utilities/grid supply chain \u2014 DOE RFI under E.O. 14421 on foreign BPS equipment (FR Sep 9)"
+    },
+    {
+      "tag": "State",
+      "title": "SB-813 Independent verification organizations (chaptered)",
+      "url": "https://leginfo.legislature.ca.gov/faces/billStatusClient.xhtml?bill_id=202520260SB813",
+      "text": "SIGNED/chaptered Sep 9 \u2014 CA first-in-nation AI independent verification framework; companion AB 1405 auditors registry"
+    },
+    {
+      "tag": "State",
+      "title": "AB-1405 AI auditors: registration (chaptered)",
+      "url": "https://leginfo.legislature.ca.gov/faces/billStatusClient.xhtml?bill_id=202520260AB1405",
+      "text": "SIGNED/chaptered Sep 9 \u2014 AI auditor registration; pairs with SB 813"
+    },
+    {
+      "tag": "State",
+      "title": "VA HB30 Item 3-5.24 Data Center Electricity Consumption Tax",
+      "url": "https://budget.lis.virginia.gov/item/2026/2/HB30/Chapter/3/3-5.24/PDF/",
+      "text": "LIVE Sep 2026 first collection \u2014 $0.011/kWh on VA data-center electricity (cap $600M/yr); Jul 2026\u2013Jun 2028"
+    },
+    {
+      "tag": "State",
+      "title": "DE HB 233 Large energy-use facility rate class package",
+      "url": "https://legis.delaware.gov/BillDetail?legislationId=143381",
+      "text": "Signed Aug 26 effective immediately \u2014 separate rate class / interruptibility; utilities file within 180 days; with HB 445 BYOG / HB 310 tax-credit bar"
+    },
+    {
+      "tag": "State",
+      "title": "OK HB 2992 Data Center Consumer Ratepayer Protection Act",
+      "url": "https://www.oklegislature.gov/BillInfo.aspx?Bill=hb2992&Session=2600",
+      "text": "ENACTED emergency May 11 \u2014 live \u226575 MW large-load tariffs (data centers/crypto/AI); cost-causation + land-notice rules"
+    },
+    {
+      "tag": "State",
+      "title": "SD SB 135 Data Center Bill of Rights for Citizens",
+      "url": "https://mylrc.sdlegislature.gov/api/Documents/SessionLaw/306613.pdf?Year=2026",
+      "text": "Signed Mar 24 live \u2014 \u226510 MW DCs reimburse attributed electric costs + water reporting; companion HB 1038 PUC cost assessment"
+    },
+    {
+      "tag": "calendar",
+      "title": "EIA Weekly Natural Gas Storage Report",
+      "url": "https://ir.eia.gov/ngs/schedule.html",
+      "text": "Thu Sep 10 10:30 AM ET \u2014 standard weekly NG storage"
+    },
+    {
+      "tag": "calendar",
+      "title": "OPEC Monthly Oil Market Report \u2014 September 2026",
+      "url": "https://www.opec.org/monthly-oil-market-report.html",
+      "text": "Thu Sep 10 scheduled release \u2014 demand/supply outlook same day as delayed WPSR"
+    },
+    {
+      "tag": "calendar",
+      "title": "Fed G.17 Industrial Production and Capacity Utilization",
+      "url": "https://www.federalreserve.gov/newsevents/2026-september.htm",
+      "text": "Fri Sep 18 9:15 AM ET \u2014 post-FOMC activity/capacity print"
+    },
+    {
+      "tag": "calendar",
+      "title": "Cintas earnings (announced)",
+      "url": "https://www.cintas.com/investors/",
+      "text": "CTAS ~Sep 23 \u2014 liquid services; corroborator market calendars week-ahead"
+    },
+    {
+      "tag": "calendar",
+      "title": "Micron earnings (announced)",
+      "url": "https://investors.micron.com/",
+      "text": "MU ~Sep 30 \u2014 liquid memory/semis into Apple cycle; corroborator market calendars"
     }
   ]
 }
