@@ -1,12 +1,12 @@
 {
-  "asof": "2026-09-09 15:26 ET",
+  "asof": "2026-09-10 09:12 CDT",
   "account": "Agentic",
-  "equity": 284.68,
-  "equity_value": 274.10,
-  "cash": 2.68,
-  "buying_power": 2.68,
+  "equity": 279.35,
+  "equity_value": 269.03,
+  "cash": 10.32,
+  "buying_power": 10.32,
   "pending_deposits": 0,
-  "invested_pct": 99.1,
+  "invested_pct": 96.3,
   "slots": 2,
   "open_orders": 0,
   "names": [
@@ -15,7 +15,7 @@
       "qty": 1.0,
       "avg": 163.42,
       "avg_cost": 163.42,
-      "last": 162.92,
+      "last": 157.255,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -29,7 +29,7 @@
       "qty": 1.745335,
       "avg": 65.89,
       "avg_cost": 65.89,
-      "last": 63.73,
+      "last": 64.00,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -40,7 +40,7 @@
     }
   ],
   "eye": {
-    "checked_et": "2026-09-09 15:26 ET",
+    "checked_et": "2026-09-10 09:12 CDT",
     "status": "ok"
   }
 }
