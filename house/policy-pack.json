@@ -1,60 +1,68 @@
 {
-  "asof": "2026-09-11 07:15 ET",
+  "asof": "2026-09-11 07:25 ET",
   "subject": "Agentic policy pack: 2026-09-11",
   "expiry": "2026-09-14 06:30 ET",
   "sectors": [
-    "energy",
-    "oil",
-    "shipping",
-    "midstream",
-    "rates",
-    "duration",
-    "fx",
-    "yen",
-    "carry",
-    "trade",
-    "tariffs",
-    "dairy",
-    "alcohol",
-    "autos",
-    "steel",
-    "aluminum",
-    "tech",
-    "software",
-    "cloud",
+    "aerospace",
+    "agriculture",
     "ai-audit",
-    "platforms",
-    "handsets",
-    "semis",
-    "memory",
-    "displays",
+    "alcohol",
+    "aluminum",
     "apple-supply-chain",
+    "asset-managers",
+    "autos",
+    "aviation",
+    "banks",
+    "canada-crude",
+    "carry",
+    "ceqa",
+    "china",
+    "clean-energy",
+    "cloud",
+    "consumer",
+    "consumer-finance",
+    "dairy",
+    "defense",
+    "delaware",
+    "diesel",
+    "displays",
+    "duration",
+    "education",
+    "energy",
+    "freight",
+    "fx",
+    "geothermal",
+    "grid",
+    "handsets",
+    "hyperscale",
+    "insurance",
+    "meat-processors",
+    "memory",
+    "midstream",
+    "natgas",
+    "oil",
+    "oklahoma",
+    "pensions",
+    "platforms",
+    "protein",
+    "rates",
+    "refiners",
+    "retail",
+    "retail-sales",
+    "sanctions",
+    "semis",
+    "shipping",
+    "software",
+    "south-dakota",
+    "steel",
+    "tariffs",
+    "tech",
+    "trade",
+    "trucking",
     "utilities",
     "utilities-data-centers",
-    "hyperscale",
-    "grid",
     "virginia-datacenters",
-    "geothermal",
-    "ceqa",
-    "delaware",
-    "oklahoma",
-    "south-dakota",
-    "natgas",
-    "defense",
-    "aerospace",
-    "sanctions",
-    "aviation",
-    "agriculture",
-    "protein",
-    "meat-processors",
-    "education",
-    "insurance",
-    "asset-managers",
-    "pensions",
-    "clean-energy",
-    "consumer",
-    "retail",
-    "consumer-finance"
+    "yen"
   ],
   "items": [
     {
@@ -67,43 +75,31 @@
       "tag": "White House",
       "title": "Excluding Certain Canadian Alcoholic Beverages from Importation into the United States in Response to Continued Discrimination Against the Commerce of the United States with Respect to Alcoholic Beverages",
       "url": "https://www.whitehouse.gov/presidential-actions/2026/09/excluding-certain-canadian-alcoholic-beverages-from-importation-into-the-united-states-in-response-to-continued-discrimination-against-the-commerce-of-the-united-states-with-respect-to-alcoholic-bever/",
-      "text": "Trade / alcohol / spirits / beer / wine — Sep 8 Section 338 import ban effective Sep 29; response to provincial US alcohol bans"
-    },
-    {
-      "tag": "White House",
-      "title": "Excluding Certain Canadian Products from Importation into the United States in Response to Continued Discrimination Against the Commerce of the United States with Respect to Motor Vehicles",
-      "url": "https://www.whitehouse.gov/presidential-actions/2026/09/excluding-certain-canadian-products-from-importation-into-the-united-states-in-response-to-continued-discrimination-against-the-commerce-of-the-united-states-with-respect-to-motor-vehicles/",
-      "text": "Autos / motorcycles / Canada trade — Sep 8 Section 338 import ban effective Sep 29 on listed Canadian motor-vehicle products"
+      "text": "Trade / alcohol / spirits / beer / wine — Sep 8 Section 338 import ban effective Sep 29; response to provincial US alcohol bans + Saskatchewan levy"
     },
     {
       "tag": "White House",
       "title": "Modifying the Scope of Products of Canada Subject to the Additional Duties Imposed to Offset Canadian Discrimination Against the United States with Respect to Motor Vehicles",
       "url": "https://www.whitehouse.gov/presidential-actions/2026/09/modifying-the-scope-of-products-of-canada-subject-to-the-additional-duties-imposed-to-offset-canadian-discrimination-against-the-united-states-with-respect-to-motor-vehicles/",
-      "text": "Autos/auto parts — Sep 8; revises 50% §338 duty product scope effective Sep 15 12:01 ET; stacks with §232"
-    },
-    {
-      "tag": "White House",
-      "title": "Modifying the Scope of Products of Canada Subject to the Additional Duties Imposed to Offset Canadian Discrimination Against the Commerce of the United States with Respect to Alcoholic Beverages",
-      "url": "https://www.whitehouse.gov/presidential-actions/2026/09/modifying-the-scope-of-products-of-canada-subject-to-the-additional-duties-imposed-to-offset-canadian-discrimination-against-the-commerce-of-the-united-states-with-respect-to-alcoholic-beverages/",
-      "text": "Alcohol/beverage trade — Sep 8; revises 50% §338 duty list effective Sep 15 ET"
+      "text": "Autos / auto parts — Sep 8; revises 50% §338 duty product scope effective Sep 15 ET; stacks with §232"
     },
     {
       "tag": "White House",
       "title": "Fact Sheet: President Donald J. Trump Responds to Canada’s Retaliation",
       "url": "https://www.whitehouse.gov/fact-sheets/2026/09/fact-sheet-president-donald-j-trump-responds-to-canadas-retaliation/",
-      "text": "Trade / ATVs / dairy scope mods — five Section 338 proclamations; bans Sep 29; product adds/removals (ATVs in, cement/rock salt out) Sep 15; GSA Canadian-origin removals"
+      "text": "Trade / ATVs / dairy scope mods — five Section 338 proclamations; bans Sep 29; product adds/removals (ATVs in, cement/rock salt out) Sep 15"
     },
     {
       "tag": "White House",
       "title": "Accelerating Access To Veterans’ Benefits And Employment Opportunities",
       "url": "https://www.whitehouse.gov/presidential-actions/2026/09/accelerating-access-to-veterans-benefits-and-employment-opportunities/",
-      "text": "Defense IT / VA / health records / AI tools — EO Sep 8; DoW–VA record sharing + interoperable IT contracts within 180 days"
+      "text": "Defense IT / VA / health records — EO Sep 8 (FR republish Sep 11 Doc 2026-18738); DoW–VA record sharing + interoperable IT contracts within 180 days"
     },
     {
       "tag": "White House",
       "title": "Adjusting Certain Delegations Under the Defense Production Act",
       "url": "https://www.whitehouse.gov/presidential-actions/2026/09/adjusting-certain-delegations-under-the-defense-production-act/",
-      "text": "Energy / Interior / DPA — EO Sep 8; Interior + Energy share independent DPA energy authorities; NEDC dispute path"
+      "text": "Energy / Interior / DPA — EO Sep 8 (FR republish Sep 11 Doc 2026-18739); Interior + Energy share independent DPA energy authorities"
     },
     {
       "tag": "White House",
@@ -115,19 +111,19 @@
       "tag": "White House",
       "title": "Promoting Fair Competition In Livestock Markets And Expanding Market Access for American Meat Producers",
       "url": "https://www.whitehouse.gov/presidential-actions/2026/09/promoting-fair-competition-in-livestock-markets-and-expanding-market-access-for-american-meat-producers/",
-      "text": "Meat processors / Packers and Stockyards enforcement / interstate meat shipment — Sep 4"
+      "text": "Meat processors / Packers and Stockyards / interstate meat shipment — EO Sep 4 (FR Doc 2026-18567 Sep 10); small-processor loan program + PSA enforcement"
     },
     {
       "tag": "White House",
       "title": "Car Loan Interest Deduction (Federal Register)",
       "url": "https://www.federalregister.gov/documents/2026/09/08/2026-18219/car-loan-interest-deduction",
-      "text": "Autos / consumer finance — IRS final regs FR Sep 8 (Doc 2026-18219); up to $10k qualified passenger vehicle loan interest"
+      "text": "Autos / consumer finance — IRS final regs FR Sep 8 (Doc 2026-18219); up to $10k qualified passenger vehicle loan interest deduction"
     },
     {
       "tag": "White House",
       "title": "Treasury, IRS Move to End Tax-Exempt Status for Discriminatory Practices in Private Schools",
       "url": "https://home.treasury.gov/news/press-releases/sb0621",
-      "text": "Education / tax-exempt private schools — press Sep 3; FR proposed rule Doc 2026-18127 Sep 4"
+      "text": "Education / tax-exempt private schools — press Sep 3; companion FR proposed rule Doc 2026-18127 Sep 4; finals tax years on/after May 31 2027"
     },
     {
       "tag": "White House",
@@ -137,8 +133,8 @@
     },
     {
       "tag": "White House",
-      "title": "Publication of Inflation Adjustment Factor and Applicable Amounts for Clean Electricity Production Credit",
-      "url": "https://www.federalregister.gov/documents/2026/09/04/2026-18105/publication-of-inflation-adjustment-factor-and-applicable-amounts-for-the-clean-electricity-production",
+      "title": "Publication of Inflation Adjustment Factor and Applicable Amounts for Clean Electricity Production Credit for Calendar Year 2026",
+      "url": "https://www.federalregister.gov/documents/2026/09/04/2026-18105/publication-of-inflation-adjustment-factor-and-applicable-amounts-for-clean-electricity-production",
       "text": "Clean energy / utilities / renewables — §45Y clean electricity production credit 2026 inflation factors (FR Sep 4)"
     },
     {
@@ -151,13 +147,13 @@
       "tag": "White House",
       "title": "Treasury Severs Iranian Regime's Financial Lifelines in Türkiye",
       "url": "https://home.treasury.gov/news/press-releases/sb0622",
-      "text": "Sanctions / Iran financial networks in Türkiye — Treasury sb0622 Sep 4; OFAC recent actions"
+      "text": "Sanctions / Iran financial networks in Türkiye — Treasury sb0622 Sep 4; OFAC 20260904 (Golden Global Bank + GL CC wind-down through Sep 19)"
     },
     {
       "tag": "White House",
       "title": "Iranian Transactions and Sanctions Regulations (Federal Register stay)",
       "url": "https://www.federalregister.gov/documents/2026/09/10/2026-18461/iranian-transactions-and-sanctions-regulations",
-      "text": "Aviation/shipping/energy — FR Sep 10; indefinitely stays ITSR GLs on overflight/aircraft safety/bunkering (eff. Sep 8)"
+      "text": "Aviation / shipping / energy — FR Sep 10; indefinitely stays ITSR GLs on overflight/aircraft safety/bunkering (eff. Sep 8)"
     },
     {
       "tag": "White House",
@@ -169,49 +165,67 @@
       "tag": "White House",
       "title": "Securing the United States Bulk-Power System (DOE RFI)",
       "url": "https://www.federalregister.gov/documents/2026/09/09/2026-18370/securing-the-united-states-bulk-power-system",
-      "text": "Utilities/grid supply chain — DOE RFI under E.O. 14421 on foreign BPS equipment (FR Sep 9)"
+      "text": "Utilities / grid supply chain — DOE RFI under E.O. 14421 on foreign BPS equipment (FR Sep 9)"
     },
     {
       "tag": "State",
       "title": "SB-886 California Technology Innovation and Ratepayer Protection Act",
       "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB886",
-      "text": "PENDING Newsom desk through ~Sep 30 — data-center interconnection tariffs / ratepayer protection (passed Aug 31; enrolled)"
+      "text": "PENDING Newsom desk (presented Sep 9) through ~Sep 30 — data-center interconnection tariffs / ratepayer cost-causation (CPUC by Jan 1 2028)"
     },
     {
       "tag": "State",
       "title": "AB-2383 Electricity: data centers",
       "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260AB2383",
-      "text": "PENDING ~Sep 30 — companion T&D/generation tariffs; operative only if SB-886 enacted"
+      "text": "PASSED both houses Aug 31; to engrossing/enrolling — companion T&D/generation tariffs for data centers; pairs with SB-886; Newsom window ~Sep 30"
     },
     {
       "tag": "State",
       "title": "SB-887 CEQA: environmental leadership projects: data centers; geothermal",
       "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB887",
-      "text": "PENDING ~Sep 30 — CEQA/siting for data centers / geothermal; pairs with SB 886"
+      "text": "PENDING Newsom desk (presented Sep 9) ~Sep 30 — CEQA/siting track for data centers / geothermal; pairs with SB 886 package"
     },
     {
       "tag": "State",
       "title": "AB-1577 Data centers: reporting",
       "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260AB1577",
-      "text": "ON GOVERNOR'S DESK — energy-commission DC reporting (PUE/load); Newsom window ~Sep 30"
+      "text": "PENDING Newsom desk (presented Sep 4) ~Sep 30 — energy-commission DC reporting (PUE/load)"
+    },
+    {
+      "tag": "State",
+      "title": "AB-2234 California Environmental Quality Act: geothermal exploratory projects",
+      "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260AB2234",
+      "text": "PASSED both houses Aug 31; to engrossing/enrolling — CEQA geothermal exploratory definition/setback clarifications; Newsom window ~Sep 30"
     },
     {
       "tag": "State",
       "title": "SB-1119 Companion chatbots: children's safety (Adam's Law)",
       "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB1119",
-      "text": "Passed Aug 31; desk ~Sep 30 — AI companion chatbot youth safety rules"
+      "text": "PENDING Newsom desk (presented Sep 9) ~Sep 30 — AI companion chatbot youth safety rules"
     },
     {
       "tag": "State",
       "title": "AB-1709 Covered platforms: age restriction; e-Safety Advisory Commission",
       "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260AB1709",
-      "text": "Enrolled; Newsom desk ~Sep 30 — under-16 addictive feed restrictions on covered platforms"
+      "text": "SIGNED/chaptered Sep 10 (Ch. 183, Stats. 2026) — under-16 addictive feed restrictions on covered platforms"
     },
     {
       "tag": "State",
       "title": "SB-876 Fire and residential property insurance",
       "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB876",
-      "text": "Enrolled; ~Sep 30 — CA fire/residential P&C ALE/loss-of-use rules"
+      "text": "PENDING Newsom desk (presented Sep 9) ~Sep 30 — CA fire/residential P&C ALE/loss-of-use rules"
+    },
+    {
+      "tag": "State",
+      "title": "SB-813 Independent verification organizations (chaptered)",
+      "url": "https://leginfo.legislature.ca.gov/faces/billStatusClient.xhtml?bill_id=202520260SB813",
+      "text": "SIGNED/chaptered Sep 9 — CA first-in-nation AI independent verification framework; companion AB 1405 auditors registry"
+    },
+    {
+      "tag": "State",
+      "title": "AB-1405 AI auditors: registration (chaptered)",
+      "url": "https://leginfo.legislature.ca.gov/faces/billStatusClient.xhtml?bill_id=202520260AB1405",
+      "text": "SIGNED/chaptered Sep 9 — AI auditor registration; pairs with SB 813"
     },
     {
       "tag": "State",
@@ -221,15 +235,9 @@
     },
     {
       "tag": "State",
-      "title": "SB-813 Independent verification organizations (chaptered)",
-      "url": "https://leginfo.legislature.ca.gov/faces/billStatusClient.xhtml?bill_id=202520260SB813",
-      "text": "SIGNED/chaptered Sep 9 — CA first-in-nation AI independent verification framework; companion AB 1405"
-    },
-    {
-      "tag": "State",
-      "title": "AB-1405 AI auditors: registration (chaptered)",
-      "url": "https://leginfo.legislature.ca.gov/faces/billStatusClient.xhtml?bill_id=202520260AB1405",
-      "text": "SIGNED/chaptered Sep 9 — AI auditor registration; pairs with SB 813. Gov release: https://www.gov.ca.gov/2026/09/09/governor-newsom-signs-first-in-the-nation-ai-safeguards-to-protect-californians-calls-on-the-federal-government-to-do-its-part/"
+      "title": "Governor Abbott Directs Comprehensive Data Center Audit",
+      "url": "https://gov.texas.gov/news/post/governor-abbott-directs-comprehensive-data-center-audit",
+      "text": "LIVE Aug 3 directive — PUCT/ERCOT must audit all pending DC interconnections before advance; ERCOT targeting ~Dec 10 completion; pause remains operative through next 3 weeks"
     },
     {
       "tag": "State",
@@ -239,9 +247,15 @@
     },
     {
       "tag": "State",
+      "title": "Data centers; permit requirements, emission limits for certain engine-generator sets. (HB507)",
+      "url": "https://lis.virginia.gov/bill-details/20261/HB507",
+      "text": "SIGNED Ch. 397 (eff. Jul 1 2026) — Tier 4-equivalent gen-set emission limits for VA data-center air permits filed on/after Jul 1 2026"
+    },
+    {
+      "tag": "State",
       "title": "DE HB 233 Large energy-use facility rate class package",
       "url": "https://legis.delaware.gov/BillDetail?legislationId=143381",
-      "text": "Signed Aug 26 effective immediately — separate rate class / interruptibility; utilities file within 180 days; with HB 445/310/SB 326. News: https://news.delaware.gov/2026/08/26/governor-matt-meyer-signs-energy-consumer-protection-legislation/"
+      "text": "Signed Aug 26 effective immediately — separate rate class / interruptibility; utilities file within 180 days; with HB 445 BYOG / HB 310 tax-credit bar"
     },
     {
       "tag": "State",
@@ -253,85 +267,259 @@
       "tag": "State",
       "title": "SD SB 135 Data Center Bill of Rights for Citizens",
       "url": "https://mylrc.sdlegislature.gov/api/Documents/SessionLaw/306613.pdf?Year=2026",
-      "text": "Signed Mar 24 live — ≥10 MW DCs reimburse attributed electric costs + water reporting; companion HB 1038 https://mylrc.sdlegislature.gov/api/Documents/SessionLaw/306640.pdf?Year=2026"
+      "text": "Signed Mar 24 live — ≥10 MW DCs reimburse attributed electric costs + water reporting; companion HB 1038 PUC cost assessment"
+    },
+    {
+      "tag": "State",
+      "title": "CS/CS/SB 484: Data Centers (Florida Chapter 2026-65)",
+      "url": "https://flsenate.gov/Session/Bill/2026/484",
+      "text": "SIGNED May 7 (Ch. 2026-65; eff. Jul 1 2026) — large-load full cost-of-service tariffs; local land-use authority preserved; foreign-of-concern ownership bar; water permitting limits"
+    },
+    {
+      "tag": "State",
+      "title": "NY S10642 Responsible Data Center Development Act",
+      "url": "https://www.nysenate.gov/legislation/bills/2025/S10642",
+      "text": "PASSED both houses Jun 4; still awaiting governor action — 1-year DEC permit pause for ≥20 MW DCs + separate utility class / renewables / host-community benefits"
+    },
+    {
+      "tag": "State",
+      "title": "First Statewide Moratorium on New Hyperscale Data Centers Launched by Governor Kathy Hochul",
+      "url": "https://www.governor.ny.gov/news/first-statewide-moratorium-new-hyperscale-data-centers-launched-governor-kathy-hochul",
+      "text": "LIVE EO — up-to-1-year pause on new NY DEC discretionary permits for hyperscale DCs pending GEIS; operative through ~Oct 2 window"
     },
     {
       "tag": "calendar",
       "title": "BLS Consumer Price Index and Real Earnings (August)",
-      "url": "https://www.bls.gov/schedule/news_release/cpi.htm",
-      "text": "CPI + Real Earnings Fri Sep 11 8:30 AM ET — decisive print into Sep FOMC; schedule also https://www.bls.gov/schedule/2026/09_sched.htm"
+      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
+      "text": "Fri Sep 11 8:30 AM ET — Aug CPI + Real Earnings; highest macro print into Sep FOMC (rates/USD/equities)"
+    },
+    {
+      "tag": "calendar",
+      "title": "Fed Z.1 Financial Accounts of the United States",
+      "url": "https://www.federalreserve.gov/newsevents/2026-september.htm",
+      "text": "Fri Sep 11 12:00 PM ET — flow-of-funds; secondary vs CPI same morning (financials/macro)"
     },
     {
       "tag": "calendar",
       "title": "Kroger Q2 FY2026 earnings call (announced)",
       "url": "https://ir.kroger.com/news/news-details/2026/Kroger-Announces-Second-Quarter-Conference-Call-with-Investors/default.aspx",
-      "text": "KR call Fri Sep 11 8:00 AM ET — liquid consumer/grocery"
+      "text": "Fri Sep 11 8:00 AM ET — KR call overlaps CPI morning; liquid consumer/grocery Corroborator: https://www.prnewswire.com/news-releases/kroger-announces-second-quarter-conference-call-with-investors-302852069.html"
     },
     {
       "tag": "calendar",
-      "title": "NYSE regular session hours",
-      "url": "https://www.nyse.com/markets/hours-calendars",
-      "text": "Core session 9:30 AM–4:00 PM ET Fri Sep 11 and Mon Sep 14 (normal post–Labor Day week)"
+      "title": "NYSE/Nasdaq regular hours (two-session watch)",
+      "url": "https://www.nyse.com/trade/hours-calendars",
+      "text": "Fri Sep 11 and Mon Sep 14 9:30 AM–4:00 PM ET — normal sessions; no holiday in Sep 11–Oct 2 window"
     },
     {
       "tag": "calendar",
-      "title": "Apple iPhone 18 Pro / Pro Max preorders open",
+      "title": "Apple iPhone 18 Pro / Pro Max pre-orders open",
       "url": "https://www.apple.com/newsroom/2026/09/apple-debuts-iphone-18-pro-and-iphone-18-pro-max/",
-      "text": "Sat Sep 12 5:00 AM PT preorders; availability Fri Sep 18 — liquid mega-cap + supply chain. Corroborator: apple.com product pages"
+      "text": "Sat Sep 12 8:00 AM ET (5:00 AM PT) — weekend preorder demand signal into Mon session (AAPL + supply chain) Corroborator: https://www.apple.com/iphone-18-pro/"
     },
     {
       "tag": "calendar",
-      "title": "Siri AI beta rolls with iOS 27 (English)",
-      "url": "https://www.apple.com/newsroom/2026/09/apple-unveils-iphone-duo/",
-      "text": "Mon Sep 14 — Siri AI beta on supported devices (English); platform/AI narrative into Mon session"
+      "title": "Apple iOS 27 + Apple Intelligence / Siri AI public",
+      "url": "https://www.apple.com/newsroom/2026/09/apple-debuts-iphone-18-pro-and-iphone-18-pro-max/",
+      "text": "Mon Sep 14 — iOS 27 free update day on first post-CPI session; software/AI narrative touch Corroborator: https://www.apple.com/newsroom/2026/09/apple-unveils-iphone-duo/"
     },
     {
       "tag": "calendar",
-      "title": "Canada Section 338 tariff scope modifications effective",
-      "url": "https://www.whitehouse.gov/fact-sheets/2026/09/fact-sheet-president-donald-j-trump-responds-to-canadas-retaliation/",
-      "text": "Mon Sep 15 12:01 ET — product adds (e.g. ATVs) and removals (cement, rock salt) under July 20 Section 338 tariffs"
+      "title": "HFSC Treasury Secretary annual testimony",
+      "url": "https://financialservices.house.gov/news/documentsingle.aspx?DocumentID=411216",
+      "text": "Tue Sep 15 10:00 AM ET — Treasury Sec on international financial system; day before FOMC (USD/rates)"
     },
     {
       "tag": "calendar",
       "title": "FOMC meeting September 15–16 with SEP",
       "url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
-      "text": "Decision ~2:00 PM ET + press conference ~2:30 PM ET Wed Sep 16 (*SEP / dot plot). Fed Sep calendar: https://www.federalreserve.gov/newsevents/2026-september.htm"
+      "text": "Tue–Wed Sep 15–16; decision Wed Sep 16 ~2:00 PM ET + presser ~2:30 PM ET (*SEP / dot plot) — rates/policy"
+    },
+    {
+      "tag": "calendar",
+      "title": "Census Advance Monthly Retail Trade (August)",
+      "url": "https://www.census.gov/retail/release_schedule.html",
+      "text": "Wed Sep 16 8:30 AM ET — Aug retail sales same morning as FOMC; consumer spending / discretionary"
     },
     {
       "tag": "calendar",
       "title": "BLS U.S. Import and Export Price Indexes (August)",
       "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
-      "text": "Wed Sep 16 8:30 AM ET — same day as FOMC decision"
+      "text": "Wed Sep 16 8:30 AM ET — trade-price inflation same day as FOMC decision"
     },
     {
       "tag": "calendar",
-      "title": "EIA Weekly Petroleum Status Report",
-      "url": "https://www.eia.gov/petroleum/supply/weekly/",
-      "text": "Wed Sep 16 next release (prior Sep 10) — crude/product balances amid Hormuz/Red Sea disruption"
+      "title": "HFSC markup of various measures",
+      "url": "https://financialservices.house.gov/news/documentsingle.aspx?DocumentID=411216",
+      "text": "Wed Sep 16 10:00 AM ET — House Financial Services markup same day as FOMC (secondary unless banking surprise)"
+    },
+    {
+      "tag": "calendar",
+      "title": "EIA Weekly Petroleum Status Report (Wed cadence resumes)",
+      "url": "https://www.eia.gov/petroleum/supply/weekly/schedule.php",
+      "text": "Wed Sep 16 after 10:30 AM ET — first normal WPSR after Labor Day alternate; same day as FOMC/retail sales (energy)"
+    },
+    {
+      "tag": "calendar",
+      "title": "EIA Weekly Natural Gas Storage Report",
+      "url": "https://ir.eia.gov/ngs/schedule.html",
+      "text": "Thu Sep 17 / 24 / Oct 1 10:30 AM ET — standard weekly NG storage (energy)"
+    },
+    {
+      "tag": "calendar",
+      "title": "Apple iPhone 18 Pro / Pro Max availability",
+      "url": "https://www.apple.com/newsroom/2026/09/apple-debuts-iphone-18-pro-and-iphone-18-pro-max/",
+      "text": "Fri Sep 18 — U.S./65+ country sell-through begins; AAPL + components/supply chain Corroborator: https://www.apple.com/iphone-18-pro/"
     },
     {
       "tag": "calendar",
       "title": "Fed G.17 Industrial Production and Capacity Utilization",
       "url": "https://www.federalreserve.gov/newsevents/2026-september.htm",
-      "text": "Fri Sep 18 ~9:15 AM ET — post-FOMC activity/capacity print"
+      "text": "Fri Sep 18 9:15 AM ET — post-FOMC activity/capacity print (industrials/macro)"
     },
     {
       "tag": "calendar",
-      "title": "BLS State Employment and Unemployment (August)",
-      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
-      "text": "Fri Sep 18 10:00 AM ET"
+      "title": "Cintas Q1 FY2027 earnings webcast (announced)",
+      "url": "https://www.stocktitan.net/news/CTAS/cintas-corporation-announces-webcast-for-first-quarter-fiscal-year-qk5ohoodcuwz.html",
+      "text": "Wed Sep 23 10:00 AM ET webcast — CTAS liquid S&P 500 / NDX industrial services Corroborator: https://www.cintas.com/investors/"
+    },
+    {
+      "tag": "calendar",
+      "title": "HFSC Oversight of Prudential Regulators + Future of Central Banking",
+      "url": "https://financialservices.house.gov/news/documentsingle.aspx?DocumentID=411216",
+      "text": "Wed Sep 23 10:00 AM and 2:00 PM ET — bank regulators + CB architecture hearings (financials)"
     },
     {
       "tag": "calendar",
       "title": "BEA U.S. International Transactions (Q2 2026)",
       "url": "https://www.bea.gov/news/schedule",
-      "text": "Thu Sep 24 8:30 AM ET"
+      "text": "Wed Sep 24 8:30 AM ET — current account / IIP (macro; usually modest equity impact)"
     },
     {
       "tag": "calendar",
-      "title": "Costco Q4 FY2026 earnings (announced)",
+      "title": "Costco Q4 FY2026 earnings call (announced)",
       "url": "https://investor.costco.com/events-and-presentations/events/event-details/2026/Q4-2026-Earnings-Call/default.aspx",
-      "text": "COST after close Thu Sep 24 — liquid consumer; corroborator market calendars"
+      "text": "Thu Sep 24 AMC; call 5:00 PM ET (2:00 PM PT) — COST mega-cap consumer/comps + membership (fiscal YE) Corroborator: https://investor.costco.com/overview/"
+    },
+    {
+      "tag": "calendar",
+      "title": "Fed SCOOS (Senior Credit Officer Opinion Survey)",
+      "url": "https://www.federalreserve.gov/newsevents/2026-september.htm",
+      "text": "Thu Sep 24 2:00 PM ET — dealer financing conditions (credit/financials secondary)"
+    },
+    {
+      "tag": "calendar",
+      "title": "EIA Weekly Petroleum Status Report",
+      "url": "https://www.eia.gov/petroleum/supply/weekly/schedule.php",
+      "text": "Wed Sep 23 after 10:30 AM ET — weekly crude/product stocks (energy)"
+    },
+    {
+      "tag": "calendar",
+      "title": "BLS JOLTS (August)",
+      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
+      "text": "Tue Sep 29 10:00 AM ET — openings/quits labor-demand signal post-FOMC"
+    },
+    {
+      "tag": "calendar",
+      "title": "BEA GDP third estimate / Personal Income and Outlays (August PCE)",
+      "url": "https://www.bea.gov/news/schedule",
+      "text": "Tue Sep 30 8:30 AM ET — Q2 GDP third + Aug PCE (Fed preferred inflation) co-release"
+    },
+    {
+      "tag": "calendar",
+      "title": "Micron FY2026 Q4 earnings call (announced)",
+      "url": "https://investors.micron.com/news/press-release/2026/Micron-Technology-to-Report-Fiscal-Fourth-Quarter-Results-on-September-30-2026/default.aspx",
+      "text": "Wed Sep 30 call 4:30 PM ET (2:30 PM MT) — MU AI memory mega-cap same day as Aug PCE/GDP Corroborator: https://investors.micron.com/events-and-presentations/event-details/2026/Microns-Fourth-Quarter-2026-Financial-Call/default.aspx"
+    },
+    {
+      "tag": "calendar",
+      "title": "Accenture Q4 FY2026 earnings call (announced)",
+      "url": "https://investor.accenture.com/",
+      "text": "Thu Oct 1 8:00 AM ET — ACN IT services mega-cap; official IR upcoming call listing"
+    },
+    {
+      "tag": "calendar",
+      "title": "Nike Q1 FY2027 earnings (announced)",
+      "url": "https://investors.nike.com/investors/news-events-and-reports/investor-news/investor-news-details/2026/NIKE-Inc--Announces-First-Quarter-Fiscal-2027-Earnings-and-Conference-Call/default.aspx",
+      "text": "Thu Oct 1 release ~4:15 PM ET (1:15 PM PT); call 5:00 PM ET — NKE mega-cap consumer discretionary Corroborator: https://www.businesswire.com/news/home/20260828161061/en/"
+    },
+    {
+      "tag": "calendar",
+      "title": "BLS Employment Situation (September)",
+      "url": "https://www.bls.gov/schedule/2026/10_sched.htm",
+      "text": "Fri Oct 2 8:30 AM ET — Sep NFP/unemployment; window-close labor print (rates/equities)"
+    },
+    {
+      "tag": "calendar",
+      "title": "OPEC+ 68th JMMC / 7-country monthly review (just outside window)",
+      "url": "https://www.opec.org/pr-detail/612-2-august-2026.html",
+      "text": "Sat Oct 4 — next quota/policy review after Sep 6 flat-Oct decision (energy; just outside 21d) Corroborator: https://www.opec.org/pr-detail/1835613-6-september-2026.html"
+    },
+    {
+      "tag": "calendar",
+      "title": "CR H.R.6500 already law through Dec 11 (context)",
+      "url": "https://www.congress.gov/bill/119th-congress/house-bill/6500",
+      "text": "Enacted Sep 2 — no Sep 30 shutdown cliff inside this window (fiscal/gov’t)"
+    },
+    {
+      "tag": "World",
+      "title": "ME shipping war widens: tanker attacks + Houthi Mocha; Brent on track for first weekly close >$100 since mid-May",
+      "url": "https://www.reuters.com/business/energy/brent-holds-above-100-tanker-attacks-deepen-supply-fear-2026-09-10/",
+      "text": "Energy / shipping / airlines / refiners — Thu +6% (Brent $107.63 / WTI $102.48), Fri spike ~$110 then pared; Hormuz flows constrained + Mocha seizure extends Red Sea risk; two-session reprice into Fri/Mon even with diplomacy chatter. Corroborator: https://www.reuters.com/business/energy/oil-prices-set-end-week-over-100-first-time-nearly-4-months-2026-09-11/"
+    },
+    {
+      "tag": "World",
+      "title": "US diesel national average clears $6/gal for the first time",
+      "url": "https://www.reuters.com/business/energy/us-average-diesel-prices-cross-6-gallon-first-time-gasbuddy-says-2026-09-10/",
+      "text": "Trucking / retail freight / refiners / CPI energy — GasBuddy Thu + AAA ~$6.06 Fri; ME + Russian product crunch lifts middle distillates; can reprice logistics and consumer-margin names Fri–Mon. Corroborator: https://www.bloomberg.com/news/articles/2026-09-11/us-diesel-prices-rise-past-6-a-gallon-for-first-time-ever"
+    },
+    {
+      "tag": "World",
+      "title": "August PPI +0.4% m/m / 5.4% y/y on energy rebound flips Sep FOMC hike odds higher into CPI",
+      "url": "https://kelo.com/2026/09/10/us-producer-prices-increase-as-expected-in-august/",
+      "text": "Rates / banks / REITs / duration tech — diesel +24.1%, energy +4.2% m/m; markets ~61–70%+ for 25 bp hike Sep 15–16; Fri CPI and Mon curve can reprice liquid ≥$5 rate-sensitive names. Corroborator: https://www.cnbc.com/2026/09/10/ppi-inflation-report-august-2026.html"
+    },
+    {
+      "tag": "World",
+      "title": "August CPI at 08:30 ET is last top-tier print before Sep 15–16 FOMC",
+      "url": "https://www.bls.gov/schedule/news_release/cpi.htm",
+      "text": "Financials / housing / mega-cap growth / USD — consensus ~0.4% headline / ~0.2% core; gasoline rebound + oil >$100 narrative; hot/cool surprise can reprice into Fri close and Mon Sep 14. Corroborator: https://www.reuters.com/business/gasoline-likely-boost-us-consumer-prices-august-2026-09-11/"
+    },
+    {
+      "tag": "World",
+      "title": "ECB hikes 25 bp to 2.50% deposit citing Middle East conflict inflation",
+      "url": "https://www.ecb.europa.eu/press/pr/date/2026/html/ecb.mp260910~314e508016.en.html",
+      "text": "EUR / EU bank ADRs / global duration — second 2026 hike (deposit 2.50% / MRO 2.65% from Sep 16); oil-war inflation narrative reinforces DM tightening wave into Fri US session / Mon. Corroborator: https://www.fxstreet.com/news/ecb-recap-a-hawkish-hike-despite-downside-growth-risks-202609101721"
+    },
+    {
+      "tag": "World",
+      "title": "US–Canada Section 338: tariff-scope swap Sep 15 and dairy/alcohol/auto-adjacent bans Sep 29 still live",
+      "url": "https://www.whitehouse.gov/fact-sheets/2026/09/fact-sheet-president-donald-j-trump-responds-to-canadas-retaliation/",
+      "text": "Staples / alcohol / powersports / USMCA beta — 1–3 week veto carry; lead-pricing into Sep 15 scope change and Sep 29 bans can move liquid cross-border names Fri–Mon. Corroborator: https://www.reuters.com/business/autos-transportation/canadas-retaliatory-tariffs-take-effect-us-trade-talks-stall-2026-09-08/"
+    },
+    {
+      "tag": "World",
+      "title": "China independent refiners scramble for W. Africa / Canada / LatAm crude as Iran/ESPO options tighten",
+      "url": "https://www.reuters.com/business/energy/china-independent-refiners-scramble-oil-underpinning-spot-premiums-2026-09-10/",
+      "text": "Canadian heavy / midstream / crude exporters / China energy — >20 Mbbl teapot buys incl. TMX Aframaxes; ESPO asks soar; spot premiums and Canada crude diffs can reprice Fri–Mon. Corroborator: https://www.bloomberg.com/news/articles/2026-09-10/asking-price-for-russian-oil-soars-as-china-runs-out-of-options"
+    },
+    {
+      "tag": "World",
+      "title": "China NDRC caps third wartime retail fuel hike (petrol +260 / diesel +250 yuan per ton)",
+      "url": "https://www.reuters.com/business/energy/china-limits-fuel-price-increases-third-time-since-iran-war-began-2026-09-11/",
+      "text": "China ADRs / refiners / oil demand — hike effective ~Sep 11 24:00 / Sep 12 but capped vs formula (+435/+420); demand-management signal can move China consumer and crude-sentiment names into next two sessions. Corroborator: https://www.news.cn/20260911/38990d0332cf45abb5711526a7400384/c.html"
+    },
+    {
+      "tag": "World",
+      "title": "Ukraine–Russia overnight strikes hit Saratov logistics (Ozon) and Volga industrial sites",
+      "url": "https://www.reuters.com/world/russian-air-strikes-injure-two-cause-fire-9-storey-apartment-building-kyiv-2026-09-11/",
+      "text": "Diesel / European energy / defense — Ozon confirms Saratov hub fire; continues Russian refining/logistics degradation that supports product-crack premium into Fri–Mon. Corroborator: https://www.kyivindependent.com/ukrainian-drones-reportedly-strike-saratov-oil-refinery-ozon-warehouse/"
+    },
+    {
+      "tag": "World",
+      "title": "OPEC fifth straight cut to 2026 oil demand-growth forecast (to 380 kbd) vs tight physical market",
+      "url": "https://www.reuters.com/business/energy/opec-further-lowers-2026-global-oil-demand-growth-forecast-2026-09-10/",
+      "text": "Oil majors / E&P — demand-growth cut collides with SoH/run cuts and >$100 spot; narrative clash can swing liquid energy names Fri–Mon. Corroborator: https://www.woodmac.com/press-releases/middle-east-conflict-extension-cuts-global-q4-2026-crude-run-forecast-by-1.4-million-bd"
     },
     {
       "tag": "calendar",
@@ -341,107 +529,47 @@
     },
     {
       "tag": "calendar",
-      "title": "BLS JOLTS (August)",
-      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
-      "text": "Tue Sep 29 10:00 AM ET — openings/quits post-FOMC"
-    },
-    {
-      "tag": "calendar",
-      "title": "BEA GDP third estimate / Personal Income and Outlays (August)",
-      "url": "https://www.bea.gov/news/schedule",
-      "text": "Tue Sep 30 8:30 AM ET — GDP Q2 third + August PCE / Personal Income"
-    },
-    {
-      "tag": "calendar",
-      "title": "Micron FY Q4 earnings call (announced)",
-      "url": "https://investors.micron.com/news/press-release/2026/Micron-Technology-to-Report-Fiscal-Fourth-Quarter-Results-on-September-30-2026/default.aspx",
-      "text": "MU Wed Sep 30 2:30 PM MT — liquid memory/semis into Apple cycle; corroborator stocktitan/GlobeNewswire Aug 26"
-    },
-    {
-      "tag": "calendar",
-      "title": "BLS Employment Situation (September)",
-      "url": "https://www.bls.gov/schedule/2026/09_sched.htm",
-      "text": "Fri Oct 2 8:30 AM ET — next jobs print"
+      "title": "Canada Section 338 tariff scope modifications effective",
+      "url": "https://www.whitehouse.gov/fact-sheets/2026/09/fact-sheet-president-donald-j-trump-responds-to-canadas-retaliation/",
+      "text": "Mon Sep 15 12:01 ET — product adds/removals under July 20 Section 338 tariffs"
     },
     {
       "tag": "calendar",
       "title": "OPEC+ 68th JMMC",
       "url": "https://www.opec.org/pr-detail/612-2-august-2026.html",
-      "text": "Sun Oct 4 2026 — next JMMC after Aug 2 scheduling note; monitors DoC conformity amid Gulf disruption. Sep 6 hold: https://www.opec.org/pr-detail/1835613-6-september-2026.html"
-    },
-    {
-      "tag": "calendar",
-      "title": "Apple iPhone Duo preorders / availability",
-      "url": "https://www.apple.com/newsroom/2026/09/apple-unveils-iphone-duo/",
-      "text": "Duo preorder Fri Oct 16 5 AM PT / avail Oct 23 — first foldable; liquid mega-cap + displays/semis. Corroborator: https://www.apple.com/iphone-duo/"
-    },
-    {
-      "tag": "calendar",
-      "title": "Oracle Q1 FY2027 earnings (announced; just reported window)",
-      "url": "https://investor.oracle.com/investor-news/news-details/2026/Oracle-Sets-the-Date-for-its-First-Quarter-Fiscal-Year-2027-Earnings-Announcement/default.aspx",
-      "text": "ORCL after close Thu Sep 10 — digest into Fri session; liquid mega-cap software / AI cloud"
-    },
-    {
-      "tag": "World",
-      "title": "Dual chokepoint oil shock: Houthi seizure of Mocha threatens Bab el-Mandeb while Hormuz stays constrained",
-      "url": "https://www.reuters.com/business/energy/brent-holds-above-100-tanker-attacks-deepen-supply-fear-2026-09-10/",
-      "text": "Concept: Brent settled ~$107.63 / WTI ~$102.48 Thu (+6%); Houthis take Mocha, press Bab el-Mandeb as Hormuz flows stay depressed — energy/shipping/inflation beta into Fri–Mon. Corroborators: Reuters energy Sep 10; Reuters Middle East Houthis Sep 10 https://www.reuters.com/world/middle-east/trump-says-iran-war-end-after-us-midterm-elections-threatens-attack-pickaxe-2026-09-10/; Business Insider Africa Sep 10"
-    },
-    {
-      "tag": "World",
-      "title": "Oil nears $110 into CPI/FOMC as Middle East crisis deepens",
-      "url": "https://www.reuters.com/world/china/global-markets-corrected-2026-09-11/",
-      "text": "Concept: Brent tagged ~$109.97 overnight Fri; Asia risk-off — reprice energy complex and inflation expectations into US open. Corroborators: Reuters global markets Sep 11; IOL/AFP Sep 11 oil~$110"
-    },
-    {
-      "tag": "World",
-      "title": "US 10-year yields flirt with 5% as oil + CPI lift Sep hike odds",
-      "url": "https://www.reuters.com/business/gasoline-likely-boost-us-consumer-prices-august-2026-09-11/",
-      "text": "Concept: 10y ~4.96–4.97%; ~70–72% chance of 25bp hike at Sep 15–16 FOMC — rates/duration veto risk across Fri–Mon. Corroborators: Reuters CPI preview Sep 11; Bloomberg/Star yields Sep 11; Nikkei/Reuters yields after PPI"
-    },
-    {
-      "tag": "World",
-      "title": "US–Canada trade war live: Section 338 bans/scope mods + Canadian counter-tariffs",
-      "url": "https://www.whitehouse.gov/fact-sheets/2026/09/fact-sheet-president-donald-j-trump-responds-to-canadas-retaliation/",
-      "text": "Concept: US import bans dairy/alcohol/motorcycles Sep 29 + tariff scope mods Sep 15; Canada ~$20bn counter-tariffs live Sep 8 — autos/dairy/alcohol/steel/aluminum supply-chain veto. Corroborators: WH fact sheet; NPR Sep 8; International Trade Insights Sep 2026"
-    },
-    {
-      "tag": "World",
-      "title": "ECB hikes 25bp citing Middle East energy inflation; spillover into US rates path",
-      "url": "https://www.ecb.europa.eu/press/pr/date/2026/html/ecb.mp260910~314e508016.en.html",
-      "text": "Concept: Deposit rate to 2.50% effective Sep 16; Lagarde cites Middle East inflation — FX/rates spillover into Fri–Mon US session ahead of FOMC. Corroborators: ECB mp260910; Reuters Barclays/ECB follow-up Sep 11"
-    },
-    {
-      "tag": "World",
-      "title": "OPEC+ holds October output steady; next formal JMMC Oct 4",
-      "url": "https://www.opec.org/pr-detail/1835613-6-september-2026.html",
-      "text": "Concept: Sep 6 virtual deal keeps Oct production flat — limited near-term OPEC offset to dual-chokepoint shock. Corroborators: OPEC PR Sep 6; OGJ Sep 2026; JMMC schedule https://www.opec.org/pr-detail/612-2-august-2026.html"
-    },
-    {
-      "tag": "World",
-      "title": "Apple foldable + Pro cycle launch reprices handset/semis supply chain",
-      "url": "https://www.apple.com/newsroom/2026/09/apple-unveils-iphone-duo/",
-      "text": "Concept: iPhone Duo (first foldable) + iPhone 18 Pro cycle announced Sep 9; Pro preorders Sep 12 / avail Sep 18; Duo Oct 16/23 — ASP/mix and component demand into next two sessions. Corroborators: Apple Duo newsroom; Apple 18 Pro newsroom https://www.apple.com/newsroom/2026/09/apple-debuts-iphone-18-pro-and-iphone-18-pro-max/; MacRumors/TechRadar"
-    },
-    {
-      "tag": "World",
-      "title": "Hormuz shipping war wave still operative into CPI week",
-      "url": "https://www.reuters.com/world/middle-east/iran-attacks-us-base-jordan-ships-near-hormuz-after-tanker/",
-      "text": "Concept: Prior US/Iran tanker/shipping attacks leave Hormuz traffic far below pre-war — sustains oil premium and ITSR/aviation/shipping sanctions overlay (FR stay Sep 10). Corroborators: Reuters Middle East; FR ITSR 2026-18461"
+      "text": "Sun Oct 4 2026 — next JMMC; Sep 6 hold https://www.opec.org/pr-detail/1835613-6-september-2026.html"
     }
   ],
   "unconfirmed": [
     {
       "tag": "World",
-      "title": "Single-source: Japan 10y tops 3% first time since 1996 amid global bond selloff",
-      "url": "https://www.ainvest.com/news/10-year-yield-knocking-5-fed-answer-door-2609/",
-      "text": "UNCONFIRMED (one secondary source) — if corroborated, yen/carry spillover into US duration. Does not veto alone."
+      "title": "FT: GCC FMs to meet Iran in Salalah Mon Sep 14 on temporary Hormuz shipping deal",
+      "url": "https://www.omanobserver.om/article/1195967/world/region/iran-gulf-ministers-to-meet-in-salalah-for-hormuz-deal-reports",
+      "text": "UNCONFIRMED (FT primary; Reuters could not verify) — Energy / shipping — if advanced Mon, oil risk-premium dump; if scrubbed, reverse. Do not veto."
     },
     {
       "tag": "World",
-      "title": "Single-source: CME FedWatch ~72% Sep hike after oil spike (secondary roundups)",
-      "url": "https://www.thestar.com.my/business/business-news/2026/09/11/us-10-year-yield-flirts-with-5-as-higher-oil-rate-hike-worries-swirl",
-      "text": "UNCONFIRMED as standalone — hike odds also in Reuters ~70%; treat odds moves as market-implied, not a veto wire."
+      "title": "ASTRA OSINT: fire at Rosneft Saratov oil refinery amid drone wave",
+      "url": "https://unn.ua/en/news/a-fire-was-reported-at-the-saratov-oil-refinery-amid-a-drone-attack-astra",
+      "text": "UNCONFIRMED (single OSINT chain; Reuters confirmed Ozon/infra not refinery hit) — Diesel / Russian product — monitor only; do not veto."
+    },
+    {
+      "tag": "World",
+      "title": "WSJ exclusive cited: Iran resumed underground ballistic-missile production from stockpiles",
+      "url": "https://www.gate.com/news/detail/probability-of-a-fed-rate-hike-in-september-rises-to-73-bitcoin-falls-to-24180679",
+      "text": "UNCONFIRMED (secondary citing WSJ) — Defense / prolonged oil-risk — would support war-extends narrative if dual-sourced; do not veto."
+    },
+    {
+      "tag": "World",
+      "title": "BIS draft rule talk to close remote-access loophole for US AI chips rented offshore",
+      "url": "https://www.cryptopolitan.com/china-remote-chip-access-trump-radar/",
+      "text": "UNCONFIRMED (proposal chatter only) — AI semis / cloud GPU landlords — not enacted; do not veto."
+    },
+    {
+      "tag": "World",
+      "title": "Mexico ambassador hopeful on year-end US deal cutting auto/aluminum tariffs",
+      "url": "https://www.bloomberg.com/news/articles/2026-09-10/mexico-is-hopeful-on-deal-to-lower-us-tariffs-by-year-end",
+      "text": "UNCONFIRMED (single diplomatic interview) — Autos / Mexico-beta supply chain — monitor vs Canada freeze; do not veto."
     }
   ]
 }
