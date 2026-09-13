@@ -1,13 +1,13 @@
 {
-  "asof": "2026-09-11",
+  "asof": "2026-09-12",
   "source": "Truthifi",
-  "note": "Holdings EOD 2026-09-11. Scanned 2026-09-12 13:08 ET. Fidelity-only scan; Voya left untouched. Cash sweeps counted as cash. ESPP book empty. RSU holds 2 BNY. names[] use full Truthifi securityName; accounts[] suffix last-4.",
+  "note": "Holdings EOD 2026-09-12. Scanned 2026-09-13 13:18 ET. Fidelity-only scan; Voya left untouched. Cash sweeps counted as cash. ESPP book empty. RSU holds 2 BNY. names[] use full Truthifi securityName; accounts[] suffix last-4.",
   "accounts": {
     "fidelity": {
       "id": "fidelity",
       "label": "Fidelity",
       "source": "Truthifi",
-      "asof": "2026-09-11",
+      "asof": "2026-09-12",
       "equity": 3119.30,
       "equity_value": 3116.90,
       "cash": 2.4,
@@ -80,23 +80,23 @@
     }
   },
   "sleeves": {
-    "fidelity_bny": {"id": "fidelity_bny", "label": "BNY", "asof": "2026-09-11", "equity": 2168.16, "cash": 0.04},
-    "fidelity_roth": {"id": "fidelity_roth", "label": "Roth", "asof": "2026-09-11", "equity": 325.04, "cash": 1.7},
-    "fidelity_per": {"id": "fidelity_per", "label": "PER", "asof": "2026-09-11", "equity": 195.17, "cash": 0.07},
-    "fidelity_trad": {"id": "fidelity_trad", "label": "Trad", "asof": "2026-09-11", "equity": 105.62, "cash": 0.59},
-    "fidelity_espp": {"id": "fidelity_espp", "label": "ESPP", "asof": "2026-09-11", "equity": 0.0, "cash": 0.0},
-    "fidelity_rsu": {"id": "fidelity_rsu", "label": "RSU", "asof": "2026-09-11", "equity": 325.32, "cash": 0.0},
+    "fidelity_bny": {"id": "fidelity_bny", "label": "BNY", "asof": "2026-09-12", "equity": 2168.16, "cash": 0.04},
+    "fidelity_roth": {"id": "fidelity_roth", "label": "Roth", "asof": "2026-09-12", "equity": 325.04, "cash": 1.7},
+    "fidelity_per": {"id": "fidelity_per", "label": "PER", "asof": "2026-09-12", "equity": 195.17, "cash": 0.07},
+    "fidelity_trad": {"id": "fidelity_trad", "label": "Trad", "asof": "2026-09-12", "equity": 105.62, "cash": 0.59},
+    "fidelity_espp": {"id": "fidelity_espp", "label": "ESPP", "asof": "2026-09-12", "equity": 0.0, "cash": 0.0},
+    "fidelity_rsu": {"id": "fidelity_rsu", "label": "RSU", "asof": "2026-09-12", "equity": 325.32, "cash": 0.0},
     "voya_401k": {"id": "voya_401k", "label": "401k", "asof": "2026-09-10", "equity": 61484.37, "cash": 0.0}
   },
-  "scanned_at": "2026-09-12 13:08 ET",
-  "holdings_asof": "2026-09-11",
+  "scanned_at": "2026-09-13 13:18 ET",
+  "holdings_asof": "2026-09-12",
   "overall": {
     "equity": 67683.85,
     "live_equity": 3080.18,
     "custodial_equity": 64603.67,
-    "asof": "2026-09-12T13:08:00-04:00",
-    "holdings_asof": "2026-09-11",
-    "live_asof": "2026-09-11T17:20:38-04:00"
+    "asof": "2026-09-13T13:18:00-04:00",
+    "holdings_asof": "2026-09-12",
+    "live_asof": "2026-09-12T17:20:38-04:00"
   },
   "tape": {
     "overall": [
@@ -106,7 +106,8 @@
       {"t": "2026-09-08T16:00:00-04:00", "dtg": "081600R SEP 26", "equity": 68357.36, "live": 3110.5, "custodial": 65246.86},
       {"t": "2026-09-09T16:00:00-04:00", "dtg": "091600R SEP 26", "equity": 68458.22, "live": 3068.75, "custodial": 65389.47},
       {"t": "2026-09-10T16:00:00-04:00", "dtg": "101600R SEP 26", "equity": 68036.51, "live": 2997.68, "custodial": 65038.83},
-      {"t": "2026-09-11T16:00:00-04:00", "dtg": "111600R SEP 26", "equity": 67683.85, "live": 3080.18, "custodial": 64603.67}
+      {"t": "2026-09-11T16:00:00-04:00", "dtg": "111600R SEP 26", "equity": 67683.85, "live": 3080.18, "custodial": 64603.67},
+      {"t": "2026-09-12T16:00:00-04:00", "dtg": "121600R SEP 26", "equity": 67683.85, "live": 3080.18, "custodial": 64603.67}
     ]
   }
 }
