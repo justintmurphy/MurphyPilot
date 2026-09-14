@@ -152,7 +152,7 @@
         invested_pct: houseAg.invested_pct,
         open_orders: houseAg.open_orders,
         slots: houseAg.slots,
-        names: houseAg.names,
+        names: (houseAg.names || []).filter(function (n) { return (Number(n.qty) || 0) > 0.0005; }),
         tape: houseAg.tape,
         asof: houseAg.asof || (house && house.asof) || ""
       });
