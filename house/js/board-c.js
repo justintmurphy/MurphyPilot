@@ -163,7 +163,7 @@ function tidyFidAccountLabel(name) {
 function fidelityAccountCard(a, i) {
   var names = a.names || [];
   var held = names.reduce(function (sum, n) { return sum + (Number(n.value) || 0); }, 0);
-  var equity = a.equity != null ? Number(a.equity) : (held + (Number(a.cash) || 0));
+  var equity = a.equity != null ? Number(a.equity) : (a.endingBalance != null ? Number(a.endingBalance) : (held + (Number(a.cash) || 0)));
   var cash = a.cash != null ? Number(a.cash) : Math.max(0, equity - held);
   var rawName = a.label || a.name || ("Account " + (i + 1));
   var id = a.id || slugId(rawName + "-" + (a.suffix || i));
