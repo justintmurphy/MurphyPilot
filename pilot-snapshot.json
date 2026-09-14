@@ -1,12 +1,12 @@
 {
-  "asof": "2026-09-14 19:37 ET",
+  "asof": "2026-09-14 19:41 ET",
   "account": "Agentic",
-  "equity": 323.57,
-  "equity_value": 292.81,
+  "equity": 332.88,
+  "equity_value": 302.12,
   "cash": 30.76,
   "buying_power": 30.76,
-  "pending_deposits": 50.0,
-  "invested_pct": 90.49,
+  "pending_deposits": 0,
+  "invested_pct": 90.76,
   "slots": 1,
   "open_orders": 0,
   "names": [
@@ -15,19 +15,21 @@
       "qty": 14.0,
       "avg": 20.9,
       "avg_cost": 20.9,
+      "last": 21.58,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
         "floor_pct": -5,
-        "flatten_pct": -10
+        "flatten_pct": -10,
+        "stall_day2_miss_pct": 5
       },
       "stop_hit": null
     }
   ],
   "eye": {
-    "checked_et": "2026-09-14 19:37 ET",
-    "status": "forge-bridge",
-    "note": "Bridged from house accounts.agentic (pilot was empty shell since 2026-09-11). Full Grok House/pilot print still needed."
+    "checked_et": "2026-09-14 19:41 ET",
+    "status": "ok",
+    "note": "Mechanical risk clear. GME 14 @20.90 last~21.58. No idle deploy. PDT ok."
   },
-  "source": "Forge bridge from house e0bead0 agentic GME \u2014 Pilot GO Marlowe-page empty fix 2026-09-14"
+  "source": "Agentic fn: snapshot via Robinhood 2026-09-14"
 }
