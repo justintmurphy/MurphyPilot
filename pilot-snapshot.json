@@ -1,19 +1,33 @@
 {
-  "asof": "2026-09-11 09:24 CDT",
+  "asof": "2026-09-14 19:37 ET",
   "account": "Agentic",
-  "equity": 323.36,
-  "equity_value": 0,
-  "cash": 323.36,
-  "buying_power": 323.36,
-  "pending_deposits": 50,
-  "invested_pct": 0,
-  "slots": 3,
+  "equity": 323.57,
+  "equity_value": 292.81,
+  "cash": 30.76,
+  "buying_power": 30.76,
+  "pending_deposits": 50.0,
+  "invested_pct": 90.49,
+  "slots": 1,
   "open_orders": 0,
-  "names": [],
-  "exits": [],
+  "names": [
+    {
+      "symbol": "GME",
+      "qty": 14.0,
+      "avg": 20.9,
+      "avg_cost": 20.9,
+      "account": "agentic",
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      },
+      "stop_hit": null
+    }
+  ],
   "eye": {
-    "checked_et": "2026-09-11 09:24 CDT",
-    "status": "ok",
-    "actions": "flat; no open positions; no mechanical sells; idle cash held; pending deposit 50"
-  }
+    "checked_et": "2026-09-14 19:37 ET",
+    "status": "forge-bridge",
+    "note": "Bridged from house accounts.agentic (pilot was empty shell since 2026-09-11). Full Grok House/pilot print still needed."
+  },
+  "source": "Forge bridge from house e0bead0 agentic GME \u2014 Pilot GO Marlowe-page empty fix 2026-09-14"
 }
