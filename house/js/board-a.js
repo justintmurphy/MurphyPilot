@@ -138,7 +138,27 @@
   function merge(house, pilot) {
     var out = JSON.parse(JSON.stringify(house || { accounts: {}, combined: {}, tape: {} }));
     if (!out.accounts) out.accounts = {};
-    out.accounts.agentic = agenticBook(pilot);
+    /* Prefer pilot when it has names; if pilot names empty but House agentic has qty>0, use House (stale-pilot harden). */
+    var pilotNames = (pilot && pilot.names) || [];
+    var houseAg = house && house.accounts && house.accounts.agentic;
+    var houseHasQty = !!(houseAg && (houseAg.names || []).some(function (n) { return (Number(n.qty) || 0) > 0.0005; }));
+    if (!pilotNames.length && houseHasQty) {
+      out.accounts.agentic = agenticBook({
+        equity: houseAg.equity,
+        equity_value: houseAg.equity_value,
+        cash: houseAg.cash,
+        buying_power: houseAg.buying_power,
+        pending_deposits: houseAg.pending_deposits,
+        invested_pct: houseAg.invested_pct,
+        open_orders: houseAg.open_orders,
+        slots: houseAg.slots,
+        names: houseAg.names,
+        tape: houseAg.tape,
+        asof: houseAg.asof || (house && house.asof) || ""
+      });
+    } else {
+      out.accounts.agentic = agenticBook(pilot);
+    }
     var eq = 0, cash = 0, bp = 0, pend = 0, ev = 0, cv = 0, orders = 0, names = [];
     IDS.forEach(function (id) {
       var b = out.accounts[id] || { names: [] };
