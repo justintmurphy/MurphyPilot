@@ -1,7 +1,7 @@
 {
   "asof": "2026-09-13",
   "source": "Truthifi",
-  "note": "Holdings EOD 2026-09-13. Scanned 2026-09-14 13:13 ET. Fidelity-only scan; Voya left untouched. Cash sweeps counted as cash. ESPP book empty. RSU holds 2 BNY. names[] use full Truthifi securityName; accounts[] suffix last-4.",
+  "note": "Holdings EOD 2026-09-13. Scanned 2026-09-14 16:10 ET. Both links complete. Cash sweeps counted as cash. ESPP book empty. RSU holds 2 BNY. names[] use full Truthifi securityName; accounts[] suffix last-4.",
   "accounts": {
     "fidelity": {
       "id": "fidelity",
@@ -60,22 +60,22 @@
       "id": "voya",
       "label": "Voya",
       "source": "Truthifi",
-      "asof": "2026-09-10",
-      "equity": 61484.37,
-      "equity_value": 61484.37,
+      "asof": "2026-09-13",
+      "equity": 61747.72,
+      "equity_value": 61747.72,
       "cash": 0.0,
       "buying_power": 0.0,
       "pending_deposits": 0,
       "invested_pct": 100.0,
       "open_orders": 0,
       "names": [
-        {"symbol": "Core Plus Bond", "name": "BNY 401(k) Plan Core Plus Bond Fund", "kind": "equity", "qty": 241.916, "last": 18.476, "value": 4469.682, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
-        {"symbol": "Aggregate Bond Index", "name": "BNY 401(k) Plan Aggregate Bond Index Fund", "kind": "equity", "qty": 21.246, "last": 270.11, "value": 5738.838, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
-        {"symbol": "Large Cap Stock Index", "name": "BNY 401(k) Plan Large Cap Stock Index Fund", "kind": "equity", "qty": 8.516, "last": 2471.99, "value": 21050.478, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
-        {"symbol": "Small-Mid Cap Stock Index", "name": "BNY 401(k) Plan Small-Mid Cap Stock Index Fund", "kind": "equity", "qty": 8.429, "last": 999.98, "value": 8428.631, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
-        {"symbol": "Intl ACWI Ex-U.S. Index", "name": "BNY 401(k) Plan Intl ACWI Ex-U.S. Index Fund", "kind": "equity", "qty": 35.352, "last": 501.96, "value": 17745.541, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
-        {"symbol": "Large Cap Value Equity", "name": "BNY 401(k) Plan Large Cap Value Equity Fund", "kind": "equity", "qty": 31.361, "last": 102.032, "value": 3199.797, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
-        {"symbol": "International Growth Equity", "name": "BNY 401(k) Plan International Growth Equity Fund", "kind": "equity", "qty": 16.391, "last": 51.944, "value": 851.401, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]}
+        {"symbol": "Core Plus Bond", "name": "BNY 401(k) Plan Core Plus Bond Fund", "kind": "equity", "qty": 241.916, "last": 18.442, "value": 4461.37, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
+        {"symbol": "Aggregate Bond Index", "name": "BNY 401(k) Plan Aggregate Bond Index Fund", "kind": "equity", "qty": 21.246, "last": 269.79, "value": 5732.039, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
+        {"symbol": "Large Cap Stock Index", "name": "BNY 401(k) Plan Large Cap Stock Index Fund", "kind": "equity", "qty": 8.516, "last": 2493.35, "value": 21232.371, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
+        {"symbol": "Small-Mid Cap Stock Index", "name": "BNY 401(k) Plan Small-Mid Cap Stock Index Fund", "kind": "equity", "qty": 8.429, "last": 1006.99, "value": 8487.717, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
+        {"symbol": "Intl ACWI Ex-U.S. Index", "name": "BNY 401(k) Plan Intl ACWI Ex-U.S. Index Fund", "kind": "equity", "qty": 35.352, "last": 502.32, "value": 17758.268, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
+        {"symbol": "Large Cap Value Equity", "name": "BNY 401(k) Plan Large Cap Value Equity Fund", "kind": "equity", "qty": 31.361, "last": 102.789, "value": 3223.527, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]},
+        {"symbol": "International Growth Equity", "name": "BNY 401(k) Plan International Growth Equity Fund", "kind": "equity", "qty": 16.391, "last": 52.006, "value": 852.429, "cost": null, "sleeve": "401k", "account": "voya", "accounts": ["voya"]}
       ]
     }
   },
@@ -86,17 +86,17 @@
     "fidelity_trad": {"id": "fidelity_trad", "label": "Trad", "asof": "2026-09-13", "equity": 105.62, "cash": 0.59},
     "fidelity_espp": {"id": "fidelity_espp", "label": "ESPP", "asof": "2026-09-13", "equity": 0.0, "cash": 0.0},
     "fidelity_rsu": {"id": "fidelity_rsu", "label": "RSU", "asof": "2026-09-13", "equity": 325.32, "cash": 0.0},
-    "voya_401k": {"id": "voya_401k", "label": "401k", "asof": "2026-09-10", "equity": 61484.37, "cash": 0.0}
+    "voya_401k": {"id": "voya_401k", "label": "401k", "asof": "2026-09-13", "equity": 61747.72, "cash": 0.0}
   },
-  "scanned_at": "2026-09-14 13:13 ET",
+  "scanned_at": "2026-09-14 16:10 ET",
   "holdings_asof": "2026-09-13",
   "overall": {
-    "equity": 67683.85,
+    "equity": 67947.20,
     "live_equity": 3080.18,
-    "custodial_equity": 64603.67,
-    "asof": "2026-09-14T13:13:00-04:00",
+    "custodial_equity": 64867.02,
+    "asof": "2026-09-14T16:00:00-04:00",
     "holdings_asof": "2026-09-13",
-    "live_asof": "2026-09-12T17:20:38-04:00"
+    "live_asof": "2026-09-11T17:20:38-04:00"
   },
   "tape": {
     "overall": [
@@ -108,7 +108,8 @@
       {"t": "2026-09-10T16:00:00-04:00", "dtg": "101600R SEP 26", "equity": 68036.51, "live": 2997.68, "custodial": 65038.83},
       {"t": "2026-09-11T16:00:00-04:00", "dtg": "111600R SEP 26", "equity": 67683.85, "live": 3080.18, "custodial": 64603.67},
       {"t": "2026-09-12T16:00:00-04:00", "dtg": "121600R SEP 26", "equity": 67683.85, "live": 3080.18, "custodial": 64603.67},
-      {"t": "2026-09-13T16:00:00-04:00", "dtg": "131600R SEP 26", "equity": 67683.85, "live": 3080.18, "custodial": 64603.67}
+      {"t": "2026-09-13T16:00:00-04:00", "dtg": "131600R SEP 26", "equity": 67683.85, "live": 3080.18, "custodial": 64603.67},
+      {"t": "2026-09-14T16:00:00-04:00", "dtg": "141600R SEP 26", "equity": 67947.20, "live": 3080.18, "custodial": 64867.02}
     ]
   }
 }
