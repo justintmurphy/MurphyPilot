@@ -252,7 +252,8 @@ function collapseHouseNames(list) {
   /* Owner cash into Agentic. Self-pay strip only — Day/Week/Month chips stay raw equity Δ. */
   var AGENTIC_OWNER_DEPOSITS = [
     { date: "2026-09-08", amount: 100 },
-    { date: "2026-09-11", amount: 50 }
+    { date: "2026-09-11", amount: 50 },
+    { date: "2026-09-15", amount: 100 }
   ];
   function ownerDepositsInYm(ym) {
     ym = String(ym || "");
