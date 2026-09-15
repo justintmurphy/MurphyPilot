@@ -1,1 +1,163 @@
-{"asof":"2026-09-15T15:55:00-04:00","brand":"Murphy House","note":"House snapshot ticker. Data only. Open orders 0. Pending deposits are a label only (already inside equity). Books: Individual · Auto-Grok · Joint · Agentic/Marlowe. Suffix last-4 only.","accounts":{"individual":{"id":"individual","label":"Individual","suffix":"8723","equity":699.75,"equity_value":508.00,"crypto_value":191.61,"cash":0.14,"buying_power":0.14,"pending_deposits":0.0,"invested_pct":99.98,"open_orders":0,"names":[]},"auto_grok":{"id":"auto_grok","label":"Auto-Grok","suffix":"6577","equity":1076.96,"equity_value":1076.63,"crypto_value":0.0,"cash":0.33,"buying_power":0.33,"pending_deposits":0.0,"open_orders":0,"names":[],"invested_pct":99.97},"joint":{"id":"joint","label":"Joint","suffix":"4446","equity":954.42,"equity_value":952.68,"crypto_value":0.0,"cash":1.74,"buying_power":1.74,"pending_deposits":0.0,"open_orders":0,"names":[],"invested_pct":99.82},"agentic":{"id":"agentic","label":"Marlowe","suffix":"3794","equity":428.70,"equity_value":414.10,"crypto_value":0.0,"cash":14.60,"buying_power":14.60,"pending_deposits":100.0,"open_orders":0,"names":[{"symbol":"GME","name":"GameStop","qty":14.0,"avg":20.90,"last":21.25,"value":297.52,"pnl_pct":1.67,"account":"agentic"},{"symbol":"ONDS","name":"Ondas Holdings","qty":16.0,"avg":7.26,"last":7.28,"value":116.48,"pnl_pct":0.28,"account":"agentic"},{"symbol":"KTOS","name":"Kratos Defense","qty":0,"avg":0.0,"last":47.70,"value":0.0,"pnl_pct":0.0,"account":"agentic"},{"symbol":"RKLB","name":"Rocket Lab","qty":0,"avg":65.89,"last":62.57,"value":0.0,"pnl_pct":-5.04,"account":"agentic"}],"slots":2,"source":"RH live Agentic/Marlowe","invested_pct":96.59}},"combined":{"equity":3159.83,"equity_value":2951.41,"crypto_value":191.61,"cash":16.81,"buying_power":16.81,"pending_deposits":100.0,"invested_pct":95.66,"open_orders":0,"books":[{"id":"individual","label":"Individual","suffix":"8723","equity":699.75,"cash":0.14,"buying_power":0.14,"pending_deposits":0.0,"invested_pct":99.98,"names":0},{"id":"auto_grok","label":"Auto-Grok","suffix":"6577","equity":1076.96,"cash":0.33,"buying_power":0.33,"pending_deposits":0.0,"invested_pct":99.97,"names":0},{"id":"joint","label":"Joint","suffix":"4446","equity":954.42,"cash":1.74,"buying_power":1.74,"pending_deposits":0.0,"invested_pct":99.82,"names":0},{"id":"agentic","label":"Marlowe","suffix":"3794","equity":428.70,"cash":14.60,"buying_power":14.60,"pending_deposits":100.0,"invested_pct":96.59,"names":4}],"names":[]}}
+{
+  "asof": "2026-09-15T11:56:00-04:00",
+  "brand": "Murphy House",
+  "note": "House snapshot ticker. Data only. Open orders 0. Pending deposits are a label only (already inside equity). Books: Individual · Auto-Grok · Joint · Agentic/Marlowe. Suffix last-4 only.",
+  "accounts": {
+    "individual": {
+      "id": "individual",
+      "label": "Individual",
+      "suffix": "8723",
+      "equity": 700.31,
+      "equity_value": 508.21,
+      "crypto_value": 191.96,
+      "cash": 0.14,
+      "buying_power": 0.14,
+      "pending_deposits": 0.0,
+      "invested_pct": 99.98,
+      "open_orders": 0,
+      "names": []
+    },
+    "auto_grok": {
+      "id": "auto_grok",
+      "label": "Auto-Grok",
+      "suffix": "6577",
+      "equity": 1077.85,
+      "equity_value": 1077.52,
+      "crypto_value": 0.0,
+      "cash": 0.33,
+      "buying_power": 0.33,
+      "pending_deposits": 0.0,
+      "open_orders": 0,
+      "names": [],
+      "invested_pct": 99.97
+    },
+    "joint": {
+      "id": "joint",
+      "label": "Joint",
+      "suffix": "4446",
+      "equity": 955.53,
+      "equity_value": 953.79,
+      "crypto_value": 0.0,
+      "cash": 1.74,
+      "buying_power": 1.74,
+      "pending_deposits": 0.0,
+      "open_orders": 0,
+      "names": [],
+      "invested_pct": 99.82
+    },
+    "agentic": {
+      "id": "agentic",
+      "label": "Marlowe",
+      "suffix": "3794",
+      "equity": 429.28,
+      "equity_value": 414.68,
+      "crypto_value": 0.0,
+      "cash": 14.6,
+      "buying_power": 14.6,
+      "pending_deposits": 100.0,
+      "open_orders": 0,
+      "names": [
+        {
+          "symbol": "GME",
+          "name": "GameStop",
+          "qty": 14.0,
+          "avg": 20.9,
+          "last": 21.26,
+          "value": 297.64,
+          "pnl_pct": 1.72,
+          "account": "agentic"
+        },
+        {
+          "symbol": "ONDS",
+          "name": "Ondas Holdings",
+          "qty": 16.0,
+          "avg": 7.26,
+          "last": 7.3199,
+          "value": 117.12,
+          "pnl_pct": 0.83,
+          "account": "agentic"
+        },
+        {
+          "symbol": "KTOS",
+          "name": "Kratos Defense",
+          "qty": 0,
+          "avg": 0.0,
+          "last": 47.71,
+          "value": 0.0,
+          "pnl_pct": 0.0,
+          "account": "agentic"
+        },
+        {
+          "symbol": "RKLB",
+          "name": "Rocket Lab",
+          "qty": 0,
+          "avg": 65.89,
+          "last": 62.65,
+          "value": 0.0,
+          "pnl_pct": -4.92,
+          "account": "agentic"
+        }
+      ],
+      "slots": 2,
+      "source": "RH live Agentic/Marlowe",
+      "invested_pct": 96.6
+    }
+  },
+  "combined": {
+    "equity": 3162.97,
+    "equity_value": 2954.2,
+    "crypto_value": 191.96,
+    "cash": 16.81,
+    "buying_power": 16.81,
+    "pending_deposits": 100.0,
+    "invested_pct": 99.47,
+    "open_orders": 0,
+    "books": [
+      {
+        "id": "individual",
+        "label": "Individual",
+        "suffix": "8723",
+        "equity": 700.31,
+        "cash": 0.14,
+        "buying_power": 0.14,
+        "pending_deposits": 0.0,
+        "invested_pct": 99.98,
+        "names": 0
+      },
+      {
+        "id": "auto_grok",
+        "label": "Auto-Grok",
+        "suffix": "6577",
+        "equity": 1077.85,
+        "cash": 0.33,
+        "buying_power": 0.33,
+        "pending_deposits": 0.0,
+        "invested_pct": 99.97,
+        "names": 0
+      },
+      {
+        "id": "joint",
+        "label": "Joint",
+        "suffix": "4446",
+        "equity": 955.53,
+        "cash": 1.74,
+        "buying_power": 1.74,
+        "pending_deposits": 0.0,
+        "invested_pct": 99.82,
+        "names": 0
+      },
+      {
+        "id": "agentic",
+        "label": "Marlowe",
+        "suffix": "3794",
+        "equity": 429.28,
+        "cash": 14.6,
+        "buying_power": 14.6,
+        "pending_deposits": 100.0,
+        "invested_pct": 96.6,
+        "names": 4
+      }
+    ],
+    "names": []
+  }
+}
