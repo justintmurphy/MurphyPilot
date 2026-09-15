@@ -133,6 +133,24 @@ header .header-end { grid-area: end; margin-left: 0; }
   z-index: 1;
   background: var(--paper);
 }
+@media (max-width: 720px) {
+  .book-scroll th:first-child,
+  .book-scroll td.name-cell {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--paper);
+  }
+  .book-scroll thead th:first-child {
+    z-index: 3;
+  }
+}
+/* Dig-in book switcher sticks while scrolling the book */
+.book-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
 #clock .d.asof-stale { color: var(--stop); opacity: 1; }
 .acct-grid { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 720px) {
@@ -254,4 +272,16 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
   .overall-strip .ov-hero b { font-size: 28px; }
   .overall-strip .ov-chip b { font-size: 10px; }
   .overall-strip .ov-chip i { font-size: 9px; }
+}
+@media (max-width: 390px) {
+  .overall-strip .ov-chips {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .book-nav-chips {
+    gap: 4px;
+  }
+  button.book-chip {
+    font-size: 9.5px;
+    padding: 4px 7px;
+  }
 }
