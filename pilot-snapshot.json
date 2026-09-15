@@ -1,13 +1,13 @@
 {
-  "asof": "2026-09-15 11:36 ET",
+  "asof": "2026-09-15 11:55 ET",
   "account": "Agentic",
-  "equity": 428.48,
-  "equity_value": 297.72,
-  "cash": 130.76,
-  "buying_power": 130.76,
+  "equity": 428.64,
+  "equity_value": 414.04,
+  "cash": 14.6,
+  "buying_power": 14.6,
   "pending_deposits": 100.0,
-  "invested_pct": 69.48,
-  "slots": 1,
+  "invested_pct": 96.59,
+  "slots": 2,
   "open_orders": 0,
   "names": [
     {
@@ -15,9 +15,25 @@
       "qty": 14.0,
       "avg": 20.9,
       "avg_cost": 20.9,
-      "last": 21.265,
-      "value": 297.71,
-      "pnl_pct": 1.75,
+      "last": 21.2513,
+      "value": 297.52,
+      "pnl_pct": 1.68,
+      "account": "agentic",
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      },
+      "stop_hit": null
+    },
+    {
+      "symbol": "ONDS",
+      "qty": 16.0,
+      "avg": 7.26,
+      "avg_cost": 7.26,
+      "last": 7.285,
+      "value": 116.56,
+      "pnl_pct": 0.34,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -28,9 +44,9 @@
     }
   ],
   "eye": {
-    "checked_et": "2026-09-15 11:36 ET",
+    "checked_et": "2026-09-15 11:55 ET",
     "status": "live",
-    "note": "Bridged from house b45f195 after Justin +$100. HOLD GME 14. cash/BP 130.76; pending_deposits 100."
+    "note": "HOLD GME 14 + ONDS 16. Mechanical risk clear (last > cost×0.94/0.95/0.90). cash/BP 14.6; pending_deposits 100. No idle deploy. PDT ok."
   },
-  "source": "RH live via house/house-snapshot.json b45f195 2026-09-15T11:36:05-04:00"
+  "source": "RH live Agentic/Marlowe 954263794"
 }
