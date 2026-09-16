@@ -69,6 +69,11 @@ function packHtml() {
 }
 function injectPack() {
   try {
+    if (typeof tab !== "undefined" && tab === "agentic") {
+      var stale = document.getElementById("overnightPack");
+      if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
+      return;
+    }
     var desk = document.getElementById("desk");
     if (!desk || !PACK) return;
     var html = packHtml();

@@ -79,7 +79,7 @@
     setText("kCash", money(j.cash));
     setText("kPend", money(j.pending_deposits));
     setText("kOrd", j.open_orders!=null ? String(j.open_orders) : "0");
-    setText("bookNote", "Snapshot "+(j.asof||"")+" · Agentic only · no account numbers");
+    setText("bookNote", "Snapshot "+(j.asof||"")+" · Claude (Agentic book) · no account numbers");
     var names=j.names||[];
     var tb=document.getElementById("bookRows");
     if(tb){
@@ -128,7 +128,7 @@
       }).join("");
     }
     var buy=document.getElementById("buyNote");
-    if(buy) buy.innerHTML="<li>Self-pay $58/mo (to_$58). Prefer no new cash. Marlowe free reign on Agentic; defaults changeable (slots/stall/stops).</li>";
+    if(buy) buy.innerHTML="<li>Self-pay $58/mo (to_$58). Prefer no new cash. Claude free reign on Agentic (display name; was Marlowe); defaults changeable (slots/stall/stops).</li>";
     var track=document.getElementById("tickerTrack");
     if(track){
       var bits=names.map(function(n){

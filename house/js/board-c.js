@@ -415,7 +415,10 @@ overlayChartCard = function (id, mode) {
   var last = vals.length ? vals[vals.length - 1] : Number((book || {}).equity) || 0;
   if (!prints.length) prints = [{ t: "", equity: last }];
   var eod = (id === "voya" || (mode === "all" && id === "combined"));
-  var label = (mode === "all" && id === "combined") ? "Overall" : (LABEL[id] || (book && book.label) || id);
+  var label;
+  if (mode === "all" && id === "combined") label = "Overall";
+  else if (typeof bookDisplayLabel === "function" && id && id !== "combined" && id !== "robinhood") label = bookDisplayLabel(id, book || {});
+  else label = (LABEL[id] || (book && book.label) || id);
   return '<button type="button" class="ov-book ov-chart" data-tab="' + id + '">' +
     '<div class="k">' + esc(label) + " \u00b7 " + (eod ? "EOD" : "live") + "</div><b>" + money(last) + "</b>" +
     '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div></button>";
@@ -423,7 +426,7 @@ overlayChartCard = function (id, mode) {
 overlayHtml = function () {
   if (!snap) return "";
   if (tab === "robinhood") {
-    return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Marlowe, Individual, Auto, and Joint.");
+    return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Claude, Individual, Auto, and Joint.");
   }
   return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood + Fidelity books", "Robinhood books plus each Fidelity sleeve. Voya is EOD-only.") +
     overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every Robinhood and Fidelity book. Only Voya is EOD.");
@@ -647,7 +650,8 @@ paint = function () {
   var foot = document.querySelector(".desk-foot");
   if (foot) {
     var fid = (snap.accounts && snap.accounts.fidelity) || {};
-    if (tab === "robinhood" || RH_IDS.indexOf(tab) >= 0) foot.textContent = "Murphy Pilot \u00b7 Robinhood live books only.";
+    if (tab === "agentic") foot.textContent = "Murphy Pilot \u00b7 Claude (was Marlowe) \u00b7 growth and current status \u00b7 feed id agentic.";
+    else if (tab === "robinhood" || RH_IDS.indexOf(tab) >= 0) foot.textContent = "Murphy Pilot \u00b7 Robinhood live books only.";
     else if (tab === "fidelity" || isFidSleeveTab(tab)) {
       foot.textContent = fid.live
         ? "Murphy Pilot \u00b7 Fidelity live overlay on Truthifi books."
