@@ -32,7 +32,7 @@ Standing how-to-read (Truthifi KEEP / HARD NOs, Fid 2× + Voya Tue/Thu cadence, 
 | `Murphy_Pilot_Setup.html` | Setup Guide v5.2 |
 | `Murphy_Pilot_Desk.html` | Desk chrome / docs entry |
 | `house/index.html` | House desk |
-| `house/house.js` | House board |
+| `house/js/board-*.js` | House board |
 | `house/house-snapshot.json` | Latest House print |
 | `house/truthifi-snapshot.json` | Truthifi custodial SOV (Fid + Voya) |
 

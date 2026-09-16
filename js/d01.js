@@ -176,58 +176,6 @@ function busDaysFrom(fillISO, now){
   return d;
 }
 function paintThresholds(s, parsed){
-  const now = nyNow();
   const tb = document.getElementById("thrRows");
   if (!tb) return;
-  tb.innerHTML = "";
-  parsed.forEach(n => {
-    const card = document.createElement("div");
-    card.className = "thr";
-    if (!n.cost){
-      card.innerHTML = "<div class='thr-head'><b>"+n.symbol+"</b></div><p class='hint'>Need average cost to score thresholds.</p>";
-      tb.appendChild(card);
-      return;
-    }
-    const last = n.last;
-    const vs = last ? ((last/n.cost - 1)*100) : null;
-    const stop5 = n.cost * 0.95; const hard6 = n.cost * 0.94;
-    const flat = n.cost * 0.90;
-    const stall = n.cost * 1.05;
-    const days = busDaysFrom(n.fill, now);
-    const hours = n.fill ? (now - new Date(n.fill+"T09:45:00"))/36e5 : null;
-    const lockOn = hours != null && hours < 12 && vs != null && vs >= 0;
-    const trailOn = hours != null && hours >= 12 && vs != null && vs >= 0;
-    const trailLine = last ? last * 0.85 : null;
-    const stallDate = n.stall || "period 1";
-    const leftBd = days!=null && days<2 ? (2-days) : null;
-    function vsLine(price){
-      if (last==null || price==null) return "—";
-      const d = last - price;
-      if (Math.abs(d) < 0.01) return "on the line";
-      if (d > 0) return usd(d)+" above";
-      return usd(-d)+" through";
-    }
-    let verdict = "Hold. No sell line is due.";
-    let statusCls = "tone-flat";
-    if (last && last <= flat) {
-      verdict = "Sell now. Through the −10% flatten.";
-      statusCls = "tone-stop"; card.classList.add("attn");
-    } else if (last && last <= hard6) {
-      verdict = "Sell now. Through the −6% hard cap.";
-      statusCls = "tone-stop"; card.classList.add("attn");
-    } else if (last && last <= stop5) {
-      verdict = "Sell now. Through the −5% floor.";
-      statusCls = "tone-stop"; card.classList.add("attn");
-    } else if (days != null && days >= 2 && last && last < stall && vs >= 0) {
-      verdict = "Sell now. Missed the +5% stall test.";
-      statusCls = "tone-stop"; card.classList.add("attn");
-    } else if (lockOn) {
-      verdict = "Hold. First 12h and green — will not sell (unless −6%).";
-      statusCls = "tone-go";
-    } else if (trailOn) {
-      verdict = "Hold. Trail on — sell if −15% from high (~"+(trailLine?usd(trailLine):"—")+").";
-      statusCls = "tone-go";
-    } else if (vs != null && vs < 0) {
-      verdict = "Hold unless −5% floor. Last is below cost.";
-      statusCls = "tone-stop";
-    } else if (leftBd != null) {
+}
