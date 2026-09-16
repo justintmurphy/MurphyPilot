@@ -650,7 +650,7 @@ paint = function () {
   var foot = document.querySelector(".desk-foot");
   if (foot) {
     var fid = (snap.accounts && snap.accounts.fidelity) || {};
-    if (tab === "agentic") foot.textContent = "Murphy Pilot \u00b7 Agentic / Claude only \u00b7 growth and current status.";
+    if (tab === "agentic") foot.textContent = "Murphy Pilot \u00b7 Agentic / Claude only \u00b7 equity, holdings, asof.";
     else if (tab === "robinhood" || RH_IDS.indexOf(tab) >= 0) foot.textContent = "Murphy Pilot \u00b7 Robinhood live books only.";
     else if (tab === "fidelity" || isFidSleeveTab(tab)) {
       foot.textContent = fid.live
