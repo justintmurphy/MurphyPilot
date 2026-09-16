@@ -38,12 +38,17 @@
   <div class="card span">
     <div class="kpi">
       <div><span>Equity</span><b id="kEquity">—</b></div>
+      <div><span>Invested</span><b id="kInv">—</b></div>
+      <div><span>Cash</span><b id="kCash">—</b></div>
+      <div><span>Pending (already in)</span><b id="kPend">—</b></div>
+    </div>
+    <div class="kpi">
       <div><span>Snapshot</span><b id="kSnap" style="font-size:13px">local</b></div>
     </div>
     <p class="hint" id="bookNote"></p>
   </div>
   <h2>Book</h2>
-  <div class="card"><table><thead><tr><th>Name</th><th>Avg cost</th><th>Qty</th><th>Last</th><th>Vs cost</th></tr></thead><tbody id="bookRows"></tbody></table></div>
+  <div class="card"><table><thead><tr><th>Name</th><th>Avg cost</th><th>First fill</th><th>Vs cost</th></tr></thead><tbody id="bookRows"></tbody></table></div>
   <h2>Mix</h2>
   <div class="card" id="mixCard"></div>
   <h2>Since held</h2>
@@ -69,7 +74,7 @@
       <button type="button" id="jsonBtn">Load snapshot JSON</button>
     </div>
   </details>
-  <footer>Murphy Pilot Desk · Agentic / Claude only · equity, holdings, asof. Does not log into Robinhood.</footer>
+  <footer>Murphy Pilot Desk · Agentic / Claude only · compound equity. Does not log into Robinhood.</footer>
 </main>
 <script src="desk.js"></script>
 </body>

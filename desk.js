@@ -26,7 +26,10 @@
   function paintSnap(j){
     if(!j) return;
     setText("kEquity", money(j.equity));
-    setText("bookNote", "Snapshot "+(j.asof||"")+" · Claude (Agentic book) · equity, holdings, asof · no account numbers");
+    setText("kInv", j.invested_pct!=null ? Number(j.invested_pct).toFixed(1)+"%" : "—");
+    setText("kCash", money(j.cash));
+    setText("kPend", money(j.pending_deposits));
+    setText("bookNote", "Snapshot "+(j.asof||"")+" · Claude (Agentic book) · no account numbers");
     var names=j.names||[];
     var tb=document.getElementById("bookRows");
     if(tb){
@@ -37,7 +40,7 @@
         var tr=document.createElement("tr");
         var nm=(n.symbol||"")+(n.name?" · "+n.name:"");
         var url="https://duckduckgo.com/?q="+encodeURIComponent("!ducky "+((n.name&&n.symbol&&String(n.name).toUpperCase()!==String(n.symbol).toUpperCase())?(n.name+" "+n.symbol):(n.name||n.symbol||""))+" official website");
-        tr.innerHTML="<td><a class='name-link' href='"+url+"' target='_blank' rel='noopener noreferrer'>"+nm+"</a></td><td>"+(n.avg||"—")+"</td><td>"+(n.qty!=null?n.qty:"—")+"</td><td>"+(n.last||"—")+"</td><td>"+vs+"</td>";
+        tr.innerHTML="<td><a class='name-link' href='"+url+"' target='_blank' rel='noopener noreferrer'>"+nm+"</a></td><td>"+(n.avg||"—")+"</td><td>"+(n.first_fill||"—")+"</td><td>"+vs+"</td>";
         tb.appendChild(tr);
       });
     }
