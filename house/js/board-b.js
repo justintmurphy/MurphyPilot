@@ -379,6 +379,7 @@ function collapseHouseNames(list) {
     var liveNow = null;
     if (key === "combined" && snap.combined && snap.combined.live_equity != null) liveNow = Number(snap.combined.live_equity);
     else if (key === "robinhood" && snap.robinhood && snap.robinhood.equity != null) liveNow = Number(snap.robinhood.equity);
+    else if (snap.accounts && snap.accounts[key] && snap.accounts[key].equity != null) liveNow = Number(snap.accounts[key].equity);
     var last = (liveNow != null && isFinite(liveNow)) ? liveNow : (vals.length ? vals[vals.length - 1] : (book().equity || 0));
     if (!vals.length) vals = [last, last];
     var open = clickable ? ' data-open-books="1"' : "";
@@ -596,7 +597,7 @@ function collapseHouseNames(list) {
         return '<span class="' + cls + '">' + body + "</span>";
       }).join("");
     }
-    var html = (tab === "agentic") ? "" : nextAlertHtml();
+    var html = "";
     if (tab === "combined") {
       html += overallStripHtml();
       html += agenticSelfPayStripHtml({ clickable: true });
@@ -605,7 +606,6 @@ function collapseHouseNames(list) {
       html += tapeHtml("combined", "House", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
-      html += splitClockCal();
       html += overlayHtml();
     } else if (tab === "robinhood") {
       html += cardsHtml();
@@ -613,7 +613,6 @@ function collapseHouseNames(list) {
       html += tapeHtml("robinhood", "Robinhood", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
-      html += splitClockCal();
       html += overlayHtml();
     } else if (tab === "agentic") {
       html += tapeHtml("agentic", "Claude", false);
