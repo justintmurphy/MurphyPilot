@@ -1,13 +1,3 @@
-(function () {
-  if (typeof splitClockCal === "function") {
-    var prevSplit = splitClockCal;
-    splitClockCal = function () {
-      var html = prevSplit();
-      if (html.indexOf("overnightPack") < 0) html = '<div id="overnightPack"></div>' + html;
-      return html;
-    };
-  }
-})();
 var INDEXES = null;
 function paintIndexes(data) {
   if (!data) return;
@@ -69,23 +59,8 @@ function packHtml() {
 }
 function injectPack() {
   try {
-    var desk = document.getElementById("desk");
-    if (!desk || !PACK) return;
-    var html = packHtml();
-    var box = document.getElementById("overnightPack");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "overnightPack";
-    }
-    box.innerHTML = html;
-    if (box.parentNode) return;
-    var split = desk.querySelector(".split-two");
-    var clock = Array.from(desk.querySelectorAll("h2")).filter(function (h) {
-      return String(h.textContent || "").indexOf("Weekday clock") === 0;
-    })[0];
-    var anchor = split || clock;
-    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor);
-    else desk.appendChild(box);
+    var stale = document.getElementById("overnightPack");
+    if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
   } catch (err) {}
 }
 function loadIndexes() {

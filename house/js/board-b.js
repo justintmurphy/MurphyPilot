@@ -39,7 +39,7 @@ function bookDisplayLabel(id, book) {
     if (base === "Voya" || base === "Voya 401(k)") base = "401(k)";
   }
   if (id === "auto_grok" || base === "Auto-Grok") base = "Auto";
-  if (id === "agentic" || base === "Agentic") base = "Marlowe";
+  if (id === "agentic" || base === "Agentic" || base === "Marlowe") base = "Claude";
   var suffix = (book && book.suffix) ? String(book.suffix).replace(/\D/g, "").slice(-4) : "";
   if (suffix && String(base).indexOf(suffix) < 0) base = base + " ···" + suffix;
   if (typeof LABEL !== "undefined" && id) LABEL[id] = base;
@@ -248,95 +248,6 @@ function collapseHouseNames(list) {
       (d.delta > 0 ? "+" : "") + money(d.delta) + '</b><i class="tone-' + tone(d.delta) + '">' + pct(d.pct) + "</i></div>";
   }
 
-  var AGENTIC_SELF_PAY_FLOOR = 58;
-  /* Owner cash into Agentic. Self-pay strip only — Day/Week/Month chips stay raw equity Δ. */
-  var AGENTIC_OWNER_DEPOSITS = [
-    { date: "2026-09-08", amount: 100 },
-    { date: "2026-09-11", amount: 50 },
-    { date: "2026-09-15", amount: 100 }
-  ];
-  function ownerDepositsInYm(ym) {
-    ym = String(ym || "");
-    var sum = 0;
-    (AGENTIC_OWNER_DEPOSITS || []).forEach(function (row) {
-      if (!row) return;
-      if (String(row.date || "").slice(0, 7) !== ym) return;
-      var amt = Number(row.amount);
-      if (isFinite(amt)) sum += amt;
-    });
-    return sum;
-  }
-  function vsMonthStart(prints, currentEq) {
-    var rows = lastByDay(prints);
-    if (!rows.length) return null;
-    var lastDay = rows[rows.length - 1].day;
-    var ym = String(lastDay).slice(0, 7);
-    var first = null;
-    rows.forEach(function (row) {
-      if (String(row.day).slice(0, 7) === ym && !first) first = row;
-    });
-    if (!first) return null;
-    var cur = isFinite(Number(currentEq)) ? Number(currentEq) : rows[rows.length - 1].equity;
-    var delta = cur - first.equity;
-    return { delta: delta, pct: first.equity ? (delta / first.equity) * 100 : null, prior: first.equity, from: first.day, ym: ym };
-  }
-  function agenticMonthPnL(ag) {
-    ag = ag || (snap && snap.accounts && snap.accounts.agentic) || {};
-    var src = (snap && snap.tape && snap.tape.agentic) || [];
-    var prints = (typeof mergePrints === "function" ? mergePrints(src) : (src || []).map(function (raw) {
-      return typeof normPrint === "function" ? normPrint(raw) : raw;
-    }).filter(function (p) { return p && isFinite(Number(p.equity)); }));
-    var eq = Number(ag.equity);
-    if (!isFinite(eq) && prints.length) eq = Number(prints[prints.length - 1].equity);
-    var d = vsMonthStart(prints, eq);
-    if (!d) return d;
-    var deposits = ownerDepositsInYm(d.ym);
-    /* Self-pay P&L = calendar-month equity Δ − owner deposits in that ym. */
-    return {
-      delta: d.delta - deposits,
-      pct: d.prior ? ((d.delta - deposits) / d.prior) * 100 : null,
-      prior: d.prior,
-      from: d.from,
-      ym: d.ym,
-      deposits: deposits
-    };
-  }
-  function agenticSelfPayStripHtml(opts) {
-    opts = opts || {};
-    var ag = (snap && snap.accounts && snap.accounts.agentic) || {};
-    if ((Number(ag.equity) || 0) <= 0.004 && !(ag.names || []).length) return "";
-    var d = agenticMonthPnL(ag);
-    var floor = AGENTIC_SELF_PAY_FLOOR;
-    var delta = d ? d.delta : null;
-    var met = delta != null && delta >= floor;
-    var shortBy = delta == null ? null : Math.max(0, floor - delta);
-    var barPct = delta == null ? 0 : Math.max(0, Math.min(100, (delta / floor) * 100));
-    var pnlTone = delta == null ? "flat" : tone(delta);
-    var floorTone = delta == null ? "flat" : (met ? "go" : "stop");
-    var monthLab = d && d.ym ? (function () {
-      var parts = String(d.ym).split("-");
-      var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-      var mi = Number(parts[1]) - 1;
-      return (months[mi] || d.ym) + " P&L";
-    })() : "Month P&L";
-    var pnlHtml = delta == null ? "—" : ((delta > 0 ? "+" : "") + money(delta));
-    var floorHtml;
-    if (delta == null) floorHtml = "vs $" + floor + " floor";
-    else if (met) floorHtml = "met $" + floor + " floor";
-    else floorHtml = (shortBy > 0 ? money(shortBy) : "$0") + " to $" + floor;
-    var open = opts.clickable ? ' data-tab="agentic" role="button"' : "";
-    var cls = "card span selfpay-strip" + (opts.clickable ? " selfpay-open" : "");
-    return '<div class="' + cls + '"' + open + ">" +
-      '<div class="selfpay-row">' +
-      '<div class="selfpay-pnl"><span>Marlowe \u00b7 ' + monthLab + '</span><b class="tone-' + pnlTone + '">' + pnlHtml + "</b></div>" +
-      '<div class="selfpay-floor"><span>Self-pay</span><b class="tone-' + floorTone + '">' + (met ? "on track" : "short") + "</b>" +
-      '<small class="tone-' + floorTone + '">' + floorHtml + "</small></div>" +
-      "</div>" +
-      '<div class="selfpay-bar" aria-hidden="true"><i class="tone-' + floorTone + '" style="width:' + barPct.toFixed(0) + '%"></i></div>' +
-      '<p class="hint">Tape calendar-month equity \u0394 minus owner deposits \u00b7 deposits do not count toward floor \u00b7 trading P&amp;L vs $' + floor + "/mo \u00b7 no invented fills</p>" +
-      "</div>";
-  }
-
   function overallStripHtml() {
     var c = (snap && snap.combined) || {};
     var prints = dodTape("combined");
@@ -366,7 +277,8 @@ function collapseHouseNames(list) {
       "<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>" +
       "<div><span>Names</span><b>" + (b.names || []).length + "</b></div></div>" +
       '<p class="hint">' + (tab === "combined" ? "" : ("Cash " + money(b.cash) + " \u00b7 ")) + "pending already in " + money(b.pending_deposits) + " \u00b7 orders " + (b.open_orders || 0) +
-      (b.slots != null ? " \u00b7 slots " + b.slots : "") + "</p></div>";
+      (b.slots != null ? " \u00b7 slots " + b.slots : "") +
+      (b.asof || (snap && snap.asof) ? " \u00b7 asof " + esc(String(b.asof || snap.asof)) : "") + "</p></div>";
   }
 
   function tapeHtml(key, title, clickable) {
@@ -378,11 +290,12 @@ function collapseHouseNames(list) {
     var liveNow = null;
     if (key === "combined" && snap.combined && snap.combined.live_equity != null) liveNow = Number(snap.combined.live_equity);
     else if (key === "robinhood" && snap.robinhood && snap.robinhood.equity != null) liveNow = Number(snap.robinhood.equity);
+    else if (snap.accounts && snap.accounts[key] && snap.accounts[key].equity != null) liveNow = Number(snap.accounts[key].equity);
     var last = (liveNow != null && isFinite(liveNow)) ? liveNow : (vals.length ? vals[vals.length - 1] : (book().equity || 0));
     if (!vals.length) vals = [last, last];
     var open = clickable ? ' data-open-books="1"' : "";
     var hint;
-    if (clickable && key === "robinhood") hint = '<p class="hint tape-open-hint">Robinhood session only. Click for Marlowe / Individual / Auto / Joint charts.</p>';
+    if (clickable && key === "robinhood") hint = '<p class="hint tape-open-hint">Robinhood session only. Click for Claude / Individual / Auto / Joint charts.</p>';
     else if (clickable) hint = '<p class="hint tape-open-hint">Live Robinhood + Fidelity session. Voya is EOD. Click for live book charts.</p>';
     else hint = '<p class="hint">Day / week / month vs this book\u2019s last print.</p>';
     var liveTitle = title === "House" ? "Robinhood + Fidelity" : title;
@@ -528,7 +441,7 @@ function collapseHouseNames(list) {
     var last = vals.length ? vals[vals.length - 1] : Number(((id === "combined" ? snap.combined : id === "robinhood" ? snap.robinhood : snap.accounts[id]) || {}).equity) || 0;
     if (!prints.length) prints = [{ t: "", equity: last }];
     var eod = (id === "voya" || (mode === "all" && id === "combined"));
-    var label = (mode === "all" && id === "combined") ? "Overall" : (LABEL[id] || id);
+    var label = (mode === "all" && id === "combined") ? "Overall" : ((typeof bookDisplayLabel === "function" && id && id !== "combined") ? bookDisplayLabel(id, (snap.accounts && snap.accounts[id]) || {}) : (LABEL[id] || id));
     return '<button type="button" class="ov-book ov-chart" data-tab="' + id + '">' +
       '<div class="k">' + esc(label) + " \u00b7 " + (eod ? "EOD" : "live") + "</div><b>" + money(last) + "</b>" +
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div></button>";
@@ -546,7 +459,7 @@ function collapseHouseNames(list) {
   function overlayHtml() {
     if (!snap) return "";
     if (tab === "robinhood") {
-      return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Marlowe, Individual, Auto, and Joint.");
+      return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Claude, Individual, Auto, and Joint.");
     }
     return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood + Fidelity", "Session prints for Robinhood books and Fidelity. Voya is EOD-only.") +
       overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every book. Only Voya is EOD.");
@@ -554,17 +467,13 @@ function collapseHouseNames(list) {
 
   function agenticOnlyHtml() {
     var ag = snap.accounts.agentic || {};
-    return agenticSelfPayStripHtml({ clickable: false }) +
-      stateHtml(ag, "Marlowe") +
-      "<h2>Marlowe book</h2>" + tableHtml(ag.names, false, true) +
-      "<h2>Sell / buy thresholds</h2><div class=\"card span\"><ul class=\"buy-lines\">" +
-      "<li>Self-pay <b>$58/mo</b> trading P&amp;L only (ODDS <code>to_$58</code>) — deposits do not count toward the floor. Prefer no new cash — compound Agentic equity.</li>" +
-      "<li>Marlowe free reign on Agentic RH only; rails below are Marlowe defaults (changeable).</li>" +
-      "<li>Stall default: day 2 +5% from cost; later blocks +4% from survive-mark.</li>" +
-      "<li>Stop defaults: \u22125% / \u22126% / \u221210% \u00b7 slots floor(equity/$75) \u00b7 12h green \u00b7 24h rebuy.</li>" +
-      "</ul></div>" +
-      splitClockCal() +
-      '<p class="hint"><a href="agentic.html">Open the full Marlowe trading desk</a> for charts, pack links, and snapshot paste.</p>';
+    var asof = ag.asof || (snap && snap.asof) || "";
+    return "<h2>Claude</h2><div class=\"card span\"><div class=\"kpi\">" +
+      "<div><span>Equity</span><b>" + money(ag.equity) + "</b></div>" +
+      "</div>" +
+      '<p class="hint">' + (asof ? ("asof " + esc(String(asof)) + " \u00b7 ") : "") +
+      "Agentic Robinhood book labeled Claude (was Marlowe). Account id stays Agentic. Mail subjects still use <code>Agentic \u2026</code>. Equity, holdings, asof only.</p></div>" +
+      "<h2>Holdings</h2>" + tableHtml(ag.names, false, true);
   }
 
   function paint() {
@@ -601,16 +510,14 @@ function collapseHouseNames(list) {
         return '<span class="' + cls + '">' + body + "</span>";
       }).join("");
     }
-    var html = nextAlertHtml();
+    var html = "";
     if (tab === "combined") {
       html += overallStripHtml();
-      html += agenticSelfPayStripHtml({ clickable: true });
       html += cardsHtml();
       html += stateHtml(b, "House");
       html += tapeHtml("combined", "House", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
-      html += splitClockCal();
       html += overlayHtml();
     } else if (tab === "robinhood") {
       html += cardsHtml();
@@ -618,10 +525,8 @@ function collapseHouseNames(list) {
       html += tapeHtml("robinhood", "Robinhood", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
-      html += splitClockCal();
       html += overlayHtml();
     } else if (tab === "agentic") {
-      html += tapeHtml("agentic", "Marlowe", false);
       html += agenticOnlyHtml();
     } else {
       html += stateHtml(b, title);
@@ -630,7 +535,8 @@ function collapseHouseNames(list) {
       html += "<h2>Book</h2>" + tableHtml(b.names, false, false);
     }
     var footMsg = "Murphy Pilot \u00b7 Live = Robinhood + Fidelity. Voya is EOD.";
-    if (tab === "robinhood" || (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0)) footMsg = "Murphy Pilot \u00b7 Robinhood live books only.";
+    if (tab === "agentic") footMsg = "Murphy Pilot \u00b7 Agentic / Claude only \u00b7 equity, holdings, asof.";
+    else if (tab === "robinhood" || (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0)) footMsg = "Murphy Pilot \u00b7 Robinhood live books only.";
     else if (tab === "fidelity" || (typeof isFidSleeveTab === "function" ? isFidSleeveTab(tab) : /^fid-/.test(String(tab || "")))) {
       var fidB = (snap.accounts && snap.accounts.fidelity) || {};
       footMsg = fidB.live
