@@ -48,18 +48,9 @@ header .mark img,header .mark svg{width:52px;height:52px;display:block}
   <div class="card span">
     <div class="kpi">
       <div><span>Equity</span><b id="kEquity">—</b></div>
-      <div><span>Buying power</span><b id="kBp">—</b></div>
-      <div><span>Invested</span><b id="kInv">—</b></div>
-      <div><span>Slots</span><b id="kSlots">—</b></div>
-    </div>
-    <div class="kpi">
-      <div><span>Cash</span><b id="kCash">—</b></div>
-      <div><span>Pending (already in)</span><b id="kPend">—</b></div>
-      <div><span>Open orders</span><b id="kOrd">—</b></div>
       <div><span>Snapshot</span><b id="kSnap" style="font-size:13px">local</b></div>
     </div>
     <div class="fin" id="finCard"></div>
-    <p class="hint" id="pendHint">Pending deposits on this account are instant. They are already inside equity and buying power.</p>
     <p class="hint" id="bookNote"></p>
   </div>
   <div class="book-split">
@@ -100,15 +91,7 @@ header .mark img,header .mark svg{width:52px;height:52px;display:block}
       <button type="button" id="jsonBtn">Load snapshot JSON</button>
       <div class="row2">
         <div><label>Equity $</label><input id="fEquity"></div>
-        <div><label>Buying power $</label><input id="fBp"></div>
-      </div>
-      <div class="row2">
         <div><label>Cash $</label><input id="fCash"></div>
-        <div><label>Pending $</label><input id="fPend"></div>
-      </div>
-      <div class="row2">
-        <div><label>Invested %</label><input id="fInv"></div>
-        <div><label>HWM $</label><input id="fHwm"></div>
       </div>
       <label>Names</label>
       <textarea id="fNames"></textarea>

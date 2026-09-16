@@ -44,6 +44,7 @@ function paintPack(pack){
 function paintCal(){
   const now = nyNow();
   const el = document.getElementById("calCard");
+  if (!el) return;
   el.innerHTML = CAL.map(([d,t])=>{
     const gone = d < now.toISOString().slice(0,10);
     const today = d === now.toISOString().slice(0,10);

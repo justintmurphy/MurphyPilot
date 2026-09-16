@@ -37,13 +37,13 @@ function paintMix(s, parsed){
     '</details>';
 }
 function paintBook(s){
-  document.getElementById("kEquity").textContent = s.equity ? usd(s.equity) : "—";
-  document.getElementById("kBp").textContent = s.bp ? usd(s.bp) : "—";
-  document.getElementById("kInv").textContent = s.inv ? s.inv + (String(s.inv).includes("%")?"":"%") : "—";
-  document.getElementById("kCash").textContent = s.cash ? usd(s.cash) : "—";
-  document.getElementById("kPend").textContent = s.pending ? usd(s.pending) : "—";
-  document.getElementById("kOrd").textContent = s.orders != null && s.orders !== "" ? s.orders : "—";
-  document.getElementById("kSnap").textContent = (s.note && s.note.indexOf("Snapshot")===0) ? "email" : "local";
+  setText("kEquity", s.equity ? usd(s.equity) : "—");
+  setText("kBp", s.bp ? usd(s.bp) : "—");
+  setText("kInv", s.inv ? s.inv + (String(s.inv).includes("%")?"":"%") : "—");
+  setText("kCash", s.cash ? usd(s.cash) : "—");
+  setText("kPend", s.pending ? usd(s.pending) : "—");
+  setText("kOrd", s.orders != null && s.orders !== "" ? s.orders : "—");
+  setText("kSnap", (s.note && s.note.indexOf("Snapshot")===0) ? "email" : "local");
   const parsed = parseNames(s);
   const tb = document.getElementById("bookRows");
   tb.innerHTML = "";
@@ -60,12 +60,12 @@ function paintBook(s){
   const ord = parseFloat(String(s.orders).replace(/[^0-9.]/g,""));
   const slots = isFinite(eq) ? Math.floor(eq/75) : null;
   const used = parsed.filter(n=>n.symbol && n.symbol!=="—").length;
-  document.getElementById("kSlots").textContent = slots!=null ? String(slots) : "—";
-  document.getElementById("kSlots").className = (slots!=null && used>slots) ? "tone-stop" : (slots!=null && used<slots && isFinite(bp) && bp>=5 ? "tone-warn" : "");
-  document.getElementById("kInv").className = (isFinite(inv) && inv>=90) ? "tone-go" : (isFinite(inv) && inv<80 ? "tone-warn" : "");
-  document.getElementById("kOrd").className = (isFinite(ord) && ord>0) ? "tone-warn" : "";
-  document.getElementById("kPend").className = "";
-  document.getElementById("kBp").className = (used===0 && isFinite(bp) && bp>=40) ? "tone-warn" : "";
+  setText("kSlots", slots!=null ? String(slots) : "—");
+  setClass("kSlots", (slots!=null && used>slots) ? "tone-stop" : (slots!=null && used<slots && isFinite(bp) && bp>=5 ? "tone-warn" : ""));
+  setClass("kInv", (isFinite(inv) && inv>=90) ? "tone-go" : (isFinite(inv) && inv<80 ? "tone-warn" : ""));
+  setClass("kOrd", (isFinite(ord) && ord>0) ? "tone-warn" : "");
+  setClass("kPend", "");
+  setClass("kBp", (used===0 && isFinite(bp) && bp>=40) ? "tone-warn" : "");
   paintThresholds(s, parsed);
   rememberPoints(parsed);
   backfillMoney(s, parsed);
@@ -75,14 +75,14 @@ function paintBook(s){
   paintTicker(parsed);
   paintIssuers(parsed);
   paintMix(s, parsed);
-  document.getElementById("bookNote").textContent = s.note || "";
-  document.getElementById("fEquity").value = s.equity||"";
-  document.getElementById("fBp").value = s.bp||"";
-  document.getElementById("fInv").value = s.inv||"";
-  document.getElementById("fHwm").value = s.hwm||"";
-  document.getElementById("fCash").value = s.cash||"";
-  document.getElementById("fPend").value = s.pending||"";
-  document.getElementById("fNames").value = s.names||"";
+  setText("bookNote", s.note || "");
+  setVal("fEquity", s.equity||"");
+  setVal("fBp", s.bp||"");
+  setVal("fInv", s.inv||"");
+  setVal("fHwm", s.hwm||"");
+  setVal("fCash", s.cash||"");
+  setVal("fPend", s.pending||"");
+  setVal("fNames", s.names||"");
 }
 function escHtml(s){
   return String(s||"").replace(/[&<>"]/g, function(c){

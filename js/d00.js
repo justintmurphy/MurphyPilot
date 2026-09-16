@@ -110,6 +110,11 @@ function num2(n){
   if (!isFinite(n)) return "—";
   return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+function el(id){ return document.getElementById(id); }
+function setText(id, v){ var n = el(id); if (n) n.textContent = v; }
+function setClass(id, c){ var n = el(id); if (n) n.className = c; }
+function setVal(id, v){ var n = el(id); if (n) n.value = v; }
+function fieldVal(id){ var n = el(id); return n ? n.value : ""; }
 
 function bootDesk() {
 const JOBS = [
@@ -146,7 +151,7 @@ const SEED = {
   pending: "100.00",
   orders: "0",
   names: "QQQ | 717.15 | 2026-08-27 | 2026-09-08 | qty 0.062748 | last 720.06\nSOXX | 521.50 | 2026-08-27 | 2026-09-08 | qty 0.086290 | last 522.87",
-  note: "Live Agentic + quotes 27 Aug 2026 13:33 ET. Equity $100.27, cash $10, BP $10. Pending $100 is already in that equity/BP — not extra arriving. Both names still inside the 24h green lock. Stall test is 8 Sep 2026 (7 business days; Labor Day does not count)."
+  note: "Live Agentic asof 27 Aug 2026 13:33 ET. Equity $100.27."
 };
 
 const SEED_PACK = {

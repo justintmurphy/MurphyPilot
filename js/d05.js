@@ -122,7 +122,7 @@ function applyJson(){
     pending: j.pending_deposits != null ? String(j.pending_deposits) : "",
     orders: j.open_orders != null ? String(j.open_orders) : "",
     names: names,
-    note: "Snapshot " + (j.asof || new Date().toISOString()) + " · Agentic only · no account numbers"
+    note: "Snapshot " + (j.asof || new Date().toISOString()) + " · Claude (Agentic book) · equity, holdings, asof · no account numbers"
   };
   localStorage.setItem("murphyPilotDesk", JSON.stringify(s));
   paintBook(s);

@@ -276,8 +276,7 @@ function collapseHouseNames(list) {
       "<div><span>Buying power</span><b>" + money(b.buying_power) + "</b></div>" +
       "<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>" +
       "<div><span>Names</span><b>" + (b.names || []).length + "</b></div></div>" +
-      '<p class="hint">' + (tab === "combined" ? "" : ("Cash " + money(b.cash) + " \u00b7 ")) + "pending already in " + money(b.pending_deposits) + " \u00b7 orders " + (b.open_orders || 0) +
-      (b.slots != null ? " \u00b7 slots " + b.slots : "") +
+      '<p class="hint">' + (tab === "combined" ? "" : ("Cash " + money(b.cash) + " \u00b7 ")) + "pending already in " + money(b.pending_deposits) +
       (b.asof || (snap && snap.asof) ? " \u00b7 asof " + esc(String(b.asof || snap.asof)) : "") + "</p></div>";
   }
 
@@ -347,30 +346,6 @@ function collapseHouseNames(list) {
     }).join("");
     var wrap = (showBook || names.length > 10) ? "card book-scroll" : "card";
     return '<div class="' + wrap + '"><table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
-  }
-
-  function nextAlertHtml() {
-    var a = jobAlert(nyNow());
-    var n = a.n;
-    return '<div class="next-alert alert-' + a.cls + '"><div class="next-alert-mark">' + esc(a.label) + "</div>" +
-      '<div class="next"><div><div class="name">' + (n ? n.t + "  " + n.name : "No job queued") +
-      '</div><div class="hint">' + (n ? ((n.who ? n.who + " · " : "") + n.role) : "") + "</div></div><div class=\"eta\">" + a.eta + "</div></div></div>";
-  }
-
-  function splitClockCal() {
-    var now = nyNow();
-    var today = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
-    var clockRows = JOBS.map(function (j) {
-      var when = (typeof jobWhen === "function") ? jobWhen(j) : j.t;
-      return "<tr><td>" + esc(when) + "</td><td>" + esc(j.name) + "</td><td>" + esc(j.who || "") + "</td><td>" + esc(j.role) + "</td></tr>";
-    }).join("");
-    var cal = CAL.map(function (row) {
-      var cls = row[0] === today ? "tone-soon" : (row[0] < today ? "tone-flat" : "");
-      return '<div class="cal-row ' + cls + '"><b>' + row[0] + "</b> \u00b7 " + esc(row[1]) + (row[0] === today ? " \u00b7 today" : "") + "</div>";
-    }).join("");
-    return '<div class="split-two">' +
-      "<div><h2>Weekly clock</h2><div class=\"card span clock-card\"><table class=\"clock-table\"><thead><tr><th>ET</th><th>Job</th><th>Who</th><th>Does</th></tr></thead><tbody>" + clockRows + "</tbody></table></div></div>" +
-      "<div><h2>Coming weeks</h2><div class=\"card\">" + cal + "</div></div></div>";
   }
 
   function overlayIds(mode) {

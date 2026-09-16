@@ -102,6 +102,7 @@ function renderClockTable(now){
   const dow = now.getDay();
   const mins = now.getHours()*60 + now.getMinutes();
   const body = document.getElementById("clockRows");
+  if (!body) return;
   body.innerHTML = "";
   JOBS.forEach(j => {
     const tr = document.createElement("tr");
@@ -125,15 +126,16 @@ function loadState(){
   catch { return SEED; }
 }
 function saveState(){
+  const ordEl = el("kOrd");
   const s = {
-    equity: document.getElementById("fEquity").value,
-    bp: document.getElementById("fBp").value,
-    inv: document.getElementById("fInv").value,
-    hwm: document.getElementById("fHwm").value,
-    cash: document.getElementById("fCash").value,
-    pending: document.getElementById("fPend").value,
-    orders: document.getElementById("kOrd").textContent === "—" ? "" : document.getElementById("kOrd").textContent,
-    names: document.getElementById("fNames").value,
+    equity: fieldVal("fEquity"),
+    bp: fieldVal("fBp"),
+    inv: fieldVal("fInv"),
+    hwm: fieldVal("fHwm"),
+    cash: fieldVal("fCash"),
+    pending: fieldVal("fPend"),
+    orders: (!ordEl || ordEl.textContent === "—") ? "" : ordEl.textContent,
+    names: fieldVal("fNames"),
     note: "Updated on this computer " + new Date().toISOString()
   };
   localStorage.setItem("murphyPilotDesk", JSON.stringify(s));
@@ -176,6 +178,7 @@ function busDaysFrom(fillISO, now){
 function paintThresholds(s, parsed){
   const now = nyNow();
   const tb = document.getElementById("thrRows");
+  if (!tb) return;
   tb.innerHTML = "";
   parsed.forEach(n => {
     const card = document.createElement("div");
