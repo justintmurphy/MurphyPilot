@@ -128,7 +128,7 @@
       }).join("");
     }
     var buy=document.getElementById("buyNote");
-    if(buy) buy.innerHTML="<li>Self-pay $58/mo trading P&amp;L only (to_$58). Owner deposits do not count toward the floor. Prefer no new cash. Claude free reign on Agentic (display name; was Marlowe); defaults changeable.</li>";
+    if(buy) buy.innerHTML="<li>Prefer no new cash. Claude free reign on Agentic (display name; was Marlowe); defaults changeable.</li>";
     var track=document.getElementById("tickerTrack");
     if(track){
       var bits=names.map(function(n){
