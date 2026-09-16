@@ -1,3 +1,119 @@
+function chartStore(){
+  try { return JSON.parse(localStorage.getItem("murphyPilotCharts")||"{}"); }
+  catch { return {}; }
+}
+function rememberPoints(parsed){
+  const store = chartStore();
+  parsed.forEach(n => {
+    if (!n.symbol || n.last == null) return;
+    if (!store[n.symbol] || store[n.symbol].length < 3) store[n.symbol] = (SEED_CHARTS[n.symbol]||[]).slice();
+    const arr = store[n.symbol];
+    if (!arr.length || Math.abs(arr[arr.length-1] - n.last) > 0.0001) arr.push(n.last);
+    if (arr.length > 400) store[n.symbol] = arr.slice(-400);
+  });
+  localStorage.setItem("murphyPilotCharts", JSON.stringify(store));
+}
+function moneyStore(){
+  try { return JSON.parse(localStorage.getItem("murphyPilotMoneyV2")||"[]"); }
+  catch(e){ return []; }
+}
+function roundMoney(n){ return Math.round(Number(n) * 100) / 100; }
+function backfillMoney(s, parsed){
+  const charts = chartStore();
+  const names = (parsed||[]).filter(function(n){ return n.symbol && n.symbol !== "—" && n.qty != null && isFinite(n.qty); });
+  const series = names.map(function(n){
+    const vals = (charts[n.symbol] && charts[n.symbol].length ? charts[n.symbol] : null) || SEED_CHARTS[n.symbol] || [];
+    return { qty: n.qty, vals: vals };
+  }).filter(function(x){ return x.vals.length >= 2; });
+  const built = [];
+  if (series.length){
+    const n = Math.min.apply(null, series.map(function(x){ return x.vals.length; }));
+    const cashNow = parseFloat(String(s && s.cash).replace(/[^0-9.]/g,"")) || 0;
+    let t0 = Date.parse("2026-08-27T09:45:00-04:00");
+    (parsed||[]).forEach(function(nm){
+      if (nm.fill && /^\d{4}-\d{2}-\d{2}/.test(nm.fill)) {
+        const ms = Date.parse(nm.fill.slice(0,10) + "T09:45:00-04:00");
+        if (isFinite(ms) && ms < t0) t0 = ms;
+      }
+    });
+    const t1 = Date.now();
+    let mx = 0;
+    for (let i = 0; i < n; i++){
+      let eq = cashNow;
+      for (let j = 0; j < series.length; j++) eq += series[j].qty * series[j].vals[i];
+      eq = roundMoney(eq);
+      mx = i === 0 ? eq : Math.max(mx, eq);
+      const t = t0 + (t1 - t0) * i / Math.max(n - 1, 1);
+      built.push({ t: t, dtg: fmtDtg(t), equity: eq, max: roundMoney(mx), key: "backfill-" + i });
+    }
+  }
+  const live = moneyStore().filter(function(r){
+    const k = String(r && r.key || "");
+    return k.indexOf("backfill-") !== 0 && (k.indexOf("Snapshot") === 0 || k.indexOf("Updated") === 0);
+  });
+  const lastB = built.length ? built[built.length-1] : null;
+  live.forEach(function(r){
+    if (!r || r.equity == null || !isFinite(r.equity)) return;
+    if (lastB && Math.abs(r.equity - lastB.equity) < 0.03) return;
+    const mx = built.length ? Math.max(built[built.length-1].max, r.equity) : r.equity;
+    built.push({ t: r.t || Date.now(), dtg: r.dtg || fmtDtg(r.t), equity: roundMoney(r.equity), max: roundMoney(mx), key: r.key });
+  });
+  localStorage.setItem("murphyPilotMoneyV2", JSON.stringify(built.slice(-400)));
+}
+function rememberMoney(s){
+  const eq = parseFloat(String(s && s.equity).replace(/[^0-9.]/g,""));
+  if (!isFinite(eq) || eq <= 0) return;
+  const key = String((s && (s.note || s.asof)) || "").replace(/\s+/g," ").slice(0,120);
+  const store = moneyStore();
+  const last = store.length ? store[store.length-1] : null;
+  if (last && key && last.key === key) return;
+  if (last && Math.abs(last.equity - eq) < 0.03) return;
+  if (!key && last && (Date.now() - last.t) < 15000) return;
+  const mx = last ? Math.max(last.max, eq) : eq;
+  store.push({ t: Date.now(), dtg: fmtDtg(Date.now()), equity: roundMoney(eq), max: roundMoney(mx), key: key || ("snap-"+Date.now()) });
+  if (store.length > 400) store.splice(0, store.length - 400);
+  localStorage.setItem("murphyPilotMoneyV2", JSON.stringify(store));
+}
+function paintMoney(){
+  const el = document.getElementById("finCard");
+  if (!el) return;
+  const store = moneyStore();
+  if (!store.length) {
+    el.innerHTML = "<p class='hint'>No value ticks yet. The next snapshot JSON adds the first print.</p>";
+    return;
+  }
+  const eqVals = store.map(function(r){ return r.equity; });
+  const maxVals = store.map(function(r){ return r.max; });
+  const lastEq = eqVals[eqVals.length-1];
+  const first = eqVals[0];
+  const hwm = maxVals[maxVals.length-1];
+  const lo = Math.min.apply(null, eqVals);
+  const vsFirst = first ? ((hwm/first)-1)*100 : null;
+  const vsHwm = hwm ? ((lastEq/hwm)-1)*100 : null;
+  const grown = hwm - first;
+  const fmt = function(x,d){ return x==null || !isFinite(Number(x)) ? "—" : Number(x).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); };
+  const plotEq = eqVals.length === 1 ? [eqVals[0], eqVals[0]] : eqVals;
+  const plotMax = maxVals.length === 1 ? [maxVals[0], maxVals[0]] : maxVals;
+  const dtgs = store.map(function(r){ return r.dtg || fmtDtg(r.t); });
+  const plotDtg = dtgs.length === 1 ? [dtgs[0], dtgs[0]] : dtgs;
+  const mini = sparkSvg(plotMax, first, {w:640, h:92});
+  const fat = sparkSvg(plotEq, hwm, {fat:true, axis:true, dashLabel:"high", dtg: plotDtg});
+  const vsTxt = vsFirst==null ? "—" : ((vsFirst>=0?"+":"")+fmt(vsFirst,2)+"%");
+  const growTxt = grown==null || !isFinite(grown) ? "—" : (grown>=0?usd(grown):"−"+usd(Math.abs(grown)).slice(1));
+  const nowCls = lastEq + 0.004 < hwm ? "tone-stop" : "tone-go";
+  const growCls = toneCls(vsFirst);
+  const isOpen = el.querySelector("details.fin-more") ? el.querySelector("details.fin-more").open : false;
+  const shown = store.slice(Math.max(0, store.length - 40));
+  const startI = store.length - shown.length;
+  const lastShown = shown.length - 1;
+  const ledger = shown.slice().reverse().map(function(r, revI){
+    const i = startI + (lastShown - revI);
+    const dtg = r.dtg || fmtDtg(r.t);
+    const on = i === store.length - 1 ? " on" : "";
+    return '<button type="button" class="tape-row'+on+'" data-i="'+i+'" data-eq="'+fmt(r.equity,2)+'" data-dtg="'+String(dtg).replace(/"/g,"")+'"><span>'+dtg+'</span><b>'+usd(r.equity)+'</b></button>';
+  }).join("");
+  el.innerHTML =
+    '<div class="fin-hero">'+
       '<div><span>High water</span><b class="tone-go">'+usd(hwm)+'</b><span class="sub">Running max of Agentic value</span></div>'+
       '<div><span>Now</span><b class="'+nowCls+'">'+usd(lastEq)+'</b><span class="sub">'+signedSpan(vsHwm,2,"%")+' vs high water</span></div>'+
       '<div><span>Grown</span><b class="'+growCls+'">'+growTxt+'</b><span class="sub">'+vsTxt+' since first print</span></div>'+
