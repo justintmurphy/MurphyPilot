@@ -38,7 +38,8 @@
   if (isFinite(eq)) shortBuy.push("Slots in use: "+used+" of "+slots+".");
   if (isFinite(inv) && inv >= 80) shortBuy.push("Book is "+inv+"% invested, so Eyes stay quiet unless a stop or stall is due.");
   else if (used < slots) shortBuy.push("A free slot is open if cash shows up.");
-  document.getElementById("buyNote").innerHTML = shortBuy.map(function(line){ return "<li>"+line+"</li>"; }).join("");
+  const buyEl = document.getElementById("buyNote");
+  if (buyEl) buyEl.innerHTML = shortBuy.map(function(line){ return "<li>"+line+"</li>"; }).join("");
 }
 
 function chartStore(){

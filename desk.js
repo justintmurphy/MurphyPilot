@@ -1,18 +1,4 @@
 (function(){
-  var JOBS = [
-    {t:"06:30", days:[1,2,3,4,5], name:"Policy Pack", who:"Agentic", role:"Full pack. World + WH. No trading."},
-    {t:"09:30", days:[1], name:"Desk UX", who:"Agentic", role:"Weekly phone-desk pass."},
-    {t:"09:50", days:[1,2,3,4,5], name:"Autopilot AM", who:"Agentic", role:"Name pick. Emails Grok to place."},
-    {t:"10:00", days:[1], name:"Scorecard", who:"Agentic", role:"Weekly process KEEP/CHANGE."},
-    {t:"10:00", days:[1,2,3,4,5], name:"Snapshot", who:"Grok", role:"Book dump + mechanical stops."},
-    {t:"11:50", days:[1,2,3,4,5], name:"Eyes", who:"Agentic", role:"Risk-first pick. Quiet if ≥80% in."},
-    {t:"13:50", days:[1,2,3,4,5], name:"Eyes", who:"Agentic", role:"Risk-first pick. Quiet if ≥80% in."},
-    {t:"14:50", days:[1,2,3,4,5], name:"Autopilot PM", who:"Agentic", role:"Last same-day pick."},
-    {t:"15:00", days:[1,2,3,4,5], name:"Snapshot", who:"Grok", role:"Book dump + mechanical stops."},
-    {t:"16:00", days:[1,2,3,4,5], name:"Truthifi", who:"Grok", role:"Custodial close. Not Agentic trading."},
-    {t:"20:05", days:[1,2,3,4,5], name:"House AH", who:"Grok", role:"After-hours print. All Robinhood books."},
-    {t:"on SELL", days:[], name:"Process review", who:"Agentic", role:"KEEP/CHANGE on the next pick."}
-  ];
   var CAL = [
     ["2026-09-01","JOLTS; beef TRQ first tranche"],
     ["2026-09-03","UAS import duties start"],
@@ -32,39 +18,6 @@
     var n=nyNow();
     setText("etClock", pad(n.getHours())+":"+pad(n.getMinutes())+":"+pad(n.getSeconds())+" ET");
     setText("etDate", n.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric",year:"numeric"}));
-    nextJob(n);
-  }
-  function nextJob(now){
-    var day=now.getDay(), cur=now.getHours()*60+now.getMinutes();
-    var pick=null, when=null;
-    function consider(off){
-      JOBS.forEach(function(j){
-        var d=(day+off)%7;
-        if(!j.days||!j.days.length||j.days.indexOf(d)<0) return;
-        if(!/^\d{2}:\d{2}$/.test(j.t)) return;
-        var p=j.t.split(":"), mins=+p[0]*60+(+p[1]);
-        if(off===0 && mins<=cur) return;
-        if(!pick){ pick=j; when=mins+(off*24*60)-cur; }
-      });
-    }
-    consider(0); if(!pick) consider(1); if(!pick) consider(2);
-    if(!pick) return;
-    setText("nextName", pick.t+"  "+pick.name);
-    setText("nextRole", (pick.who?pick.who+" · ":"")+pick.role);
-    var h=Math.floor(when/60), m=when%60;
-    var eta=document.getElementById("nextEta");
-    if(eta){ eta.textContent = h+"h "+pad(m)+"m"; eta.className="eta "+(when<=15?"heat-hot":when<=60?"heat-soon":when<=180?"heat-hour":"heat-ok"); }
-    var card=document.getElementById("nextCard");
-    if(card) card.className="card span "+(when<=15?"heat-hot":when<=60?"heat-soon":when<=180?"heat-hour":"");
-    var tb=document.getElementById("clockRows");
-    if(tb && !tb.dataset.done){
-      tb.dataset.done="1";
-      JOBS.forEach(function(j){
-        var tr=document.createElement("tr");
-        tr.innerHTML="<td>"+((j.days&&j.days.length===1)?["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][j.days[0]]+" "+j.t:j.t)+"</td><td>"+j.name+"</td><td>"+(j.who||"")+"</td><td>"+j.role+"</td>";
-        tb.appendChild(tr);
-      });
-    }
   }
   function paintCal(){
     var box=document.getElementById("calCard"); if(!box) return;
@@ -73,12 +26,9 @@
   function paintSnap(j){
     if(!j) return;
     setText("kEquity", money(j.equity));
-    setText("kBp", money(j.buying_power));
     setText("kInv", j.invested_pct!=null ? Number(j.invested_pct).toFixed(1)+"%" : "—");
-    setText("kSlots", j.slots!=null ? String(j.slots) : String(Math.floor((j.equity||0)/75)));
     setText("kCash", money(j.cash));
     setText("kPend", money(j.pending_deposits));
-    setText("kOrd", j.open_orders!=null ? String(j.open_orders) : "0");
     setText("bookNote", "Snapshot "+(j.asof||"")+" · Claude (Agentic book) · no account numbers");
     var names=j.names||[];
     var tb=document.getElementById("bookRows");
@@ -90,7 +40,7 @@
         var tr=document.createElement("tr");
         var nm=(n.symbol||"")+(n.name?" · "+n.name:"");
         var url="https://duckduckgo.com/?q="+encodeURIComponent("!ducky "+((n.name&&n.symbol&&String(n.name).toUpperCase()!==String(n.symbol).toUpperCase())?(n.name+" "+n.symbol):(n.name||n.symbol||""))+" official website");
-        tr.innerHTML="<td><a class='name-link' href='"+url+"' target='_blank' rel='noopener noreferrer'>"+nm+"</a></td><td>"+(n.avg||"—")+"</td><td>"+(n.qty!=null?n.qty:"—")+"</td><td>"+(n.last||"—")+"</td><td>"+vs+"</td>";
+        tr.innerHTML="<td><a class='name-link' href='"+url+"' target='_blank' rel='noopener noreferrer'>"+nm+"</a></td><td>"+(n.avg||"—")+"</td><td>"+(n.first_fill||"—")+"</td><td>"+vs+"</td>";
         tb.appendChild(tr);
       });
     }
@@ -115,20 +65,6 @@
         return "<div class='co'><div class='co-head'><b>"+n.symbol+"</b> "+(n.name||"")+"</div><p class='co-meta'>qty "+(n.qty||"—")+" · avg "+(n.avg||"—")+" · last "+(n.last||"—")+"</p></div>";
       }).join("");
     }
-    var thr=document.getElementById("thrRows");
-    if(thr){
-      thr.innerHTML=names.map(function(n){
-        var c=Number(n.avg||n.cost)||0;
-        function px(m){ return c ? money(c*m) : "—"; }
-        return "<div class='thr'><div class='thr-head'><b>"+n.symbol+"</b></div>"+
-          "<table class='thr-table'><tr><td>Floor −5%</td><td>"+px(0.95)+"</td></tr>"+
-          "<tr><td>Hard cap −6%</td><td>"+px(0.94)+"</td></tr>"+
-          "<tr><td>Flatten −10%</td><td>"+px(0.90)+"</td></tr>"+
-          "<tr><td>Stall day 2 +5%</td><td>"+px(1.05)+"</td></tr></table></div>";
-      }).join("");
-    }
-    var buy=document.getElementById("buyNote");
-    if(buy) buy.innerHTML="<li>Prefer no new cash. Claude free reign on Agentic (display name; was Marlowe); defaults changeable.</li>";
     var track=document.getElementById("tickerTrack");
     if(track){
       var bits=names.map(function(n){
