@@ -560,7 +560,7 @@ function collapseHouseNames(list) {
       stateHtml(ag, "Claude") +
       "<h2>Where it sits</h2>" + mixHtml(ag, "agentic") +
       "<h2>Claude book</h2>" + tableHtml(ag.names, false, true) +
-      '<p class="hint">Agentic Robinhood book display name is Claude (was Marlowe). Growth and current status only. Feed id stays <code>agentic</code>.</p>';
+      '<p class="hint">Agentic Robinhood book labeled Claude (was Marlowe). Account id stays Agentic. Mail subjects still use <code>Agentic \u2026</code>. Growth and current status only.</p>';
   }
 
   function paint() {
@@ -624,7 +624,7 @@ function collapseHouseNames(list) {
       html += "<h2>Book</h2>" + tableHtml(b.names, false, false);
     }
     var footMsg = "Murphy Pilot \u00b7 Live = Robinhood + Fidelity. Voya is EOD.";
-    if (tab === "agentic") footMsg = "Murphy Pilot \u00b7 Claude (was Marlowe) \u00b7 growth and current status \u00b7 feed id agentic.";
+    if (tab === "agentic") footMsg = "Murphy Pilot \u00b7 Agentic / Claude only \u00b7 growth and current status.";
     else if (tab === "robinhood" || (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0)) footMsg = "Murphy Pilot \u00b7 Robinhood live books only.";
     else if (tab === "fidelity" || (typeof isFidSleeveTab === "function" ? isFidSleeveTab(tab) : /^fid-/.test(String(tab || "")))) {
       var fidB = (snap.accounts && snap.accounts.fidelity) || {};
