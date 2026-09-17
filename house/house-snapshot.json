@@ -1,1 +1,137 @@
-PLACEHOLDER
+{
+  "asof": "2026-09-17T11:12:00-04:00",
+  "brand": "Murphy House",
+  "note": "Fresh House print from live RH. Agentic=Claude suffix 3794 full names qty>0.",
+  "accounts": {
+    "individual": {
+      "id": "individual",
+      "label": "Individual",
+      "suffix": "8723",
+      "equity": 720.43,
+      "equity_value": 532.29,
+      "crypto_value": 188.0,
+      "cash": 0.14,
+      "buying_power": 0.14,
+      "pending_deposits": 0.0,
+      "open_orders": 0,
+      "names": [
+        {"symbol": "SPCX", "name": "SpaceX", "qty": 2.105144, "avg": 136.51, "last": 154.38, "value": 324.99, "pnl_pct": 13.09, "account": "individual"},
+        {"symbol": "BTC", "name": "Bitcoin", "qty": 0.001862, "avg": 0.0, "last": 76255.414836715, "value": 141.99, "pnl_pct": 0.0, "account": "individual"},
+        {"symbol": "NVDA", "name": "NVIDIA", "qty": 0.47381, "avg": 211.06, "last": 218.93, "value": 103.73, "pnl_pct": 3.73, "account": "individual"},
+        {"symbol": "TSLA", "name": "Tesla", "qty": 0.284086, "avg": 352.01, "last": 365.06, "value": 103.71, "pnl_pct": 3.71, "account": "individual"},
+        {"symbol": "XRP", "name": "XRP", "qty": 35.556, "avg": 0.0, "last": 1.295514965, "value": 46.06, "pnl_pct": 0.0, "account": "individual"}
+      ],
+      "invested_pct": 99.98
+    },
+    "auto_grok": {
+      "id": "auto_grok",
+      "label": "Auto-Grok",
+      "suffix": "6577",
+      "equity": 1076.82,
+      "equity_value": 1076.49,
+      "crypto_value": 0.0,
+      "cash": 0.33,
+      "buying_power": 0.33,
+      "pending_deposits": 0.0,
+      "open_orders": 0,
+      "names": [
+        {"symbol": "BSX", "name": "Boston Scientific", "qty": 2.980055, "avg": 43.12, "last": 43.03, "value": 128.23, "pnl_pct": -0.21, "account": "auto_grok"},
+        {"symbol": "SYK", "name": "Stryker", "qty": 0.359116, "avg": 268.72, "last": 280.91, "value": 100.88, "pnl_pct": 4.53, "account": "auto_grok"},
+        {"symbol": "INTU", "name": "Intuit", "qty": 0.307555, "avg": 315.39, "last": 317.42, "value": 97.62, "pnl_pct": 0.64, "account": "auto_grok"},
+        {"symbol": "NRG", "name": "NRG Energy", "qty": 0.851307, "avg": 113.36, "last": 107.2, "value": 91.26, "pnl_pct": -5.43, "account": "auto_grok"},
+        {"symbol": "WAY", "name": "Waystar", "qty": 2.760611, "avg": 23.21, "last": 26.94, "value": 74.37, "pnl_pct": 16.07, "account": "auto_grok"},
+        {"symbol": "AVGO", "name": "Broadcom", "qty": 0.208356, "avg": 363.32, "last": 349.79, "value": 72.88, "pnl_pct": -3.73, "account": "auto_grok"},
+        {"symbol": "NBIX", "name": "Neurocrine", "qty": 0.475665, "avg": 158.73, "last": 151.22, "value": 71.93, "pnl_pct": -4.73, "account": "auto_grok"},
+        {"symbol": "HPE", "name": "Hewlett Packard Enterprise", "qty": 1.082818, "avg": 59.11, "last": 61.86, "value": 66.98, "pnl_pct": 4.65, "account": "auto_grok"},
+        {"symbol": "VST", "name": "Vistra", "qty": 0.454934, "avg": 140.81, "last": 143.93, "value": 65.48, "pnl_pct": 2.22, "account": "auto_grok"},
+        {"symbol": "PAM", "name": "Pampa Energia", "qty": 0.733591, "avg": 87.38, "last": 84.65, "value": 62.1, "pnl_pct": -3.12, "account": "auto_grok"},
+        {"symbol": "AXS", "name": "Axis Capital", "qty": 0.558071, "avg": 98.55, "last": 99.74, "value": 55.66, "pnl_pct": 1.2, "account": "auto_grok"},
+        {"symbol": "NVDA", "name": "NVIDIA", "qty": 0.241812, "avg": 220.01, "last": 218.93, "value": 52.94, "pnl_pct": -0.49, "account": "auto_grok"},
+        {"symbol": "ALNY", "name": "Alnylam", "qty": 0.214738, "avg": 246.95, "last": 240.69, "value": 51.69, "pnl_pct": -2.53, "account": "auto_grok"},
+        {"symbol": "CXM", "name": "Sprinklr", "qty": 7.720254, "avg": 5.51, "last": 5.6, "value": 43.23, "pnl_pct": 1.63, "account": "auto_grok"},
+        {"symbol": "MP", "name": "MP Materials", "qty": 0.837438, "avg": 50.75, "last": 49.35, "value": 41.33, "pnl_pct": -2.76, "account": "auto_grok"}
+      ],
+      "invested_pct": 99.97
+    },
+    "joint": {
+      "id": "joint",
+      "label": "Joint",
+      "suffix": "4446",
+      "equity": 953.93,
+      "equity_value": 952.19,
+      "crypto_value": 0.0,
+      "cash": 1.74,
+      "buying_power": 1.74,
+      "pending_deposits": 0.0,
+      "open_orders": 0,
+      "names": [
+        {"symbol": "BSX", "name": "Boston Scientific", "qty": 2.047443, "avg": 43.42, "last": 43.03, "value": 88.1, "pnl_pct": -0.9, "account": "joint"},
+        {"symbol": "PAM", "name": "Pampa Energia", "qty": 0.915958, "avg": 87.53, "last": 84.65, "value": 77.54, "pnl_pct": -3.29, "account": "joint"},
+        {"symbol": "ARIS", "name": "Aris Water", "qty": 3.60951, "avg": 19.12, "last": 18.86, "value": 68.08, "pnl_pct": -1.36, "account": "joint"},
+        {"symbol": "NVDA", "name": "NVIDIA", "qty": 0.294235, "avg": 223.43, "last": 218.93, "value": 64.42, "pnl_pct": -2.01, "account": "joint"},
+        {"symbol": "INTU", "name": "Intuit", "qty": 0.19668, "avg": 317.52, "last": 317.42, "value": 62.43, "pnl_pct": -0.03, "account": "joint"},
+        {"symbol": "KTOS", "name": "Kratos Defense", "qty": 1.273293, "avg": 59.67, "last": 48.13, "value": 61.28, "pnl_pct": -19.34, "account": "joint"},
+        {"symbol": "MLTX", "name": "MoonLake", "qty": 4.576494, "avg": 16.6, "last": 12.34, "value": 56.47, "pnl_pct": -25.66, "account": "joint"},
+        {"symbol": "SYK", "name": "Stryker", "qty": 0.197344, "avg": 270.75, "last": 280.91, "value": 55.43, "pnl_pct": 3.75, "account": "joint"},
+        {"symbol": "AXS", "name": "Axis Capital", "qty": 0.545207, "avg": 99.32, "last": 99.74, "value": 54.38, "pnl_pct": 0.42, "account": "joint"},
+        {"symbol": "WAY", "name": "Waystar", "qty": 1.918559, "avg": 23.33, "last": 26.94, "value": 51.69, "pnl_pct": 15.47, "account": "joint"},
+        {"symbol": "AVGO", "name": "Broadcom", "qty": 0.146326, "avg": 363.57, "last": 349.79, "value": 51.18, "pnl_pct": -3.79, "account": "joint"},
+        {"symbol": "NRG", "name": "NRG Energy", "qty": 0.473415, "avg": 112.76, "last": 107.2, "value": 50.75, "pnl_pct": -4.93, "account": "joint"},
+        {"symbol": "NBIX", "name": "Neurocrine", "qty": 0.278642, "avg": 158.95, "last": 151.22, "value": 42.14, "pnl_pct": -4.86, "account": "joint"},
+        {"symbol": "CXM", "name": "Sprinklr", "qty": 6.464188, "avg": 5.52, "last": 5.6, "value": 36.2, "pnl_pct": 1.45, "account": "joint"},
+        {"symbol": "PHVS", "name": "Pharvaris", "qty": 0.930809, "avg": 38.3, "last": 38.5, "value": 35.84, "pnl_pct": 0.52, "account": "joint"},
+        {"symbol": "MP", "name": "MP Materials", "qty": 0.698518, "avg": 50.66, "last": 49.35, "value": 34.47, "pnl_pct": -2.59, "account": "joint"},
+        {"symbol": "GENI", "name": "Genius Sports", "qty": 5.234633, "avg": 6.81, "last": 6.505, "value": 34.05, "pnl_pct": -4.48, "account": "joint"},
+        {"symbol": "VST", "name": "Vistra", "qty": 0.194132, "avg": 144.03, "last": 143.93, "value": 27.94, "pnl_pct": -0.07, "account": "joint"}
+      ],
+      "invested_pct": 99.82
+    },
+    "agentic": {
+      "id": "agentic",
+      "label": "Claude",
+      "suffix": "3794",
+      "equity": 495.92,
+      "equity_value": 384.05,
+      "crypto_value": 0.0,
+      "cash": 111.87,
+      "buying_power": 111.87,
+      "pending_deposits": 0.0,
+      "open_orders": 0,
+      "names": [
+        {"symbol": "VST", "name": "Vistra", "qty": 0.384344, "avg": 142.06, "last": 143.93, "value": 55.32, "pnl_pct": 1.32, "account": "agentic", "avg_cost": 142.06, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "PHVS", "name": "Pharvaris", "qty": 1.11887, "avg": 38.24, "last": 38.5, "value": 43.08, "pnl_pct": 0.68, "account": "agentic", "avg_cost": 38.24, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "SGOV", "name": "iShares 0-3 Month Treasury", "qty": 0.388203, "avg": 100.54, "last": 100.55, "value": 39.04, "pnl_pct": 0.01, "account": "agentic", "avg_cost": 100.54, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "SKWD", "name": "Skyward Specialty", "qty": 0.553635, "avg": 57.57, "last": 56.73, "value": 31.41, "pnl_pct": -1.46, "account": "agentic", "avg_cost": 57.57, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "MU", "name": "Micron", "qty": 0.031756, "avg": 924.86, "last": 980.62, "value": 31.14, "pnl_pct": 6.03, "account": "agentic", "avg_cost": 924.86, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "ARIS", "name": "Aris Water", "qty": 1.508285, "avg": 18.41, "last": 18.86, "value": 28.45, "pnl_pct": 2.44, "account": "agentic", "avg_cost": 18.41, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "ICE", "name": "Intercontinental Exchange", "qty": 0.17486, "avg": 156.3, "last": 153.33, "value": 26.81, "pnl_pct": -1.9, "account": "agentic", "avg_cost": 156.3, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "NVDA", "name": "NVIDIA", "qty": 0.121148, "avg": 218.08, "last": 218.93, "value": 26.52, "pnl_pct": 0.39, "account": "agentic", "avg_cost": 218.08, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "KBR", "name": "KBR", "qty": 0.699856, "avg": 36.96, "last": 36.69, "value": 25.67, "pnl_pct": -0.74, "account": "agentic", "avg_cost": 36.96, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "WLDN", "name": "Willdan", "qty": 0.290793, "avg": 78.48, "last": 79.69, "value": 23.17, "pnl_pct": 1.54, "account": "agentic", "avg_cost": 78.48, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "QSR", "name": "Restaurant Brands", "qty": 0.270099, "avg": 76.12, "last": 74.08, "value": 20.01, "pnl_pct": -2.68, "account": "agentic", "avg_cost": 76.12, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "NBIX", "name": "Neurocrine", "qty": 0.128654, "avg": 150.64, "last": 151.22, "value": 19.46, "pnl_pct": 0.39, "account": "agentic", "avg_cost": 150.64, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null},
+        {"symbol": "ARDX", "name": "Ardelyx", "qty": 4.040875, "avg": 3.43, "last": 3.455, "value": 13.96, "pnl_pct": 0.73, "account": "agentic", "avg_cost": 3.43, "stops": {"hard_cap_pct": -6, "floor_pct": -5, "flatten_pct": -10}, "stop_hit": null}
+      ],
+      "slots": 13,
+      "source": "live RH 2026-09-17 11:12 ET",
+      "invested_pct": 77.44
+    }
+  },
+  "combined": {
+    "equity": 3247.1,
+    "equity_value": 2945.02,
+    "crypto_value": 188.0,
+    "cash": 114.08,
+    "buying_power": 114.08,
+    "pending_deposits": 0.0,
+    "invested_pct": 96.49,
+    "open_orders": 0,
+    "books": [
+      {"id": "individual", "label": "Individual", "suffix": "8723", "equity": 720.43, "cash": 0.14, "buying_power": 0.14, "pending_deposits": 0.0, "invested_pct": 99.98, "names": 5},
+      {"id": "auto_grok", "label": "Auto-Grok", "suffix": "6577", "equity": 1076.82, "cash": 0.33, "buying_power": 0.33, "pending_deposits": 0.0, "invested_pct": 99.97, "names": 15},
+      {"id": "joint", "label": "Joint", "suffix": "4446", "equity": 953.93, "cash": 1.74, "buying_power": 1.74, "pending_deposits": 0.0, "invested_pct": 99.82, "names": 18},
+      {"id": "agentic", "label": "Claude", "suffix": "3794", "equity": 495.92, "cash": 111.87, "buying_power": 111.87, "pending_deposits": 0.0, "invested_pct": 77.44, "names": 13}
+    ],
+    "names": []
+  }
+}
