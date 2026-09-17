@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904be");
-@import url("house-b.css?v=20260904be");
-@import url("mix.css?v=20260904be");
+@import url("house-a.css?v=20260904bf");
+@import url("house-b.css?v=20260904bf");
+@import url("mix.css?v=20260904bf");
 
 header .brand-block {
   min-width: 0;
@@ -286,7 +286,7 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
   }
 }
 
-/* tip be — Recent fills: Buys | Sells, ~10-row scroll, book chip, linked symbol */
+/* tip bf — Recent fills: Buys | Sells, ~10-row scroll, book chip, linked symbol; buys omit P&L */
 .fills-card { padding: 10px 12px; overflow: hidden; }
 .fills-split {
   display: grid;

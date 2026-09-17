@@ -307,7 +307,7 @@ merge = function (house, pilot, outside) {
     names: rhNames, books: rhBooks
   };
   /* tip ba: roll optional Forge fields when any RH book prints them — never invent */
-  /* tip be paint: company_url http(s) else Yahoo /quote/{SYMBOL}/ ; account id→Claude/Grok/Deep Seek/Individual; sell finite $ else —; buys always — */
+  /* tip bf paint: company_url http(s) else Yahoo /quote/{SYMBOL}/ ; account id→Claude/Grok/Deep Seek/Individual; sell finite $ else —; buys omit P&L slot */
   (function tipBaRollups() {
     var mix = { equity: 0, crypto: 0, options: 0, cash: 0 }, hasMix = false;
     var rp = { day: 0, week: 0, month: 0 }, hasRp = { day: false, week: false, month: false };
