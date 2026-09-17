@@ -717,3 +717,12 @@ button.book-chip.on {
 }
 
 
+
+
+/* tip ba — realized strip + fills status tape (display-only) */
+.realized-strip .kpi { gap: 12px 18px; }
+.fills-card { padding: 10px 12px; }
+table.book.fills-tape { font-size: 11px; }
+table.book.fills-tape td.fill-when { white-space: nowrap; color: var(--ink-soft); font-size: 10px; }
+.fills-empty { opacity: 0.85; }
+.claude-asof { margin: 8px 0 0; }

@@ -27,6 +27,9 @@
   --mix-e: #fb7185;
   --mix-f: #38bdf8;
   --mix-cash: #64748b;
+  --mix-equity: #7dd3fc;
+  --mix-crypto: #f0b429;
+  --mix-options: #a78bfa;
   --chart-axis: #eef3f8;
   --chart-grid: rgba(125, 211, 252, 0.14);
   --chart-dash: #7dd3fc;
@@ -58,6 +61,9 @@
   --mix-e: #e89aa3;
   --mix-f: #6b3a8c;
   --mix-cash: #8a7a96;
+  --mix-equity: #c9a0e8;
+  --mix-crypto: #d4b06a;
+  --mix-options: #9b6bb3;
   --chart-axis: #f0e6f6;
   --chart-grid: rgba(240, 230, 246, 0.14);
   --chart-dash: #c9a0e8;

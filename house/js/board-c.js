@@ -305,6 +305,57 @@ merge = function (house, pilot, outside) {
     invested_pct: rhEq ? Math.min(100, (rhEv / rhEq) * 100) : 0,
     names: rhNames, books: rhBooks
   };
+  /* tip ba: roll optional Forge fields when any RH book prints them — never invent */
+  (function tipBaRollups() {
+    var mix = { equity: 0, crypto: 0, options: 0, cash: 0 }, hasMix = false;
+    var rp = { day: 0, week: 0, month: 0 }, hasRp = { day: false, week: false, month: false };
+    var fills = [], hasFills = false, uSum = 0, hasU = false;
+    RH_IDS.forEach(function (id) {
+      var bk = out.accounts[id] || {};
+      if (bk.asset_mix && typeof bk.asset_mix === "object") {
+        hasMix = true;
+        ["equity", "crypto", "options", "cash"].forEach(function (k) {
+          if (bk.asset_mix[k] != null && isFinite(Number(bk.asset_mix[k]))) mix[k] += Number(bk.asset_mix[k]);
+        });
+      } else {
+        if (bk.equity_value != null && isFinite(Number(bk.equity_value))) { hasMix = true; mix.equity += Number(bk.equity_value); }
+        if (bk.crypto_value != null && isFinite(Number(bk.crypto_value))) { hasMix = true; mix.crypto += Number(bk.crypto_value); }
+        if (bk.cash != null && isFinite(Number(bk.cash))) { hasMix = true; mix.cash += Number(bk.cash); }
+      }
+      if (bk.realized_pnl && typeof bk.realized_pnl === "object") {
+        ["day", "week", "month"].forEach(function (k) {
+          if (bk.realized_pnl[k] != null && isFinite(Number(bk.realized_pnl[k]))) {
+            hasRp[k] = true; rp[k] += Number(bk.realized_pnl[k]);
+          }
+        });
+      }
+      if (Object.prototype.hasOwnProperty.call(bk, "fills")) {
+        hasFills = true;
+        (bk.fills || []).forEach(function (f) { if (f) fills.push(f); });
+      }
+      if (bk.unrealized_pnl != null && isFinite(Number(bk.unrealized_pnl))) { hasU = true; uSum += Number(bk.unrealized_pnl); }
+    });
+    if (hasMix) {
+      out.robinhood.asset_mix = { equity: rnd(mix.equity), crypto: rnd(mix.crypto), options: rnd(mix.options), cash: rnd(mix.cash) };
+      if (!out.combined.asset_mix) out.combined.asset_mix = out.robinhood.asset_mix;
+    }
+    var rpOut = {};
+    ["day", "week", "month"].forEach(function (k) { if (hasRp[k]) rpOut[k] = rnd(rp[k]); });
+    if (Object.keys(rpOut).length) {
+      out.robinhood.realized_pnl = rpOut;
+      if (!out.combined.realized_pnl) out.combined.realized_pnl = rpOut;
+    }
+    if (hasFills) {
+      fills.sort(function (a, b) { return String(b.ts || "").localeCompare(String(a.ts || "")); });
+      out.robinhood.fills = fills.slice(0, 40);
+      if (!Object.prototype.hasOwnProperty.call(out.combined, "fills")) out.combined.fills = out.robinhood.fills;
+    }
+    if (hasU) {
+      out.robinhood.unrealized_pnl = rnd(uSum);
+      if (out.combined.unrealized_pnl == null) out.combined.unrealized_pnl = rnd(uSum);
+    }
+  })();
+
   var fidB = out.accounts.fidelity || {};
   var voyaB = out.accounts.voya || {};
   out.combined.books = [
@@ -650,7 +701,7 @@ paint = function () {
   var foot = document.querySelector(".desk-foot");
   if (foot) {
     var fid = (snap.accounts && snap.accounts.fidelity) || {};
-    if (tab === "agentic") foot.textContent = "Murphy Pilot \u00b7 Agentic / Claude only \u00b7 equity, holdings, asof.";
+    if (tab === "agentic") foot.textContent = "Murphy Pilot \u00b7 Agentic / Claude only \u00b7 equity, cash/BP, holdings, realized, fills, asof.";
     else if (tab === "robinhood" || RH_IDS.indexOf(tab) >= 0) foot.textContent = "Murphy Pilot \u00b7 Robinhood live books only.";
     else if (tab === "fidelity" || isFidSleeveTab(tab)) {
       foot.textContent = fid.live
