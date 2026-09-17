@@ -1,23 +1,23 @@
 {
-  "asof": "2026-09-15 15:31 ET",
+  "asof": "2026-09-17 10:53 ET",
   "account": "Agentic",
-  "equity": 498.94,
-  "equity_value": 498.94,
-  "cash": 0.0,
-  "buying_power": 0.0,
-  "pending_deposits": 171.0,
-  "invested_pct": 100.0,
-  "slots": 2,
+  "equity": 496.11,
+  "equity_value": 495.94,
+  "cash": 0.17,
+  "buying_power": 0.17,
+  "pending_deposits": 0,
+  "invested_pct": 99.97,
+  "slots": 0,
   "open_orders": 0,
   "names": [
     {
-      "symbol": "KTOS",
-      "qty": 0.378182,
-      "avg": 48.31,
-      "avg_cost": 48.31,
-      "last": 47.77,
-      "value": 18.07,
-      "pnl_pct": -1.12,
+      "symbol": "MU",
+      "qty": 0.031756,
+      "avg": 924.86,
+      "avg_cost": 924.86,
+      "last": 978.29,
+      "value": 31.07,
+      "pnl_pct": 5.78,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -31,9 +31,9 @@
       "qty": 0.384344,
       "avg": 142.06,
       "avg_cost": 142.06,
-      "last": 141.56,
-      "value": 54.41,
-      "pnl_pct": -0.35,
+      "last": 142.92,
+      "value": 54.93,
+      "pnl_pct": 0.61,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -47,9 +47,9 @@
       "qty": 1.11887,
       "avg": 38.24,
       "avg_cost": 38.24,
-      "last": 38.295,
-      "value": 42.85,
-      "pnl_pct": 0.14,
+      "last": 38.86,
+      "value": 43.48,
+      "pnl_pct": 1.62,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -63,41 +63,25 @@
       "qty": 0.520937,
       "avg": 78.69,
       "avg_cost": 78.69,
-      "last": 77.935,
-      "value": 40.6,
-      "pnl_pct": -0.96,
+      "last": 73.735,
+      "value": 38.41,
+      "pnl_pct": -6.3,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
         "floor_pct": -5,
         "flatten_pct": -10
       },
-      "stop_hit": null
+      "stop_hit": "hard_cap"
     },
     {
       "symbol": "SGOV",
       "qty": 0.388203,
       "avg": 100.54,
       "avg_cost": 100.54,
-      "last": 100.54,
-      "value": 39.03,
-      "pnl_pct": 0.0,
-      "account": "agentic",
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null
-    },
-    {
-      "symbol": "PGY",
-      "qty": 1.55613,
-      "avg": 21.25,
-      "avg_cost": 21.25,
-      "last": 21.14,
-      "value": 32.9,
-      "pnl_pct": -0.52,
+      "last": 100.5599,
+      "value": 39.04,
+      "pnl_pct": 0.02,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -111,41 +95,25 @@
       "qty": 1.322337,
       "avg": 24.56,
       "avg_cost": 24.56,
-      "last": 24.38,
-      "value": 32.24,
-      "pnl_pct": -0.73,
+      "last": 23.01,
+      "value": 30.43,
+      "pnl_pct": -6.31,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
         "floor_pct": -5,
         "flatten_pct": -10
       },
-      "stop_hit": null
+      "stop_hit": "hard_cap"
     },
     {
       "symbol": "SKWD",
       "qty": 0.553635,
       "avg": 57.57,
       "avg_cost": 57.57,
-      "last": 57.58,
-      "value": 31.88,
-      "pnl_pct": 0.02,
-      "account": "agentic",
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null
-    },
-    {
-      "symbol": "MU",
-      "qty": 0.031756,
-      "avg": 924.86,
-      "avg_cost": 924.86,
-      "last": 923.75,
-      "value": 29.33,
-      "pnl_pct": -0.12,
+      "last": 56.67,
+      "value": 31.37,
+      "pnl_pct": -1.56,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -159,9 +127,9 @@
       "qty": 1.508285,
       "avg": 18.41,
       "avg_cost": 18.41,
-      "last": 18.48,
-      "value": 27.87,
-      "pnl_pct": 0.38,
+      "last": 18.9,
+      "value": 28.51,
+      "pnl_pct": 2.66,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -175,9 +143,9 @@
       "qty": 0.17486,
       "avg": 156.3,
       "avg_cost": 156.3,
-      "last": 157.245,
-      "value": 27.5,
-      "pnl_pct": 0.6,
+      "last": 153.0,
+      "value": 26.75,
+      "pnl_pct": -2.11,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -191,25 +159,25 @@
       "qty": 0.510803,
       "avg": 51.49,
       "avg_cost": 51.49,
-      "last": 51.06,
-      "value": 26.08,
-      "pnl_pct": -0.84,
+      "last": 48.24,
+      "value": 24.64,
+      "pnl_pct": -6.31,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
         "floor_pct": -5,
         "flatten_pct": -10
       },
-      "stop_hit": null
+      "stop_hit": "hard_cap"
     },
     {
       "symbol": "WLDN",
       "qty": 0.290793,
       "avg": 78.48,
       "avg_cost": 78.48,
-      "last": 78.5,
-      "value": 22.83,
-      "pnl_pct": 0.03,
+      "last": 79.88,
+      "value": 23.23,
+      "pnl_pct": 1.78,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -223,9 +191,9 @@
       "qty": 0.270099,
       "avg": 76.12,
       "avg_cost": 76.12,
-      "last": 75.99,
-      "value": 20.52,
-      "pnl_pct": -0.17,
+      "last": 74.12,
+      "value": 20.02,
+      "pnl_pct": -2.63,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -239,25 +207,25 @@
       "qty": 0.208958,
       "avg": 95.33,
       "avg_cost": 95.33,
-      "last": 94.09,
-      "value": 19.66,
-      "pnl_pct": -1.3,
+      "last": 88.085,
+      "value": 18.41,
+      "pnl_pct": -7.6,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
         "floor_pct": -5,
         "flatten_pct": -10
       },
-      "stop_hit": null
+      "stop_hit": "hard_cap"
     },
     {
       "symbol": "NBIX",
       "qty": 0.128654,
       "avg": 150.64,
       "avg_cost": 150.64,
-      "last": 150.41,
-      "value": 19.35,
-      "pnl_pct": -0.15,
+      "last": 150.97,
+      "value": 19.42,
+      "pnl_pct": 0.22,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -271,9 +239,41 @@
       "qty": 4.040875,
       "avg": 3.43,
       "avg_cost": 3.43,
-      "last": 3.415,
-      "value": 13.8,
-      "pnl_pct": -0.44,
+      "last": 3.47,
+      "value": 14.02,
+      "pnl_pct": 1.17,
+      "account": "agentic",
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      },
+      "stop_hit": null
+    },
+    {
+      "symbol": "NVDA",
+      "qty": 0.121148,
+      "avg": 218.08,
+      "avg_cost": 218.08,
+      "last": 219.19,
+      "value": 26.55,
+      "pnl_pct": 0.51,
+      "account": "agentic",
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      },
+      "stop_hit": null
+    },
+    {
+      "symbol": "KBR",
+      "qty": 0.699856,
+      "avg": 36.96,
+      "avg_cost": 36.96,
+      "last": 36.665,
+      "value": 25.66,
+      "pnl_pct": -0.8,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -284,9 +284,9 @@
     }
   ],
   "eye": {
-    "checked_et": "2026-09-15 15:31 ET",
-    "status": "bridged",
-    "note": "Bridged from house 675a0ae (asof 15:31 ET). Pilot was stuck GME+ONDS 11:55; House multi-lane live. Wed RH refresh still needs Claude doorbell when Bot pool allows."
+    "checked_et": "2026-09-17 10:53 ET",
+    "status": "live",
+    "note": "Hard-cap SELL flagged: VIST PR DVN EXE. Mechanical only. No idle deploy. PDT aware."
   },
-  "source": "house/house-snapshot.json 675a0ae 2026-09-15T15:31:29-04:00"
+  "source": "robinhood agentic 954263794 live"
 }
