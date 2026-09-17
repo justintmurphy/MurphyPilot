@@ -1,18 +1,267 @@
 {
-  "asof": "2026-09-17T12:54:48-05:00",
-  "account": "Agentic",
-  "tip": "ba",
-  "equity": 494.9,
-  "equity_value": 383.03,
+  "asof": "2026-09-17T13:55:57-04:00",
+  "account": "agentic",
+  "tip": "ba+bb+bc",
+  "note": "Mirrors agentic book. Tip ba keys; tip bc labels on house only.",
+  "equity": 494.92,
+  "equity_value": 383.05,
   "crypto_value": 0.0,
   "cash": 111.87,
   "buying_power": 111.87,
-  "pending_deposits": 0,
-  "invested_pct": 77.4,
-  "slots": 13,
+  "pending_deposits": 0.0,
   "open_orders": 0,
+  "invested_pct": 77.4,
+  "names": [
+    {
+      "symbol": "VST",
+      "name": "Vistra",
+      "qty": 0.384344,
+      "avg": 142.06,
+      "avg_cost": 142.06,
+      "last": 143.355,
+      "value": 55.1,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": 0.91,
+      "unrealized_pnl": 0.5,
+      "unrealized_pnl_pct": 0.91,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "PHVS",
+      "name": "Pharvaris",
+      "qty": 1.11887,
+      "avg": 38.24,
+      "avg_cost": 38.24,
+      "last": 37.71,
+      "value": 42.19,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": -1.39,
+      "unrealized_pnl": -0.59,
+      "unrealized_pnl_pct": -1.39,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "SGOV",
+      "name": "iShares 0-3 Month Treasury",
+      "qty": 0.388203,
+      "avg": 100.54,
+      "avg_cost": 100.54,
+      "last": 100.5595,
+      "value": 39.04,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": 0.02,
+      "unrealized_pnl": 0.01,
+      "unrealized_pnl_pct": 0.02,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "SKWD",
+      "name": "Skyward Specialty",
+      "qty": 0.553635,
+      "avg": 57.57,
+      "avg_cost": 57.57,
+      "last": 56.8,
+      "value": 31.45,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": -1.34,
+      "unrealized_pnl": -0.43,
+      "unrealized_pnl_pct": -1.34,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "MU",
+      "name": "Micron",
+      "qty": 0.031756,
+      "avg": 924.86,
+      "avg_cost": 924.86,
+      "last": 974.0098,
+      "value": 30.93,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": 5.31,
+      "unrealized_pnl": 1.56,
+      "unrealized_pnl_pct": 5.31,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "ARIS",
+      "name": "Aris Water",
+      "qty": 1.508285,
+      "avg": 18.41,
+      "avg_cost": 18.41,
+      "last": 18.94,
+      "value": 28.57,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": 2.88,
+      "unrealized_pnl": 0.8,
+      "unrealized_pnl_pct": 2.88,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "ICE",
+      "name": "Intercontinental Exchange",
+      "qty": 0.17486,
+      "avg": 156.3,
+      "avg_cost": 156.3,
+      "last": 153.83,
+      "value": 26.9,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": -1.58,
+      "unrealized_pnl": -0.43,
+      "unrealized_pnl_pct": -1.58,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "NVDA",
+      "name": "NVIDIA",
+      "qty": 0.121148,
+      "avg": 218.08,
+      "avg_cost": 218.08,
+      "last": 219.19,
+      "value": 26.55,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": 0.51,
+      "unrealized_pnl": 0.13,
+      "unrealized_pnl_pct": 0.51,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "KBR",
+      "name": "KBR",
+      "qty": 0.699856,
+      "avg": 36.96,
+      "avg_cost": 36.96,
+      "last": 36.86,
+      "value": 25.8,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": -0.27,
+      "unrealized_pnl": -0.07,
+      "unrealized_pnl_pct": -0.27,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "WLDN",
+      "name": "Willdan",
+      "qty": 0.290793,
+      "avg": 78.48,
+      "avg_cost": 78.48,
+      "last": 79.96,
+      "value": 23.25,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": 1.89,
+      "unrealized_pnl": 0.43,
+      "unrealized_pnl_pct": 1.89,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "QSR",
+      "name": "Restaurant Brands",
+      "qty": 0.270099,
+      "avg": 76.12,
+      "avg_cost": 76.12,
+      "last": 74.085,
+      "value": 20.01,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": -2.67,
+      "unrealized_pnl": -0.55,
+      "unrealized_pnl_pct": -2.67,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "NBIX",
+      "name": "Neurocrine",
+      "qty": 0.128654,
+      "avg": 150.64,
+      "avg_cost": 150.64,
+      "last": 150.8,
+      "value": 19.4,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": 0.11,
+      "unrealized_pnl": 0.02,
+      "unrealized_pnl_pct": 0.11,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    },
+    {
+      "symbol": "ARDX",
+      "name": "Ardelyx",
+      "qty": 4.040875,
+      "avg": 3.43,
+      "avg_cost": 3.43,
+      "last": 3.415,
+      "value": 13.8,
+      "account": "agentic",
+      "asset_class": "equity",
+      "pnl_pct": -0.44,
+      "unrealized_pnl": -0.06,
+      "unrealized_pnl_pct": -0.44,
+      "stops": {
+        "hard_cap_pct": -6,
+        "floor_pct": -5,
+        "flatten_pct": -10
+      }
+    }
+  ],
   "asset_mix": {
-    "equity": 383.03,
+    "equity": 383.05,
     "crypto": 0.0,
     "options": 0.0,
     "cash": 111.87
@@ -22,7 +271,7 @@
     "week": -0.86,
     "month": -36.08
   },
-  "unrealized_pnl": 1.38,
+  "unrealized_pnl": 1.32,
   "fills": [
     {
       "ts": "2026-09-17T11:02:52-04:00",
@@ -95,269 +344,115 @@
       "price": 22.0446,
       "pnl": null,
       "account": "agentic"
-    }
-  ],
-  "names": [
-    {
-      "symbol": "VST",
-      "name": "Vistra",
-      "qty": 0.384344,
-      "avg": 142.06,
-      "last": 143.37,
-      "value": 55.1,
-      "pnl_pct": 0.92,
-      "account": "agentic",
-      "avg_cost": 142.06,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": 0.5,
-      "unrealized_pnl_pct": 0.92,
-      "asset_class": "equity"
     },
     {
-      "symbol": "PHVS",
-      "name": "Pharvaris",
-      "qty": 1.11887,
-      "avg": 38.24,
-      "last": 37.72,
-      "value": 42.2,
-      "pnl_pct": -1.36,
-      "account": "agentic",
-      "avg_cost": 38.24,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": -0.58,
-      "unrealized_pnl_pct": -1.36,
-      "asset_class": "equity"
-    },
-    {
-      "symbol": "SGOV",
-      "name": "iShares 0-3 Month Treasury",
-      "qty": 0.388203,
-      "avg": 100.54,
-      "last": 100.552,
-      "value": 39.03,
-      "pnl_pct": 0.01,
-      "account": "agentic",
-      "avg_cost": 100.54,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": 0.0,
-      "unrealized_pnl_pct": 0.01,
-      "asset_class": "equity"
-    },
-    {
-      "symbol": "SKWD",
-      "name": "Skyward Specialty",
-      "qty": 0.553635,
-      "avg": 57.57,
-      "last": 56.8,
-      "value": 31.45,
-      "pnl_pct": -1.34,
-      "account": "agentic",
-      "avg_cost": 57.57,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": -0.43,
-      "unrealized_pnl_pct": -1.34,
-      "asset_class": "equity"
-    },
-    {
-      "symbol": "MU",
-      "name": "Micron",
-      "qty": 0.031756,
-      "avg": 924.86,
-      "last": 974.31,
-      "value": 30.94,
-      "pnl_pct": 5.35,
-      "account": "agentic",
-      "avg_cost": 924.86,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": 1.57,
-      "unrealized_pnl_pct": 5.35,
-      "asset_class": "equity"
-    },
-    {
-      "symbol": "ARIS",
-      "name": "Aris Water",
-      "qty": 1.508285,
-      "avg": 18.41,
-      "last": 18.94,
-      "value": 28.57,
-      "pnl_pct": 2.88,
-      "account": "agentic",
-      "avg_cost": 18.41,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": 0.8,
-      "unrealized_pnl_pct": 2.88,
-      "asset_class": "equity"
-    },
-    {
-      "symbol": "ICE",
-      "name": "Intercontinental Exchange",
-      "qty": 0.17486,
-      "avg": 156.3,
-      "last": 153.81,
-      "value": 26.9,
-      "pnl_pct": -1.59,
-      "account": "agentic",
-      "avg_cost": 156.3,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": -0.44,
-      "unrealized_pnl_pct": -1.59,
-      "asset_class": "equity"
-    },
-    {
-      "symbol": "NVDA",
-      "name": "NVIDIA",
-      "qty": 0.121148,
-      "avg": 218.08,
-      "last": 219.18,
-      "value": 26.55,
-      "pnl_pct": 0.5,
-      "account": "agentic",
-      "avg_cost": 218.08,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": 0.13,
-      "unrealized_pnl_pct": 0.5,
-      "asset_class": "equity"
-    },
-    {
-      "symbol": "KBR",
-      "name": "KBR",
-      "qty": 0.699856,
-      "avg": 36.96,
-      "last": 36.86,
-      "value": 25.8,
-      "pnl_pct": -0.27,
-      "account": "agentic",
-      "avg_cost": 36.96,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": -0.07,
-      "unrealized_pnl_pct": -0.27,
-      "asset_class": "equity"
-    },
-    {
-      "symbol": "WLDN",
-      "name": "Willdan",
-      "qty": 0.290793,
-      "avg": 78.48,
-      "last": 79.96,
-      "value": 23.25,
-      "pnl_pct": 1.89,
-      "account": "agentic",
-      "avg_cost": 78.48,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": 0.43,
-      "unrealized_pnl_pct": 1.89,
-      "asset_class": "equity"
-    },
-    {
-      "symbol": "QSR",
-      "name": "Restaurant Brands",
-      "qty": 0.270099,
-      "avg": 76.12,
-      "last": 74.11,
-      "value": 20.02,
-      "pnl_pct": -2.64,
-      "account": "agentic",
-      "avg_cost": 76.12,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": -0.54,
-      "unrealized_pnl_pct": -2.64,
-      "asset_class": "equity"
-    },
-    {
-      "symbol": "NBIX",
-      "name": "Neurocrine",
-      "qty": 0.128654,
-      "avg": 150.64,
-      "last": 151.045,
-      "value": 19.43,
-      "pnl_pct": 0.27,
-      "account": "agentic",
-      "avg_cost": 150.64,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": 0.05,
-      "unrealized_pnl_pct": 0.27,
-      "asset_class": "equity"
-    },
-    {
+      "ts": "2026-09-15T14:04:34-04:00",
       "symbol": "ARDX",
-      "name": "Ardelyx",
+      "side": "buy",
       "qty": 4.040875,
-      "avg": 3.43,
-      "last": 3.415,
-      "value": 13.8,
-      "pnl_pct": -0.44,
-      "account": "agentic",
-      "avg_cost": 3.43,
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": null,
-      "unrealized_pnl": -0.06,
-      "unrealized_pnl_pct": -0.44,
-      "asset_class": "equity"
+      "price": 3.425,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:04:26-04:00",
+      "symbol": "KTOS",
+      "side": "buy",
+      "qty": 0.378182,
+      "price": 48.31,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:04:15-04:00",
+      "symbol": "NBIX",
+      "side": "buy",
+      "qty": 0.128654,
+      "price": 150.6363,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:04:07-04:00",
+      "symbol": "EXE",
+      "side": "buy",
+      "qty": 0.208958,
+      "price": 95.33,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:03:58-04:00",
+      "symbol": "QSR",
+      "side": "buy",
+      "qty": 0.270099,
+      "price": 76.12,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:03:51-04:00",
+      "symbol": "WLDN",
+      "side": "buy",
+      "qty": 0.290793,
+      "price": 78.475,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:03:43-04:00",
+      "symbol": "DVN",
+      "side": "buy",
+      "qty": 0.510803,
+      "price": 51.4875,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:03:34-04:00",
+      "symbol": "ICE",
+      "side": "buy",
+      "qty": 0.17486,
+      "price": 156.2958,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:03:11-04:00",
+      "symbol": "ARIS",
+      "side": "buy",
+      "qty": 1.508285,
+      "price": 18.405,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:03:03-04:00",
+      "symbol": "MU",
+      "side": "buy",
+      "qty": 0.031756,
+      "price": 924.8366,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:02:55-04:00",
+      "symbol": "SKWD",
+      "side": "buy",
+      "qty": 0.553635,
+      "price": 57.565,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-09-15T14:02:47-04:00",
+      "symbol": "PR",
+      "side": "buy",
+      "qty": 1.322337,
+      "price": 24.555,
+      "pnl": null,
+      "account": "agentic"
     }
   ],
-  "note": "Tip ba bridge from house agentic RH MCP. asset_mix/realized_pnl/fills/unrealized. Mechanical risk check: no hard-cap/floor/flatten hits."
+  "slots": 13
 }
