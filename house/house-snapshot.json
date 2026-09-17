@@ -1,7 +1,7 @@
 {
-  "asof": "2026-09-17T11:23:29-04:00",
+  "asof": "2026-09-17T11:30:27-04:00",
   "brand": "Murphy House",
-  "note": "Tip ba RH enrich: asset_mix, unrealized_pnl, realized_pnl, agentic fills. No UTMA/Smart Income. Quiet Justin.",
+  "note": "Tip bb: combined invested_pct=(equity_value+crypto_value)/equity; combined.realized_pnl sum of books. Client merge must preserve these (not ev/eq).",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -1047,6 +1047,8 @@
     }
   },
   "combined": {
+    "id": "combined",
+    "label": "House",
     "equity": 3249.02,
     "equity_value": 2946.76,
     "crypto_value": 188.18,
@@ -1054,7 +1056,19 @@
     "buying_power": 114.08,
     "pending_deposits": 0.0,
     "invested_pct": 96.49,
-    "open_orders": 0,
+    "open_orders": 0.0,
+    "asset_mix": {
+      "equity": 2946.76,
+      "crypto": 188.18,
+      "options": 0.0,
+      "cash": 114.08
+    },
+    "realized_pnl": {
+      "day": -6.85,
+      "week": 0.72,
+      "month": -3.31
+    },
+    "unrealized_pnl": 12.43,
     "books": [
       {
         "id": "individual",
@@ -1102,18 +1116,7 @@
       }
     ],
     "names": [],
-    "asset_mix": {
-      "equity": 2946.76,
-      "crypto": 188.18,
-      "options": 0.0,
-      "cash": 114.08
-    },
-    "realized_pnl": {
-      "day": -6.85,
-      "week": 0.72,
-      "month": -3.31
-    },
-    "unrealized_pnl": 12.43
+    "invested_formula": "(equity_value+crypto_value)/equity"
   },
-  "tip": "ba"
+  "tip": "bb"
 }
