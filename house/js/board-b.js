@@ -38,8 +38,8 @@ function bookDisplayLabel(id, book) {
     base = tidySleeveLabel(book.label || book.sleeve || "401(k)");
     if (base === "Voya" || base === "Voya 401(k)") base = "401(k)";
   }
-  if (id === "auto_grok") base = "Grok";
-  if (id === "joint") base = "Deep Seek";
+  if (id === "auto_grok" || base === "Auto-Grok" || base === "Auto Grok" || base === "Auto") base = "Grok";
+  if (id === "joint" || base === "Joint") base = "Deep Seek";
   if (id === "agentic" || base === "Agentic") base = "Claude";
   var suffix = (book && book.suffix) ? String(book.suffix).replace(/\D/g, "").slice(-4) : "";
   if (suffix && String(base).indexOf(suffix) < 0) base = base + " ···" + suffix;
