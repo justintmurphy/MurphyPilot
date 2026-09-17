@@ -6,7 +6,8 @@ TABS = [
 ];
 RH_IDS = ["agentic", "individual", "auto_grok", "joint"];
 LABEL.robinhood = "Robinhood";
-LABEL.auto_grok = "Auto";
+LABEL.auto_grok = "Grok";
+LABEL.joint = "Deep Seek";
 LABEL.fidelity = "Fidelity";
 LABEL.voya = "Voya";
 LABEL.combined = "House";
@@ -477,7 +478,7 @@ overlayChartCard = function (id, mode) {
 overlayHtml = function () {
   if (!snap) return "";
   if (tab === "robinhood") {
-    return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Claude, Individual, Auto, and Joint.");
+    return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Claude, Individual, Grok, and Deep Seek.");
   }
   return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood + Fidelity books", "Robinhood books plus each Fidelity sleeve. Voya is EOD-only.") +
     overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every Robinhood and Fidelity book. Only Voya is EOD.");
