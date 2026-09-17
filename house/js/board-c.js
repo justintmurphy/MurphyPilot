@@ -278,7 +278,7 @@ merge = function (house, pilot, outside) {
   out.combined.equity_value = rnd(ev);
   out.combined.crypto_value = rnd(cv);
   out.combined.open_orders = orders;
-  out.combined.invested_pct = eq ? Math.min(100, (ev / eq) * 100) : 0;
+  out.combined.invested_pct = eq ? Math.min(100, ((ev + cv) / eq) * 100) : 0; /* tip bb: +crypto */
   out.combined.names = names;
   var rhEq = 0, rhCash = 0, rhBp = 0, rhPend = 0, rhEv = 0, rhCv = 0, rhOrders = 0, rhNames = [], rhBooks = [];
   RH_IDS.forEach(function (id) {
@@ -302,7 +302,7 @@ merge = function (house, pilot, outside) {
     id: "robinhood", label: "Robinhood",
     equity: rnd(rhEq), cash: rnd(rhCash), buying_power: rnd(rhBp), pending_deposits: rnd(rhPend),
     equity_value: rnd(rhEv), crypto_value: rnd(rhCv), open_orders: rhOrders,
-    invested_pct: rhEq ? Math.min(100, (rhEv / rhEq) * 100) : 0,
+    invested_pct: rhEq ? Math.min(100, ((rhEv + rhCv) / rhEq) * 100) : 0, /* tip bb: +crypto */
     names: rhNames, books: rhBooks
   };
   /* tip ba: roll optional Forge fields when any RH book prints them — never invent */

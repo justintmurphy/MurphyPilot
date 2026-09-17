@@ -193,17 +193,71 @@
         names.push(row);
       });
     });
+    /* tip bb: rebuild totals but KEEP printed Forge extras on house.combined */
+    var printed = (house && house.combined) || {};
+    var investedPct;
+    if (printed.invested_pct != null && isFinite(Number(printed.invested_pct))) {
+      investedPct = Number(printed.invested_pct);
+    } else {
+      investedPct = eq ? Math.min(100, ((ev + cv) / eq) * 100) : 0;
+    }
     out.combined = {
       id: "combined", label: "House",
       equity: rnd(eq), cash: rnd(cash), buying_power: rnd(bp), pending_deposits: rnd(pend),
       equity_value: rnd(ev), crypto_value: rnd(cv), open_orders: orders,
-      invested_pct: eq ? Math.min(100, (ev / eq) * 100) : 0,
+      invested_pct: investedPct,
       names: names,
       books: IDS.map(function (id) {
         var b = out.accounts[id] || {};
         return { id: id, label: LABEL[id], equity: Number(b.equity) || 0, cash: Number(b.cash) || 0, pending_deposits: Number(b.pending_deposits) || 0, invested_pct: Number(b.invested_pct) || 0, names: (b.names || []).length };
       })
     };
+    if (printed.realized_pnl && typeof printed.realized_pnl === "object") {
+      out.combined.realized_pnl = printed.realized_pnl;
+    } else {
+      var rpSum = { day: 0, week: 0, month: 0 }, rpHas = { day: false, week: false, month: false };
+      IDS.forEach(function (id) {
+        var bk = out.accounts[id] || {};
+        if (!bk.realized_pnl || typeof bk.realized_pnl !== "object") return;
+        ["day", "week", "month"].forEach(function (k) {
+          if (bk.realized_pnl[k] != null && isFinite(Number(bk.realized_pnl[k]))) {
+            rpHas[k] = true; rpSum[k] += Number(bk.realized_pnl[k]);
+          }
+        });
+      });
+      var rpOut = {};
+      ["day", "week", "month"].forEach(function (k) { if (rpHas[k]) rpOut[k] = rnd(rpSum[k]); });
+      if (Object.keys(rpOut).length) out.combined.realized_pnl = rpOut;
+    }
+    if (printed.asset_mix && typeof printed.asset_mix === "object") {
+      out.combined.asset_mix = printed.asset_mix;
+    } else {
+      var mix = { equity: 0, crypto: 0, options: 0, cash: 0 }, hasMix = false;
+      IDS.forEach(function (id) {
+        var bk = out.accounts[id] || {};
+        if (bk.asset_mix && typeof bk.asset_mix === "object") {
+          hasMix = true;
+          ["equity", "crypto", "options", "cash"].forEach(function (k) {
+            if (bk.asset_mix[k] != null && isFinite(Number(bk.asset_mix[k]))) mix[k] += Number(bk.asset_mix[k]);
+          });
+        } else {
+          if (bk.equity_value != null && isFinite(Number(bk.equity_value))) { hasMix = true; mix.equity += Number(bk.equity_value); }
+          if (bk.crypto_value != null && isFinite(Number(bk.crypto_value))) { hasMix = true; mix.crypto += Number(bk.crypto_value); }
+          if (bk.cash != null && isFinite(Number(bk.cash))) { hasMix = true; mix.cash += Number(bk.cash); }
+        }
+      });
+      if (hasMix) out.combined.asset_mix = { equity: rnd(mix.equity), crypto: rnd(mix.crypto), options: rnd(mix.options), cash: rnd(mix.cash) };
+    }
+    if (printed.unrealized_pnl != null && isFinite(Number(printed.unrealized_pnl))) {
+      out.combined.unrealized_pnl = Number(printed.unrealized_pnl);
+    } else {
+      var uSum = 0, hasU = false;
+      IDS.forEach(function (id) {
+        var bk = out.accounts[id] || {};
+        if (bk.unrealized_pnl != null && isFinite(Number(bk.unrealized_pnl))) { hasU = true; uSum += Number(bk.unrealized_pnl); }
+      });
+      if (hasU) out.combined.unrealized_pnl = rnd(uSum);
+    }
     if (!out.tape) out.tape = {};
     var seed = TAPE_SEED && TAPE_SEED.combined ? TAPE_SEED : { combined: TAPE_SEED || [] };
     out.tape.agentic = mergePrints([].concat(seed.agentic || [], (out.accounts.agentic.tape || []), loadTape("agentic")));
