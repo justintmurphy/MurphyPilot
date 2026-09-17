@@ -38,7 +38,8 @@ function bookDisplayLabel(id, book) {
     base = tidySleeveLabel(book.label || book.sleeve || "401(k)");
     if (base === "Voya" || base === "Voya 401(k)") base = "401(k)";
   }
-  if (id === "auto_grok" || base === "Auto-Grok") base = "Auto";
+  if (id === "auto_grok" || base === "Auto-Grok" || base === "Auto Grok" || base === "Auto") base = "Grok";
+  if (id === "joint" || base === "Joint") base = "Deep Seek";
   if (id === "agentic" || base === "Agentic") base = "Claude";
   var suffix = (book && book.suffix) ? String(book.suffix).replace(/\D/g, "").slice(-4) : "";
   if (suffix && String(base).indexOf(suffix) < 0) base = base + " ···" + suffix;
@@ -388,7 +389,7 @@ function collapseHouseNames(list) {
     if (!vals.length) vals = [last, last];
     var open = clickable ? ' data-open-books="1"' : "";
     var hint;
-    if (clickable && key === "robinhood") hint = '<p class="hint tape-open-hint">Robinhood session only. Click for Claude / Individual / Auto / Joint charts.</p>';
+    if (clickable && key === "robinhood") hint = '<p class="hint tape-open-hint">Robinhood session only. Click for Claude / Individual / Grok / Deep Seek charts.</p>';
     else if (clickable) hint = '<p class="hint tape-open-hint">Live Robinhood + Fidelity session. Voya is EOD. Click for live book charts.</p>';
     else hint = '<p class="hint">Day / week / month vs this book\u2019s last print.</p>';
     var liveTitle = title === "House" ? "Robinhood + Fidelity" : title;
@@ -533,7 +534,7 @@ function collapseHouseNames(list) {
   function overlayHtml() {
     if (!snap) return "";
     if (tab === "robinhood") {
-      return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Claude, Individual, Auto, and Joint.");
+      return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Claude, Individual, Grok, and Deep Seek.");
     }
     return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood + Fidelity", "Session prints for Robinhood books and Fidelity. Voya is EOD-only.") +
       overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every book. Only Voya is EOD.");
