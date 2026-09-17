@@ -179,7 +179,8 @@ function collapseHouseNames(list) {
     if (s.length >= 16) return s.slice(5, 10) + " " + s.slice(11, 16);
     return s;
   }
-  /* tip be: optional company_url (http/https only) else Yahoo quote — never invent a homepage */
+  /* tip be paint: company_url http(s) else Yahoo quote/{SYMBOL}/ ; account map; sell $ else —; buys always — */
+  var FILL_BOOK_LABEL = { agentic: "Claude", auto_grok: "Grok", joint: "Deep Seek", individual: "Individual" };
   function fillHttpUrl(raw) {
     var u = String(raw == null ? "" : raw).trim();
     return /^https?:\/\//i.test(u) ? u : "";
@@ -189,7 +190,7 @@ function collapseHouseNames(list) {
     if (site) return site;
     var sym = String((f && f.symbol) || "").trim();
     if (!sym) return "";
-    return "https://finance.yahoo.com/quote/" + encodeURIComponent(sym);
+    return "https://finance.yahoo.com/quote/" + encodeURIComponent(sym) + "/";
   }
   function fillSymLink(f) {
     var inner = "<span class=\"sym\">" + esc(f.symbol) + "</span>";
@@ -204,36 +205,33 @@ function collapseHouseNames(list) {
   function fillBookChip(f) {
     var id = String((f && f.account) || "").trim();
     if (!id) return "";
-    var book = (typeof snap !== "undefined" && snap && snap.accounts && snap.accounts[id]) || {};
-    var lab = (typeof bookDisplayLabel === "function")
-      ? bookDisplayLabel(id, book)
-      : ((typeof LABEL !== "undefined" && LABEL[id]) || id);
+    var lab = FILL_BOOK_LABEL[id];
     if (!lab) return "";
     return '<span class="fill-chip">' + esc(lab) + "</span>";
   }
-  function fillSellPnlHtml(f) {
+  function fillPnlHtml(f, isSell) {
+    if (!isSell) return "\u2014";
     if (!f || f.pnl == null || !isFinite(Number(f.pnl))) return "\u2014";
     return '<span class="tone-' + tone(f.pnl) + '">' + money(f.pnl) + "</span>";
   }
-  function fillRowHtml(f, withPnl) {
+  function fillRowHtml(f, isSell) {
     var chip = fillBookChip(f);
     return "<tr>" +
       '<td class="fill-when">' + esc(fillWhen(f.ts)) + "</td>" +
       '<td class="name-cell">' + fillSymLink(f) + "</td>" +
-      '<td class="fill-book">' + (chip || "\u2014") + "</td>" +
+      '<td class="fill-book">' + chip + "</td>" +
       '<td class="num">' + qty(f.qty) + "</td>" +
       '<td class="num">' + moneyOrDash(f.price) + "</td>" +
-      (withPnl ? '<td class="num fill-pnl">' + fillSellPnlHtml(f) + "</td>" : "") +
+      '<td class="num fill-pnl">' + fillPnlHtml(f, isSell) + "</td>" +
       "</tr>";
   }
-  function fillsSideHtml(title, list, withPnl, emptyHint) {
+  function fillsSideHtml(title, list, isSell, emptyHint) {
     var inner;
     if (!list.length) {
       inner = '<p class="hint fills-empty">' + emptyHint + "</p>";
     } else {
-      var head = "<tr><th>When</th><th>Name</th><th>Book</th><th class=\"num\">Qty</th><th class=\"num\">Px</th>" +
-        (withPnl ? '<th class="num">P&L</th>' : "") + "</tr>";
-      var rows = list.map(function (f) { return fillRowHtml(f, withPnl); }).join("");
+      var head = "<tr><th>When</th><th>Name</th><th>Book</th><th class=\"num\">Qty</th><th class=\"num\">Px</th><th class=\"num\">P&L</th></tr>";
+      var rows = list.map(function (f) { return fillRowHtml(f, isSell); }).join("");
       inner = '<div class="fills-pane"><table class="book fills-tape"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
     }
     return '<section class="fills-col"><h3 class="fills-side">' + title + "</h3>" + inner + "</section>";
