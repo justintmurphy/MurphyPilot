@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904bd");
-@import url("house-b.css?v=20260904bd");
-@import url("mix.css?v=20260904bd");
+@import url("house-a.css?v=20260904be");
+@import url("house-b.css?v=20260904be");
+@import url("mix.css?v=20260904be");
 
 header .brand-block {
   min-width: 0;
@@ -284,4 +284,57 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
     font-size: 9.5px;
     padding: 4px 7px;
   }
+}
+
+/* tip be — Recent fills: Buys | Sells, ~10-row scroll, book chip, linked symbol */
+.fills-card { padding: 10px 12px; overflow: hidden; }
+.fills-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.fills-col { min-width: 0; }
+.fills-side {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.fills-pane {
+  max-height: calc(10 * 2.05rem + 1.7rem);
+  overflow-y: auto;
+  overflow-x: auto;
+}
+.fills-pane thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--paper);
+}
+table.book.fills-tape { font-size: 11px; }
+table.book.fills-tape td.fill-when {
+  white-space: nowrap;
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+table.book.fills-tape td.fill-book { white-space: nowrap; }
+table.book.fills-tape a.fill-link { display: inline-flex; }
+.fill-chip {
+  display: inline-block;
+  font-size: 9.5px;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--row) 85%, transparent);
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.fills-empty { opacity: 0.85; margin: 0; }
+@media (max-width: 720px) {
+  .fills-split { grid-template-columns: 1fr; }
 }

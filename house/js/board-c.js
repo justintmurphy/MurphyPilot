@@ -307,6 +307,7 @@ merge = function (house, pilot, outside) {
     names: rhNames, books: rhBooks
   };
   /* tip ba: roll optional Forge fields when any RH book prints them — never invent */
+  /* tip be: fills may include optional company_url (http/https) + sell pnl; UI paints, never invent */
   (function tipBaRollups() {
     var mix = { equity: 0, crypto: 0, options: 0, cash: 0 }, hasMix = false;
     var rp = { day: 0, week: 0, month: 0 }, hasRp = { day: false, week: false, month: false };

@@ -179,30 +179,83 @@ function collapseHouseNames(list) {
     if (s.length >= 16) return s.slice(5, 10) + " " + s.slice(11, 16);
     return s;
   }
+  /* tip be: optional company_url (http/https only) else Yahoo quote — never invent a homepage */
+  function fillHttpUrl(raw) {
+    var u = String(raw == null ? "" : raw).trim();
+    return /^https?:\/\//i.test(u) ? u : "";
+  }
+  function fillQuoteUrl(f) {
+    var site = fillHttpUrl(f && f.company_url);
+    if (site) return site;
+    var sym = String((f && f.symbol) || "").trim();
+    if (!sym) return "";
+    return "https://finance.yahoo.com/quote/" + encodeURIComponent(sym);
+  }
+  function fillSymLink(f) {
+    var inner = "<span class=\"sym\">" + esc(f.symbol) + "</span>";
+    var name = String((f && f.name) || "").trim();
+    if (name && name.toUpperCase() !== String(f.symbol || "").toUpperCase()) {
+      inner += '<span class="sub">' + esc(name) + "</span>";
+    }
+    var url = fillQuoteUrl(f);
+    if (!url) return inner;
+    return '<a class="name-link fill-link" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + inner + "</a>";
+  }
+  function fillBookChip(f) {
+    var id = String((f && f.account) || "").trim();
+    if (!id) return "";
+    var book = (typeof snap !== "undefined" && snap && snap.accounts && snap.accounts[id]) || {};
+    var lab = (typeof bookDisplayLabel === "function")
+      ? bookDisplayLabel(id, book)
+      : ((typeof LABEL !== "undefined" && LABEL[id]) || id);
+    if (!lab) return "";
+    return '<span class="fill-chip">' + esc(lab) + "</span>";
+  }
+  function fillSellPnlHtml(f) {
+    if (!f || f.pnl == null || !isFinite(Number(f.pnl))) return "\u2014";
+    return '<span class="tone-' + tone(f.pnl) + '">' + money(f.pnl) + "</span>";
+  }
+  function fillRowHtml(f, withPnl) {
+    var chip = fillBookChip(f);
+    return "<tr>" +
+      '<td class="fill-when">' + esc(fillWhen(f.ts)) + "</td>" +
+      '<td class="name-cell">' + fillSymLink(f) + "</td>" +
+      '<td class="fill-book">' + (chip || "\u2014") + "</td>" +
+      '<td class="num">' + qty(f.qty) + "</td>" +
+      '<td class="num">' + moneyOrDash(f.price) + "</td>" +
+      (withPnl ? '<td class="num fill-pnl">' + fillSellPnlHtml(f) + "</td>" : "") +
+      "</tr>";
+  }
+  function fillsSideHtml(title, list, withPnl, emptyHint) {
+    var inner;
+    if (!list.length) {
+      inner = '<p class="hint fills-empty">' + emptyHint + "</p>";
+    } else {
+      var head = "<tr><th>When</th><th>Name</th><th>Book</th><th class=\"num\">Qty</th><th class=\"num\">Px</th>" +
+        (withPnl ? '<th class="num">P&L</th>' : "") + "</tr>";
+      var rows = list.map(function (f) { return fillRowHtml(f, withPnl); }).join("");
+      inner = '<div class="fills-pane"><table class="book fills-tape"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+    }
+    return '<section class="fills-col"><h3 class="fills-side">' + title + "</h3>" + inner + "</section>";
+  }
   function fillsTapeHtml(book, opts) {
     opts = opts || {};
     var required = !!opts.required;
     var hasKey = book && Object.prototype.hasOwnProperty.call(book, "fills");
     if (!required && !hasKey) return "";
     var fills = (book && Array.isArray(book.fills)) ? book.fills.slice() : [];
-    fills = fills.filter(function (f) { return f && f.symbol; }).slice(0, 40);
-    var body;
-    if (!fills.length) {
-      body = '<p class="hint fills-empty" style="margin:0">No recent fills in this print.</p>';
-    } else {
-      var rows = fills.map(function (f) {
-        var side = String(f.side || "").toLowerCase();
-        var sideCls = side === "sell" ? "stop" : (side === "buy" ? "go" : "flat");
-        var pnlCell = (f.pnl == null || !isFinite(Number(f.pnl))) ? "\u2014" : ('<span class="tone-' + tone(f.pnl) + '">' + money(f.pnl) + "</span>");
-        return "<tr><td class=\"fill-when\">" + esc(fillWhen(f.ts)) + "</td>" +
-          "<td><span class=\"sym\">" + esc(f.symbol) + "</span></td>" +
-          '<td class="num tone-' + sideCls + '">' + esc(side || "\u2014") + "</td>" +
-          '<td class="num">' + qty(f.qty) + "</td>" +
-          '<td class="num">' + moneyOrDash(f.price) + "</td>" +
-          '<td class="num">' + pnlCell + "</td></tr>";
-      }).join("");
-      body = '<table class="book fills-tape"><thead><tr><th>When</th><th>Name</th><th class="num">Side</th><th class="num">Qty</th><th class="num">Px</th><th class="num">P&L</th></tr></thead><tbody>' + rows + "</tbody></table>";
-    }
+    fills = fills.filter(function (f) { return f && f.symbol; });
+    fills.sort(function (a, b) { return String(b.ts || "").localeCompare(String(a.ts || "")); });
+    var buys = [], sells = [];
+    fills.forEach(function (f) {
+      var side = String(f.side || "").toLowerCase();
+      if (side === "buy") { if (buys.length < 40) buys.push(f); }
+      else if (side === "sell") { if (sells.length < 40) sells.push(f); }
+    });
+    var body = '<div class="fills-split">' +
+      fillsSideHtml("Buys", buys, false, "No buys in this print.") +
+      fillsSideHtml("Sells", sells, true, "No sells in this print.") +
+      "</div>";
     return "<h2>Recent fills</h2><div class=\"card fills-card\">" + body +
       '<p class="hint">Status tape only. No order ticket.</p></div>';
   }
