@@ -286,7 +286,7 @@
   "eye": {
     "checked_et": "2026-09-15 15:31 ET",
     "status": "bridged",
-    "note": "Bridged from house 675a0ae (asof 15:31 ET). Pilot was stuck GME+ONDS 11:55; House multi-lane live. Wed RH refresh still needs Marlowe doorbell when Bot pool allows."
+    "note": "Bridged from house 675a0ae (asof 15:31 ET). Pilot was stuck GME+ONDS 11:55; House multi-lane live. Wed RH refresh still needs Claude doorbell when Bot pool allows."
   },
   "source": "house/house-snapshot.json 675a0ae 2026-09-15T15:31:29-04:00"
 }
