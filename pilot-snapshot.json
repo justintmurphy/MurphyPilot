@@ -1,12 +1,12 @@
 {
-  "asof": "2026-09-17 10:53 ET",
+  "asof": "2026-09-17 11:03 ET",
   "account": "Agentic",
-  "equity": 496.11,
-  "equity_value": 495.94,
-  "cash": 0.17,
-  "buying_power": 0.17,
+  "equity": 495.75,
+  "equity_value": 383.88,
+  "cash": 111.87,
+  "buying_power": 111.87,
   "pending_deposits": 0,
-  "invested_pct": 99.97,
+  "invested_pct": 77.43,
   "slots": 0,
   "open_orders": 0,
   "names": [
@@ -14,10 +14,10 @@
       "symbol": "MU",
       "qty": 0.031756,
       "avg": 924.86,
+      "last": 979.155,
       "avg_cost": 924.86,
-      "last": 978.29,
-      "value": 31.07,
-      "pnl_pct": 5.78,
+      "value": 31.09,
+      "pnl_pct": 5.87,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -30,10 +30,10 @@
       "symbol": "VST",
       "qty": 0.384344,
       "avg": 142.06,
+      "last": 143.615,
       "avg_cost": 142.06,
-      "last": 142.92,
-      "value": 54.93,
-      "pnl_pct": 0.61,
+      "value": 55.2,
+      "pnl_pct": 1.09,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -46,10 +46,10 @@
       "symbol": "PHVS",
       "qty": 1.11887,
       "avg": 38.24,
+      "last": 38.58,
       "avg_cost": 38.24,
-      "last": 38.86,
-      "value": 43.48,
-      "pnl_pct": 1.62,
+      "value": 43.17,
+      "pnl_pct": 0.89,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -59,27 +59,11 @@
       "stop_hit": null
     },
     {
-      "symbol": "VIST",
-      "qty": 0.520937,
-      "avg": 78.69,
-      "avg_cost": 78.69,
-      "last": 73.735,
-      "value": 38.41,
-      "pnl_pct": -6.3,
-      "account": "agentic",
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": "hard_cap"
-    },
-    {
       "symbol": "SGOV",
       "qty": 0.388203,
       "avg": 100.54,
-      "avg_cost": 100.54,
       "last": 100.5599,
+      "avg_cost": 100.54,
       "value": 39.04,
       "pnl_pct": 0.02,
       "account": "agentic",
@@ -91,29 +75,13 @@
       "stop_hit": null
     },
     {
-      "symbol": "PR",
-      "qty": 1.322337,
-      "avg": 24.56,
-      "avg_cost": 24.56,
-      "last": 23.01,
-      "value": 30.43,
-      "pnl_pct": -6.31,
-      "account": "agentic",
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": "hard_cap"
-    },
-    {
       "symbol": "SKWD",
       "qty": 0.553635,
       "avg": 57.57,
+      "last": 56.53,
       "avg_cost": 57.57,
-      "last": 56.67,
-      "value": 31.37,
-      "pnl_pct": -1.56,
+      "value": 31.3,
+      "pnl_pct": -1.81,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -126,10 +94,10 @@
       "symbol": "ARIS",
       "qty": 1.508285,
       "avg": 18.41,
+      "last": 18.87,
       "avg_cost": 18.41,
-      "last": 18.9,
-      "value": 28.51,
-      "pnl_pct": 2.66,
+      "value": 28.46,
+      "pnl_pct": 2.5,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -142,10 +110,10 @@
       "symbol": "ICE",
       "qty": 0.17486,
       "avg": 156.3,
+      "last": 152.99,
       "avg_cost": 156.3,
-      "last": 153.0,
       "value": 26.75,
-      "pnl_pct": -2.11,
+      "pnl_pct": -2.12,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -155,29 +123,13 @@
       "stop_hit": null
     },
     {
-      "symbol": "DVN",
-      "qty": 0.510803,
-      "avg": 51.49,
-      "avg_cost": 51.49,
-      "last": 48.24,
-      "value": 24.64,
-      "pnl_pct": -6.31,
-      "account": "agentic",
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": "hard_cap"
-    },
-    {
       "symbol": "WLDN",
       "qty": 0.290793,
       "avg": 78.48,
+      "last": 79.905,
       "avg_cost": 78.48,
-      "last": 79.88,
-      "value": 23.23,
-      "pnl_pct": 1.78,
+      "value": 23.24,
+      "pnl_pct": 1.82,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -190,10 +142,10 @@
       "symbol": "QSR",
       "qty": 0.270099,
       "avg": 76.12,
+      "last": 74.135,
       "avg_cost": 76.12,
-      "last": 74.12,
       "value": 20.02,
-      "pnl_pct": -2.63,
+      "pnl_pct": -2.61,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -203,29 +155,13 @@
       "stop_hit": null
     },
     {
-      "symbol": "EXE",
-      "qty": 0.208958,
-      "avg": 95.33,
-      "avg_cost": 95.33,
-      "last": 88.085,
-      "value": 18.41,
-      "pnl_pct": -7.6,
-      "account": "agentic",
-      "stops": {
-        "hard_cap_pct": -6,
-        "floor_pct": -5,
-        "flatten_pct": -10
-      },
-      "stop_hit": "hard_cap"
-    },
-    {
       "symbol": "NBIX",
       "qty": 0.128654,
       "avg": 150.64,
+      "last": 151.17,
       "avg_cost": 150.64,
-      "last": 150.97,
-      "value": 19.42,
-      "pnl_pct": 0.22,
+      "value": 19.45,
+      "pnl_pct": 0.35,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -238,10 +174,10 @@
       "symbol": "ARDX",
       "qty": 4.040875,
       "avg": 3.43,
+      "last": 3.475,
       "avg_cost": 3.43,
-      "last": 3.47,
-      "value": 14.02,
-      "pnl_pct": 1.17,
+      "value": 14.04,
+      "pnl_pct": 1.31,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -254,10 +190,10 @@
       "symbol": "NVDA",
       "qty": 0.121148,
       "avg": 218.08,
+      "last": 219.166,
       "avg_cost": 218.08,
-      "last": 219.19,
       "value": 26.55,
-      "pnl_pct": 0.51,
+      "pnl_pct": 0.5,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -270,10 +206,10 @@
       "symbol": "KBR",
       "qty": 0.699856,
       "avg": 36.96,
+      "last": 36.63,
       "avg_cost": 36.96,
-      "last": 36.665,
-      "value": 25.66,
-      "pnl_pct": -0.8,
+      "value": 25.64,
+      "pnl_pct": -0.89,
       "account": "agentic",
       "stops": {
         "hard_cap_pct": -6,
@@ -284,9 +220,9 @@
     }
   ],
   "eye": {
-    "checked_et": "2026-09-17 10:53 ET",
+    "checked_et": "2026-09-17 11:03 ET",
     "status": "live",
-    "note": "Hard-cap SELL flagged: VIST PR DVN EXE. Mechanical only. No idle deploy. PDT aware."
+    "note": "Hard-cap SELL executed: VIST PR DVN EXE. Mechanical only. No idle deploy. PDT aware. Cash parked."
   },
   "source": "robinhood agentic 954263794 live"
 }
