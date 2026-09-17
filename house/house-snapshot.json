@@ -1,7 +1,7 @@
 {
-  "asof": "2026-09-17T13:55:57-04:00",
+  "asof": "2026-09-17T15:14:54-04:00",
   "brand": "Murphy House",
-  "note": "Tip bb: combined invested_pct=(equity_value+crypto_value)/equity; combined.realized_pnl sum of books. Client merge must preserve these (not ev/eq). Tip bc: auto_grok.label=Grok, joint.label=Deep Seek (ids unchanged).",
+  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted (fundamentals have no homepage). Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=Claude.",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -892,7 +892,7 @@
           "side": "sell",
           "qty": 0.208958,
           "price": 87.9301,
-          "pnl": null,
+          "pnl": -1.55,
           "account": "agentic"
         },
         {
@@ -901,7 +901,7 @@
           "side": "sell",
           "qty": 0.510803,
           "price": 48.2001,
-          "pnl": null,
+          "pnl": -1.68,
           "account": "agentic"
         },
         {
@@ -910,7 +910,7 @@
           "side": "sell",
           "qty": 1.322337,
           "price": 22.9709,
-          "pnl": null,
+          "pnl": -2.1,
           "account": "agentic"
         },
         {
@@ -919,7 +919,7 @@
           "side": "sell",
           "qty": 0.520937,
           "price": 73.5975,
-          "pnl": null,
+          "pnl": -2.65,
           "account": "agentic"
         },
         {
@@ -946,7 +946,7 @@
           "side": "sell",
           "qty": 0.378182,
           "price": 48.01,
-          "pnl": null,
+          "pnl": -0.11,
           "account": "agentic"
         },
         {
@@ -955,7 +955,7 @@
           "side": "sell",
           "qty": 1.55613,
           "price": 22.0446,
-          "pnl": null,
+          "pnl": 1.24,
           "account": "agentic"
         },
         {
@@ -1918,5 +1918,6 @@
         "names": 13
       }
     ]
-  }
+  },
+  "tip": "ba+bb+bc+be"
 }
