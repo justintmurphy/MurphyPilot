@@ -15,5 +15,5 @@
   ],
   "enforcement": "worker_otp",
   "status": "live_seat_gate",
-  "qa_note": "Lens continuous pixel QA blocked without a seat OTP session — Studio/Marlowe decide smoke path; do not ping Justin from Lens."
+  "qa_note": "Lens continuous pixel QA blocked without a seat OTP session — Studio/Claude decide smoke path; do not ping Justin from Lens."
 }

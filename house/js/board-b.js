@@ -39,7 +39,7 @@ function bookDisplayLabel(id, book) {
     if (base === "Voya" || base === "Voya 401(k)") base = "401(k)";
   }
   if (id === "auto_grok" || base === "Auto-Grok") base = "Auto";
-  if (id === "agentic" || base === "Agentic" || base === "Marlowe") base = "Claude";
+  if (id === "agentic" || base === "Agentic") base = "Claude";
   var suffix = (book && book.suffix) ? String(book.suffix).replace(/\D/g, "").slice(-4) : "";
   if (suffix && String(base).indexOf(suffix) < 0) base = base + " ···" + suffix;
   if (typeof LABEL !== "undefined" && id) LABEL[id] = base;
@@ -447,7 +447,7 @@ function collapseHouseNames(list) {
       "<div><span>Equity</span><b>" + money(ag.equity) + "</b></div>" +
       "</div>" +
       '<p class="hint">' + (asof ? ("asof " + esc(String(asof)) + " \u00b7 ") : "") +
-      "Agentic Robinhood book labeled Claude (was Marlowe). Account id stays Agentic. Mail subjects still use <code>Agentic \u2026</code>. Equity, holdings, asof only.</p></div>" +
+      "The Agentic Robinhood book is labeled Claude. Account id stays Agentic. Mail subjects still use <code>Agentic \u2026</code>. Equity, holdings, asof only.</p></div>" +
       "<h2>Holdings</h2>" + tableHtml(ag.names, false, true);
   }
 
