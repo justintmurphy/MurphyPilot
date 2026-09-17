@@ -179,7 +179,7 @@ function collapseHouseNames(list) {
     if (s.length >= 16) return s.slice(5, 10) + " " + s.slice(11, 16);
     return s;
   }
-  /* tip be paint: company_url http(s) else Yahoo quote/{SYMBOL}/ ; account map; sell $ else —; buys always — */
+  /* tip bf paint: company_url http(s) else Yahoo quote/{SYMBOL}/ ; account map; sell $ else —; buys omit P&L slot */
   var FILL_BOOK_LABEL = { agentic: "Claude", auto_grok: "Grok", joint: "Deep Seek", individual: "Individual" };
   function fillHttpUrl(raw) {
     var u = String(raw == null ? "" : raw).trim();
@@ -210,7 +210,7 @@ function collapseHouseNames(list) {
     return '<span class="fill-chip">' + esc(lab) + "</span>";
   }
   function fillPnlHtml(f, isSell) {
-    if (!isSell) return "\u2014";
+    if (!isSell) return "";
     if (!f || f.pnl == null || !isFinite(Number(f.pnl))) return "\u2014";
     return '<span class="tone-' + tone(f.pnl) + '">' + money(f.pnl) + "</span>";
   }
@@ -222,7 +222,7 @@ function collapseHouseNames(list) {
       '<td class="fill-book">' + chip + "</td>" +
       '<td class="num">' + qty(f.qty) + "</td>" +
       '<td class="num">' + moneyOrDash(f.price) + "</td>" +
-      '<td class="num fill-pnl">' + fillPnlHtml(f, isSell) + "</td>" +
+      (isSell ? '<td class="num fill-pnl">' + fillPnlHtml(f, true) + "</td>" : "") +
       "</tr>";
   }
   function fillsSideHtml(title, list, isSell, emptyHint) {
@@ -230,7 +230,8 @@ function collapseHouseNames(list) {
     if (!list.length) {
       inner = '<p class="hint fills-empty">' + emptyHint + "</p>";
     } else {
-      var head = "<tr><th>When</th><th>Name</th><th>Book</th><th class=\"num\">Qty</th><th class=\"num\">Px</th><th class=\"num\">P&L</th></tr>";
+      var head = "<tr><th>When</th><th>Name</th><th>Book</th><th class=\"num\">Qty</th><th class=\"num\">Px</th>" +
+        (isSell ? '<th class="num">P&L</th>' : "") + "</tr>";
       var rows = list.map(function (f) { return fillRowHtml(f, isSell); }).join("");
       inner = '<div class="fills-pane"><table class="book fills-tape"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
     }
