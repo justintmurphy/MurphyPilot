@@ -83,11 +83,14 @@ function collapseHouseNames(list) {
         symbol: sym,
         name: n.name || sym,
         kind: kind,
+        asset_class: n.asset_class || kind,
         qty: qty,
         value: value,
         cost: cost,
         last: n.last != null ? Number(n.last) : null,
         day_pct: n.day_pct != null ? Number(n.day_pct) : null,
+        unrealized_pnl: n.unrealized_pnl != null && isFinite(Number(n.unrealized_pnl)) ? Number(n.unrealized_pnl) : null,
+        unrealized_pnl_pct: n.unrealized_pnl_pct != null && isFinite(Number(n.unrealized_pnl_pct)) ? Number(n.unrealized_pnl_pct) : null,
         last_fill: n.last_fill || n.first_fill || "",
         first_fill: n.first_fill || "",
         next_stall: n.next_stall || "",
@@ -100,6 +103,9 @@ function collapseHouseNames(list) {
     hit.qty += qty;
     hit.value += value;
     hit.cost += cost;
+    if (n.unrealized_pnl != null && isFinite(Number(n.unrealized_pnl))) {
+      hit.unrealized_pnl = (hit.unrealized_pnl == null ? 0 : hit.unrealized_pnl) + Number(n.unrealized_pnl);
+    }
     if (hit.last == null && n.last != null) hit.last = Number(n.last);
     if (hit.day_pct == null && n.day_pct != null) hit.day_pct = Number(n.day_pct);
     if (!hit.last_fill && (n.last_fill || n.first_fill)) hit.last_fill = n.last_fill || n.first_fill;
@@ -116,10 +122,92 @@ function collapseHouseNames(list) {
     g.cost = _rnd(g.cost);
     g.pnl = _rnd(g.value - g.cost);
     g.pnl_pct = g.cost ? _rnd((g.pnl / g.cost) * 100) : null;
+    if (g.unrealized_pnl == null && g.value != null && g.qty != null && g.avg != null) {
+      g.unrealized_pnl = _rnd(g.value - (g.qty * g.avg));
+    } else if (g.unrealized_pnl != null) {
+      g.unrealized_pnl = _rnd(g.unrealized_pnl);
+    }
+    if (g.unrealized_pnl_pct == null && g.unrealized_pnl != null && g.cost) {
+      g.unrealized_pnl_pct = _rnd((g.unrealized_pnl / g.cost) * 100);
+    } else if (g.unrealized_pnl_pct != null) {
+      g.unrealized_pnl_pct = _rnd(g.unrealized_pnl_pct);
+    }
     if (g.sleeves.length) g.sleeve = g.sleeves.join(" \u00b7 ");
     return g;
   });
 }
+
+
+  function nameUnrealized(n) {
+    if (!n) return { pnl: null, pct: null };
+    var pnl = n.unrealized_pnl != null && isFinite(Number(n.unrealized_pnl)) ? Number(n.unrealized_pnl) : null;
+    var pctV = n.unrealized_pnl_pct != null && isFinite(Number(n.unrealized_pnl_pct)) ? Number(n.unrealized_pnl_pct) : null;
+    var qty = n.qty != null ? Number(n.qty) : null;
+    var avg = n.avg != null ? Number(n.avg) : (n.avg_cost != null ? Number(n.avg_cost) : null);
+    var value = n.value != null ? Number(n.value) : null;
+    if (pnl == null && value != null && qty != null && avg != null && isFinite(value) && isFinite(qty) && isFinite(avg)) {
+      pnl = value - (qty * avg);
+    }
+    if (pctV == null && pnl != null && qty != null && avg != null && isFinite(qty * avg) && Math.abs(qty * avg) > 0.0005) {
+      pctV = (pnl / (qty * avg)) * 100;
+    }
+    if (pctV == null && n.pnl_pct != null && isFinite(Number(n.pnl_pct))) pctV = Number(n.pnl_pct);
+    if (pnl == null && n.pnl != null && isFinite(Number(n.pnl))) pnl = Number(n.pnl);
+    return { pnl: pnl, pct: pctV };
+  }
+  function moneyOrDash(n) {
+    return (n == null || !isFinite(Number(n))) ? "\u2014" : money(n);
+  }
+  function realizedStripHtml(book) {
+    if (!book || !book.realized_pnl || typeof book.realized_pnl !== "object") return "";
+    var rp = book.realized_pnl;
+    var cells = [];
+    [["day", "Day"], ["week", "Week"], ["month", "Month"]].forEach(function (pair) {
+      if (!Object.prototype.hasOwnProperty.call(rp, pair[0]) || rp[pair[0]] == null) return;
+      var v = Number(rp[pair[0]]);
+      if (!isFinite(v)) return;
+      cells.push("<div><span>Realized " + pair[1] + "</span><b class=\"tone-" + tone(v) + "\">" + money(v) + "</b></div>");
+    });
+    if (!cells.length) return "";
+    return "<h2>Realized P&L</h2><div class=\"card span realized-strip\"><div class=\"kpi\">" + cells.join("") + "</div>" +
+      '<p class="hint">Print-only. Periods hide when the feed omits them.</p></div>';
+  }
+  function fillWhen(ts) {
+    var s = String(ts || "");
+    if (!s) return "\u2014";
+    if (s.length >= 16) return s.slice(5, 10) + " " + s.slice(11, 16);
+    return s;
+  }
+  function fillsTapeHtml(book, opts) {
+    opts = opts || {};
+    var required = !!opts.required;
+    var hasKey = book && Object.prototype.hasOwnProperty.call(book, "fills");
+    if (!required && !hasKey) return "";
+    var fills = (book && Array.isArray(book.fills)) ? book.fills.slice() : [];
+    fills = fills.filter(function (f) { return f && f.symbol; }).slice(0, 40);
+    var body;
+    if (!fills.length) {
+      body = '<p class="hint fills-empty" style="margin:0">No recent fills in this print.</p>';
+    } else {
+      var rows = fills.map(function (f) {
+        var side = String(f.side || "").toLowerCase();
+        var sideCls = side === "sell" ? "stop" : (side === "buy" ? "go" : "flat");
+        var pnlCell = (f.pnl == null || !isFinite(Number(f.pnl))) ? "\u2014" : ('<span class="tone-' + tone(f.pnl) + '">' + money(f.pnl) + "</span>");
+        return "<tr><td class=\"fill-when\">" + esc(fillWhen(f.ts)) + "</td>" +
+          "<td><span class=\"sym\">" + esc(f.symbol) + "</span></td>" +
+          '<td class="num tone-' + sideCls + '">' + esc(side || "\u2014") + "</td>" +
+          '<td class="num">' + qty(f.qty) + "</td>" +
+          '<td class="num">' + moneyOrDash(f.price) + "</td>" +
+          '<td class="num">' + pnlCell + "</td></tr>";
+      }).join("");
+      body = '<table class="book fills-tape"><thead><tr><th>When</th><th>Name</th><th class="num">Side</th><th class="num">Qty</th><th class="num">Px</th><th class="num">P&L</th></tr></thead><tbody>' + rows + "</tbody></table>";
+    }
+    return "<h2>Recent fills</h2><div class=\"card fills-card\">" + body +
+      '<p class="hint">Status tape only. No order ticket.</p></div>';
+  }
+  function bookExtrasHtml(book, opts) {
+    return realizedStripHtml(book) + fillsTapeHtml(book, opts);
+  }
 
   var overlayOpen = false;
   var overlayMode = "live";
@@ -268,15 +356,21 @@ function collapseHouseNames(list) {
   }
 
   function stateHtml(b, title) {
-    var eqCell = tab === "combined"
-      ? ("<div><span>Cash</span><b>" + money(b.cash) + "</b></div>")
-      : ("<div><span>Equity</span><b>" + money(b.equity) + "</b>" + dodHtml(dodTape(tab), b.equity) + "</div>");
+    var cells = [];
+    if (tab === "combined") {
+      cells.push("<div><span>Cash</span><b>" + moneyOrDash(b.cash) + "</b></div>");
+      cells.push("<div><span>Buying power</span><b>" + moneyOrDash(b.buying_power) + "</b></div>");
+      cells.push("<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
+      cells.push("<div><span>Names</span><b>" + (b.names || []).length + "</b></div>");
+    } else {
+      cells.push("<div><span>Equity</span><b>" + moneyOrDash(b.equity) + "</b>" + dodHtml(dodTape(tab), b.equity) + "</div>");
+      cells.push("<div><span>Cash</span><b>" + moneyOrDash(b.cash) + "</b></div>");
+      cells.push("<div><span>Buying power</span><b>" + moneyOrDash(b.buying_power) + "</b></div>");
+      cells.push("<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
+    }
     return "<h2>Book state \u00b7 " + esc(title) + "</h2><div class=\"card span\"><div class=\"kpi\">" +
-      eqCell +
-      "<div><span>Buying power</span><b>" + money(b.buying_power) + "</b></div>" +
-      "<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>" +
-      "<div><span>Names</span><b>" + (b.names || []).length + "</b></div></div>" +
-      '<p class="hint">' + (tab === "combined" ? "" : ("Cash " + money(b.cash) + " \u00b7 ")) + "pending already in " + money(b.pending_deposits) +
+      cells.join("") + "</div>" +
+      '<p class="hint">pending already in ' + moneyOrDash(b.pending_deposits) +
       (b.asof || (snap && snap.asof) ? " \u00b7 asof " + esc(String(b.asof || snap.asof)) : "") + "</p></div>";
   }
 
@@ -319,7 +413,7 @@ function collapseHouseNames(list) {
       paths.map(function (p) { return '<path d="' + p.d + '" fill="' + p.color + '"/>'; }).join("") + "</svg>";
     var legend = paths.map(function (p) {
       return '<div class="mix-leg"><i style="background:' + p.color + '"></i><span>' + esc(p.label) + "</span><b>" + p.pct.toFixed(0) + "% \u00b7 " + money(p.value) + "</b></div>";
-    }).join("") + '<div class="mix-hint">' + (t === "combined" ? "Brokers \u00b7 where the money sits" : "Names by market value") + "</div>";
+    }).join("") + '<div class="mix-hint">' + (t === "combined" ? "Brokers \u00b7 where the money sits" : ((bookObj.asset_mix || bookObj.equity_value != null || bookObj.crypto_value != null) ? "Asset mix \u00b7 equity / crypto / options / cash" : "Names by market value")) + "</div>";
     return '<div class="card mix-card"><div class="mix-compact">' + svg + '<div class="mix-legend">' + legend + "</div></div></div>";
   }
 
@@ -330,19 +424,24 @@ function collapseHouseNames(list) {
     });
     if (!names.length) return '<div class="card"><p class="hint" style="margin:0">No names on this book.</p></div>';
     var head = "<tr><th>Name</th>" + (showBook ? "<th>Book</th>" : "") + '<th class="num">Qty</th><th class="num">Avg</th><th class="num">Last</th>' +
-      '<th class="num">Value</th><th class="num">P&L</th></tr>';
+      '<th class="num">Value</th><th class="num">Unrealized</th></tr>';
     var rows = names.map(function (n) {
       var books = (n.accounts || []).map(function (a) {
         return (typeof bookDisplayLabel === "function") ? bookDisplayLabel(a, (snap.accounts && snap.accounts[a]) || {}) : (LABEL[a] || a);
       }).join(" \u00b7 ") || ((typeof bookDisplayLabel === "function" && n.account) ? bookDisplayLabel(n.account, (snap.accounts && snap.accounts[n.account]) || {}) : (LABEL[n.account] || ""));
-      var chg = n.day_pct != null ? n.day_pct : n.pnl_pct;
+      var u = nameUnrealized(n);
+      var chg = n.day_pct != null ? n.day_pct : (u.pct != null ? u.pct : n.pnl_pct);
       var nameTone = tone(chg);
-      var inner = "<span class=\"sym\">" + esc(n.symbol) + '</span><span class="sub">' + esc(n.name || "") + "</span>";
+      var cls = n.asset_class || n.kind || "";
+      var sub = esc(n.name || "");
+      if (cls && cls !== "equity") sub = (sub ? sub + " \u00b7 " : "") + esc(cls);
+      var inner = "<span class=\"sym\">" + esc(n.symbol) + '</span><span class="sub">' + sub + "</span>";
+      var uHtml = (u.pnl == null && u.pct == null) ? "\u2014" : (moneyOrDash(u.pnl) + " " + pct(u.pct));
       return "<tr><td class=\"name-cell tone-" + nameTone + "\">" + nameSiteLink(n, inner) + "</td>" +
         (showBook ? "<td>" + esc(books) + "</td>" : "") +
         '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (n.avg == null ? "\u2014" : money(n.avg)) + "</td>" +
         '<td class="num">' + (n.last == null ? "\u2014" : money(n.last)) + "</td>" +
-        '<td class="num">' + money(n.value) + '</td><td class="num tone-' + tone(n.pnl) + '">' + money(n.pnl) + " " + pct(n.pnl_pct) + "</td></tr>";
+        '<td class="num">' + moneyOrDash(n.value) + '</td><td class="num tone-' + tone(u.pnl) + '">' + uHtml + "</td></tr>";
     }).join("");
     var wrap = (showBook || names.length > 10) ? "card book-scroll" : "card";
     return '<div class="' + wrap + '"><table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
@@ -443,12 +542,19 @@ function collapseHouseNames(list) {
   function agenticOnlyHtml() {
     var ag = snap.accounts.agentic || {};
     var asof = ag.asof || (snap && snap.asof) || "";
-    return "<h2>Claude</h2><div class=\"card span\"><div class=\"kpi\">" +
-      "<div><span>Equity</span><b>" + money(ag.equity) + "</b></div>" +
+    var html = "<h2>Claude</h2><div class=\"card span\"><div class=\"kpi\">" +
+      "<div><span>Equity</span><b>" + moneyOrDash(ag.equity) + "</b></div>" +
+      "<div><span>Cash</span><b>" + moneyOrDash(ag.cash) + "</b></div>" +
+      "<div><span>Buying power</span><b>" + moneyOrDash(ag.buying_power) + "</b></div>" +
       "</div>" +
-      '<p class="hint">' + (asof ? ("asof " + esc(String(asof)) + " \u00b7 ") : "") +
-      "The Agentic Robinhood book is labeled Claude. Account id stays Agentic. Mail subjects still use <code>Agentic \u2026</code>. Equity, holdings, asof only.</p></div>" +
-      "<h2>Holdings</h2>" + tableHtml(ag.names, false, true);
+      '<p class="hint">Agentic Robinhood book labeled Claude. Account id stays Agentic. Growth + status only \u2014 no trade chrome.</p></div>';
+    if (typeof mixHtml === "function" && (ag.asset_mix || ag.equity_value != null || ag.crypto_value != null || (ag.names || []).length)) {
+      html += "<h2>Asset mix</h2>" + mixHtml(ag, "agentic");
+    }
+    html += "<h2>Holdings</h2>" + tableHtml(ag.names, false, true);
+    html += bookExtrasHtml(ag, { required: true });
+    html += '<p class="hint claude-asof">' + (asof ? ("asof " + esc(String(asof))) : "asof \u2014") + "</p>";
+    return html;
   }
 
   function paint() {
@@ -493,6 +599,7 @@ function collapseHouseNames(list) {
       html += tapeHtml("combined", "House", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
+      html += bookExtrasHtml(b, { required: false });
       html += overlayHtml();
     } else if (tab === "robinhood") {
       html += cardsHtml();
@@ -500,6 +607,7 @@ function collapseHouseNames(list) {
       html += tapeHtml("robinhood", "Robinhood", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
+      html += bookExtrasHtml(b, { required: false });
       html += overlayHtml();
     } else if (tab === "agentic") {
       html += agenticOnlyHtml();
@@ -508,9 +616,10 @@ function collapseHouseNames(list) {
       html += tapeHtml(tab, title, false);
       html += "<h2>Where it sits</h2>" + mixHtml(b, tab);
       html += "<h2>Book</h2>" + tableHtml(b.names, false, false);
+      html += bookExtrasHtml(b, { required: false });
     }
     var footMsg = "Murphy Pilot \u00b7 Live = Robinhood + Fidelity. Voya is EOD.";
-    if (tab === "agentic") footMsg = "Murphy Pilot \u00b7 Agentic / Claude only \u00b7 equity, holdings, asof.";
+    if (tab === "agentic") footMsg = "Murphy Pilot \u00b7 Agentic / Claude only \u00b7 equity, cash/BP, holdings, realized, fills, asof.";
     else if (tab === "robinhood" || (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0)) footMsg = "Murphy Pilot \u00b7 Robinhood live books only.";
     else if (tab === "fidelity" || (typeof isFidSleeveTab === "function" ? isFidSleeveTab(tab) : /^fid-/.test(String(tab || "")))) {
       var fidB = (snap.accounts && snap.accounts.fidelity) || {};

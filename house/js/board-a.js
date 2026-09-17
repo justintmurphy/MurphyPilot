@@ -89,7 +89,7 @@
   }
 
   function agenticBook(p) {
-    if (!p) return { id: "agentic", label: "Claude", equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, invested_pct: 0, open_orders: 0, equity_value: 0, slots: 0, names: [], tape: [] };
+    if (!p) return { id: "agentic", label: "Claude", equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, invested_pct: 0, open_orders: 0, equity_value: 0, crypto_value: 0, slots: 0, names: [], tape: [] };
     var names = (p.names || []).map(function (n) {
       var last = n.last != null ? Number(n.last) : null;
       var avg = n.avg != null ? Number(n.avg) : (n.avg_cost != null ? Number(n.avg_cost) : null);
@@ -97,17 +97,41 @@
       var cost = n.cost != null ? Number(n.cost) : (avg != null && q != null ? avg * q : null);
       var value = n.value != null ? Number(n.value) : (last != null && q != null ? last * q : (cost != null ? cost : null));
       var pnl = (last != null && cost != null && value != null) ? value - cost : null;
-      var pnl_pct = (pnl != null && cost) ? (pnl / cost) * 100 : (avg && last ? ((last / avg) - 1) * 100 : null);
-      return { symbol: n.symbol, name: n.name || n.symbol, kind: "equity", qty: q, avg: avg, last: last, value: value, cost: cost, pnl: pnl, pnl_pct: pnl_pct, first_fill: n.first_fill || "", last_fill: n.last_fill || LAST_FILL["agentic|" + n.symbol] || n.first_fill || "", next_stall: n.next_stall || "", account: "agentic", accounts: ["agentic"] };
+      var pnl_pct = n.pnl_pct != null && isFinite(Number(n.pnl_pct)) ? Number(n.pnl_pct) : ((pnl != null && cost) ? (pnl / cost) * 100 : (avg && last ? ((last / avg) - 1) * 100 : null));
+      var uPnl = n.unrealized_pnl != null && isFinite(Number(n.unrealized_pnl)) ? Number(n.unrealized_pnl) : null;
+      var uPct = n.unrealized_pnl_pct != null && isFinite(Number(n.unrealized_pnl_pct)) ? Number(n.unrealized_pnl_pct) : null;
+      if (uPnl == null && value != null && q != null && avg != null && isFinite(value) && isFinite(q) && isFinite(avg)) {
+        uPnl = value - (q * avg);
+      }
+      if (uPct == null && uPnl != null && q != null && avg != null && isFinite(q * avg) && Math.abs(q * avg) > 0.0005) {
+        uPct = (uPnl / (q * avg)) * 100;
+      }
+      if (uPct == null && pnl_pct != null) uPct = pnl_pct;
+      if (pnl == null && uPnl != null) pnl = uPnl;
+      var assetClass = n.asset_class || n.kind || "equity";
+      if (assetClass === "option") assetClass = "option";
+      else if (assetClass === "crypto" || /^(BTC|ETH|DOGE|XRP|SOL|ADA|AVAX|LINK|MATIC|SHIB|DOT)$/i.test(String(n.symbol || ""))) assetClass = "crypto";
+      else if (assetClass !== "crypto" && assetClass !== "option") assetClass = "equity";
+      var row = { symbol: n.symbol, name: n.name || n.symbol, kind: assetClass === "option" ? "option" : assetClass, asset_class: assetClass, qty: q, avg: avg, last: last, value: value, cost: cost, pnl: pnl, pnl_pct: pnl_pct, first_fill: n.first_fill || "", last_fill: n.last_fill || LAST_FILL["agentic|" + n.symbol] || n.first_fill || "", next_stall: n.next_stall || "", account: "agentic", accounts: ["agentic"] };
+      if (uPnl != null && isFinite(uPnl)) row.unrealized_pnl = rnd(uPnl);
+      if (uPct != null && isFinite(uPct)) row.unrealized_pnl_pct = rnd(uPct);
+      return row;
     });
-    return {
+    var out = {
       id: "agentic", label: "Claude",
       equity: Number(p.equity) || 0, equity_value: Number(p.equity_value) || 0,
+      crypto_value: p.crypto_value != null ? Number(p.crypto_value) : 0,
       cash: Number(p.cash) || 0, buying_power: Number(p.buying_power) || 0,
       pending_deposits: Number(p.pending_deposits) || 0, invested_pct: Number(p.invested_pct) || 0,
       open_orders: Number(p.open_orders) || 0, slots: p.slots != null ? Number(p.slots) : Math.floor((Number(p.equity) || 0) / 75),
       names: names, tape: p.tape || [], asof: p.asof || ""
     };
+    if (p.suffix != null) out.suffix = p.suffix;
+    if (p.asset_mix && typeof p.asset_mix === "object") out.asset_mix = p.asset_mix;
+    if (p.realized_pnl && typeof p.realized_pnl === "object") out.realized_pnl = p.realized_pnl;
+    if (Object.prototype.hasOwnProperty.call(p, "fills")) out.fills = Array.isArray(p.fills) ? p.fills : [];
+    if (p.unrealized_pnl != null && isFinite(Number(p.unrealized_pnl))) out.unrealized_pnl = Number(p.unrealized_pnl);
+    return out;
   }
 
   function merge(house, pilot) {
@@ -121,18 +145,33 @@
       out.accounts.agentic = agenticBook({
         equity: houseAg.equity,
         equity_value: houseAg.equity_value,
+        crypto_value: houseAg.crypto_value,
         cash: houseAg.cash,
         buying_power: houseAg.buying_power,
         pending_deposits: houseAg.pending_deposits,
         invested_pct: houseAg.invested_pct,
         open_orders: houseAg.open_orders,
         slots: houseAg.slots,
+        suffix: houseAg.suffix,
+        asset_mix: houseAg.asset_mix,
+        realized_pnl: houseAg.realized_pnl,
+        fills: houseAg.fills,
+        unrealized_pnl: houseAg.unrealized_pnl,
         names: (houseAg.names || []).filter(function (n) { return (Number(n.qty) || 0) > 0.0005; }),
         tape: houseAg.tape,
         asof: houseAg.asof || (house && house.asof) || ""
       });
     } else {
-      out.accounts.agentic = agenticBook(pilot);
+      var pilotSrc = pilot ? JSON.parse(JSON.stringify(pilot)) : null;
+      if (pilotSrc && houseAg) {
+        if (pilotSrc.suffix == null && houseAg.suffix != null) pilotSrc.suffix = houseAg.suffix;
+        if (!pilotSrc.asset_mix && houseAg.asset_mix) pilotSrc.asset_mix = houseAg.asset_mix;
+        if (!pilotSrc.realized_pnl && houseAg.realized_pnl) pilotSrc.realized_pnl = houseAg.realized_pnl;
+        if (!Object.prototype.hasOwnProperty.call(pilotSrc, "fills") && Object.prototype.hasOwnProperty.call(houseAg, "fills")) pilotSrc.fills = houseAg.fills;
+        if (pilotSrc.crypto_value == null && houseAg.crypto_value != null) pilotSrc.crypto_value = houseAg.crypto_value;
+        if (pilotSrc.unrealized_pnl == null && houseAg.unrealized_pnl != null) pilotSrc.unrealized_pnl = houseAg.unrealized_pnl;
+      }
+      out.accounts.agentic = agenticBook(pilotSrc);
     }
     var eq = 0, cash = 0, bp = 0, pend = 0, ev = 0, cv = 0, orders = 0, names = [];
     IDS.forEach(function (id) {
@@ -247,11 +286,37 @@
     return "M" + p0[0] + " " + p0[1] + " A" + r1 + " " + r1 + " 0 " + large + " 1 " + p1[0] + " " + p1[1] +
       " L" + p2[0] + " " + p2[1] + " A" + r0 + " " + r0 + " 0 " + large + " 0 " + p3[0] + " " + p3[1] + " Z";
   }
+  function assetMixSlices(book) {
+    if (!book) return [];
+    var mix = book.asset_mix;
+    var rows = [];
+    function push(key, label, value, color) {
+      value = Number(value);
+      if (!isFinite(value) || value <= 0.004) return;
+      rows.push({ key: key, label: label, value: value, color: color });
+    }
+    if (mix && typeof mix === "object") {
+      push("equity", "Equity", mix.equity, "var(--mix-equity, var(--mix-a))");
+      push("crypto", "Crypto", mix.crypto, "var(--mix-crypto, var(--mix-c))");
+      push("options", "Options", mix.options, "var(--mix-options, var(--mix-d))");
+      push("cash", "Cash", mix.cash != null ? mix.cash : book.cash, "var(--mix-cash)");
+      return rows;
+    }
+    /* KEEP fallbacks only — never invent options */
+    push("equity", "Equity", book.equity_value, "var(--mix-equity, var(--mix-a))");
+    push("crypto", "Crypto", book.crypto_value, "var(--mix-crypto, var(--mix-c))");
+    push("cash", "Cash", book.cash, "var(--mix-cash)");
+    return rows;
+  }
   function mixSlices(book, t) {
     if (t === "combined" && book.books && book.books.length) {
       return book.books.map(function (b, i) {
         return { key: b.id, label: b.label, value: Number(b.equity) || 0, color: MIX[i % MIX.length] };
       }).filter(function (s) { return s.value > 0.004; });
+    }
+    var classMix = assetMixSlices(book);
+    if (classMix.length && (book.asset_mix || book.equity_value != null || book.crypto_value != null)) {
+      return classMix;
     }
     var held = (book.names || []).filter(function (n) { return (Number(n.value) || 0) > 0.004; })
       .sort(function (a, b) { return (Number(b.value) || 0) - (Number(a.value) || 0); });
