@@ -193,6 +193,14 @@ function collapseHouseNames(list) {
     if (cashflowFinite(src.market_earnings)) {
       cells.push("<div><span>Market earnings</span><b class=\"tone-" + tone(src.market_earnings) + "\">" + money(Number(src.market_earnings)) + "</b></div>");
     }
+    if (cashflowFinite(src.dividends)) {
+      cells.push("<div><span>Dividends</span><b class=\"tone-" + tone(src.dividends) + "\">" + money(Number(src.dividends)) + "</b></div>");
+    }
+    var reinv = cashflowFinite(src.reinvestments) ? Number(src.reinvestments)
+      : (cashflowFinite(src.reinvested) ? Number(src.reinvested) : null);
+    if (reinv != null) {
+      cells.push("<div><span>Reinvested</span><b class=\"tone-" + tone(reinv) + "\">" + money(reinv) + "</b></div>");
+    }
     if (!cells.length) return "";
     return "<div class=\"kpi\">" + cells.join("") + "</div>";
   }

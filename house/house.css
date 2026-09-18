@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904bi");
-@import url("house-b.css?v=20260904bi");
-@import url("mix.css?v=20260904bi");
+@import url("house-a.css?v=20260904bj");
+@import url("house-b.css?v=20260904bj");
+@import url("mix.css?v=20260904bj");
 
 header .brand-block {
   min-width: 0;
@@ -269,9 +269,9 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
 }
 .overall-strip .ov-plot { margin-top: 4px; }
 
-/* tip bh+bi — Past 30 days · RH + Fid + Voya (overall + by_source breakouts) */
+/* tip bh+bi+bj — Past 30 days · RH + Fid + Voya (overall + breakouts + dividends) */
 .cashflow-strip .kpi {
-  grid-template-columns: repeat(2, minmax(10rem, 16rem));
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 12rem));
   gap: 8px 12px;
 }
 .cashflow-strip .cf-window {
