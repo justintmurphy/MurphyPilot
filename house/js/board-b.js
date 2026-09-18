@@ -176,6 +176,37 @@ function collapseHouseNames(list) {
   function cashflowFinite(n) {
     return n != null && n !== "" && isFinite(Number(n));
   }
+  function cashflowOffPublic(key) {
+    return /utma|smart\s*income/i.test(String(key || ""));
+  }
+  function cashflowSourcePart(src) {
+    if (src == null) return "";
+    if (typeof src !== "object") {
+      if (!cashflowFinite(src)) return "";
+      var n = Number(src);
+      return '<span class="tone-' + tone(n) + '">' + money(n) + "</span>";
+    }
+    var bits = [];
+    if (cashflowFinite(src.owner_deposits)) bits.push(money(Number(src.owner_deposits)));
+    if (cashflowFinite(src.market_earnings)) {
+      var e = Number(src.market_earnings);
+      bits.push('<span class="tone-' + tone(e) + '">' + money(e) + "</span>");
+    }
+    return bits.join(" ");
+  }
+  function cashflowBySourceHtml(by) {
+    if (!by || typeof by !== "object") return "";
+    var labels = { robinhood: "RH", fidelity: "Fid", voya: "Voya" };
+    var bits = [];
+    ["robinhood", "fidelity", "voya"].forEach(function (key) {
+      if (!Object.prototype.hasOwnProperty.call(by, key) || cashflowOffPublic(key)) return;
+      var part = cashflowSourcePart(by[key]);
+      if (!part) return;
+      bits.push(esc(labels[key]) + " " + part);
+    });
+    if (!bits.length) return "";
+    return '<p class="cf-by-source">' + bits.join(" \u00b7 ") + "</p>";
+  }
   function cashflowStripHtml(book) {
     var cf = book && book.cashflow_30d;
     if (!cf || typeof cf !== "object") return "";
@@ -193,8 +224,9 @@ function collapseHouseNames(list) {
     else if (from || to) windowLine = '<p class="cf-window">' + esc(from || to) + "</p>";
     var basis = cf.market_earnings_basis ? String(cf.market_earnings_basis).trim() : "";
     var basisHtml = basis ? ' <span class="cf-basis">' + esc(basis) + "</span>" : "";
+    var sourceHtml = cashflowBySourceHtml(cf.by_source);
     return "<h2>Past 30 days</h2><div class=\"card span cashflow-strip\">" + windowLine +
-      "<div class=\"kpi\">" + cells.join("") + "</div>" +
+      "<div class=\"kpi\">" + cells.join("") + "</div>" + sourceHtml +
       '<p class="hint">Deposits are owner capital in, not earnings. Deposits \u2260 market earnings.' + basisHtml + "</p></div>";
   }
   function fillWhen(ts) {

@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904bg");
-@import url("house-b.css?v=20260904bg");
-@import url("mix.css?v=20260904bg");
+@import url("house-a.css?v=20260904bh");
+@import url("house-b.css?v=20260904bh");
+@import url("mix.css?v=20260904bh");
 
 header .brand-block {
   min-width: 0;
@@ -269,7 +269,7 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
 }
 .overall-strip .ov-plot { margin-top: 4px; }
 
-/* tip bg — Past 30 days cashflow (deposits vs market earnings) */
+/* tip bh — Past 30 days cashflow (print combined.cashflow_30d) */
 .cashflow-strip .kpi {
   grid-template-columns: repeat(2, minmax(10rem, 16rem));
   gap: 8px 12px;
@@ -279,6 +279,13 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
   color: var(--ink-soft);
   margin: 0 0 8px;
   font-variant-numeric: tabular-nums;
+}
+.cashflow-strip .cf-by-source {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin: 6px 0 0;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
 }
 .cashflow-strip .cf-basis {
   font-size: 11px;
@@ -290,6 +297,10 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
   .overall-strip .ov-hero b { font-size: 28px; }
   .overall-strip .ov-chip b { font-size: 10px; }
   .overall-strip .ov-chip i { font-size: 9px; }
+  .cashflow-strip .kpi {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cashflow-strip .cf-by-source { font-size: 10px; }
 }
 @media (max-width: 390px) {
   .overall-strip .ov-chips {
