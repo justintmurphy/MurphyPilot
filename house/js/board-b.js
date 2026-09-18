@@ -179,13 +179,19 @@ function collapseHouseNames(list) {
   function cashflowOffPublic(key) {
     return /utma|smart\s*income/i.test(String(key || ""));
   }
-  function cashflowKpiHtml(src) {
+  function cashflowExtraMetrics(src) {
+    if (!src || typeof src !== "object") return false;
+    if (cashflowFinite(src.dividends)) return true;
+    return cashflowFinite(src.reinvested) || cashflowFinite(src.reinvestments);
+  }
+  function cashflowKpiHtml(src, extraCls) {
     if (src == null) return "";
     if (typeof src !== "object") {
       if (!cashflowFinite(src)) return "";
       src = { market_earnings: src };
     }
     var cells = [];
+    var extraAttr = extraCls ? (' class="' + extraCls + '"') : "";
     /* Hide cell if null/non-finite — never invent $0. */
     if (cashflowFinite(src.owner_deposits)) {
       cells.push("<div><span>Deposits</span><b>" + money(Number(src.owner_deposits)) + "</b></div>");
@@ -194,12 +200,12 @@ function collapseHouseNames(list) {
       cells.push("<div><span>Market earnings</span><b class=\"tone-" + tone(src.market_earnings) + "\">" + money(Number(src.market_earnings)) + "</b></div>");
     }
     if (cashflowFinite(src.dividends)) {
-      cells.push("<div><span>Dividends</span><b class=\"tone-" + tone(src.dividends) + "\">" + money(Number(src.dividends)) + "</b></div>");
+      cells.push("<div" + extraAttr + "><span>Dividends</span><b class=\"tone-" + tone(src.dividends) + "\">" + money(Number(src.dividends)) + "</b></div>");
     }
     var reinv = cashflowFinite(src.reinvested) ? Number(src.reinvested)
       : (cashflowFinite(src.reinvestments) ? Number(src.reinvestments) : null);
     if (reinv != null) {
-      cells.push("<div><span>Reinvested</span><b class=\"tone-" + tone(reinv) + "\">" + money(reinv) + "</b></div>");
+      cells.push("<div" + extraAttr + "><span>Reinvested</span><b class=\"tone-" + tone(reinv) + "\">" + money(reinv) + "</b></div>");
     }
     if (!cells.length) return "";
     return "<div class=\"kpi\">" + cells.join("") + "</div>";
@@ -226,7 +232,8 @@ function collapseHouseNames(list) {
   function cashflowStripHtml(book, overall) {
     var cf = book && book.cashflow_30d;
     if (!cf || typeof cf !== "object") return "";
-    var overallKpi = cashflowKpiHtml(cf);
+    /* tip bk: collapsed = Overall Deposits + Market earnings; expand for by_source + dividends/reinvested */
+    var overallKpi = cashflowKpiHtml(cf, "cf-detail");
     var sourceHtml = cashflowBreakoutsHtml(cf.by_source);
     if (!overallKpi && !sourceHtml) return "";
     var from = cf.from ? String(cf.from) : "";
@@ -238,9 +245,21 @@ function collapseHouseNames(list) {
     var basisHtml = basis ? ' <span class="cf-basis">' + esc(basis) + "</span>" : "";
     var overallScope = !!(overall || (book && book.id === "combined"));
     var heading = overallScope ? "Past 30 days \u00b7 RH + Fid + Voya" : "Past 30 days";
-    var overallHtml = overallKpi ? '<div class="cf-block cf-overall"><p class="cf-k">Overall</p>' + overallKpi + "</div>" : "";
-    return "<h2>" + heading + "</h2><div class=\"card span cashflow-strip\">" + windowLine +
-      overallHtml + sourceHtml +
+    var canExpand = !!(sourceHtml || cashflowExtraMetrics(cf));
+    var afford = canExpand
+      ? ' <span class="cf-affordance"><i class="cf-chev" aria-hidden="true"></i><span class="cf-lab-show">Details</span><span class="cf-lab-hide">Hide</span></span>'
+      : "";
+    var overallHtml = overallKpi ? '<div class="cf-block cf-overall"><p class="cf-k">Overall' + afford + "</p>" + overallKpi + "</div>" : "";
+    var inner;
+    if (canExpand) {
+      inner = '<details class="cf-more"' + (cashflowOpen ? " open" : "") + ">" +
+        "<summary>" + windowLine + (overallHtml || ('<p class="cf-k">Cashflow' + afford + "</p>")) + "</summary>" +
+        sourceHtml + "</details>";
+    } else {
+      inner = windowLine + overallHtml + sourceHtml;
+    }
+    return "<h2>" + heading + "</h2><div class=\"card span cashflow-strip" + (canExpand ? " cf-toggle" : "") + "\">" +
+      inner +
       '<p class="hint">Deposits are owner capital in, not earnings. Deposits \u2260 market earnings.' + basisHtml + "</p></div>";
   }
   function fillWhen(ts) {
@@ -334,6 +353,7 @@ function collapseHouseNames(list) {
 
   var overlayOpen = false;
   var overlayMode = "live";
+  var cashflowOpen = false;
 
   function applyTheme(choice) {
     var t = choice || document.documentElement.getAttribute("data-theme") || "justin";
@@ -823,6 +843,15 @@ function collapseHouseNames(list) {
       syncOverlay();
       return;
     }
+    var cfHit = e.target.closest(".cashflow-strip.cf-toggle");
+    if (cfHit && !e.target.closest(".hint") && !e.target.closest("a") && !e.target.closest("summary") && !e.target.closest(".cf-breakouts")) {
+      var det = cfHit.querySelector("details.cf-more");
+      if (det) {
+        det.open = !det.open;
+        cashflowOpen = !!det.open;
+        return;
+      }
+    }
     var btn = e.target.closest("[data-tab]");
     if (btn) {
       overlayOpen = false;
@@ -832,6 +861,11 @@ function collapseHouseNames(list) {
       paint();
     }
   });
+  document.addEventListener("toggle", function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains("cf-more")) {
+      cashflowOpen = !!e.target.open;
+    }
+  }, true);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       closeDeskMenu();

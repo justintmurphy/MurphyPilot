@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904bj");
-@import url("house-b.css?v=20260904bj");
-@import url("mix.css?v=20260904bj");
+@import url("house-a.css?v=20260904bk");
+@import url("house-b.css?v=20260904bk");
+@import url("mix.css?v=20260904bk");
 
 header .brand-block {
   min-width: 0;
@@ -269,7 +269,7 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
 }
 .overall-strip .ov-plot { margin-top: 4px; }
 
-/* tip bh+bi+bj — Past 30 days · RH + Fid + Voya (overall + breakouts + dividends) */
+/* tip bh+bi+bj+bk — Past 30 days · RH + Fid + Voya (collapsed Overall; expand for breakouts + dividends) */
 .cashflow-strip .kpi {
   grid-template-columns: repeat(auto-fit, minmax(9rem, 12rem));
   gap: 8px 12px;
@@ -287,6 +287,10 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
   color: var(--ink-soft);
   margin: 0 0 6px;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .cashflow-strip .cf-breakouts .cf-k {
   text-transform: none;
@@ -305,6 +309,63 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
   letter-spacing: 0.2px;
   text-transform: none;
   opacity: 0.85;
+}
+.cashflow-strip details.cf-more {
+  margin: 0;
+}
+.cashflow-strip details.cf-more > summary {
+  display: block;
+  cursor: pointer;
+  list-style: none;
+  min-height: 44px;
+}
+.cashflow-strip details.cf-more > summary::-webkit-details-marker,
+.cashflow-strip details.cf-more > summary::marker {
+  display: none;
+  content: "";
+}
+.cashflow-strip details.cf-more > summary:focus {
+  outline: none;
+}
+.cashflow-strip details.cf-more > summary:focus-visible {
+  outline: 2px solid var(--brand-fg);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.cashflow-strip.cf-toggle {
+  cursor: pointer;
+}
+.cashflow-strip .cf-affordance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  letter-spacing: 0.8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  min-height: 32px;
+  padding: 4px 2px;
+}
+.cashflow-strip .cf-chev {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transition: transform 120ms ease;
+}
+.cashflow-strip details.cf-more[open] .cf-chev {
+  transform: rotate(180deg);
+}
+.cashflow-strip .cf-lab-hide { display: none; }
+.cashflow-strip details.cf-more[open] .cf-lab-show { display: none; }
+.cashflow-strip details.cf-more[open] .cf-lab-hide { display: inline; }
+.cashflow-strip details.cf-more:not([open]) .cf-detail { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .cashflow-strip .cf-chev { transition: none; }
 }
 @media (max-width: 720px) {
   .overall-strip .ov-hero b { font-size: 28px; }
