@@ -176,7 +176,45 @@ function collapseHouseNames(list) {
   function cashflowFinite(n) {
     return n != null && n !== "" && isFinite(Number(n));
   }
-  function cashflowStripHtml(book) {
+  function cashflowOffPublic(key) {
+    return /utma|smart\s*income/i.test(String(key || ""));
+  }
+  function cashflowSourcePart(src) {
+    if (src == null) return "";
+    if (typeof src !== "object") {
+      if (!cashflowFinite(src)) return "";
+      var n = Number(src);
+      return '<span class="tone-' + tone(n) + '">' + money(n) + "</span>";
+    }
+    var bits = [];
+    if (cashflowFinite(src.owner_deposits)) bits.push(money(Number(src.owner_deposits)));
+    if (cashflowFinite(src.market_earnings)) {
+      var e = Number(src.market_earnings);
+      bits.push('<span class="tone-' + tone(e) + '">' + money(e) + "</span>");
+    }
+    return bits.join(" ");
+  }
+  function cashflowBySourceHtml(by) {
+    if (!by || typeof by !== "object") return "";
+    var labels = { robinhood: "RH", fidelity: "Fid", voya: "Voya" };
+    var order = ["robinhood", "fidelity", "voya"];
+    var seen = {};
+    var bits = [];
+    function push(k) {
+      var key = String(k || "");
+      if (!key || seen[key] || cashflowOffPublic(key)) return;
+      if (!Object.prototype.hasOwnProperty.call(by, key)) return;
+      seen[key] = true;
+      var part = cashflowSourcePart(by[key]);
+      if (!part) return;
+      bits.push(esc(labels[key] || key) + " " + part);
+    }
+    order.forEach(push);
+    Object.keys(by).forEach(push);
+    if (!bits.length) return "";
+    return '<p class="cf-by-source">' + bits.join(" \u00b7 ") + "</p>";
+  }
+  function cashflowStripHtml(book, overall) {
     var cf = book && book.cashflow_30d;
     if (!cf || typeof cf !== "object") return "";
     var depOk = cashflowFinite(cf.owner_deposits);
@@ -193,8 +231,11 @@ function collapseHouseNames(list) {
     else if (from || to) windowLine = '<p class="cf-window">' + esc(from || to) + "</p>";
     var basis = cf.market_earnings_basis ? String(cf.market_earnings_basis).trim() : "";
     var basisHtml = basis ? ' <span class="cf-basis">' + esc(basis) + "</span>" : "";
-    return "<h2>Past 30 days</h2><div class=\"card span cashflow-strip\">" + windowLine +
-      "<div class=\"kpi\">" + cells.join("") + "</div>" +
+    var sourceHtml = cashflowBySourceHtml(cf.by_source);
+    var overallScope = !!(overall || (book && book.id === "combined"));
+    var heading = overallScope ? "Past 30 days \u00b7 RH + Fid + Voya" : "Past 30 days";
+    return "<h2>" + heading + "</h2><div class=\"card span cashflow-strip\">" + windowLine +
+      "<div class=\"kpi\">" + cells.join("") + "</div>" + sourceHtml +
       '<p class="hint">Deposits are owner capital in, not earnings. Deposits \u2260 market earnings.' + basisHtml + "</p></div>";
   }
   function fillWhen(ts) {
@@ -674,7 +715,7 @@ function collapseHouseNames(list) {
       html += overallStripHtml();
       html += cardsHtml();
       html += stateHtml(b, "House");
-      html += cashflowStripHtml(b);
+      html += cashflowStripHtml(b, true);
       html += tapeHtml("combined", "House", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
