@@ -1,7 +1,7 @@
 {
   "asof": "2026-09-17T22:21:30-04:00",
   "brand": "Murphy House",
-  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted (fundamentals have no homepage). Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=Claude. Tip bg: cashflow_30d RH-only superseded by bh. Tip bh: cashflow_30d overall RH+Fid+Voya; owner_deposits=1121.91 (RH 250 + Fid 217.97 + Voya 653.94); market_earnings=-1508.44 (RH -3.31 + Fid -109.70 + Voya -1395.43); basis rh_realized+truthifi_totalPnL; by_source. Tip bi: paint Overall + RH/Fid/Voya by_source breakout. Tip bj: dividends/reinvested \u2014 overall 0.53/0.52 from Fid Truthifi dividend_payment/dividend_reinvestment; by_source.fidelity same; robinhood+voya omitted (unknown/none).",
+  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted (fundamentals have no homepage). Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=Claude. Tip bg: cashflow_30d RH-only superseded by bh. Tip bh: cashflow_30d overall RH+Fid+Voya; owner_deposits=1121.91 (RH 250 + Fid 217.97 + Voya 653.94); market_earnings=-1508.44 (RH -3.31 + Fid -109.70 + Voya -1395.43); basis rh_realized+truthifi_totalPnL; by_source. Tip bi: paint Overall + RH/Fid/Voya by_source breakout. Tip bj: dividends/reinvested \u2014 overall 0.53/0.52 from Fid Truthifi dividend_payment/dividend_reinvestment; by_source.fidelity same; robinhood+voya omitted (unknown/none). | Forge Close cashflow_30d recompute 2026-09-18",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -1919,29 +1919,29 @@
       }
     ],
     "cashflow_30d": {
-      "asof": "2026-09-17T22:21:30-04:00",
-      "from": "2026-08-18",
+      "asof": "2026-09-18T16:22:33-04:00",
+      "from": "2026-08-19",
       "to": "2026-09-17",
       "owner_deposits": 1121.91,
-      "market_earnings": -1508.44,
+      "market_earnings": -939.59,
       "market_earnings_basis": "rh_realized+truthifi_totalPnL",
       "window_days": 30,
       "dividends": 0.53,
       "reinvested": 0.52,
       "by_source": {
         "robinhood": {
-          "owner_deposits": 250.00,
-          "market_earnings": -3.31
+          "owner_deposits": 250.0,
+          "market_earnings": -3.3
         },
         "fidelity": {
           "owner_deposits": 217.97,
-          "market_earnings": -109.70,
+          "market_earnings": -37.83,
           "dividends": 0.53,
           "reinvested": 0.52
         },
         "voya": {
           "owner_deposits": 653.94,
-          "market_earnings": -1395.43
+          "market_earnings": -898.46
         }
       }
     }
