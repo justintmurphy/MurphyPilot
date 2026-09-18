@@ -173,39 +173,19 @@ function collapseHouseNames(list) {
     return "<h2>Realized P&L</h2><div class=\"card span realized-strip\"><div class=\"kpi\">" + cells.join("") + "</div>" +
       '<p class="hint">Print-only. Periods hide when the feed omits them.</p></div>';
   }
-  /* TIP bg interim — Atelier RH window 2026-08-18..2026-09-17 for Studio paint verify.
-     market_earnings ≈ -3.31 (Claude -36.08 + Individual 0 + Grok +24.68 + Deep Seek +8.09)
-     owner_deposits ≈ 250 (Claude-known $100+$50+$100 — incomplete ledger)
-     Remove once combined.cashflow_30d prints. Prefer print first; only when combined key absent. */
-  var CASHFLOW_30D_INTERIM = {
-    asof: "2026-09-17",
-    from: "2026-08-18",
-    to: "2026-09-17",
-    owner_deposits: 250,
-    market_earnings: -3.31,
-    market_earnings_basis: "realized"
-  };
   function cashflowFinite(n) {
     return n != null && n !== "" && isFinite(Number(n));
   }
-  function cashflowAmountHtml(n, toned) {
-    if (!cashflowFinite(n)) return '<b class="tone-flat">\u2014</b>';
-    var v = Number(n);
-    if (toned) return '<b class="tone-' + tone(v) + '">' + money(v) + "</b>";
-    return "<b>" + money(v) + "</b>";
-  }
-  function cashflowStripHtml(book, opts) {
-    opts = opts || {};
-    var house = !!opts.house;
-    var printed = book && Object.prototype.hasOwnProperty.call(book, "cashflow_30d") ? book.cashflow_30d : null;
-    var cf = (printed && typeof printed === "object") ? printed : null;
-    /* TIP bg interim: House/combined only, and only when print is absent. */
-    if (!cf && house) cf = CASHFLOW_30D_INTERIM;
-    if (!cf) return "";
+  function cashflowStripHtml(book) {
+    var cf = book && book.cashflow_30d;
+    if (!cf || typeof cf !== "object") return "";
     var depOk = cashflowFinite(cf.owner_deposits);
     var earnOk = cashflowFinite(cf.market_earnings);
-    if (house && !depOk && !earnOk) return "";
-    if (!house && !Object.prototype.hasOwnProperty.call(cf, "owner_deposits") && !Object.prototype.hasOwnProperty.call(cf, "market_earnings")) return "";
+    if (!depOk && !earnOk) return "";
+    var cells = [];
+    /* Hide cell if null/non-finite — never invent $0. */
+    if (depOk) cells.push("<div><span>Deposits</span><b>" + money(Number(cf.owner_deposits)) + "</b></div>");
+    if (earnOk) cells.push("<div><span>Market earnings</span><b class=\"tone-" + tone(cf.market_earnings) + "\">" + money(Number(cf.market_earnings)) + "</b></div>");
     var from = cf.from ? String(cf.from) : "";
     var to = cf.to ? String(cf.to) : "";
     var windowLine = "";
@@ -214,10 +194,7 @@ function collapseHouseNames(list) {
     var basis = cf.market_earnings_basis ? String(cf.market_earnings_basis).trim() : "";
     var basisHtml = basis ? ' <span class="cf-basis">' + esc(basis) + "</span>" : "";
     return "<h2>Past 30 days</h2><div class=\"card span cashflow-strip\">" + windowLine +
-      "<div class=\"kpi\">" +
-      "<div><span>Deposits</span>" + cashflowAmountHtml(cf.owner_deposits, false) + "</div>" +
-      "<div><span>Market earnings</span>" + cashflowAmountHtml(cf.market_earnings, true) + "</div>" +
-      "</div>" +
+      "<div class=\"kpi\">" + cells.join("") + "</div>" +
       '<p class="hint">Deposits are owner capital in, not earnings. Deposits \u2260 market earnings.' + basisHtml + "</p></div>";
   }
   function fillWhen(ts) {
@@ -648,7 +625,7 @@ function collapseHouseNames(list) {
       "<div><span>Buying power</span><b>" + moneyOrDash(ag.buying_power) + "</b></div>" +
       "</div>" +
       '<p class="hint">Agentic Robinhood book labeled Claude. Account id stays Agentic. Growth + status only \u2014 no trade chrome.</p></div>';
-    html += cashflowStripHtml(ag, { house: false });
+    html += cashflowStripHtml(ag);
     if (typeof mixHtml === "function" && (ag.asset_mix || ag.equity_value != null || ag.crypto_value != null || (ag.names || []).length)) {
       html += "<h2>Asset mix</h2>" + mixHtml(ag, "agentic");
     }
@@ -697,7 +674,7 @@ function collapseHouseNames(list) {
       html += overallStripHtml();
       html += cardsHtml();
       html += stateHtml(b, "House");
-      html += cashflowStripHtml(b, { house: true });
+      html += cashflowStripHtml(b);
       html += tapeHtml("combined", "House", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
@@ -706,7 +683,7 @@ function collapseHouseNames(list) {
     } else if (tab === "robinhood") {
       html += cardsHtml();
       html += stateHtml(b, "Robinhood");
-      html += cashflowStripHtml(b, { house: false });
+      html += cashflowStripHtml(b);
       html += tapeHtml("robinhood", "Robinhood", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
@@ -716,7 +693,7 @@ function collapseHouseNames(list) {
       html += agenticOnlyHtml();
     } else {
       html += stateHtml(b, title);
-      html += cashflowStripHtml(b, { house: false });
+      html += cashflowStripHtml(b);
       html += tapeHtml(tab, title, false);
       html += "<h2>Where it sits</h2>" + mixHtml(b, tab);
       html += "<h2>Book</h2>" + tableHtml(b.names, false, false);
