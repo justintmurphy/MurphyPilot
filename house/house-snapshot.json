@@ -1,7 +1,7 @@
 {
-  "asof": "2026-09-17T21:48:07-04:00",
+  "asof": "2026-09-17T22:19:44-04:00",
   "brand": "Murphy House",
-  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted (fundamentals have no homepage). Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=Claude. Tip bg: combined.cashflow_30d owner_deposits=250 (agentic ACH 9/8 $100+9/11 $50+9/15 $100; other books no ledger) market_earnings=sum realized month four public RH books basis realized.",
+  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted (fundamentals have no homepage). Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=Claude. Tip bg: combined.cashflow_30d (superseded scope by bh; RH ledger deposits + RH realized kept as by_source.robinhood). Tip bh: combined.cashflow_30d overall RH+Fid+Voya; owner_deposits=1121.91 (RH 250 ledger + Truthifi cash_deposit Fid 217.97 + Voya 653.94); market_earnings=-1508.44 (RH realized month 4 public -3.31 + Fid totalPnL -109.70 + Voya totalPnL -1395.43); market_earnings_basis=rh_realized+truthifi_totalPnL; by_source robinhood/fidelity/voya.",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -1919,14 +1919,28 @@
       }
     ],
     "cashflow_30d": {
-      "asof": "2026-09-17T21:48:07-04:00",
+      "asof": "2026-09-17T22:19:44-04:00",
       "from": "2026-08-18",
       "to": "2026-09-17",
-      "owner_deposits": 250.0,
-      "market_earnings": -3.31,
-      "market_earnings_basis": "realized",
-      "window_days": 30
+      "owner_deposits": 1121.91,
+      "market_earnings": -1508.44,
+      "market_earnings_basis": "rh_realized+truthifi_totalPnL",
+      "window_days": 30,
+      "by_source": {
+        "robinhood": {
+          "owner_deposits": 250.00,
+          "market_earnings": -3.31
+        },
+        "fidelity": {
+          "owner_deposits": 217.97,
+          "market_earnings": -109.70
+        },
+        "voya": {
+          "owner_deposits": 653.94,
+          "market_earnings": -1395.43
+        }
+      }
     }
   },
-  "tip": "ba+bb+bc+be+bg"
+  "tip": "ba+bb+bc+be+bg+bh"
 }
