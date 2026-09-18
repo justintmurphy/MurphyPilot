@@ -357,7 +357,7 @@ merge = function (house, pilot, outside) {
       if (out.combined.unrealized_pnl == null) out.combined.unrealized_pnl = rnd(uSum);
     }
   })();
-  /* tip bh: KEEP printed cashflow_30d on combined (RH + Fid + Voya overall) — never invent. UTMA + Smart Income stay off public totals. */
+  /* tip bh: KEEP printed combined.cashflow_30d (overall, not RH-only) — never invent. UTMA + Smart Income stay off public totals. */
   (function tipBhCashflowKeep() {
     function skipOffPublic(id, bk) {
       var s = String(id || "") + " " + String((bk && (bk.label || bk.name || bk.sleeve || bk.account_name)) || "");

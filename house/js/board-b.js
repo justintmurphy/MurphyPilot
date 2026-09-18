@@ -197,24 +197,17 @@ function collapseHouseNames(list) {
   function cashflowBySourceHtml(by) {
     if (!by || typeof by !== "object") return "";
     var labels = { robinhood: "RH", fidelity: "Fid", voya: "Voya" };
-    var order = ["robinhood", "fidelity", "voya"];
-    var seen = {};
     var bits = [];
-    function push(k) {
-      var key = String(k || "");
-      if (!key || seen[key] || cashflowOffPublic(key)) return;
-      if (!Object.prototype.hasOwnProperty.call(by, key)) return;
-      seen[key] = true;
+    ["robinhood", "fidelity", "voya"].forEach(function (key) {
+      if (!Object.prototype.hasOwnProperty.call(by, key) || cashflowOffPublic(key)) return;
       var part = cashflowSourcePart(by[key]);
       if (!part) return;
-      bits.push(esc(labels[key] || key) + " " + part);
-    }
-    order.forEach(push);
-    Object.keys(by).forEach(push);
+      bits.push(esc(labels[key]) + " " + part);
+    });
     if (!bits.length) return "";
     return '<p class="cf-by-source">' + bits.join(" \u00b7 ") + "</p>";
   }
-  function cashflowStripHtml(book, overall) {
+  function cashflowStripHtml(book) {
     var cf = book && book.cashflow_30d;
     if (!cf || typeof cf !== "object") return "";
     var depOk = cashflowFinite(cf.owner_deposits);
@@ -232,9 +225,7 @@ function collapseHouseNames(list) {
     var basis = cf.market_earnings_basis ? String(cf.market_earnings_basis).trim() : "";
     var basisHtml = basis ? ' <span class="cf-basis">' + esc(basis) + "</span>" : "";
     var sourceHtml = cashflowBySourceHtml(cf.by_source);
-    var overallScope = !!(overall || (book && book.id === "combined"));
-    var heading = overallScope ? "Past 30 days \u00b7 RH + Fid + Voya" : "Past 30 days";
-    return "<h2>" + heading + "</h2><div class=\"card span cashflow-strip\">" + windowLine +
+    return "<h2>Past 30 days</h2><div class=\"card span cashflow-strip\">" + windowLine +
       "<div class=\"kpi\">" + cells.join("") + "</div>" + sourceHtml +
       '<p class="hint">Deposits are owner capital in, not earnings. Deposits \u2260 market earnings.' + basisHtml + "</p></div>";
   }
@@ -715,7 +706,7 @@ function collapseHouseNames(list) {
       html += overallStripHtml();
       html += cardsHtml();
       html += stateHtml(b, "House");
-      html += cashflowStripHtml(b, true);
+      html += cashflowStripHtml(b);
       html += tapeHtml("combined", "House", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
