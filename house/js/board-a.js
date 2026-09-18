@@ -131,6 +131,7 @@
     if (p.realized_pnl && typeof p.realized_pnl === "object") out.realized_pnl = p.realized_pnl;
     if (Object.prototype.hasOwnProperty.call(p, "fills")) out.fills = Array.isArray(p.fills) ? p.fills : [];
     if (p.unrealized_pnl != null && isFinite(Number(p.unrealized_pnl))) out.unrealized_pnl = Number(p.unrealized_pnl);
+    if (p.cashflow_30d && typeof p.cashflow_30d === "object") out.cashflow_30d = p.cashflow_30d;
     return out;
   }
 
@@ -157,6 +158,7 @@
         realized_pnl: houseAg.realized_pnl,
         fills: houseAg.fills,
         unrealized_pnl: houseAg.unrealized_pnl,
+        cashflow_30d: houseAg.cashflow_30d,
         names: (houseAg.names || []).filter(function (n) { return (Number(n.qty) || 0) > 0.0005; }),
         tape: houseAg.tape,
         asof: houseAg.asof || (house && house.asof) || ""
@@ -170,6 +172,7 @@
         if (!Object.prototype.hasOwnProperty.call(pilotSrc, "fills") && Object.prototype.hasOwnProperty.call(houseAg, "fills")) pilotSrc.fills = houseAg.fills;
         if (pilotSrc.crypto_value == null && houseAg.crypto_value != null) pilotSrc.crypto_value = houseAg.crypto_value;
         if (pilotSrc.unrealized_pnl == null && houseAg.unrealized_pnl != null) pilotSrc.unrealized_pnl = houseAg.unrealized_pnl;
+        if (!pilotSrc.cashflow_30d && houseAg.cashflow_30d) pilotSrc.cashflow_30d = houseAg.cashflow_30d;
       }
       out.accounts.agentic = agenticBook(pilotSrc);
     }
@@ -247,6 +250,9 @@
         }
       });
       if (hasMix) out.combined.asset_mix = { equity: rnd(mix.equity), crypto: rnd(mix.crypto), options: rnd(mix.options), cash: rnd(mix.cash) };
+    }
+    if (printed.cashflow_30d && typeof printed.cashflow_30d === "object") {
+      out.combined.cashflow_30d = printed.cashflow_30d;
     }
     if (printed.unrealized_pnl != null && isFinite(Number(printed.unrealized_pnl))) {
       out.combined.unrealized_pnl = Number(printed.unrealized_pnl);

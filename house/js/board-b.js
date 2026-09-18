@@ -173,6 +173,30 @@ function collapseHouseNames(list) {
     return "<h2>Realized P&L</h2><div class=\"card span realized-strip\"><div class=\"kpi\">" + cells.join("") + "</div>" +
       '<p class="hint">Print-only. Periods hide when the feed omits them.</p></div>';
   }
+  function cashflowFinite(n) {
+    return n != null && n !== "" && isFinite(Number(n));
+  }
+  function cashflowStripHtml(book) {
+    var cf = book && book.cashflow_30d;
+    if (!cf || typeof cf !== "object") return "";
+    var depOk = cashflowFinite(cf.owner_deposits);
+    var earnOk = cashflowFinite(cf.market_earnings);
+    if (!depOk && !earnOk) return "";
+    var cells = [];
+    /* Hide cell if null/non-finite — never invent $0. */
+    if (depOk) cells.push("<div><span>Deposits</span><b>" + money(Number(cf.owner_deposits)) + "</b></div>");
+    if (earnOk) cells.push("<div><span>Market earnings</span><b class=\"tone-" + tone(cf.market_earnings) + "\">" + money(Number(cf.market_earnings)) + "</b></div>");
+    var from = cf.from ? String(cf.from) : "";
+    var to = cf.to ? String(cf.to) : "";
+    var windowLine = "";
+    if (from && to) windowLine = '<p class="cf-window">' + esc(from) + " \u2013 " + esc(to) + "</p>";
+    else if (from || to) windowLine = '<p class="cf-window">' + esc(from || to) + "</p>";
+    var basis = cf.market_earnings_basis ? String(cf.market_earnings_basis).trim() : "";
+    var basisHtml = basis ? ' <span class="cf-basis">' + esc(basis) + "</span>" : "";
+    return "<h2>Past 30 days</h2><div class=\"card span cashflow-strip\">" + windowLine +
+      "<div class=\"kpi\">" + cells.join("") + "</div>" +
+      '<p class="hint">Deposits are owner capital in, not earnings. Deposits \u2260 market earnings.' + basisHtml + "</p></div>";
+  }
   function fillWhen(ts) {
     var s = String(ts || "");
     if (!s) return "\u2014";
@@ -601,6 +625,7 @@ function collapseHouseNames(list) {
       "<div><span>Buying power</span><b>" + moneyOrDash(ag.buying_power) + "</b></div>" +
       "</div>" +
       '<p class="hint">Agentic Robinhood book labeled Claude. Account id stays Agentic. Growth + status only \u2014 no trade chrome.</p></div>';
+    html += cashflowStripHtml(ag);
     if (typeof mixHtml === "function" && (ag.asset_mix || ag.equity_value != null || ag.crypto_value != null || (ag.names || []).length)) {
       html += "<h2>Asset mix</h2>" + mixHtml(ag, "agentic");
     }
@@ -649,6 +674,7 @@ function collapseHouseNames(list) {
       html += overallStripHtml();
       html += cardsHtml();
       html += stateHtml(b, "House");
+      html += cashflowStripHtml(b);
       html += tapeHtml("combined", "House", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
@@ -657,6 +683,7 @@ function collapseHouseNames(list) {
     } else if (tab === "robinhood") {
       html += cardsHtml();
       html += stateHtml(b, "Robinhood");
+      html += cashflowStripHtml(b);
       html += tapeHtml("robinhood", "Robinhood", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
@@ -666,6 +693,7 @@ function collapseHouseNames(list) {
       html += agenticOnlyHtml();
     } else {
       html += stateHtml(b, title);
+      html += cashflowStripHtml(b);
       html += tapeHtml(tab, title, false);
       html += "<h2>Where it sits</h2>" + mixHtml(b, tab);
       html += "<h2>Book</h2>" + tableHtml(b.names, false, false);

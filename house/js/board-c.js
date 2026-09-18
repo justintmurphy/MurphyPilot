@@ -357,6 +357,25 @@ merge = function (house, pilot, outside) {
       if (out.combined.unrealized_pnl == null) out.combined.unrealized_pnl = rnd(uSum);
     }
   })();
+  /* tip bg: KEEP printed cashflow_30d on combined — never invent. UTMA + Smart Income stay off public totals (same as tip ba). */
+  (function tipBgCashflowKeep() {
+    function skipOffPublic(id, bk) {
+      var s = String(id || "") + " " + String((bk && (bk.label || bk.name || bk.sleeve || bk.account_name)) || "");
+      return /utma|smart\s*income/i.test(s);
+    }
+    var printedCf = house && house.combined && house.combined.cashflow_30d;
+    if (printedCf && typeof printedCf === "object") out.combined.cashflow_30d = printedCf;
+    if (out.accounts && house && house.accounts) {
+      Object.keys(house.accounts).forEach(function (id) {
+        var src = house.accounts[id];
+        if (!src || !src.cashflow_30d || typeof src.cashflow_30d !== "object") return;
+        if (skipOffPublic(id, src)) return;
+        if (!out.accounts[id]) return;
+        if (skipOffPublic(id, out.accounts[id])) return;
+        if (!out.accounts[id].cashflow_30d) out.accounts[id].cashflow_30d = src.cashflow_30d;
+      });
+    }
+  })();
 
   var fidB = out.accounts.fidelity || {};
   var voyaB = out.accounts.voya || {};

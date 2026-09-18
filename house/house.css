@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904bf");
-@import url("house-b.css?v=20260904bf");
-@import url("mix.css?v=20260904bf");
+@import url("house-a.css?v=20260904bg");
+@import url("house-b.css?v=20260904bg");
+@import url("mix.css?v=20260904bg");
 
 header .brand-block {
   min-width: 0;
@@ -268,6 +268,24 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
   font-variant-numeric: tabular-nums;
 }
 .overall-strip .ov-plot { margin-top: 4px; }
+
+/* tip bg — Past 30 days cashflow (deposits vs market earnings) */
+.cashflow-strip .kpi {
+  grid-template-columns: repeat(2, minmax(10rem, 16rem));
+  gap: 8px 12px;
+}
+.cashflow-strip .cf-window {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+.cashflow-strip .cf-basis {
+  font-size: 11px;
+  letter-spacing: 0.2px;
+  text-transform: none;
+  opacity: 0.85;
+}
 @media (max-width: 720px) {
   .overall-strip .ov-hero b { font-size: 28px; }
   .overall-strip .ov-chip b { font-size: 10px; }
