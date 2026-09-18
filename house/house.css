@@ -288,11 +288,9 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
   margin: 0 0 6px;
   font-weight: 600;
 }
-.cashflow-strip .cf-sub {
-  font-weight: 400;
-  letter-spacing: 0.2px;
+.cashflow-strip .cf-breakouts .cf-k {
   text-transform: none;
-  opacity: 0.85;
+  letter-spacing: 0.4px;
 }
 .cashflow-strip .cf-block + .cf-block { margin-top: 10px; }
 .cashflow-strip .cf-breakouts {

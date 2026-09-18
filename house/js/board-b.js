@@ -199,9 +199,9 @@ function collapseHouseNames(list) {
   function cashflowBreakoutsHtml(by) {
     if (!by || typeof by !== "object") return "";
     var specs = [
-      { key: "robinhood", label: "Robinhood", sub: "public books" },
-      { key: "fidelity", label: "Fidelity", sub: "" },
-      { key: "voya", label: "Voya", sub: "" }
+      { key: "robinhood", label: "RH" },
+      { key: "fidelity", label: "Fid" },
+      { key: "voya", label: "Voya" }
     ];
     var rows = [];
     specs.forEach(function (s) {
@@ -210,8 +210,7 @@ function collapseHouseNames(list) {
       if (slice == null) return;
       var kpi = cashflowKpiHtml(slice);
       if (!kpi) return;
-      var sub = s.sub ? ' <span class="cf-sub">' + esc(s.sub) + "</span>" : "";
-      rows.push('<div class="cf-block"><p class="cf-k">' + esc(s.label) + sub + "</p>" + kpi + "</div>");
+      rows.push('<div class="cf-block"><p class="cf-k">' + esc(s.label) + "</p>" + kpi + "</div>");
     });
     if (!rows.length) return "";
     return '<div class="cf-breakouts">' + rows.join("") + "</div>";
