@@ -179,44 +179,49 @@ function collapseHouseNames(list) {
   function cashflowOffPublic(key) {
     return /utma|smart\s*income/i.test(String(key || ""));
   }
-  function cashflowSourcePart(src) {
+  function cashflowKpiHtml(src) {
     if (src == null) return "";
     if (typeof src !== "object") {
       if (!cashflowFinite(src)) return "";
-      var n = Number(src);
-      return '<span class="tone-' + tone(n) + '">' + money(n) + "</span>";
+      src = { market_earnings: src };
     }
-    var bits = [];
-    if (cashflowFinite(src.owner_deposits)) bits.push(money(Number(src.owner_deposits)));
+    var cells = [];
+    /* Hide cell if null/non-finite — never invent $0. */
+    if (cashflowFinite(src.owner_deposits)) {
+      cells.push("<div><span>Deposits</span><b>" + money(Number(src.owner_deposits)) + "</b></div>");
+    }
     if (cashflowFinite(src.market_earnings)) {
-      var e = Number(src.market_earnings);
-      bits.push('<span class="tone-' + tone(e) + '">' + money(e) + "</span>");
+      cells.push("<div><span>Market earnings</span><b class=\"tone-" + tone(src.market_earnings) + "\">" + money(Number(src.market_earnings)) + "</b></div>");
     }
-    return bits.join(" ");
+    if (!cells.length) return "";
+    return "<div class=\"kpi\">" + cells.join("") + "</div>";
   }
-  function cashflowBySourceHtml(by) {
+  function cashflowBreakoutsHtml(by) {
     if (!by || typeof by !== "object") return "";
-    var labels = { robinhood: "RH", fidelity: "Fid", voya: "Voya" };
-    var bits = [];
-    ["robinhood", "fidelity", "voya"].forEach(function (key) {
-      if (!Object.prototype.hasOwnProperty.call(by, key) || cashflowOffPublic(key)) return;
-      var part = cashflowSourcePart(by[key]);
-      if (!part) return;
-      bits.push(esc(labels[key]) + " " + part);
+    var specs = [
+      { key: "robinhood", label: "Robinhood", sub: "public books" },
+      { key: "fidelity", label: "Fidelity", sub: "" },
+      { key: "voya", label: "Voya", sub: "" }
+    ];
+    var rows = [];
+    specs.forEach(function (s) {
+      if (!Object.prototype.hasOwnProperty.call(by, s.key) || cashflowOffPublic(s.key)) return;
+      var slice = by[s.key];
+      if (slice == null) return;
+      var kpi = cashflowKpiHtml(slice);
+      if (!kpi) return;
+      var sub = s.sub ? ' <span class="cf-sub">' + esc(s.sub) + "</span>" : "";
+      rows.push('<div class="cf-block"><p class="cf-k">' + esc(s.label) + sub + "</p>" + kpi + "</div>");
     });
-    if (!bits.length) return "";
-    return '<p class="cf-by-source">' + bits.join(" \u00b7 ") + "</p>";
+    if (!rows.length) return "";
+    return '<div class="cf-breakouts">' + rows.join("") + "</div>";
   }
   function cashflowStripHtml(book, overall) {
     var cf = book && book.cashflow_30d;
     if (!cf || typeof cf !== "object") return "";
-    var depOk = cashflowFinite(cf.owner_deposits);
-    var earnOk = cashflowFinite(cf.market_earnings);
-    if (!depOk && !earnOk) return "";
-    var cells = [];
-    /* Hide cell if null/non-finite — never invent $0. */
-    if (depOk) cells.push("<div><span>Deposits</span><b>" + money(Number(cf.owner_deposits)) + "</b></div>");
-    if (earnOk) cells.push("<div><span>Market earnings</span><b class=\"tone-" + tone(cf.market_earnings) + "\">" + money(Number(cf.market_earnings)) + "</b></div>");
+    var overallKpi = cashflowKpiHtml(cf);
+    var sourceHtml = cashflowBreakoutsHtml(cf.by_source);
+    if (!overallKpi && !sourceHtml) return "";
     var from = cf.from ? String(cf.from) : "";
     var to = cf.to ? String(cf.to) : "";
     var windowLine = "";
@@ -224,11 +229,11 @@ function collapseHouseNames(list) {
     else if (from || to) windowLine = '<p class="cf-window">' + esc(from || to) + "</p>";
     var basis = cf.market_earnings_basis ? String(cf.market_earnings_basis).trim() : "";
     var basisHtml = basis ? ' <span class="cf-basis">' + esc(basis) + "</span>" : "";
-    var sourceHtml = cashflowBySourceHtml(cf.by_source);
     var overallScope = !!(overall || (book && book.id === "combined"));
     var heading = overallScope ? "Past 30 days \u00b7 RH + Fid + Voya" : "Past 30 days";
+    var overallHtml = overallKpi ? '<div class="cf-block cf-overall"><p class="cf-k">Overall</p>' + overallKpi + "</div>" : "";
     return "<h2>" + heading + "</h2><div class=\"card span cashflow-strip\">" + windowLine +
-      "<div class=\"kpi\">" + cells.join("") + "</div>" + sourceHtml +
+      overallHtml + sourceHtml +
       '<p class="hint">Deposits are owner capital in, not earnings. Deposits \u2260 market earnings.' + basisHtml + "</p></div>";
   }
   function fillWhen(ts) {
