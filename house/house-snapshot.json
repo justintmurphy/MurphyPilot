@@ -1,7 +1,7 @@
 {
-  "asof": "2026-09-17T15:14:54-04:00",
+  "asof": "2026-09-17T21:48:07-04:00",
   "brand": "Murphy House",
-  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted (fundamentals have no homepage). Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=Claude.",
+  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted (fundamentals have no homepage). Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=Claude. Tip bg: combined.cashflow_30d owner_deposits=250 (agentic ACH 9/8 $100+9/11 $50+9/15 $100; other books no ledger) market_earnings=sum realized month four public RH books basis realized.",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -1917,7 +1917,16 @@
         "invested_pct": 77.4,
         "names": 13
       }
-    ]
+    ],
+    "cashflow_30d": {
+      "asof": "2026-09-17T21:48:07-04:00",
+      "from": "2026-08-18",
+      "to": "2026-09-17",
+      "owner_deposits": 250.0,
+      "market_earnings": -3.31,
+      "market_earnings_basis": "realized",
+      "window_days": 30
+    }
   },
-  "tip": "ba+bb+bc+be"
+  "tip": "ba+bb+bc+be+bg"
 }
