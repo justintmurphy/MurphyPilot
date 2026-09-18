@@ -207,7 +207,7 @@ function collapseHouseNames(list) {
     if (!bits.length) return "";
     return '<p class="cf-by-source">' + bits.join(" \u00b7 ") + "</p>";
   }
-  function cashflowStripHtml(book) {
+  function cashflowStripHtml(book, overall) {
     var cf = book && book.cashflow_30d;
     if (!cf || typeof cf !== "object") return "";
     var depOk = cashflowFinite(cf.owner_deposits);
@@ -225,7 +225,9 @@ function collapseHouseNames(list) {
     var basis = cf.market_earnings_basis ? String(cf.market_earnings_basis).trim() : "";
     var basisHtml = basis ? ' <span class="cf-basis">' + esc(basis) + "</span>" : "";
     var sourceHtml = cashflowBySourceHtml(cf.by_source);
-    return "<h2>Past 30 days</h2><div class=\"card span cashflow-strip\">" + windowLine +
+    var overallScope = !!(overall || (book && book.id === "combined"));
+    var heading = overallScope ? "Past 30 days \u00b7 RH + Fid + Voya" : "Past 30 days";
+    return "<h2>" + heading + "</h2><div class=\"card span cashflow-strip\">" + windowLine +
       "<div class=\"kpi\">" + cells.join("") + "</div>" + sourceHtml +
       '<p class="hint">Deposits are owner capital in, not earnings. Deposits \u2260 market earnings.' + basisHtml + "</p></div>";
   }
@@ -706,7 +708,7 @@ function collapseHouseNames(list) {
       html += overallStripHtml();
       html += cardsHtml();
       html += stateHtml(b, "House");
-      html += cashflowStripHtml(b);
+      html += cashflowStripHtml(b, true);
       html += tapeHtml("combined", "House", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
