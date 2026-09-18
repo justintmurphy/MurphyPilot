@@ -269,7 +269,7 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
 }
 .overall-strip .ov-plot { margin-top: 4px; }
 
-/* tip bh — Past 30 days cashflow (print combined.cashflow_30d) */
+/* tip bh — Past 30 days · RH + Fid + Voya */
 .cashflow-strip .kpi {
   grid-template-columns: repeat(2, minmax(10rem, 16rem));
   gap: 8px 12px;
