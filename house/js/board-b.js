@@ -196,8 +196,8 @@ function collapseHouseNames(list) {
     if (cashflowFinite(src.dividends)) {
       cells.push("<div><span>Dividends</span><b class=\"tone-" + tone(src.dividends) + "\">" + money(Number(src.dividends)) + "</b></div>");
     }
-    var reinv = cashflowFinite(src.reinvestments) ? Number(src.reinvestments)
-      : (cashflowFinite(src.reinvested) ? Number(src.reinvested) : null);
+    var reinv = cashflowFinite(src.reinvested) ? Number(src.reinvested)
+      : (cashflowFinite(src.reinvestments) ? Number(src.reinvestments) : null);
     if (reinv != null) {
       cells.push("<div><span>Reinvested</span><b class=\"tone-" + tone(reinv) + "\">" + money(reinv) + "</b></div>");
     }
