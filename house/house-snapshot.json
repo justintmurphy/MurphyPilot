@@ -1,33 +1,64 @@
 {
-  "asof": "2026-09-21T10:05:00-04:00",
-  "brand": "Murphy House",
-  "note": "Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=Claude. DATA ONLY.",
+  "asof": "2026-09-21T13:50:53-04:00",
+  "tip": "ba+bb+bc+be+bg+bh+bi+bj",
+  "note": "RH live midday refresh; marks Yahoo when RH quotes gateway failed; cashflow_30d kept Close-only",
   "accounts": {
     "individual": {
       "id": "individual",
       "label": "Individual",
       "suffix": "8723",
-      "equity": 752.26,
-      "equity_value": 540.48,
-      "crypto_value": 211.64,
+      "source": "live RH 2026-09-21T13:50 ET",
+      "asof": "2026-09-21T13:50:53-04:00",
+      "equity": 750.77,
+      "equity_value": 537.56,
+      "crypto_value": 213.07,
       "cash": 0.14,
       "buying_power": 0.14,
-      "pending_deposits": 0.0,
+      "pending_deposits": 0,
+      "invested_pct": 99.98,
       "open_orders": 0,
+      "asset_mix": {
+        "equity": 537.56,
+        "crypto": 213.07,
+        "options": 0.0,
+        "cash": 0.14
+      },
       "names": [
         {
           "symbol": "SPCX",
           "name": "SpaceX",
+          "kind": "equity",
           "qty": 2.105144,
-          "avg": 136.51,
           "avg_cost": 136.51,
-          "last": 155.605,
-          "value": 327.57,
-          "account": "individual",
-          "asset_class": "equity",
-          "pnl_pct": 13.99,
-          "unrealized_pnl": 40.2,
-          "unrealized_pnl_pct": 13.99
+          "last": 153.595,
+          "value": 323.3396,
+          "cost": 287.3732,
+          "unrealized_pnl": 35.9664,
+          "unrealized_pnl_pct": 12.52
+        },
+        {
+          "symbol": "NVDA",
+          "name": "NVIDIA",
+          "kind": "equity",
+          "qty": 0.47381,
+          "avg_cost": 211.06,
+          "last": 227.545,
+          "value": 107.8131,
+          "cost": 100.0023,
+          "unrealized_pnl": 7.8108,
+          "unrealized_pnl_pct": 7.81
+        },
+        {
+          "symbol": "TSLA",
+          "name": "Tesla",
+          "kind": "equity",
+          "qty": 0.284086,
+          "avg_cost": 352.01,
+          "last": 373.99,
+          "value": 106.2453,
+          "cost": 100.0011,
+          "unrealized_pnl": 6.2442,
+          "unrealized_pnl_pct": 6.24
         },
         {
           "symbol": "BTC",
@@ -35,39 +66,11 @@
           "qty": 0.001862,
           "avg": 0.0,
           "avg_cost": 0.0,
-          "last": 85276.906251,
-          "value": 158.79,
+          "last": 85826.62,
+          "value": 159.8092,
           "account": "individual",
           "asset_class": "crypto",
           "pnl_pct": 0.0
-        },
-        {
-          "symbol": "TSLA",
-          "name": "Tesla",
-          "qty": 0.284086,
-          "avg": 352.01,
-          "avg_cost": 352.01,
-          "last": 376.55,
-          "value": 106.97,
-          "account": "individual",
-          "asset_class": "equity",
-          "pnl_pct": 6.97,
-          "unrealized_pnl": 6.97,
-          "unrealized_pnl_pct": 6.97
-        },
-        {
-          "symbol": "NVDA",
-          "name": "NVIDIA",
-          "qty": 0.47381,
-          "avg": 211.06,
-          "avg_cost": 211.06,
-          "last": 222.9124,
-          "value": 105.62,
-          "account": "individual",
-          "asset_class": "equity",
-          "pnl_pct": 5.62,
-          "unrealized_pnl": 5.62,
-          "unrealized_pnl_pct": 5.62
         },
         {
           "symbol": "XRP",
@@ -75,672 +78,726 @@
           "qty": 35.556,
           "avg": 0.0,
           "avg_cost": 0.0,
-          "last": 1.483797,
-          "value": 52.76,
+          "last": 1.4959,
+          "value": 53.1882,
           "account": "individual",
           "asset_class": "crypto",
           "pnl_pct": 0.0
         }
       ],
-      "invested_pct": 99.98,
-      "asset_mix": {
-        "equity": 540.48,
-        "crypto": 211.64,
-        "options": 0.0,
-        "cash": 0.14
-      },
       "realized_pnl": {
         "day": 0.0,
         "week": 0.0,
         "month": 0.0
-      },
-      "unrealized_pnl": 52.78
+      }
     },
     "auto_grok": {
       "id": "auto_grok",
       "label": "Grok",
       "suffix": "6577",
-      "equity": 1054.65,
-      "equity_value": 1053.56,
+      "source": "live RH 2026-09-21T13:50 ET",
+      "asof": "2026-09-21T13:50:53-04:00",
+      "equity": 1059.29,
+      "equity_value": 1058.2,
       "crypto_value": 0.0,
       "cash": 1.09,
       "buying_power": 1.09,
-      "pending_deposits": 0.0,
-      "open_orders": 0,
-      "names": [
-        {
-          "symbol": "BSX",
-          "name": "Boston Scientific",
-          "qty": 2.980055,
-          "avg": 43.12,
-          "last": 43.21,
-          "value": 128.77,
-          "account": "auto_grok",
-          "asset_class": "equity",
-          "pnl_pct": 0.21
-        },
-        {
-          "symbol": "SYK",
-          "name": "Stryker",
-          "qty": 0.359116,
-          "avg": 268.72,
-          "last": 273.2182,
-          "value": 98.12,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "INTU",
-          "name": "Intuit",
-          "qty": 0.307555,
-          "avg": 315.39,
-          "last": 298.81,
-          "value": 91.9,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "NRG",
-          "name": "NRG Energy",
-          "qty": 0.851307,
-          "avg": 113.36,
-          "last": 101.76,
-          "value": 86.63,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "AVGO",
-          "name": "Broadcom",
-          "qty": 0.208356,
-          "avg": 363.32,
-          "last": 357.095,
-          "value": 74.4,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "WAY",
-          "name": "Waystar",
-          "qty": 2.760611,
-          "avg": 23.21,
-          "last": 26.0,
-          "value": 71.78,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "NBIX",
-          "name": "Neurocrine",
-          "qty": 0.475665,
-          "avg": 158.73,
-          "last": 144.15,
-          "value": 68.57,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "HPE",
-          "name": "Hewlett Packard Enterprise",
-          "qty": 1.082818,
-          "avg": 59.11,
-          "last": 60.74,
-          "value": 65.77,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "VST",
-          "name": "Vistra",
-          "qty": 0.454934,
-          "avg": 140.81,
-          "last": 139.65,
-          "value": 63.53,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "PAM",
-          "name": "Pampa Energia",
-          "qty": 0.733591,
-          "avg": 87.38,
-          "last": 81.09,
-          "value": 59.49,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "AXS",
-          "name": "Axis Capital",
-          "qty": 0.558071,
-          "avg": 98.55,
-          "last": 99.44,
-          "value": 55.49,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "NVDA",
-          "name": "NVIDIA",
-          "qty": 0.241812,
-          "avg": 220.01,
-          "last": 222.9124,
-          "value": 53.9,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "ALNY",
-          "name": "Alnylam",
-          "qty": 0.214738,
-          "avg": 246.95,
-          "last": 242.89,
-          "value": 52.16,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "CXM",
-          "name": "Sprinklr",
-          "qty": 7.720254,
-          "avg": 5.51,
-          "last": 5.385,
-          "value": 41.57,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "MP",
-          "name": "MP Materials",
-          "qty": 0.837438,
-          "avg": 50.75,
-          "last": 49.05,
-          "value": 41.08,
-          "account": "auto_grok",
-          "asset_class": "equity"
-        }
-      ],
+      "pending_deposits": 0,
       "invested_pct": 99.9,
+      "open_orders": 0,
       "asset_mix": {
-        "equity": 1053.56,
+        "equity": 1058.2,
         "crypto": 0.0,
         "options": 0.0,
         "cash": 1.09
       },
+      "names": [
+        {
+          "symbol": "SYK",
+          "name": "Stryker",
+          "kind": "equity",
+          "qty": 0.359116,
+          "avg_cost": 268.72,
+          "last": 273.325,
+          "value": 98.1554,
+          "cost": 96.5017,
+          "unrealized_pnl": 1.6537,
+          "unrealized_pnl_pct": 1.71
+        },
+        {
+          "symbol": "AVGO",
+          "name": "Broadcom",
+          "kind": "equity",
+          "qty": 0.208356,
+          "avg_cost": 363.32,
+          "last": 360.545,
+          "value": 75.1217,
+          "cost": 75.6999,
+          "unrealized_pnl": -0.5782,
+          "unrealized_pnl_pct": -0.76
+        },
+        {
+          "symbol": "VST",
+          "name": "Vistra",
+          "kind": "equity",
+          "qty": 0.454934,
+          "avg_cost": 140.81,
+          "last": 141.56,
+          "value": 64.4005,
+          "cost": 64.0593,
+          "unrealized_pnl": 0.3412,
+          "unrealized_pnl_pct": 0.53
+        },
+        {
+          "symbol": "BSX",
+          "name": "Boston Scientific",
+          "kind": "equity",
+          "qty": 2.980055,
+          "avg_cost": 43.12,
+          "last": 43.261,
+          "value": 128.9202,
+          "cost": 128.5,
+          "unrealized_pnl": 0.4202,
+          "unrealized_pnl_pct": 0.33
+        },
+        {
+          "symbol": "INTU",
+          "name": "Intuit",
+          "kind": "equity",
+          "qty": 0.307555,
+          "avg_cost": 315.39,
+          "last": 303.05,
+          "value": 93.2045,
+          "cost": 96.9998,
+          "unrealized_pnl": -3.7953,
+          "unrealized_pnl_pct": -3.91
+        },
+        {
+          "symbol": "NRG",
+          "name": "NRG Energy",
+          "kind": "equity",
+          "qty": 0.851307,
+          "avg_cost": 113.36,
+          "last": 102.905,
+          "value": 87.6037,
+          "cost": 96.5042,
+          "unrealized_pnl": -8.9005,
+          "unrealized_pnl_pct": -9.22
+        },
+        {
+          "symbol": "NBIX",
+          "name": "Neurocrine",
+          "kind": "equity",
+          "qty": 0.475665,
+          "avg_cost": 158.73,
+          "last": 144.077,
+          "value": 68.5324,
+          "cost": 75.5023,
+          "unrealized_pnl": -6.9699,
+          "unrealized_pnl_pct": -9.23
+        },
+        {
+          "symbol": "PAM",
+          "name": "Pampa Energia",
+          "kind": "equity",
+          "qty": 0.733591,
+          "avg_cost": 87.38,
+          "last": 80.83,
+          "value": 59.2962,
+          "cost": 64.1012,
+          "unrealized_pnl": -4.805,
+          "unrealized_pnl_pct": -7.5
+        },
+        {
+          "symbol": "WAY",
+          "name": "Waystar",
+          "kind": "equity",
+          "qty": 2.760611,
+          "avg_cost": 23.21,
+          "last": 25.5,
+          "value": 70.3956,
+          "cost": 64.0738,
+          "unrealized_pnl": 6.3218,
+          "unrealized_pnl_pct": 9.87
+        },
+        {
+          "symbol": "HPE",
+          "name": "Hewlett Packard Enterprise",
+          "kind": "equity",
+          "qty": 1.082818,
+          "avg_cost": 59.11,
+          "last": 61.52,
+          "value": 66.615,
+          "cost": 64.0054,
+          "unrealized_pnl": 2.6096,
+          "unrealized_pnl_pct": 4.08
+        },
+        {
+          "symbol": "AXS",
+          "name": "Axis Capital",
+          "kind": "equity",
+          "qty": 0.558071,
+          "avg_cost": 98.55,
+          "last": 98.37,
+          "value": 54.8974,
+          "cost": 54.9979,
+          "unrealized_pnl": -0.1005,
+          "unrealized_pnl_pct": -0.18
+        },
+        {
+          "symbol": "NVDA",
+          "name": "NVIDIA",
+          "kind": "equity",
+          "qty": 0.241812,
+          "avg_cost": 220.01,
+          "last": 227.545,
+          "value": 55.0231,
+          "cost": 53.2011,
+          "unrealized_pnl": 1.822,
+          "unrealized_pnl_pct": 3.42
+        },
+        {
+          "symbol": "ALNY",
+          "name": "Alnylam",
+          "kind": "equity",
+          "qty": 0.214738,
+          "avg_cost": 246.95,
+          "last": 246.02,
+          "value": 52.8298,
+          "cost": 53.0295,
+          "unrealized_pnl": -0.1997,
+          "unrealized_pnl_pct": -0.38
+        },
+        {
+          "symbol": "CXM",
+          "name": "Sprinklr",
+          "kind": "equity",
+          "qty": 7.720254,
+          "avg_cost": 5.51,
+          "last": 5.314,
+          "value": 41.0254,
+          "cost": 42.5386,
+          "unrealized_pnl": -1.5132,
+          "unrealized_pnl_pct": -3.56
+        },
+        {
+          "symbol": "MP",
+          "name": "MP Materials",
+          "kind": "equity",
+          "qty": 0.837438,
+          "avg_cost": 50.75,
+          "last": 50.36,
+          "value": 42.1734,
+          "cost": 42.5,
+          "unrealized_pnl": -0.3266,
+          "unrealized_pnl_pct": -0.77
+        }
+      ],
       "realized_pnl": {
         "day": 0.0,
         "week": 0.0,
         "month": -6.51
-      },
-      "unrealized_pnl": -19.06
+      }
     },
     "joint": {
       "id": "joint",
       "label": "Deep Seek",
       "suffix": "4446",
-      "equity": 933.58,
-      "equity_value": 931.84,
+      "source": "live RH 2026-09-21T13:50 ET",
+      "asof": "2026-09-21T13:50:53-04:00",
+      "equity": 938.13,
+      "equity_value": 936.39,
       "crypto_value": 0.0,
       "cash": 1.74,
       "buying_power": 1.74,
-      "pending_deposits": 0.0,
-      "open_orders": 0,
-      "names": [
-        {
-          "symbol": "BSX",
-          "name": "Boston Scientific",
-          "qty": 2.047443,
-          "avg": 43.42,
-          "last": 43.21,
-          "value": 88.47,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "PAM",
-          "name": "Pampa Energia",
-          "qty": 0.915958,
-          "avg": 87.53,
-          "last": 81.09,
-          "value": 74.28,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "ARIS",
-          "name": "Aris Water",
-          "qty": 3.60951,
-          "avg": 19.12,
-          "last": 18.99,
-          "value": 68.54,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "NVDA",
-          "name": "NVIDIA",
-          "qty": 0.294235,
-          "avg": 223.43,
-          "last": 222.9124,
-          "value": 65.59,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "KTOS",
-          "name": "Kratos Defense",
-          "qty": 1.273293,
-          "avg": 59.67,
-          "last": 48.09,
-          "value": 61.23,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "INTU",
-          "name": "Intuit",
-          "qty": 0.19668,
-          "avg": 317.52,
-          "last": 298.81,
-          "value": 58.77,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "MLTX",
-          "name": "MoonLake",
-          "qty": 4.576494,
-          "avg": 16.6,
-          "last": 12.425,
-          "value": 56.86,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "AXS",
-          "name": "Axis Capital",
-          "qty": 0.545207,
-          "avg": 99.32,
-          "last": 99.44,
-          "value": 54.22,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "SYK",
-          "name": "Stryker",
-          "qty": 0.197344,
-          "avg": 270.75,
-          "last": 273.2182,
-          "value": 53.92,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "AVGO",
-          "name": "Broadcom",
-          "qty": 0.146326,
-          "avg": 363.57,
-          "last": 357.095,
-          "value": 52.25,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "WAY",
-          "name": "Waystar",
-          "qty": 1.918559,
-          "avg": 23.33,
-          "last": 26.0,
-          "value": 49.88,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "NRG",
-          "name": "NRG Energy",
-          "qty": 0.473415,
-          "avg": 112.76,
-          "last": 101.76,
-          "value": 48.17,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "NBIX",
-          "name": "Neurocrine",
-          "qty": 0.278642,
-          "avg": 158.95,
-          "last": 144.15,
-          "value": 40.17,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "CXM",
-          "name": "Sprinklr",
-          "qty": 6.464188,
-          "avg": 5.52,
-          "last": 5.385,
-          "value": 34.81,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "MP",
-          "name": "MP Materials",
-          "qty": 0.698518,
-          "avg": 50.66,
-          "last": 49.05,
-          "value": 34.26,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "PHVS",
-          "name": "Pharvaris",
-          "qty": 0.930809,
-          "avg": 38.3,
-          "last": 36.175,
-          "value": 33.67,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "GENI",
-          "name": "Genius Sports",
-          "qty": 5.234633,
-          "avg": 6.81,
-          "last": 5.595,
-          "value": 29.29,
-          "account": "joint",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "VST",
-          "name": "Vistra",
-          "qty": 0.194132,
-          "avg": 144.03,
-          "last": 139.65,
-          "value": 27.11,
-          "account": "joint",
-          "asset_class": "equity"
-        }
-      ],
+      "pending_deposits": 0,
       "invested_pct": 99.81,
+      "open_orders": 0,
       "asset_mix": {
-        "equity": 931.84,
+        "equity": 936.39,
         "crypto": 0.0,
         "options": 0.0,
         "cash": 1.74
       },
+      "names": [
+        {
+          "symbol": "KTOS",
+          "name": "Kratos Defense",
+          "kind": "equity",
+          "qty": 1.273293,
+          "avg_cost": 59.67,
+          "last": 48.959,
+          "value": 62.3392,
+          "cost": 75.9774,
+          "unrealized_pnl": -13.6382,
+          "unrealized_pnl_pct": -17.95
+        },
+        {
+          "symbol": "MLTX",
+          "name": "MoonLake",
+          "kind": "equity",
+          "qty": 4.576494,
+          "avg_cost": 16.6,
+          "last": 12.54,
+          "value": 57.3892,
+          "cost": 75.9698,
+          "unrealized_pnl": -18.5806,
+          "unrealized_pnl_pct": -24.46
+        },
+        {
+          "symbol": "NVDA",
+          "name": "NVIDIA",
+          "kind": "equity",
+          "qty": 0.294235,
+          "avg_cost": 223.43,
+          "last": 227.545,
+          "value": 66.9517,
+          "cost": 65.7409,
+          "unrealized_pnl": 1.2108,
+          "unrealized_pnl_pct": 1.84
+        },
+        {
+          "symbol": "ARIS",
+          "name": "Aris Water",
+          "kind": "equity",
+          "qty": 3.60951,
+          "avg_cost": 19.12,
+          "last": 18.965,
+          "value": 68.4544,
+          "cost": 69.0138,
+          "unrealized_pnl": -0.5594,
+          "unrealized_pnl_pct": -0.81
+        },
+        {
+          "symbol": "VST",
+          "name": "Vistra",
+          "kind": "equity",
+          "qty": 0.194132,
+          "avg_cost": 144.03,
+          "last": 141.56,
+          "value": 27.4813,
+          "cost": 27.9608,
+          "unrealized_pnl": -0.4795,
+          "unrealized_pnl_pct": -1.71
+        },
+        {
+          "symbol": "BSX",
+          "name": "Boston Scientific",
+          "kind": "equity",
+          "qty": 2.047443,
+          "avg_cost": 43.42,
+          "last": 43.261,
+          "value": 88.5744,
+          "cost": 88.9,
+          "unrealized_pnl": -0.3256,
+          "unrealized_pnl_pct": -0.37
+        },
+        {
+          "symbol": "PAM",
+          "name": "Pampa Energia",
+          "kind": "equity",
+          "qty": 0.915958,
+          "avg_cost": 87.53,
+          "last": 80.83,
+          "value": 74.0369,
+          "cost": 80.1738,
+          "unrealized_pnl": -6.1369,
+          "unrealized_pnl_pct": -7.65
+        },
+        {
+          "symbol": "INTU",
+          "name": "Intuit",
+          "kind": "equity",
+          "qty": 0.19668,
+          "avg_cost": 317.52,
+          "last": 303.05,
+          "value": 59.6039,
+          "cost": 62.4498,
+          "unrealized_pnl": -2.8459,
+          "unrealized_pnl_pct": -4.56
+        },
+        {
+          "symbol": "AXS",
+          "name": "Axis Capital",
+          "kind": "equity",
+          "qty": 0.545207,
+          "avg_cost": 99.32,
+          "last": 98.37,
+          "value": 53.632,
+          "cost": 54.15,
+          "unrealized_pnl": -0.518,
+          "unrealized_pnl_pct": -0.96
+        },
+        {
+          "symbol": "SYK",
+          "name": "Stryker",
+          "kind": "equity",
+          "qty": 0.197344,
+          "avg_cost": 270.75,
+          "last": 273.325,
+          "value": 53.939,
+          "cost": 53.4309,
+          "unrealized_pnl": 0.5081,
+          "unrealized_pnl_pct": 0.95
+        },
+        {
+          "symbol": "NRG",
+          "name": "NRG Energy",
+          "kind": "equity",
+          "qty": 0.473415,
+          "avg_cost": 112.76,
+          "last": 102.905,
+          "value": 48.7168,
+          "cost": 53.3823,
+          "unrealized_pnl": -4.6655,
+          "unrealized_pnl_pct": -8.74
+        },
+        {
+          "symbol": "AVGO",
+          "name": "Broadcom",
+          "kind": "equity",
+          "qty": 0.146326,
+          "avg_cost": 363.57,
+          "last": 360.545,
+          "value": 52.7571,
+          "cost": 53.1997,
+          "unrealized_pnl": -0.4426,
+          "unrealized_pnl_pct": -0.83
+        },
+        {
+          "symbol": "WAY",
+          "name": "Waystar",
+          "kind": "equity",
+          "qty": 1.918559,
+          "avg_cost": 23.33,
+          "last": 25.5,
+          "value": 48.9233,
+          "cost": 44.76,
+          "unrealized_pnl": 4.1633,
+          "unrealized_pnl_pct": 9.3
+        },
+        {
+          "symbol": "NBIX",
+          "name": "Neurocrine",
+          "kind": "equity",
+          "qty": 0.278642,
+          "avg_cost": 158.95,
+          "last": 144.077,
+          "value": 40.1459,
+          "cost": 44.2901,
+          "unrealized_pnl": -4.1442,
+          "unrealized_pnl_pct": -9.36
+        },
+        {
+          "symbol": "PHVS",
+          "name": "Pharvaris",
+          "kind": "equity",
+          "qty": 0.930809,
+          "avg_cost": 38.3,
+          "last": 36.44,
+          "value": 33.9187,
+          "cost": 35.65,
+          "unrealized_pnl": -1.7313,
+          "unrealized_pnl_pct": -4.86
+        },
+        {
+          "symbol": "CXM",
+          "name": "Sprinklr",
+          "kind": "equity",
+          "qty": 6.464188,
+          "avg_cost": 5.52,
+          "last": 5.314,
+          "value": 34.3507,
+          "cost": 35.6823,
+          "unrealized_pnl": -1.3316,
+          "unrealized_pnl_pct": -3.73
+        },
+        {
+          "symbol": "GENI",
+          "name": "Genius Sports",
+          "kind": "equity",
+          "qty": 5.234633,
+          "avg_cost": 6.81,
+          "last": 5.735,
+          "value": 30.0206,
+          "cost": 35.6479,
+          "unrealized_pnl": -5.6273,
+          "unrealized_pnl_pct": -15.79
+        },
+        {
+          "symbol": "MP",
+          "name": "MP Materials",
+          "kind": "equity",
+          "qty": 0.698518,
+          "avg_cost": 50.66,
+          "last": 50.36,
+          "value": 35.1774,
+          "cost": 35.3869,
+          "unrealized_pnl": -0.2095,
+          "unrealized_pnl_pct": -0.59
+        }
+      ],
       "realized_pnl": {
         "day": 0.0,
         "week": 0.0,
         "month": 8.09
-      },
-      "unrealized_pnl": -60.27
+      }
     },
     "agentic": {
       "id": "agentic",
       "label": "Claude",
       "suffix": "3794",
-      "equity": 491.7,
-      "equity_value": 491.7,
+      "source": "live RH 2026-09-21T13:50 ET",
+      "asof": "2026-09-21T13:50:53-04:00",
+      "equity": 493.85,
+      "equity_value": 493.85,
       "crypto_value": 0.0,
       "cash": 0.0,
       "buying_power": 0.0,
-      "pending_deposits": 0.0,
-      "open_orders": 0,
-      "names": [
-        {
-          "symbol": "VST",
-          "name": "Vistra",
-          "qty": 0.472593,
-          "avg": 142.22,
-          "last": 139.65,
-          "value": 66.0,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "PHVS",
-          "name": "Pharvaris",
-          "qty": 1.368207,
-          "avg": 38.14,
-          "last": 36.175,
-          "value": 49.49,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "SGOV",
-          "name": "iShares 0-3 Month Treasury",
-          "qty": 0.476286,
-          "avg": 100.55,
-          "last": 100.5901,
-          "value": 47.91,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "MU",
-          "name": "Micron",
-          "qty": 0.038883,
-          "avg": 937.17,
-          "last": 1040.675,
-          "value": 40.46,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "SKWD",
-          "name": "Skyward Specialty",
-          "qty": 0.679681,
-          "avg": 57.26,
-          "last": 56.55,
-          "value": 38.44,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "ARIS",
-          "name": "Aris Water",
-          "qty": 1.853314,
-          "avg": 18.48,
-          "last": 18.99,
-          "value": 35.19,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "ICE",
-          "name": "Intercontinental Exchange",
-          "qty": 0.214829,
-          "avg": 155.71,
-          "last": 155.6499,
-          "value": 33.44,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "NVDA",
-          "name": "NVIDIA",
-          "qty": 0.148148,
-          "avg": 218.36,
-          "last": 222.9124,
-          "value": 33.02,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "KBR",
-          "name": "KBR",
-          "qty": 0.866683,
-          "avg": 36.83,
-          "last": 35.57,
-          "value": 30.83,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "WLDN",
-          "name": "Willdan",
-          "qty": 0.356309,
-          "avg": 78.7,
-          "last": 79.865,
-          "value": 28.46,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "QSR",
-          "name": "Restaurant Brands",
-          "qty": 0.330993,
-          "avg": 75.44,
-          "last": 72.45,
-          "value": 23.98,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "NBIX",
-          "name": "Neurocrine",
-          "qty": 0.157848,
-          "avg": 150.78,
-          "last": 144.15,
-          "value": 22.75,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "ARDX",
-          "name": "Ardelyx",
-          "qty": 4.958441,
-          "avg": 3.42,
-          "last": 3.42,
-          "value": 16.96,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "VIST",
-          "name": "Vista Energy",
-          "qty": 0.116736,
-          "avg": 72.81,
-          "last": 70.78,
-          "value": 8.26,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "PR",
-          "name": "Permian Resources",
-          "qty": 0.299357,
-          "avg": 23.05,
-          "last": 22.23,
-          "value": 6.65,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "DVN",
-          "name": "Devon Energy",
-          "qty": 0.116817,
-          "avg": 48.2,
-          "last": 47.695,
-          "value": 5.57,
-          "account": "agentic",
-          "asset_class": "equity"
-        },
-        {
-          "symbol": "EXE",
-          "name": "Expand Energy",
-          "qty": 0.047448,
-          "avg": 88.31,
-          "last": 85.867,
-          "value": 4.07,
-          "account": "agentic",
-          "asset_class": "equity"
-        }
-      ],
+      "pending_deposits": 0,
       "invested_pct": 100.0,
+      "open_orders": 0,
       "asset_mix": {
-        "equity": 491.7,
+        "equity": 493.85,
         "crypto": 0.0,
         "options": 0.0,
         "cash": 0.0
       },
+      "names": [
+        {
+          "symbol": "MU",
+          "name": "Micron",
+          "kind": "equity",
+          "qty": 0.038883,
+          "avg_cost": 937.17,
+          "last": 1040.25,
+          "value": 40.448,
+          "cost": 36.44,
+          "unrealized_pnl": 4.008,
+          "unrealized_pnl_pct": 11.0
+        },
+        {
+          "symbol": "VST",
+          "name": "Vistra",
+          "kind": "equity",
+          "qty": 0.472593,
+          "avg_cost": 142.22,
+          "last": 141.56,
+          "value": 66.9003,
+          "cost": 67.2122,
+          "unrealized_pnl": -0.3119,
+          "unrealized_pnl_pct": -0.46
+        },
+        {
+          "symbol": "PHVS",
+          "name": "Pharvaris",
+          "kind": "equity",
+          "qty": 1.368207,
+          "avg_cost": 38.14,
+          "last": 36.44,
+          "value": 49.8575,
+          "cost": 52.1834,
+          "unrealized_pnl": -2.3259,
+          "unrealized_pnl_pct": -4.46
+        },
+        {
+          "symbol": "VIST",
+          "name": "Vista Energy",
+          "kind": "equity",
+          "qty": 0.116736,
+          "avg_cost": 72.81,
+          "last": 69.65,
+          "value": 8.1307,
+          "cost": 8.4995,
+          "unrealized_pnl": -0.3688,
+          "unrealized_pnl_pct": -4.34
+        },
+        {
+          "symbol": "SGOV",
+          "name": "iShares 0-3 Month Treasury",
+          "kind": "equity",
+          "qty": 0.476286,
+          "avg_cost": 100.55,
+          "last": 100.595,
+          "value": 47.912,
+          "cost": 47.8906,
+          "unrealized_pnl": 0.0214,
+          "unrealized_pnl_pct": 0.04
+        },
+        {
+          "symbol": "PR",
+          "name": "Permian Resources",
+          "kind": "equity",
+          "qty": 0.299357,
+          "avg_cost": 23.05,
+          "last": 22.055,
+          "value": 6.6023,
+          "cost": 6.9002,
+          "unrealized_pnl": -0.2979,
+          "unrealized_pnl_pct": -4.32
+        },
+        {
+          "symbol": "SKWD",
+          "name": "Skyward Specialty",
+          "kind": "equity",
+          "qty": 0.679681,
+          "avg_cost": 57.26,
+          "last": 56.8,
+          "value": 38.6059,
+          "cost": 38.9185,
+          "unrealized_pnl": -0.3126,
+          "unrealized_pnl_pct": -0.8
+        },
+        {
+          "symbol": "ARIS",
+          "name": "Aris Water",
+          "kind": "equity",
+          "qty": 1.853314,
+          "avg_cost": 18.48,
+          "last": 18.965,
+          "value": 35.1481,
+          "cost": 34.2492,
+          "unrealized_pnl": 0.8989,
+          "unrealized_pnl_pct": 2.62
+        },
+        {
+          "symbol": "ICE",
+          "name": "Intercontinental Exchange",
+          "kind": "equity",
+          "qty": 0.214829,
+          "avg_cost": 155.71,
+          "last": 155.38,
+          "value": 33.3801,
+          "cost": 33.451,
+          "unrealized_pnl": -0.0709,
+          "unrealized_pnl_pct": -0.21
+        },
+        {
+          "symbol": "DVN",
+          "name": "Devon Energy",
+          "kind": "equity",
+          "qty": 0.116817,
+          "avg_cost": 48.2,
+          "last": 47.545,
+          "value": 5.5541,
+          "cost": 5.6306,
+          "unrealized_pnl": -0.0765,
+          "unrealized_pnl_pct": -1.36
+        },
+        {
+          "symbol": "WLDN",
+          "name": "Willdan",
+          "kind": "equity",
+          "qty": 0.356309,
+          "avg_cost": 78.7,
+          "last": 80.25,
+          "value": 28.5938,
+          "cost": 28.0415,
+          "unrealized_pnl": 0.5523,
+          "unrealized_pnl_pct": 1.97
+        },
+        {
+          "symbol": "QSR",
+          "name": "Restaurant Brands",
+          "kind": "equity",
+          "qty": 0.330993,
+          "avg_cost": 75.44,
+          "last": 72.645,
+          "value": 24.045,
+          "cost": 24.9701,
+          "unrealized_pnl": -0.9251,
+          "unrealized_pnl_pct": -3.7
+        },
+        {
+          "symbol": "EXE",
+          "name": "Expand Energy",
+          "kind": "equity",
+          "qty": 0.047448,
+          "avg_cost": 88.31,
+          "last": 86.985,
+          "value": 4.1273,
+          "cost": 4.1901,
+          "unrealized_pnl": -0.0628,
+          "unrealized_pnl_pct": -1.5
+        },
+        {
+          "symbol": "NBIX",
+          "name": "Neurocrine",
+          "kind": "equity",
+          "qty": 0.157848,
+          "avg_cost": 150.78,
+          "last": 144.077,
+          "value": 22.7423,
+          "cost": 23.8003,
+          "unrealized_pnl": -1.058,
+          "unrealized_pnl_pct": -4.45
+        },
+        {
+          "symbol": "ARDX",
+          "name": "Ardelyx",
+          "kind": "equity",
+          "qty": 4.958441,
+          "avg_cost": 3.42,
+          "last": 3.46,
+          "value": 17.1562,
+          "cost": 16.9579,
+          "unrealized_pnl": 0.1983,
+          "unrealized_pnl_pct": 1.17
+        },
+        {
+          "symbol": "NVDA",
+          "name": "NVIDIA",
+          "kind": "equity",
+          "qty": 0.148148,
+          "avg_cost": 218.36,
+          "last": 227.545,
+          "value": 33.7103,
+          "cost": 32.3496,
+          "unrealized_pnl": 1.3607,
+          "unrealized_pnl_pct": 4.21
+        },
+        {
+          "symbol": "KBR",
+          "name": "KBR",
+          "kind": "equity",
+          "qty": 0.866683,
+          "avg_cost": 36.83,
+          "last": 35.675,
+          "value": 30.9189,
+          "cost": 31.9199,
+          "unrealized_pnl": -1.001,
+          "unrealized_pnl_pct": -3.14
+        }
+      ],
       "realized_pnl": {
         "day": 0.0,
         "week": -0.85,
         "month": -27.54
-      },
-      "unrealized_pnl": -2.11
+      }
     }
   },
   "combined": {
     "id": "combined",
     "label": "Combined",
-    "equity": 3232.19,
-    "equity_value": 3017.58,
-    "crypto_value": 211.64,
+    "asof": "2026-09-21T13:50:53-04:00",
+    "equity": 3242.04,
+    "equity_value": 3026.0,
+    "crypto_value": 213.07,
     "cash": 2.97,
     "buying_power": 2.97,
-    "pending_deposits": 0.0,
-    "open_orders": 0,
-    "names": [],
     "invested_pct": 99.91,
     "asset_mix": {
-      "equity": 3017.58,
-      "crypto": 211.64,
-      "options": 0.0,
+      "equity": 3026.0,
+      "crypto": 213.07,
+      "options": 0,
       "cash": 2.97
     },
+    "names_count": 55,
     "realized_pnl": {
       "day": 0.0,
       "week": -0.85,
       "month": -25.96
     },
-    "unrealized_pnl": -28.66,
-    "books": [
-      {
-        "id": "individual",
-        "label": "Individual",
-        "suffix": "8723",
-        "equity": 752.26,
-        "cash": 0.14,
-        "buying_power": 0.14,
-        "names": 5
-      },
-      {
-        "id": "auto_grok",
-        "label": "Grok",
-        "suffix": "6577",
-        "equity": 1054.65,
-        "cash": 1.09,
-        "buying_power": 1.09,
-        "names": 15
-      },
-      {
-        "id": "joint",
-        "label": "Deep Seek",
-        "suffix": "4446",
-        "equity": 933.58,
-        "cash": 1.74,
-        "buying_power": 1.74,
-        "names": 18
-      },
-      {
-        "id": "agentic",
-        "label": "Claude",
-        "suffix": "3794",
-        "equity": 491.7,
-        "cash": 0.0,
-        "buying_power": 0.0,
-        "names": 17
-      }
-    ],
     "cashflow_30d": {
       "asof": "2026-09-18T16:22:33-04:00",
       "from": "2026-08-19",
@@ -768,6 +825,5 @@
         }
       }
     }
-  },
-  "tip": "ba+bb+bc"
+  }
 }
