@@ -354,6 +354,7 @@ function collapseHouseNames(list) {
   var overlayOpen = false;
   var overlayMode = "live";
   var cashflowOpen = false;
+  var mixOpen = false;
 
   function applyTheme(choice) {
     var t = choice || document.documentElement.getAttribute("data-theme") || "justin";
@@ -414,6 +415,146 @@ function collapseHouseNames(list) {
     var pb = String(b || "").split("-").map(Number);
     if (pa.length < 3 || pb.length < 3) return 0;
     return Math.round((Date.UTC(pb[0], pb[1] - 1, pb[2]) - Date.UTC(pa[0], pa[1] - 1, pa[2])) / 86400000);
+  }
+  /* tip bl — print freshness from existing asof / holdings dates only; never invent equity */
+  function nyYmdNow() {
+    try {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).format(new Date());
+    } catch (e) {
+      return new Date().toISOString().slice(0, 10);
+    }
+  }
+  function asofAgeInfo(raw) {
+    var info = { mins: null, ago: "", clockLabel: "", ymd: "", days: null, hasTime: false };
+    var s = String(raw == null ? "" : raw).trim();
+    if (!s) return info;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) info.ymd = s.slice(0, 10);
+    info.hasTime = /T\d{1,2}:\d{2}/.test(s) || /\s\d{1,2}:\d{2}/.test(s);
+    if (info.ymd) info.days = ymdDiff(info.ymd, nyYmdNow());
+    if (info.hasTime) {
+      var ms = Date.parse(s);
+      if (isFinite(ms)) {
+        info.mins = Math.max(0, Math.round((Date.now() - ms) / 60000));
+        var m = info.mins;
+        if (m < 1) info.ago = "just now";
+        else if (m < 60) info.ago = m + "m ago";
+        else if (m < 1440) info.ago = Math.floor(m / 60) + "h ago";
+        else info.ago = Math.floor(m / 1440) + "d ago";
+        try {
+          info.clockLabel = new Date(ms).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
+        } catch (e2) { info.clockLabel = ""; }
+      }
+    } else if (info.days != null) {
+      if (info.days <= 0) info.ago = "today";
+      else info.ago = info.days + "d ago";
+    }
+    return info;
+  }
+  function asofClockStale(info) {
+    return !!(info && info.mins != null && info.mins >= 1440);
+  }
+  function asofHoldingsStale(info) {
+    if (!info) return false;
+    if (info.days != null && info.days >= 2) return true;
+    if (info.mins != null && info.mins >= 1440) return true;
+    return false;
+  }
+  function freshChipHtml(key, text, stale) {
+    if (!text) return "";
+    return '<span class="fresh-chip' + (stale ? " asof-stale" : "") + '">' +
+      esc(key + " \u00b7 " + text) + "</span>";
+  }
+  function livePrintChipText(info) {
+    var bits = ["live"];
+    if (info && info.clockLabel) bits.push(info.clockLabel + " print");
+    else if (info && info.ymd) bits.push(info.ymd);
+    if (info && info.ago && info.ago !== "today") bits.push(info.ago);
+    return bits.join(" \u00b7 ");
+  }
+  function holdingsChipText(raw, scanned) {
+    var ymd = String(raw || "").slice(0, 10);
+    if (!ymd) return "";
+    var bits = [ymd];
+    if (scanned) bits.push("scanned " + String(scanned).replace("T", " ").slice(0, 16));
+    var info = asofAgeInfo(raw);
+    if (info.ago && info.ago !== "today") bits.push(info.ago);
+    return bits.join(" \u00b7 ");
+  }
+  function fidLiveOverlay() {
+    if (!snap) return false;
+    var fid = (snap.accounts && snap.accounts.fidelity) || {};
+    var sleeve = null;
+    if (typeof isFidSleeveTab === "function" && isFidSleeveTab(tab) && typeof fidSleeveFromTab === "function") {
+      sleeve = fidSleeveFromTab(tab);
+    }
+    var b = sleeve || fid;
+    return !!(fid.live || fid.source === "snaptrade" || (b && (b.live || b.source === "snaptrade")));
+  }
+  function sourceFreshnessChipsHtml() {
+    if (!snap) return "";
+    var chips = [];
+    if (snap.asof) {
+      var rhInfo = asofAgeInfo(snap.asof);
+      chips.push(freshChipHtml("RH", livePrintChipText(rhInfo), asofClockStale(rhInfo)));
+    }
+    var t = snap.truthifi || {};
+    var fid = (snap.accounts && snap.accounts.fidelity) || {};
+    var fidT = (t.accounts && t.accounts.fidelity) || {};
+    if (fidLiveOverlay()) {
+      var sleeveAsOf = "";
+      if (typeof isFidSleeveTab === "function" && isFidSleeveTab(tab) && typeof fidSleeveFromTab === "function") {
+        var sl = fidSleeveFromTab(tab);
+        sleeveAsOf = (sl && sl.asof) || "";
+      }
+      var liveRaw = fid.asof || sleeveAsOf || snap.asof || "";
+      if (liveRaw) {
+        var liveInfo = asofAgeInfo(liveRaw);
+        chips.push(freshChipHtml("Fid", livePrintChipText(liveInfo), asofClockStale(liveInfo)));
+      }
+    } else {
+      var fidHold = fidT.asof || t.holdings_asof || fid.asof || t.asof || "";
+      if (fidHold) {
+        var fidInfo = asofAgeInfo(fidHold);
+        chips.push(freshChipHtml("Fid", holdingsChipText(fidHold, t.scanned_at), asofHoldingsStale(fidInfo)));
+      }
+    }
+    var voya = (snap.accounts && snap.accounts.voya) || {};
+    var voyaT = (t.accounts && t.accounts.voya) || {};
+    var voyaHold = voyaT.asof || voya.asof || "";
+    if (voyaHold) {
+      var voyaInfo = asofAgeInfo(voyaHold);
+      chips.push(freshChipHtml("Voya", holdingsChipText(voyaHold), asofHoldingsStale(voyaInfo)));
+    }
+    if (!chips.length) return "";
+    return '<div class="fresh-chips" aria-label="Source freshness">' + chips.join("") + "</div>";
+  }
+  function claudeAsofChipHtml(asof) {
+    if (!asof) return "";
+    var info = asofAgeInfo(asof);
+    var bits = [];
+    if (info.clockLabel) bits.push(info.clockLabel + " print");
+    else if (info.ymd) bits.push(info.ymd);
+    else bits.push(String(asof));
+    if (info.ago && info.ago !== "today") bits.push(info.ago);
+    return '<div class="fresh-chips claude-asof-chips">' +
+      freshChipHtml("asof", bits.join(" \u00b7 "), asofClockStale(info)) +
+      "</div>";
+  }
+  function deskIsNarrow() {
+    try { return window.matchMedia("(max-width: 720px)").matches; } catch (e) { return false; }
+  }
+  function agenticHasHoldings(ag) {
+    return !!(ag && (ag.names || []).some(function (n) { return n && n.symbol; }));
+  }
+  function agenticHasMix(ag) {
+    if (!ag || typeof mixSlices !== "function") return false;
+    var slices = mixSlices(ag, "agentic");
+    return !!(slices && slices.length);
   }
   function lastByDay(prints) {
     var by = {};
@@ -511,7 +652,9 @@ function collapseHouseNames(list) {
       cells.push("<div><span>Buying power</span><b>" + moneyOrDash(b.buying_power) + "</b></div>");
       cells.push("<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
     }
-    return "<h2>Book state \u00b7 " + esc(title) + "</h2><div class=\"card span\"><div class=\"kpi\">" +
+    return "<h2>Book state \u00b7 " + esc(title) + "</h2>" +
+      (tab === "combined" ? sourceFreshnessChipsHtml() : "") +
+      "<div class=\"card span\"><div class=\"kpi\">" +
       cells.join("") + "</div>" +
       '<p class="hint">pending already in ' + moneyOrDash(b.pending_deposits) +
       (b.asof || (snap && snap.asof) ? " \u00b7 asof " + esc(String(b.asof || snap.asof)) : "") + "</p></div>";
@@ -690,14 +833,27 @@ function collapseHouseNames(list) {
       "<div><span>Cash</span><b>" + moneyOrDash(ag.cash) + "</b></div>" +
       "<div><span>Buying power</span><b>" + moneyOrDash(ag.buying_power) + "</b></div>" +
       "</div>" +
+      claudeAsofChipHtml(asof) +
       '<p class="hint">Agentic Robinhood book labeled Claude. Account id stays Agentic. Growth + status only \u2014 no trade chrome.</p></div>';
     html += cashflowStripHtml(ag);
-    if (typeof mixHtml === "function" && (ag.asset_mix || ag.equity_value != null || ag.crypto_value != null || (ag.names || []).length)) {
-      html += "<h2>Asset mix</h2>" + mixHtml(ag, "agentic");
+    if (agenticHasMix(ag) && typeof mixHtml === "function") {
+      var mixBody = mixHtml(ag, "agentic");
+      if (mixBody && !/No mix yet/.test(mixBody)) {
+        if (deskIsNarrow() && agenticHasHoldings(ag)) {
+          html += '<details class="mix-more"' + (mixOpen ? " open" : "") + ">" +
+            '<summary><span class="mix-sum">Asset mix</span>' +
+            ' <span class="mix-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
+            '<span class="mix-lab-show">Show</span><span class="mix-lab-hide">Hide</span></span></summary>' +
+            mixBody + "</details>";
+        } else {
+          html += "<h2>Asset mix</h2>" + mixBody;
+        }
+      }
     }
-    html += "<h2>Holdings</h2>" + tableHtml(ag.names, false, true);
+    if (agenticHasHoldings(ag)) {
+      html += "<h2>Holdings</h2>" + tableHtml(ag.names, false, true);
+    }
     html += bookExtrasHtml(ag, { required: true });
-    html += '<p class="hint claude-asof">' + (asof ? ("asof " + esc(String(asof))) : "asof \u2014") + "</p>";
     return html;
   }
 
@@ -862,9 +1018,9 @@ function collapseHouseNames(list) {
     }
   });
   document.addEventListener("toggle", function (e) {
-    if (e.target && e.target.classList && e.target.classList.contains("cf-more")) {
-      cashflowOpen = !!e.target.open;
-    }
+    if (!e.target || !e.target.classList) return;
+    if (e.target.classList.contains("cf-more")) cashflowOpen = !!e.target.open;
+    if (e.target.classList.contains("mix-more")) mixOpen = !!e.target.open;
   }, true);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
@@ -878,6 +1034,14 @@ function collapseHouseNames(list) {
   });
 
   hashTab();
+  try {
+    var mixMql = window.matchMedia("(max-width: 720px)");
+    var onMixMql = function () {
+      if (tab === "agentic" && typeof paint === "function" && snap) paint();
+    };
+    if (mixMql.addEventListener) mixMql.addEventListener("change", onMixMql);
+    else if (mixMql.addListener) mixMql.addListener(onMixMql);
+  } catch (eMql) {}
   function tickClock() {
     var now = nyNow();
     var el = document.getElementById("clock");
@@ -885,31 +1049,15 @@ function collapseHouseNames(list) {
     var tEl = el.querySelector(".t");
     var dEl = el.querySelector(".d");
     var asof = snap && snap.asof;
-    var ago = "";
-    var asofLabel = "";
-    var mins = null;
-    if (asof) {
-      var ms = Date.parse(asof);
-      if (isFinite(ms)) {
-        mins = Math.max(0, Math.round((Date.now() - ms) / 60000));
-        if (mins < 1) ago = "just now";
-        else if (mins < 60) ago = mins + "m ago";
-        else if (mins < 1440) ago = Math.floor(mins / 60) + "h ago";
-        else ago = Math.floor(mins / 1440) + "d ago";
-        var ad = new Date(ms);
-        try {
-          asofLabel = ad.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
-        } catch (e) { asofLabel = ""; }
-      }
-    }
+    var info = asofAgeInfo(asof);
     if (tEl) tEl.textContent = pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()) + " ET";
     if (dEl) {
-      if (asofLabel) {
-        dEl.textContent = asofLabel + " print" + (ago ? (" · " + ago) : "");
+      if (info.clockLabel) {
+        dEl.textContent = info.clockLabel + " print" + (info.ago ? (" · " + info.ago) : "");
       } else {
         dEl.textContent = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
       }
-      if (mins != null && mins >= 1440) dEl.classList.add("asof-stale");
+      if (asofClockStale(info)) dEl.classList.add("asof-stale");
       else dEl.classList.remove("asof-stale");
     }
   }

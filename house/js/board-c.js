@@ -555,7 +555,9 @@ function custodialStateHtml(b, title) {
   var pnl = s.pnl;
   var pnlPct = s.hasCost && s.cost ? (pnl / s.cost) * 100 : null;
   var t = snap.truthifi || {};
-  return "<h2>Book state · " + esc(title) + "</h2><div class=\"card span\"><div class=\"kpi\">" +
+  return "<h2>Book state · " + esc(title) + "</h2>" +
+    (typeof sourceFreshnessChipsHtml === "function" ? sourceFreshnessChipsHtml() : "") +
+    "<div class=\"card span\"><div class=\"kpi\">" +
     "<div><span>Equity</span><b>" + money(b.equity) + "</b>" + (title === "Fidelity" || String(title).indexOf("Voya") === 0 ? dodHtml(dodTape(title === "Fidelity" ? "fidelity" : "voya"), b.equity) : "") + "</div>" +
     "<div><span>Holdings</span><b>" + money(held) + "</b></div>" +
     "<div><span>Cash</span><b>" + money(b.cash) + "</b></div>" +
@@ -599,7 +601,9 @@ function eodTapeHtml(key, title) {
 }
 function truthifiMetaHtml() {
   var t = snap.truthifi || {};
-  return "<h2>Truthifi feed</h2><div class=\"card span\"><div class=\"kpi\">" +
+  return "<h2>Truthifi feed</h2>" +
+    (typeof sourceFreshnessChipsHtml === "function" ? sourceFreshnessChipsHtml() : "") +
+    "<div class=\"card span\"><div class=\"kpi\">" +
     "<div><span>Holdings date</span><b>" + esc(t.holdings_asof || t.asof || "—") + "</b></div>" +
     "<div><span>Scanned</span><b>" + esc((t.scanned_at || "").replace("T", " ").slice(0, 16) || "—") + "</b></div>" +
     "<div><span>Source</span><b>" + esc(t.source || "Truthifi") + "</b></div>" +
@@ -614,7 +618,9 @@ function fidelityLiveStateHtml(b, title) {
   var src = b.source || (snap.truthifi && !(b.live || b.source === "snaptrade") ? "Truthifi" : "SnapTrade");
   var rollup = title === "Fidelity";
   var dod = rollup ? dodHtml(dodTape("fidelity"), b.equity) : "";
-  return "<h2>Book state · " + esc(title) + "</h2><div class=\"card span\"><div class=\"kpi\">" +
+  return "<h2>Book state · " + esc(title) + "</h2>" +
+    (typeof sourceFreshnessChipsHtml === "function" ? sourceFreshnessChipsHtml() : "") +
+    "<div class=\"card span\"><div class=\"kpi\">" +
     "<div><span>Equity</span><b>" + money(b.equity) + "</b>" + dod + "</div>" +
     "<div><span>Holdings</span><b>" + money(held) + "</b></div>" +
     "<div><span>Cash</span><b>" + money(b.cash) + "</b></div>" +
