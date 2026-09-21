@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904bk");
-@import url("house-b.css?v=20260904bk");
-@import url("mix.css?v=20260904bk");
+@import url("house-a.css?v=20260904bl");
+@import url("house-b.css?v=20260904bl");
+@import url("mix.css?v=20260904bl");
 
 header .brand-block {
   min-width: 0;
@@ -446,4 +446,102 @@ table.book.fills-tape a.fill-link { display: inline-flex; }
 .fills-empty { opacity: 0.85; margin: 0; }
 @media (max-width: 720px) {
   .fills-split { grid-template-columns: 1fr; }
+}
+
+/* tip bl — per-source freshness chips under Book state / Truthifi feed h2 */
+.fresh-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+  align-items: center;
+}
+h2 + .fresh-chips { margin-top: -2px; }
+.fresh-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 10px;
+  letter-spacing: 0.2px;
+  line-height: 1.25;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--row) 85%, transparent);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.fresh-chip.asof-stale,
+.fresh-chip.fresh-stale {
+  color: var(--stop);
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--stop) 40%, var(--rule));
+}
+.card .fresh-chips { margin: 8px 0 0; }
+.claude-asof-chips { margin: 8px 0 0; }
+
+/* tip bl — Claude Asset mix denseness: details on ≤720px when holdings exist */
+details.mix-more { margin: 0; }
+details.mix-more > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  min-height: 44px;
+  margin: 16px 0 6px;
+}
+details.mix-more > summary::-webkit-details-marker,
+details.mix-more > summary::marker {
+  display: none;
+  content: "";
+}
+details.mix-more > summary:focus { outline: none; }
+details.mix-more > summary:focus-visible {
+  outline: 2px solid var(--brand-fg);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+details.mix-more .mix-sum {
+  font-size: 12px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+details.mix-more .mix-affordance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  letter-spacing: 0.8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  min-height: 32px;
+  padding: 4px 2px;
+}
+details.mix-more .cf-chev {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transition: transform 120ms ease;
+}
+details.mix-more[open] .cf-chev { transform: rotate(180deg); }
+details.mix-more .mix-lab-hide { display: none; }
+details.mix-more[open] .mix-lab-show { display: none; }
+details.mix-more[open] .mix-lab-hide { display: inline; }
+@media (prefers-reduced-motion: reduce) {
+  details.mix-more .cf-chev { transition: none; }
+}
+@media (min-width: 721px) {
+  details.mix-more > summary { cursor: default; }
+  details.mix-more .mix-affordance { display: none; }
 }
