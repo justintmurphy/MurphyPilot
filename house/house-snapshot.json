@@ -1,7 +1,7 @@
 {
   "asof": "2026-09-21T13:50:53-04:00",
   "tip": "ba+bb+bc+be+bg+bh+bi+bj",
-  "note": "RH live midday refresh; marks Yahoo when RH quotes gateway failed; cashflow_30d kept Close-only",
+  "note": "RH live midday refresh; marks Yahoo when RH quotes gateway failed; cashflow_30d kept Close-only | Forge Close cashflow_30d recompute 2026-09-21",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -799,11 +799,11 @@
       "month": -25.96
     },
     "cashflow_30d": {
-      "asof": "2026-09-18T16:22:33-04:00",
-      "from": "2026-08-19",
-      "to": "2026-09-17",
+      "asof": "2026-09-21T16:30:30-04:00",
+      "from": "2026-08-22",
+      "to": "2026-09-20",
       "owner_deposits": 1121.91,
-      "market_earnings": -939.59,
+      "market_earnings": -1032.22,
       "market_earnings_basis": "rh_realized+truthifi_totalPnL",
       "window_days": 30,
       "dividends": 0.53,
@@ -811,17 +811,17 @@
       "by_source": {
         "robinhood": {
           "owner_deposits": 250.0,
-          "market_earnings": -3.3
+          "market_earnings": -25.96
         },
         "fidelity": {
           "owner_deposits": 217.97,
-          "market_earnings": -37.83,
+          "market_earnings": -11.45,
           "dividends": 0.53,
           "reinvested": 0.52
         },
         "voya": {
           "owner_deposits": 653.94,
-          "market_earnings": -898.46
+          "market_earnings": -994.81
         }
       }
     }
