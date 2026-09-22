@@ -1,7 +1,7 @@
 {
   "asof": "2026-09-22T13:49:11-04:00",
   "tip": "ba+bb+bc+be+bg+bh+bi+bj",
-  "note": "RH live midday refresh; marks Yahoo (RH get_equity_quotes/crypto gateway failed); cashflow_30d kept Close-only copy-forward",
+  "note": "RH midday marks KEPT; cashflow_30d recomputed Tue Fid Close (RH realized window 8/23-9/21; Fid Truthifi PnL/ITS; Voya by_source KEPT)",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -799,11 +799,11 @@
       "month": -25.96
     },
     "cashflow_30d": {
-      "asof": "2026-09-21T16:30:30-04:00",
-      "from": "2026-08-22",
-      "to": "2026-09-20",
+      "asof": "2026-09-22T16:45:00-04:00",
+      "from": "2026-08-23",
+      "to": "2026-09-21",
       "owner_deposits": 1121.91,
-      "market_earnings": -1032.22,
+      "market_earnings": -1025.15,
       "market_earnings_basis": "rh_realized+truthifi_totalPnL",
       "window_days": 30,
       "dividends": 0.53,
@@ -815,7 +815,7 @@
         },
         "fidelity": {
           "owner_deposits": 217.97,
-          "market_earnings": -11.45,
+          "market_earnings": -4.38,
           "dividends": 0.53,
           "reinvested": 0.52
         },
