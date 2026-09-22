@@ -224,7 +224,7 @@ function buildFidelitySleeves(fid, outside) {
 }
 var _mergeCore = merge;
 merge = function (house, pilot, outside) {
-  outside = outside || (typeof snap !== "undefined" && snap && snap.truthifi) || null;
+  /* tip bm: null Truthifi stays null. load() passes last-good explicitly. */
   var out = _mergeCore(house, pilot, outside);
   if (outside && outside.accounts) {
     if (outside.accounts.voya) out.accounts.voya = outside.accounts.voya;
@@ -391,14 +391,21 @@ merge = function (house, pilot, outside) {
   var closeT = (outside && outside.overall && outside.overall.asof) || (outside && outside.scanned_at) || outsideAsOf;
   var fidEq = Number((out.accounts.fidelity || {}).equity) || 0;
   var houseFidTape = (out.tape && out.tape.fidelity) || [];
-  if (houseFidTape.length) {
-    out.tape.fidelity = houseFidTape.map(normPrint);
+  if (outside) {
+    if (houseFidTape.length) {
+      out.tape.fidelity = houseFidTape.map(normPrint);
+    } else {
+      out.tape.fidelity = mergeEodTape("fidelity", outside, fidEq, closeT);
+    }
+    out.tape.voya = mergeEodTape("voya", outside, Number((out.accounts.voya || {}).equity) || 0, closeT);
+    var ovTape = (outside && outside.tape && outside.tape.overall) || [];
+    out.tape.overall = ovTape.map(normPrint);
   } else {
-    out.tape.fidelity = mergeEodTape("fidelity", outside, fidEq, closeT);
+    /* tip bm: do not stamp $0 or a -100% day onto Fid/Voya when the print is missing */
+    out.tape.fidelity = houseFidTape.length ? houseFidTape.map(normPrint) : [];
+    out.tape.voya = [];
+    out.tape.overall = [];
   }
-  out.tape.voya = mergeEodTape("voya", outside, Number((out.accounts.voya || {}).equity) || 0, closeT);
-  var ovTape = (outside && outside.tape && outside.tape.overall) || [];
-  out.tape.overall = ovTape.map(normPrint);
   if (!out.tape.overall.length) out.tape.overall = [{ t: closeT || "", equity: rnd(eq) }];
   out.combined.live_equity = rnd(liveEq);
   out.combined.live_cash = rnd(liveCash);
@@ -428,12 +435,15 @@ function bookCardHtml(id, label, equity, tag, tapeKey) {
       var tt = raw && (raw.t || "");
       if (!tapeLast || String(tt) >= String(tapeLast.t || "")) tapeLast = { t: tt, equity: eq };
     });
-    var eqN = Number(equity) || 0;
-    var scaleOk = !tapeLast || tapeLast.equity < 0.01 || eqN < 0.01
-      || (eqN / tapeLast.equity >= 0.7 && eqN / tapeLast.equity <= 1.35);
-    if (scaleOk) {
-      var d = vsLookback(prints, eqN, 1);
-      if (d) day = '<div class="m"><span class="tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) + " · " + pct(d.pct) + "</span></div>";
+    var eqN = Number(equity);
+    /* tip bm: missing equity is not $0 and must not print -100% against an old tape */
+    if (isFinite(eqN)) {
+      var scaleOk = !tapeLast || tapeLast.equity < 0.01 || eqN < 0.01
+        || (eqN / tapeLast.equity >= 0.7 && eqN / tapeLast.equity <= 1.35);
+      if (scaleOk) {
+        var d = vsLookback(prints, eqN, 1);
+        if (d) day = '<div class="m"><span class="tone-' + tone(d.delta) + '">' + (d.delta > 0 ? "+" : "") + money(d.delta) + " · " + pct(d.pct) + "</span></div>";
+      }
     }
   }
   return '<button type="button" class="acct-mini' + (tab === id ? ' on' : '') + '" data-tab="' + id + '"><div class="k">' + esc(label) + " · " + tag + "</div><b>" + money(equity) + "</b>" + day + "</button>";
@@ -476,6 +486,13 @@ overlayPrints = function (id, mode) {
 };
 var _overlayChartCard = typeof overlayChartCard === "function" ? overlayChartCard : null;
 overlayChartCard = function (id, mode) {
+  var custodialId = id === "fidelity" || id === "voya" || (typeof isFidSleeveTab === "function" && isFidSleeveTab(id));
+  if (custodialId && typeof truthifiSoftEmpty === "function" && truthifiSoftEmpty()) {
+    var gapLab = id === "voya" ? "Voya" : (id === "fidelity" ? "Fidelity" : (LABEL[id] || id));
+    var gapPhrase = truthifiFailPhrase(snap.truthifiFail);
+    return '<button type="button" class="ov-book ov-chart" data-tab="' + id + '"><div class="k">' + esc(gapLab) +
+      '</div><b>\u2014</b><div class="m"><span class="fresh-chip fresh-flag">' + esc(gapPhrase) + "</span></div></button>";
+  }
   var raw = overlayPrints(id, mode);
   var prints = (typeof mergePrints === "function" ? mergePrints(raw) : (raw || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); }));
   var vals = prints.map(function (p) { return p.equity; }).filter(function (v) { return isFinite(v); });
@@ -519,10 +536,20 @@ cardsHtml = function () {
   var voya = snap.accounts.voya || {};
   return "<h2>Books</h2><div class=\"acct-grid\">" +
     bookCardHtml("robinhood", "Robinhood", rh.equity != null ? rh.equity : 0, "live", "robinhood") +
-    bookCardHtml("fidelity", "Fidelity", fid.equity, fid.live ? "live" : "EOD", "fidelity") +
-    bookCardHtml("voya", "Voya", voya.equity, "EOD", "voya") +
+    custodialBookCard("fidelity", "Fidelity", fid, fid.live ? "live" : "EOD", "fidelity") +
+    custodialBookCard("voya", "Voya", voya, "EOD", "voya") +
     "</div>";
 };
+function custodialBookCard(id, label, book, tag, tapeKey) {
+  var has = book && ((book.names || []).length || (isFinite(Number(book.equity)) && Number(book.equity) > 0.004));
+  if (typeof truthifiSoftEmpty === "function" && truthifiSoftEmpty() && !has) {
+    var phrase = truthifiFailPhrase(snap.truthifiFail);
+    return '<button type="button" class="acct-mini' + (tab === id ? " on" : "") + '" data-tab="' + id + '"><div class="k">' +
+      esc(label) + " · " + esc(tag) + '</div><b>\u2014</b><div class="m"><span class="fresh-chip fresh-flag">' +
+      esc(phrase) + "</span></div></button>";
+  }
+  return bookCardHtml(id, label, book && book.equity, tag, tapeKey);
+}
 book = function () {
   if (!snap) return { names: [], equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, invested_pct: 0, open_orders: 0 };
   if (tab === "combined") return snap.combined;
@@ -536,7 +563,7 @@ function eodNote(book, title) {
   var scanned = t.scanned_at || "";
   return "<p class=\"hint\">" + esc(title) + " is Truthifi EOD " + esc(asof) +
     (scanned ? " · scanned " + esc(scanned.replace("T", " ").slice(0, 19)) : "") +
-    ". Once a day. No account numbers.</p>";
+    ". Once a day. No account numbers." + truthifiHeldNote() + "</p>";
 }
 function nameStats(names) {
   var value = 0, cost = 0, pnl = 0, hasCost = false, n = names || [];
@@ -565,7 +592,7 @@ function custodialStateHtml(b, title) {
     "</div><p class=\"hint\">Invested " + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "—") +
     " · " + s.n + " names · Truthifi holdings " + esc(t.holdings_asof || b.asof || "—") +
     " · scanned " + esc((t.scanned_at || "").replace("T", " ").slice(0, 16) || "—") +
-    ". Once a day. Sleeves by name only.</p></div>";
+    ". Once a day. Sleeves by name only." + truthifiHeldNote() + "</p></div>";
 }
 function custodialTableHtml(names, totalEq) {
   if (typeof collapseHouseNames === "function") names = collapseHouseNames(names || []);
@@ -608,7 +635,7 @@ function truthifiMetaHtml() {
     "<div><span>Scanned</span><b>" + esc((t.scanned_at || "").replace("T", " ").slice(0, 16) || "—") + "</b></div>" +
     "<div><span>Source</span><b>" + esc(t.source || "Truthifi") + "</b></div>" +
     "<div><span>Day</span><b>" + (function () { var d = vsLookback((t.tape && t.tape.overall) || [], (snap.combined || {}).equity, 1); return d ? ((d.delta > 0 ? "+" : "") + money(d.delta)) : "\u2014"; })() + "</b></div></div>" +
-    "<p class=\"hint\">" + esc(t.note || "Custodial EOD. Sleeves labeled as Truthifi names. No account numbers.") + "</p></div>";
+    "<p class=\"hint\">" + esc(t.note || "Custodial EOD. Sleeves labeled as Truthifi names. No account numbers.") + truthifiHeldNote() + "</p></div>";
 }
 function fidelityLiveStateHtml(b, title) {
   var s = nameStats(b.names);
@@ -628,7 +655,7 @@ function fidelityLiveStateHtml(b, title) {
     "</div><p class=\"hint\">Invested " + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "—") +
     " · " + s.n + " names · " + (rollup ? "live like Robinhood · " : "") + esc(src) +
     " · asof " + esc(b.asof || (snap.asof || "—")) +
-    ". No account numbers.</p></div>";
+    ". No account numbers." + truthifiHeldNote() + "</p></div>";
 }
 function fidelityTapeHtml() {
   var prints = ((snap.tape && snap.tape.fidelity) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
@@ -654,6 +681,7 @@ function fidelityBooksHtml(fid) {
     "<p class=\"hint\">Each Truthifi/SnapTrade Fidelity account is its own book. Click a sleeve for book state, mix, and holdings. No account numbers.</p>";
 }
 function fidelityDeskHtml() {
+  if (truthifiSoftEmpty()) return (bookNavHtml() || "") + truthifiFailDeskHtml("Fidelity");
   var nav = bookNavHtml();
   var fid = snap.accounts.fidelity || { names: [], equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, open_orders: 0, invested_pct: 0 };
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
@@ -675,6 +703,7 @@ function fidelityDeskHtml() {
   return html;
 }
 function fidelitySleeveDeskHtml() {
+  if (truthifiSoftEmpty()) return (bookNavHtml() || "") + truthifiFailDeskHtml("Fidelity");
   var fid = snap.accounts.fidelity || {};
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
   var s = fidSleeveFromTab(tab);
@@ -691,6 +720,7 @@ function fidelitySleeveDeskHtml() {
   return html;
 }
 function voyaDeskHtml() {
+  if (truthifiSoftEmpty()) return truthifiFailDeskHtml("Voya");
   var voya = snap.accounts.voya || { names: [], equity: 0 };
   /* Match Robinhood page order: Books → Book state → Tape → Where it sits → Book */
   var html = "";
@@ -717,7 +747,7 @@ function overallCardHtml() {
     "<div><span>Last close</span><b>" + money(c.equity) + "</b></div>" +
     improveKpis(prints, c.equity) + "</div>" +
     "<div class=\"tape-plot ov-plot\">" + overlayAxisChart(prints) + "</div>" +
-    "<p class=\"hint\">Click for every book. Live RH + Fidelity sleeves " + money(c.live_equity) + " \u00b7 Voya EOD " + money(c.custodial_equity) + "." +
+    "<p class=\"hint\">Click for every book. Live RH + Fidelity sleeves " + money(c.live_equity) + " \u00b7 Voya EOD " + (truthifiSoftEmpty() ? "\u2014" : money(c.custodial_equity)) + "." +
     (asof ? " Holdings date " + esc(asof) + "." : "") + "</p></div>";
 }
 var _paint = paint;
@@ -758,16 +788,109 @@ paint = function () {
     });
   }
 };
+/* tip bm — Truthifi text→parse. Corrupt JSON keeps last-good or a FLAG, never a silent empty Fid/Voya. */
+var truthifiLastGood = null;
+var TRUTHIFI_LAST_KEY = "murphyTruthifiLastGood";
+function truthifiFailPhrase(kind) {
+  return kind === "unavailable" ? "Truthifi unavailable" : "Truthifi print broken";
+}
+function truthifiFailShort(kind) {
+  return kind === "unavailable" ? "unavailable" : "print broken";
+}
+function truthifiSnapshotOk(data) {
+  return !!(data && typeof data === "object" && !Array.isArray(data) && data.accounts && typeof data.accounts === "object");
+}
+function truthifiSoftEmpty() {
+  return !!(snap && snap.truthifiFail && !snap.truthifiHeld);
+}
+function truthifiHeldNote() {
+  return (snap && snap.truthifiHeld) ? " Showing last good Truthifi print." : "";
+}
+function truthifiFailDeskHtml(title) {
+  var phrase = truthifiFailPhrase(snap && snap.truthifiFail);
+  var chips = (typeof sourceFreshnessChipsHtml === "function") ? sourceFreshnessChipsHtml() : "";
+  return "<h2>Book state · " + esc(title) + "</h2>" + chips +
+    '<div class="card span"><p class="hint" style="margin:0">' + esc(phrase) +
+    ". Equity, holdings, and day change stay hidden until a good Truthifi print lands.</p></div>";
+}
+function rememberTruthifi(data) {
+  if (!truthifiSnapshotOk(data)) return;
+  var copy = null;
+  try { copy = JSON.parse(JSON.stringify(data)); } catch (e) { return; }
+  if (!truthifiSnapshotOk(copy)) return;
+  truthifiLastGood = copy;
+  try { sessionStorage.setItem(TRUTHIFI_LAST_KEY, JSON.stringify(copy)); } catch (e2) {}
+}
+function takeTruthifiLastGood() {
+  var src = truthifiLastGood;
+  if (!truthifiSnapshotOk(src)) {
+    src = null;
+    try {
+      var raw = sessionStorage.getItem(TRUTHIFI_LAST_KEY);
+      if (raw) src = JSON.parse(raw);
+    } catch (e) { src = null; }
+    if (truthifiSnapshotOk(src)) truthifiLastGood = src;
+    else src = null;
+  }
+  if (!truthifiSnapshotOk(src) && typeof snap !== "undefined" && snap && truthifiSnapshotOk(snap.truthifi)) {
+    src = snap.truthifi;
+  }
+  if (!truthifiSnapshotOk(src)) return null;
+  try { return JSON.parse(JSON.stringify(src)); } catch (e3) { return src; }
+}
+function fetchTruthifi(url) {
+  return fetch(url, { cache: "no-store" }).then(function (r) {
+    if (!r || !r.ok) {
+      var httpErr = new Error(r ? String(r.status) : "fetch");
+      httpErr.truthifiFail = "unavailable";
+      throw httpErr;
+    }
+    return r.text();
+  }).then(function (text) {
+    var data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseErr) {
+      var err = new Error("parse");
+      err.truthifiFail = "broken";
+      throw err;
+    }
+    if (!truthifiSnapshotOk(data)) {
+      var shapeErr = new Error("shape");
+      shapeErr.truthifiFail = "broken";
+      throw shapeErr;
+    }
+    return { ok: true, data: data, fail: "" };
+  }).catch(function (e) {
+    return { ok: false, data: null, fail: (e && e.truthifiFail) || "unavailable" };
+  });
+}
 load = function () {
   var housePath = /\/house(\/|$)/.test(location.pathname);
   var bust = "?t=" + Date.now();
   Promise.all([
     fetch((housePath ? "house-snapshot.json" : "house/house-snapshot.json") + bust, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
     fetch((housePath ? "../pilot-snapshot.json" : "pilot-snapshot.json") + bust, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-    fetch((housePath ? "truthifi-snapshot.json" : "house/truthifi-snapshot.json") + bust, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+    fetchTruthifi((housePath ? "truthifi-snapshot.json" : "house/truthifi-snapshot.json") + bust)
   ]).then(function (pair) {
-    snap = merge(pair[0], pair[1], pair[2]);
+    var tf = pair[2] || { ok: false, fail: "unavailable", data: null };
+    var outside = null;
+    var fail = "";
+    var held = false;
+    if (tf.ok && truthifiSnapshotOk(tf.data)) {
+      outside = tf.data;
+    } else {
+      fail = tf.fail === "broken" ? "broken" : "unavailable";
+      outside = takeTruthifiLastGood();
+      held = !!outside;
+    }
+    snap = merge(pair[0], pair[1], outside);
+    if (snap) {
+      snap.truthifiFail = fail;
+      snap.truthifiHeld = held;
+    }
     paint();
+    if (!fail && truthifiSnapshotOk(tf.data)) rememberTruthifi(tf.data);
   }).catch(function (e) {
     document.getElementById("desk").innerHTML = "<p class=\"hint\">Could not load snapshots. " + esc(e) + "</p>";
   });

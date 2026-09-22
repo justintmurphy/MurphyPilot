@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904bl");
-@import url("house-b.css?v=20260904bl");
-@import url("mix.css?v=20260904bl");
+@import url("house-a.css?v=20260904bm");
+@import url("house-b.css?v=20260904bm");
+@import url("mix.css?v=20260904bm");
 
 header .brand-block {
   min-width: 0;
@@ -478,6 +478,20 @@ h2 + .fresh-chips { margin-top: -2px; }
   color: var(--stop);
   opacity: 1;
   border-color: color-mix(in srgb, var(--stop) 40%, var(--rule));
+}
+/* tip bm — Truthifi parse/fetch fail is a FLAG, not an empty book */
+.fresh-chip.fresh-flag {
+  color: var(--stop);
+  opacity: 1;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  border-color: color-mix(in srgb, var(--stop) 55%, var(--rule));
+  background: color-mix(in srgb, var(--stop) 14%, transparent);
+  white-space: normal;
+}
+button.acct-mini .fresh-chip.fresh-flag {
+  text-transform: none;
+  letter-spacing: 0.1px;
 }
 .card .fresh-chips { margin: 8px 0 0; }
 .claude-asof-chips { margin: 8px 0 0; }

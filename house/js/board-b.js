@@ -464,10 +464,11 @@ function collapseHouseNames(list) {
     if (info.mins != null && info.mins >= 1440) return true;
     return false;
   }
-  function freshChipHtml(key, text, stale) {
+  function freshChipHtml(key, text, stale, flag) {
     if (!text) return "";
-    return '<span class="fresh-chip' + (stale ? " asof-stale" : "") + '">' +
-      esc(key + " \u00b7 " + text) + "</span>";
+    var cls = "fresh-chip" + (stale ? " asof-stale" : "") + (flag ? " fresh-flag" : "");
+    var body = key ? (key + " \u00b7 " + text) : text;
+    return '<span class="' + cls + '">' + esc(body) + "</span>";
   }
   function livePrintChipText(info) {
     var bits = ["live"];
@@ -502,10 +503,24 @@ function collapseHouseNames(list) {
       var rhInfo = asofAgeInfo(snap.asof);
       chips.push(freshChipHtml("RH", livePrintChipText(rhInfo), asofClockStale(rhInfo)));
     }
+    /* tip bm — a failed Truthifi print must not look like "no accounts" */
+    var tfFail = snap.truthifiFail || "";
+    if (tfFail) {
+      var phrase = (typeof truthifiFailPhrase === "function")
+        ? truthifiFailPhrase(tfFail)
+        : (tfFail === "unavailable" ? "Truthifi unavailable" : "Truthifi print broken");
+      var shortFail = (typeof truthifiFailShort === "function")
+        ? truthifiFailShort(tfFail)
+        : (tfFail === "unavailable" ? "unavailable" : "print broken");
+      chips.push(freshChipHtml("", phrase, true, true));
+      if (snap.truthifiHeld) chips.push(freshChipHtml("", "last good print", true, true));
+    }
     var t = snap.truthifi || {};
     var fid = (snap.accounts && snap.accounts.fidelity) || {};
     var fidT = (t.accounts && t.accounts.fidelity) || {};
-    if (fidLiveOverlay()) {
+    if (tfFail && !fidLiveOverlay()) {
+      chips.push(freshChipHtml("Fid", shortFail, true, true));
+    } else if (fidLiveOverlay()) {
       var sleeveAsOf = "";
       if (typeof isFidSleeveTab === "function" && isFidSleeveTab(tab) && typeof fidSleeveFromTab === "function") {
         var sl = fidSleeveFromTab(tab);
@@ -523,12 +538,16 @@ function collapseHouseNames(list) {
         chips.push(freshChipHtml("Fid", holdingsChipText(fidHold, t.scanned_at), asofHoldingsStale(fidInfo)));
       }
     }
-    var voya = (snap.accounts && snap.accounts.voya) || {};
-    var voyaT = (t.accounts && t.accounts.voya) || {};
-    var voyaHold = voyaT.asof || voya.asof || "";
-    if (voyaHold) {
-      var voyaInfo = asofAgeInfo(voyaHold);
-      chips.push(freshChipHtml("Voya", holdingsChipText(voyaHold), asofHoldingsStale(voyaInfo)));
+    if (tfFail) {
+      chips.push(freshChipHtml("Voya", shortFail, true, true));
+    } else {
+      var voya = (snap.accounts && snap.accounts.voya) || {};
+      var voyaT = (t.accounts && t.accounts.voya) || {};
+      var voyaHold = voyaT.asof || voya.asof || "";
+      if (voyaHold) {
+        var voyaInfo = asofAgeInfo(voyaHold);
+        chips.push(freshChipHtml("Voya", holdingsChipText(voyaHold), asofHoldingsStale(voyaInfo)));
+      }
     }
     if (!chips.length) return "";
     return '<div class="fresh-chips" aria-label="Source freshness">' + chips.join("") + "</div>";
@@ -635,7 +654,7 @@ function collapseHouseNames(list) {
       growChip("Year", vsLookback(prints, eq, 365)) +
       "</div>" +
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" +
-      '<p class="hint">Click for every book. Live (Robinhood + Fidelity) ' + money(c.live_equity) + " \u00b7 Voya EOD " + money(c.custodial_equity) + "." +
+      '<p class="hint">Click for every book. Live (Robinhood + Fidelity) ' + money(c.live_equity) + " \u00b7 Voya EOD " + ((snap && snap.truthifiFail && !snap.truthifiHeld) ? "\u2014" : money(c.custodial_equity)) + "." +
       (asof ? " Holdings " + esc(String(asof).slice(0, 10)) + "." : "") + "</p></div>";
   }
 
