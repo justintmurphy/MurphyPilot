@@ -1,18 +1,18 @@
 {
-  "asof": "2026-09-22T13:49:11-04:00",
+  "asof": "2026-09-23T14:14:17-04:00",
   "spx": {
     "symbol": "SPX",
     "label": "S&P",
-    "last": 7764.54,
-    "prev": 7585.73,
-    "pct": 2.36
+    "last": 7714.15,
+    "prev": 7551.81,
+    "pct": 2.15
   },
   "ndx": {
     "symbol": "NDX",
     "label": "Nasdaq",
-    "last": 30647.17,
-    "prev": 28937.84,
-    "pct": 5.91
+    "last": 30451.27,
+    "prev": 28945.06,
+    "pct": 5.2
   },
-  "source": "yahoo_chartPreviousClose+regularMarketPrice (RH get_equity_quotes/get_index_quotes gateway failed mid-refresh; portfolios+positions+realized OK)"
+  "source": "yahoo_chartPreviousClose+regularMarketPrice (RH MCP unreachable in executor)"
 }
