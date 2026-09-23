@@ -270,7 +270,7 @@
     persistTape("agentic", out.tape.agentic);
     var houseEq = house && house.combined ? Number(house.combined.equity) : NaN;
     var rolled = isFinite(houseEq) ? { t: (house && house.asof) || out.asof, equity: houseEq } : null;
-    ["combined", "individual", "auto_grok", "joint"].forEach(function (key) {
+    ["combined", "individual", "auto_grok", "joint", "agentic"].forEach(function (key) {
       var extra = key === "combined" && rolled ? [rolled] : [];
       if (key !== "combined" && house && house.accounts && house.accounts[key]) {
         extra.push({ t: (house && house.asof) || out.asof, equity: Number(house.accounts[key].equity) });
