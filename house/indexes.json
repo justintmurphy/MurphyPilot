@@ -1,18 +1,18 @@
 {
-  "asof": "2026-09-24T10:00:17-04:00",
+  "asof": "2026-09-24T11:23:33-04:00",
   "spx": {
     "symbol": "SPX",
     "label": "S&P",
-    "last": 7683.21,
+    "last": 7669.33,
     "prev": 7637.76,
-    "pct": 0.6
+    "pct": 0.41
   },
   "ndx": {
     "symbol": "NDX",
     "label": "Nasdaq",
-    "last": 30280.52,
+    "last": 30241.05,
     "prev": 29446.98,
-    "pct": 2.83
+    "pct": 2.7
   },
-  "source": "yahoo_chartPreviousClose+regularMarketPrice (RH get_equity_quotes/get_index_quotes/get_crypto_quotes gateway failed; portfolios+positions+realized+crypto_positions OK)"
+  "source": "yahoo_chartPreviousClose+regularMarketPrice (RH get_equity_quotes/get_index_quotes/get_crypto_quotes gateway failed; portfolios+positions+realized OK; crypto_positions gateway failed \u2014 qty from prior morning)"
 }
