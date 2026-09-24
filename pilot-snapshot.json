@@ -2,7 +2,7 @@
   "asof": "2026-09-24T10:00:17-04:00",
   "account": "agentic",
   "tip": "ba+bb+bc+be+bg+bh+bi+bj",
-  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted. Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=Claude. Thu RH live MCP catch-up after Site data 09:00 never-run.",
+  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted. Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=Claude. Thu RH live MCP catch-up after Site data 09:00 never-run; label AI WWIII.",
   "equity": 631.97,
   "equity_value": 600.98,
   "crypto_value": 0.0,
@@ -242,7 +242,7 @@
   },
   "unrealized_pnl": 0.8832,
   "slots": 18,
-  "label": "Claude",
+  "label": "AI WWIII",
   "fills": [
     {
       "ts": "2026-09-24T09:51:36-04:00",
