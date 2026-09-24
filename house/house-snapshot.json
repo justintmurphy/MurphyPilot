@@ -1,7 +1,7 @@
 {
   "asof": "2026-09-24T10:00:17-04:00",
   "tip": "ba+bb+bc+be+bg+bh+bi+bj",
-  "note": "Thu RH live MCP republish after Site data weekday refresh never-run (Thu 09:00 no wake). portfolios+positions+realized. KEEP cashflow_30d from Close. Truthifi untouched.",
+  "note": "Thu RH live MCP republish after Site data weekday refresh never-run (Thu 09:00 no wake). portfolios+positions+realized. KEEP cashflow_30d from Close. Truthifi untouched; agentic public label AI WWIII (Justin 2026-09-24).",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -545,7 +545,7 @@
     },
     "agentic": {
       "id": "agentic",
-      "label": "Claude",
+      "label": "AI WWIII",
       "suffix": "3794",
       "source": "live RH portfolios+positions+realized 2026-09-24 ET; Yahoo marks (RH get_equity_quotes/get_index_quotes/get_crypto_quotes gateway failed)",
       "asof": "2026-09-24T10:00:17-04:00",
