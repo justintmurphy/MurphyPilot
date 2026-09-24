@@ -40,7 +40,7 @@ function bookDisplayLabel(id, book) {
   }
   if (id === "auto_grok" || base === "Auto-Grok" || base === "Auto Grok" || base === "Auto") base = "Grok";
   if (id === "joint" || base === "Joint") base = "Deep Seek";
-  if (id === "agentic" || base === "Agentic") base = "Claude";
+  if (id === "agentic" || base === "Agentic" || base === "Claude") base = "AI WWIII";
   var suffix = (book && book.suffix) ? String(book.suffix).replace(/\D/g, "").slice(-4) : "";
   if (suffix && String(base).indexOf(suffix) < 0) base = base + " ···" + suffix;
   if (typeof LABEL !== "undefined" && id) LABEL[id] = base;
@@ -269,7 +269,7 @@ function collapseHouseNames(list) {
     return s;
   }
   /* tip bf paint: company_url http(s) else Yahoo quote/{SYMBOL}/ ; account map; sell $ else —; buys omit P&L slot */
-  var FILL_BOOK_LABEL = { agentic: "Claude", auto_grok: "Grok", joint: "Deep Seek", individual: "Individual" };
+  var FILL_BOOK_LABEL = { agentic: "AI WWIII", auto_grok: "Grok", joint: "Deep Seek", individual: "Individual" };
   function fillHttpUrl(raw) {
     var u = String(raw == null ? "" : raw).trim();
     return /^https?:\/\//i.test(u) ? u : "";
@@ -693,7 +693,7 @@ function collapseHouseNames(list) {
     if (!vals.length) vals = [last, last];
     var open = clickable ? ' data-open-books="1"' : "";
     var hint;
-    if (clickable && key === "robinhood") hint = '<p class="hint tape-open-hint">Robinhood session only. Click for Claude / Individual / Grok / Deep Seek charts.</p>';
+    if (clickable && key === "robinhood") hint = '<p class="hint tape-open-hint">Robinhood session only. Click for AI WWIII / Individual / Grok / Deep Seek charts.</p>';
     else if (clickable) hint = '<p class="hint tape-open-hint">Live Robinhood + Fidelity session. Voya is EOD. Click for live book charts.</p>';
     else hint = '<p class="hint">Day / week / month vs this book\u2019s last print.</p>';
     var liveTitle = title === "House" ? "Robinhood + Fidelity" : title;
@@ -838,7 +838,7 @@ function collapseHouseNames(list) {
   function overlayHtml() {
     if (!snap) return "";
     if (tab === "robinhood") {
-      return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Claude, Individual, Grok, and Deep Seek.");
+      return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for AI WWIII, Individual, Grok, and Deep Seek.");
     }
     return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood + Fidelity", "Session prints for Robinhood books and Fidelity. Voya is EOD-only.") +
       overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every book. Only Voya is EOD.");
@@ -847,13 +847,13 @@ function collapseHouseNames(list) {
   function agenticOnlyHtml() {
     var ag = snap.accounts.agentic || {};
     var asof = ag.asof || (snap && snap.asof) || "";
-    var html = "<h2>Claude</h2><div class=\"card span\"><div class=\"kpi\">" +
+    var html = "<h2>AI WWIII</h2><div class=\"card span\"><div class=\"kpi\">" +
       "<div><span>Equity</span><b>" + moneyOrDash(ag.equity) + "</b></div>" +
       "<div><span>Cash</span><b>" + moneyOrDash(ag.cash) + "</b></div>" +
       "<div><span>Buying power</span><b>" + moneyOrDash(ag.buying_power) + "</b></div>" +
       "</div>" +
       claudeAsofChipHtml(asof) +
-      '<p class="hint">Agentic Robinhood book labeled Claude. Account id stays Agentic. Growth + status only \u2014 no trade chrome.</p></div>';
+      '<p class="hint">Agentic Robinhood book labeled AI WWIII. Account id stays Agentic. Growth + status only \u2014 no trade chrome.</p></div>';
     html += cashflowStripHtml(ag);
     if (agenticHasMix(ag) && typeof mixHtml === "function") {
       var mixBody = mixHtml(ag, "agentic");
@@ -941,7 +941,7 @@ function collapseHouseNames(list) {
       html += bookExtrasHtml(b, { required: false });
     }
     var footMsg = "Murphy Pilot \u00b7 Live = Robinhood + Fidelity. Voya is EOD.";
-    if (tab === "agentic") footMsg = "Murphy Pilot \u00b7 Agentic / Claude only \u00b7 equity, cash/BP, holdings, realized, fills, asof.";
+    if (tab === "agentic") footMsg = "Murphy Pilot \u00b7 Agentic / AI WWIII only \u00b7 equity, cash/BP, holdings, realized, fills, asof.";
     else if (tab === "robinhood" || (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0)) footMsg = "Murphy Pilot \u00b7 Robinhood live books only.";
     else if (tab === "fidelity" || (typeof isFidSleeveTab === "function" ? isFidSleeveTab(tab) : /^fid-/.test(String(tab || "")))) {
       var fidB = (snap.accounts && snap.accounts.fidelity) || {};
