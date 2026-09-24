@@ -307,7 +307,7 @@ merge = function (house, pilot, outside) {
     names: rhNames, books: rhBooks
   };
   /* tip ba: roll optional Forge fields when any RH book prints them — never invent */
-  /* tip bf paint: company_url http(s) else Yahoo /quote/{SYMBOL}/ ; account id→Claude/Grok/Deep Seek/Individual; sell finite $ else —; buys omit P&L slot */
+  /* tip bf paint: company_url http(s) else Yahoo /quote/{SYMBOL}/ ; account id→AI WWIII/Grok/Deep Seek/Individual; sell finite $ else —; buys omit P&L slot */
   (function tipBaRollups() {
     var mix = { equity: 0, crypto: 0, options: 0, cash: 0 }, hasMix = false;
     var rp = { day: 0, week: 0, month: 0 }, hasRp = { day: false, week: false, month: false };
@@ -515,7 +515,7 @@ overlayChartCard = function (id, mode) {
 overlayHtml = function () {
   if (!snap) return "";
   if (tab === "robinhood") {
-    return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for Claude, Individual, Grok, and Deep Seek.");
+    return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood", "Session prints for AI WWIII, Individual, Grok, and Deep Seek.");
   }
   return overlaySheet("booksOverlay", "live", "Live equity \u00b7 Robinhood + Fidelity books", "Robinhood books plus each Fidelity sleeve. Voya is EOD-only.") +
     overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every Robinhood and Fidelity book. Only Voya is EOD.");
@@ -758,7 +758,7 @@ paint = function () {
   var foot = document.querySelector(".desk-foot");
   if (foot) {
     var fid = (snap.accounts && snap.accounts.fidelity) || {};
-    if (tab === "agentic") foot.textContent = "Murphy Pilot \u00b7 Agentic / Claude only \u00b7 equity, cash/BP, holdings, realized, fills, asof.";
+    if (tab === "agentic") foot.textContent = "Murphy Pilot \u00b7 Agentic / AI WWIII only \u00b7 equity, cash/BP, holdings, realized, fills, asof.";
     else if (tab === "robinhood" || RH_IDS.indexOf(tab) >= 0) foot.textContent = "Murphy Pilot \u00b7 Robinhood live books only.";
     else if (tab === "fidelity" || isFidSleeveTab(tab)) {
       foot.textContent = fid.live

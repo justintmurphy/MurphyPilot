@@ -29,7 +29,7 @@
     setText("kInv", j.invested_pct!=null ? Number(j.invested_pct).toFixed(1)+"%" : "—");
     setText("kCash", money(j.cash));
     setText("kPend", money(j.pending_deposits));
-    setText("bookNote", "Snapshot "+(j.asof||"")+" · Claude (Agentic book) · no account numbers");
+    setText("bookNote", "Snapshot "+(j.asof||"")+" · AI WWIII (Agentic book) · no account numbers");
     var names=j.names||[];
     var tb=document.getElementById("bookRows");
     if(tb){
