@@ -356,7 +356,6 @@ function collapseHouseNames(list) {
   var cashflowOpen = false;
   var mixOpen = false;
   var retirementOpen = false;
-  var birthEditOpen = false;
 
   function applyTheme(choice) {
     var t = choice || document.documentElement.getAttribute("data-theme") || "justin";
@@ -879,10 +878,12 @@ function collapseHouseNames(list) {
   }
 
   /* tip br — Retirement helper tidy on the tip bq card.
-     Part B people, full 2026 brackets, extra 401k estimator, private #ret= prefill.
-     Personal inputs stay in localStorage (murphyHouseRetirement) only.
-     Tip bq/bp projection math and sanity defaults stay when the new fields are unset. */
+     Part B people, full 2026 brackets, extra 401k estimator, optional #ret= prefill.
+     Defaults come from same-origin retirement.json (?v=20260904br). A missing or
+     malformed file keeps the empty helper. localStorage murphyHouseRetirement
+     overrides per field. Birth date is not edited in the form. */
   var RET_STORE = "murphyHouseRetirement";
+  var RET_SAVED = null;
   var RET_SSA_B1 = 1286;
   var RET_SSA_B2 = 7749;
   var RET_SSA_WAGE = 184500;
@@ -903,7 +904,6 @@ function collapseHouseNames(list) {
   var RET_PART_B = 203;
   var RET_401K_LIMIT = 24500;
   var RET_401K_CATCHUP = 8000;
-  var RET_PROMPT = "Set birth date under Edit birth date in the helper.";
 
   function retFinite(n) {
     return n != null && n !== "" && isFinite(Number(n));
@@ -922,7 +922,7 @@ function collapseHouseNames(list) {
   function retBlank() {
     return {
       realPct: 5, inflPct: 2.5, raisePct: 1, eePct: 6, matchPct: 6,
-      extraMonthly: 0, monthly: null, salary: null,
+      extraMonthly: 0, monthly: null, salary: null, salaryYear: null,
       ss62: null, ss67: null, ss70: null,
       retireAge: 67, birthMonth: null, birthYear: null,
       filing: "mfj", statePct: 0,
@@ -966,8 +966,27 @@ function collapseHouseNames(list) {
     if (n < 1900 || n > today.year) return null;
     return n;
   }
+  function retApplySaved(d) {
+    if (!RET_SAVED) return d;
+    d.realPct = RET_SAVED.realPct;
+    d.inflPct = RET_SAVED.inflPct;
+    d.raisePct = RET_SAVED.raisePct;
+    d.eePct = RET_SAVED.eePct;
+    d.matchPct = RET_SAVED.matchPct;
+    d.salary = RET_SAVED.salary;
+    d.salaryYear = RET_SAVED.salaryYear;
+    d.ss62 = RET_SAVED.ss62;
+    d.ss67 = RET_SAVED.ss67;
+    d.ss70 = RET_SAVED.ss70;
+    d.birthMonth = RET_SAVED.birthMonth;
+    d.birthYear = RET_SAVED.birthYear;
+    d.filing = RET_SAVED.filing;
+    d.statePct = RET_SAVED.statePct;
+    d.partBPeople = RET_SAVED.partBPeople;
+    return d;
+  }
   function retLoad() {
-    var d = retBlank();
+    var d = retApplySaved(retBlank());
     var migrated = false;
     try {
       var raw = localStorage.getItem(RET_STORE);
@@ -975,22 +994,36 @@ function collapseHouseNames(list) {
       var o = JSON.parse(raw);
       if (!o || typeof o !== "object") return d;
       ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "statePct"].forEach(function (k) {
-        if (retFinite(o[k])) d[k] = Number(o[k]);
+        if (Object.prototype.hasOwnProperty.call(o, k) && retFinite(o[k])) d[k] = Number(o[k]);
       });
       ["monthly", "salary", "ss62", "ss67", "ss70"].forEach(function (k) {
+        if (!Object.prototype.hasOwnProperty.call(o, k)) return;
         if (o[k] == null || o[k] === "") d[k] = null;
         else if (retFinite(o[k])) d[k] = Number(o[k]);
       });
-      if (d.ss67 == null && retFinite(o.ss)) {
+      if (!Object.prototype.hasOwnProperty.call(o, "ss67") && retFinite(o.ss)) {
         d.ss67 = Number(o.ss);
         migrated = true;
       }
-      if (o.retireAge != null && o.retireAge !== "") d.retireAge = retRetireAge(o.retireAge);
-      d.birthMonth = retOptMonth(o.birthMonth);
-      d.birthYear = retOptYear(o.birthYear);
-      d.filing = o.filing === "single" ? "single" : "mfj";
-      d.partBPeople = retPartBExplicit(o.partBPeople);
-      if (retFinite(o.extra401kPct)) {
+      if (Object.prototype.hasOwnProperty.call(o, "retireAge") && o.retireAge != null && o.retireAge !== "") d.retireAge = retRetireAge(o.retireAge);
+      if (Object.prototype.hasOwnProperty.call(o, "salaryYear")) {
+        if (o.salaryYear == null || o.salaryYear === "") d.salaryYear = null;
+        else if (retFinite(o.salaryYear)) d.salaryYear = Math.round(Number(o.salaryYear));
+      } else if (Object.prototype.hasOwnProperty.call(o, "salary")) {
+        d.salaryYear = null;
+      }
+      var bm = Object.prototype.hasOwnProperty.call(o, "birthMonth") ? retOptMonth(o.birthMonth) : null;
+      var by = Object.prototype.hasOwnProperty.call(o, "birthYear") ? retOptYear(o.birthYear) : null;
+      if (bm != null && by != null) {
+        d.birthMonth = bm;
+        d.birthYear = by;
+      }
+      if (o.filing === "single" || o.filing === "mfj") d.filing = o.filing;
+      if (Object.prototype.hasOwnProperty.call(o, "partBPeople")) {
+        var pb = retPartBExplicit(o.partBPeople);
+        if (pb) d.partBPeople = pb;
+      }
+      if (Object.prototype.hasOwnProperty.call(o, "extra401kPct") && retFinite(o.extra401kPct)) {
         var extraPct = Number(o.extra401kPct);
         d.extra401kPct = extraPct > 0 ? extraPct : 0;
       }
@@ -999,11 +1032,13 @@ function collapseHouseNames(list) {
     return d;
   }
   function retSave(d) {
+    var year = null;
+    if (d.salaryYear != null && d.salaryYear !== "" && retFinite(d.salaryYear)) year = Math.round(Number(d.salaryYear));
     try {
       localStorage.setItem(RET_STORE, JSON.stringify({
         realPct: d.realPct, inflPct: d.inflPct, raisePct: d.raisePct,
         eePct: d.eePct, matchPct: d.matchPct, extraMonthly: d.extraMonthly,
-        monthly: d.monthly, salary: d.salary,
+        monthly: d.monthly, salary: d.salary, salaryYear: year,
         ss62: d.ss62, ss67: d.ss67, ss70: d.ss70,
         retireAge: retRetireAge(d.retireAge),
         birthMonth: d.birthMonth, birthYear: d.birthYear,
@@ -1099,9 +1134,16 @@ function collapseHouseNames(list) {
     if (!patch) return;
     var keys = Object.keys(patch);
     if (!keys.length) return;
-    var d = retLoad();
-    keys.forEach(function (k) { d[k] = patch[k]; });
-    retSave(d);
+    var o = {};
+    try {
+      var raw = localStorage.getItem(RET_STORE);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) o = parsed;
+      }
+    } catch (e) {}
+    keys.forEach(function (k) { o[k] = patch[k]; });
+    try { localStorage.setItem(RET_STORE, JSON.stringify(o)); } catch (e2) {}
   }
   function retConsumeRetHash() {
     try {
@@ -1115,6 +1157,73 @@ function collapseHouseNames(list) {
       } catch (eBad) {}
       history.replaceState(null, "", location.pathname + location.search);
     } catch (eAll) {}
+  }
+  /* Same-origin defaults. Cache-busted with the tip br asset query.
+     A missing or malformed file leaves RET_SAVED null (empty helper). */
+  function retSavedUrl() {
+    var housePath = /\/house(\/|$)/.test(location.pathname);
+    return (housePath ? "retirement.json" : "house/retirement.json") + "?v=20260904br";
+  }
+  function retSavedNum(v, lo, hi) {
+    if (typeof v === "string" && String(v).trim() !== "") v = Number(v);
+    if (typeof v !== "number" || !isFinite(v)) return null;
+    if (v < lo || v > hi) return null;
+    return v;
+  }
+  function retNormFiling(raw) {
+    var s = String(raw == null ? "" : raw).trim().toLowerCase();
+    if (s === "single") return "single";
+    if (s === "mfj") return "mfj";
+    return null;
+  }
+  function retParseSaved(o) {
+    if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+    if (o.version !== 1) return null;
+    var s62 = retSavedNum(o.ssa62, 0, 20000);
+    var s67 = retSavedNum(o.ssa67, 0, 20000);
+    var s70 = retSavedNum(o.ssa70, 0, 20000);
+    var salary = retSavedNum(o.salary, 0, 10000000);
+    var salaryYear = retSavedNum(o.salary_year, 1900, 2100);
+    var raise = retSavedNum(o.raise_pct, -20, 50);
+    var ee = retSavedNum(o.emp_pct, 0, 100);
+    var match = retSavedNum(o.match_pct, 0, 100);
+    var statePct = retSavedNum(o.state_pct, 0, 100);
+    var realPct = retSavedNum(o.real_return_pct, -50, 50);
+    var inflPct = retSavedNum(o.inflation_pct, -20, 50);
+    var filing = retNormFiling(o.filing);
+    var partb = retPartBExplicit(o.partb_people);
+    var born = retPrefillBirth(o.birth_ym);
+    if (s62 == null || s67 == null || s70 == null || salary == null || salaryYear == null) return null;
+    if (Math.round(salaryYear) !== salaryYear) return null;
+    if (raise == null || ee == null || match == null || statePct == null || realPct == null || inflPct == null) return null;
+    if (!filing || !partb || !born) return null;
+    return {
+      realPct: realPct, inflPct: inflPct, raisePct: raise, eePct: ee, matchPct: match,
+      salary: salary, salaryYear: salaryYear,
+      ss62: s62, ss67: s67, ss70: s70,
+      birthMonth: born.birthMonth, birthYear: born.birthYear,
+      filing: filing, statePct: statePct, partBPeople: partb
+    };
+  }
+  function retRefreshSaved() {
+    if (typeof snap === "undefined" || !snap || typeof paint !== "function") return;
+    paint();
+  }
+  function retFetchSaved() {
+    try {
+      fetch(retSavedUrl(), { cache: "no-store" }).then(function (r) {
+        if (!r || !r.ok) throw new Error("status");
+        return r.json();
+      }).then(function (o) {
+        RET_SAVED = retParseSaved(o);
+        retRefreshSaved();
+      }).catch(function () {
+        RET_SAVED = null;
+        retRefreshSaved();
+      });
+    } catch (e) {
+      RET_SAVED = null;
+    }
   }
   function retOffPublic(id, book) {
     var s = String(id || "") + " " + String((book && (book.label || book.name || book.sleeve || book.account_name)) || "");
@@ -1190,7 +1299,7 @@ function collapseHouseNames(list) {
     return {
       realPct: realPct, inflPct: state.inflPct, raisePct: state.raisePct,
       eePct: state.eePct, matchPct: state.matchPct, extraMonthly: state.extraMonthly,
-      monthly: state.monthly, salary: state.salary,
+      monthly: state.monthly, salary: state.salary, salaryYear: state.salaryYear,
       ss62: state.ss62, ss67: state.ss67, ss70: state.ss70,
       retireAge: state.retireAge, birthMonth: state.birthMonth, birthYear: state.birthYear,
       filing: state.filing, statePct: state.statePct,
@@ -1212,6 +1321,20 @@ function collapseHouseNames(list) {
     var cap = RET_401K_LIMIT;
     if (birthYear != null && calendarYear != null && calendarYear >= birthYear + 50) cap += RET_401K_CATCHUP;
     return cap;
+  }
+  /* salary_year pay, grown by the raise to the current calendar year.
+     A null salary year means the stored salary is already current. */
+  function retSalaryNow(state) {
+    if (!state || !retFinite(state.salary)) return null;
+    var sal = Number(state.salary);
+    var y = state.salaryYear;
+    if (y == null || !retFinite(y)) return sal;
+    y = Math.round(Number(y));
+    var nowY = retTodayNy().year;
+    if (y >= nowY) return sal;
+    var raise = (retFinite(state.raisePct) ? Number(state.raisePct) : 0) / 100;
+    var grown = sal * Math.pow(1 + raise, nowY - y);
+    return isFinite(grown) ? grown : sal;
   }
   function retCurrentAge(state) {
     var y = state.birthYear, m = state.birthMonth;
@@ -1243,7 +1366,8 @@ function collapseHouseNames(list) {
     var extra = retFinite(state.extraMonthly) ? Number(state.extraMonthly) : 0;
     var printed = retPrintedMonthly();
     var monthly = retFinite(state.monthly) ? Number(state.monthly) : printed;
-    var hasSalary = retFinite(state.salary) && Number(state.salary) > 0;
+    var salaryNow = retSalaryNow(state);
+    var hasSalary = salaryNow != null && salaryNow > 0;
     if (!hasSalary) {
       return {
         mode: "deposits",
@@ -1258,7 +1382,7 @@ function collapseHouseNames(list) {
     var raise = (retFinite(state.raisePct) ? Number(state.raisePct) : 1) / 100;
     var ee = (retFinite(state.eePct) ? Number(state.eePct) : 6) / 100;
     var match = (retFinite(state.matchPct) ? Number(state.matchPct) : 6) / 100;
-    var year1 = Number(state.salary) * (1 + raise) * (ee + match) + extra * 12;
+    var year1 = salaryNow * (1 + raise) * (ee + match) + extra * 12;
     return {
       mode: "salary",
       monthlyShown: year1 / 12,
@@ -1305,7 +1429,8 @@ function collapseHouseNames(list) {
       if (!(growth > 0) || !isFinite(growth)) return empty;
       var half = Math.sqrt(growth);
       var bal = pv;
-      var sal = Number(state.salary);
+      var sal = retSalaryNow(state);
+      if (sal == null || !(sal > 0)) return empty;
       var full = Math.floor(years + 1e-9);
       var frac = years - full;
       var useCap = !!(opts && opts.capDeferral);
@@ -1530,7 +1655,7 @@ function collapseHouseNames(list) {
       src: src, mid: mid, low: low, high: high,
       income: income, ss: ss, hasAnchor: hasAnchor,
       total: total, take: take, bridge: bridge,
-      pia: retRoughPia(state.salary),
+      pia: retRoughPia(retSalaryNow(state)),
       horizon: h,
       ssExact: retSsExact(state.retireAge, state)
     };
@@ -1552,6 +1677,12 @@ function collapseHouseNames(list) {
       return s === "" ? null : retNum(s);
     }
     var extra = retNum(raw("extra"));
+    var prev = retLoad();
+    var salary = opt("salary");
+    var salaryYear = prev.salaryYear;
+    if (!((salary == null && prev.salary == null) || (salary != null && prev.salary != null && Number(salary) === Number(prev.salary)))) {
+      salaryYear = null;
+    }
     return {
       realPct: pct("real", 5),
       inflPct: pct("infl", 2.5),
@@ -1560,13 +1691,14 @@ function collapseHouseNames(list) {
       matchPct: pct("match", 6),
       extraMonthly: extra == null ? 0 : extra,
       monthly: opt("monthly"),
-      salary: opt("salary"),
+      salary: salary,
+      salaryYear: salaryYear,
       ss62: opt("ss62"),
       ss67: opt("ss67"),
       ss70: opt("ss70"),
       retireAge: retRetireAge(raw("retireAge")),
-      birthMonth: retOptMonth(raw("birthMonth")),
-      birthYear: retOptYear(raw("birthYear")),
+      birthMonth: prev.birthMonth,
+      birthYear: prev.birthYear,
       filing: raw("filing") === "single" ? "single" : "mfj",
       statePct: pct("state", 0),
       partBPeople: retPartBExplicit(raw("partBPeople")),
@@ -1587,13 +1719,13 @@ function collapseHouseNames(list) {
   function retExtra401k(state, view) {
     var requested = retFinite(state.extra401kPct) ? Number(state.extra401kPct) : 0;
     if (!(requested > 0)) requested = 0;
-    var hasSalary = retFinite(state.salary) && Number(state.salary) > 0;
+    var salary = retSalaryNow(state);
+    var hasSalary = salary != null && salary > 0;
     var empty = {
       ready: false, extraPct: 0, maxExtra: 0, atCap: false,
       addedNest: null, addedIncome: null, newTotal: null, newTake: null, cost: null
     };
     if (!hasSalary || !view) return empty;
-    var salary = Number(state.salary);
     var ee = retFinite(state.eePct) ? Number(state.eePct) : 6;
     var filing = state.filing === "single" ? "single" : "mfj";
     var limit = retDeferralLimit(state.birthYear, retTodayNy().year);
@@ -1692,17 +1824,16 @@ function collapseHouseNames(list) {
     var track = card.querySelector('[data-ret="track"]');
     var fill = card.querySelector('[data-ret="progress-fill"]');
     if (h.age == null) {
-      var prompt = (state.birthMonth != null && state.birthYear != null) ? "Check birth date under Edit birth date in the helper." : RET_PROMPT;
       if (ageNow) {
-        ageNow.textContent = prompt;
-        ageNow.classList.add("ret-prompt");
+        ageNow.textContent = "";
+        ageNow.classList.remove("ret-prompt");
       }
       retShow(chip, false);
       retShow(targetEl, false);
       retShow(cap, false);
       retShow(track, false);
       if (fill) fill.style.width = "0%";
-      if (prog) prog.setAttribute("aria-label", prompt);
+      if (prog) prog.setAttribute("aria-label", "Retirement age " + h.target);
     } else {
       var ageTxt = retOneDec(h.age);
       var yrsTxt = retOneDec(h.raw);
@@ -1830,15 +1961,6 @@ function collapseHouseNames(list) {
   function retInputValue(n) {
     return (n == null || !isFinite(Number(n))) ? "" : String(Number(n));
   }
-  function retMonthOptions(selected) {
-    var names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    var html = '<option value="">Month</option>';
-    for (var i = 0; i < 12; i++) {
-      var v = i + 1;
-      html += '<option value="' + v + '"' + (selected === v ? " selected" : "") + ">" + names[i] + "</option>";
-    }
-    return html;
-  }
   function retirementHtml() {
     if (!snap) return "";
     var state = retLoad();
@@ -1847,9 +1969,9 @@ function collapseHouseNames(list) {
     var open = retirementOpen ? " open" : "";
     var age = state.retireAge;
     return '<h2>Retirement</h2><div class="card span retirement-card" id="retirement">' +
-      '<div class="ret-progress" data-ret="progress" role="img" aria-label="' + esc(RET_PROMPT) + '">' +
+      '<div class="ret-progress" data-ret="progress" role="img" aria-label="Retirement progress">' +
       '<p class="ret-progress-cap" data-ret="progress-cap" hidden>Elapsed toward retirement age</p>' +
-      '<div class="ret-progress-top"><span class="ret-prompt" data-ret="age-now">' + esc(RET_PROMPT) + '</span>' +
+      '<div class="ret-progress-top"><span data-ret="age-now"></span>' +
       '<span class="ret-chip" data-ret="years-chip" hidden></span><span data-ret="age-target" hidden></span></div>' +
       '<div class="ret-track" data-ret="track" hidden aria-hidden="true"><i data-ret="progress-fill"></i></div></div>' +
       '<div class="ret-slider">' +
@@ -1927,15 +2049,7 @@ function collapseHouseNames(list) {
       '<input id="ret-ss70" data-ret-in="ss70" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.ss70)) + '"></div>' +
       '</div>' +
       '<div data-ret="pia"></div>' +
-      '<button type="button" class="ghost" data-ret-reset="1">Reset to defaults</button>' +
-      '<details class="ret-birth"' + (birthEditOpen ? " open" : "") + '>' +
-      '<summary>Edit birth date</summary>' +
-      '<div class="ret-born">' +
-      '<div><label for="ret-birth-month">Birth month</label>' +
-      '<select id="ret-birth-month" data-ret-in="birthMonth" autocomplete="off">' + retMonthOptions(state.birthMonth) + '</select></div>' +
-      '<div><label for="ret-birth-year">Birth year</label>' +
-      '<input id="ret-birth-year" data-ret-in="birthYear" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="4" placeholder="Year" value="' + esc(retInputValue(state.birthYear)) + '"></div>' +
-      '</div></details>' +
+      '<button type="button" class="ret-reset-saved" data-ret-reset-saved="1">Reset to saved</button>' +
       '</details></div>';
   }
   function retSync() {
@@ -2111,7 +2225,6 @@ function collapseHouseNames(list) {
     if (e.target.classList.contains("cf-more")) cashflowOpen = !!e.target.open;
     if (e.target.classList.contains("mix-more")) mixOpen = !!e.target.open;
     if (e.target.classList.contains("ret-more")) retirementOpen = !!e.target.open;
-    if (e.target.classList.contains("ret-birth")) birthEditOpen = !!e.target.open;
   }, true);
   function retOnEdit(e) {
     if (!e.target || !e.target.closest || !e.target.closest(".retirement-card")) return;
@@ -2135,36 +2248,12 @@ function collapseHouseNames(list) {
     retFill(card, state);
   });
   document.addEventListener("click", function (e) {
-    var reset = e.target.closest && e.target.closest("[data-ret-reset]");
+    var reset = e.target.closest && e.target.closest("[data-ret-reset-saved]");
     if (!reset) return;
     e.preventDefault();
     retClear();
-    var card = document.querySelector(".retirement-card");
-    if (!card) return;
-    var printed = retPrintedMonthly();
-    function setIn(name, value) {
-      var el = card.querySelector('[data-ret-in="' + name + '"]');
-      if (el) el.value = value;
-    }
-    setIn("monthly", printed == null ? "" : String(printed));
-    setIn("real", "5");
-    setIn("infl", "2.5");
-    setIn("extra", "0");
-    setIn("salary", "");
-    setIn("raise", "1");
-    setIn("ee", "6");
-    setIn("match", "6");
-    setIn("ss62", "");
-    setIn("ss67", "");
-    setIn("ss70", "");
-    setIn("retireAge", "67");
-    setIn("birthMonth", "");
-    setIn("birthYear", "");
-    setIn("filing", "mfj");
-    setIn("state", "0");
-    setIn("partBPeople", "");
-    setIn("extra401k", "0");
-    retFill(card, retLoad());
+    if (typeof snap !== "undefined" && snap && typeof paint === "function") paint();
+    retFetchSaved();
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
@@ -2179,6 +2268,7 @@ function collapseHouseNames(list) {
   });
 
   retConsumeRetHash();
+  retFetchSaved();
   hashTab();
   try {
     var mixMql = window.matchMedia("(max-width: 720px)");

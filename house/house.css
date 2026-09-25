@@ -556,7 +556,7 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   details.mix-more .cf-chev { transition: none; }
 }
 
-/* tip br — Retirement helper tidy. Slider ticks follow the thumb; birth date sits in the helper. */
+/* tip br — Retirement helper tidy. Slider ticks follow the thumb. */
 .retirement-card { padding: 12px 14px 14px; overflow-x: hidden; }
 .retirement-card [hidden] { display: none !important; }
 .retirement-card .ret-kpi {
@@ -656,13 +656,6 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   color: var(--ink);
   flex: 1 1 auto;
 }
-.ret-born {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.8fr);
-  gap: 8px;
-  margin-top: 10px;
-}
-.ret-born > div { min-width: 0; }
 .ret-slider { margin-top: 12px; padding: 0 18px; --ret-thumb: 28px; }
 .ret-slider-head {
   display: flex;
@@ -918,28 +911,20 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   background: color-mix(in srgb, var(--brand-fg) 22%, transparent);
   font-weight: 700;
 }
-.retirement-card details.ret-birth { margin-top: 4px; }
-.retirement-card details.ret-birth > summary {
-  display: flex;
+.retirement-card .ret-reset-saved {
+  display: inline-flex;
   align-items: center;
+  margin: 8px 0 2px;
+  padding: 0;
   min-height: 44px;
-  cursor: pointer;
-  list-style: none;
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.2px;
-  text-transform: none;
+  border: 0;
+  background: none;
   color: var(--ink-soft);
+  font: 600 12px/1.4 "Segoe UI", system-ui, sans-serif;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
-.retirement-card details.ret-birth > summary::-webkit-details-marker,
-.retirement-card details.ret-birth > summary::marker { display: none; content: ""; }
-.retirement-card details.ret-birth > summary:focus { outline: none; }
-.retirement-card details.ret-birth > summary:focus-visible {
-  outline: 2px solid var(--brand-fg);
-  outline-offset: 3px;
-  border-radius: 4px;
-}
-.retirement-card details.ret-birth .ret-born { margin-top: 0; }
 @media (min-width: 721px) {
   .retirement-card .ret-kpi { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .ret-fields { grid-template-columns: 1fr 1fr; }
