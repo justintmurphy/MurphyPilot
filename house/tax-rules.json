@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "tax_year": 2026,
+  "state": "PA",
+  "pit_rate": 0.0307,
+  "retirement_401k_exempt_after_59_5": true,
+  "ss_exempt": true,
+  "employee_401k_contrib_state_deductible": false,
+  "source": "PA Department of Revenue",
+  "checked": "2026-09-25",
+  "federal": {
+    "tax_year": 2026,
+    "source": "IRS / CMS",
+    "checked": "2026-09-25",
+    "brackets_indexed": true,
+    "std_deduction_indexed": true,
+    "age65_addon_indexed": true,
+    "part_b_indexed": true,
+    "ss_thresholds_indexed": false,
+    "brackets": {
+      "single": [
+        { "up_to": 12400, "rate": 0.10 },
+        { "up_to": 50400, "rate": 0.12 },
+        { "up_to": 105700, "rate": 0.22 },
+        { "up_to": 201775, "rate": 0.24 },
+        { "up_to": 256225, "rate": 0.32 },
+        { "up_to": 640600, "rate": 0.35 },
+        { "up_to": null, "rate": 0.37 }
+      ],
+      "mfj": [
+        { "up_to": 24800, "rate": 0.10 },
+        { "up_to": 100800, "rate": 0.12 },
+        { "up_to": 211400, "rate": 0.22 },
+        { "up_to": 403550, "rate": 0.24 },
+        { "up_to": 512450, "rate": 0.32 },
+        { "up_to": 768700, "rate": 0.35 },
+        { "up_to": null, "rate": 0.37 }
+      ]
+    },
+    "standard_deduction": { "single": 16100, "mfj": 32200 },
+    "additional_deduction_65": { "single": 2050, "mfj": 1650 },
+    "ss_thresholds": {
+      "single": [25000, 34000],
+      "mfj": [32000, 44000],
+      "unindexed": true
+    },
+    "part_b_monthly": 203,
+    "deferral_limit": 24500,
+    "catchup_50": 8000,
+    "catchup_60_63": 11250
+  }
+}
