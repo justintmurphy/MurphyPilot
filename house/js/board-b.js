@@ -877,11 +877,13 @@ function collapseHouseNames(list) {
     return html;
   }
 
-  /* tip br — Retirement helper tidy on the tip bq card.
+  /* tip bt — Retirement helper on the tip br card.
      Part B people, full 2026 brackets, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904br). A missing or
+     Defaults come from same-origin retirement.json (?v=20260904bt). A missing or
      malformed file keeps the empty helper. localStorage murphyHouseRetirement
-     overrides per field. Birth date is not edited in the form. */
+     stores only fields that differ from those defaults (_edited). A null or
+     blank local value is not an override. Birth is not edited in the form and
+     is stored only from #ret= or when it differs from the file. */
   var RET_STORE = "murphyHouseRetirement";
   var RET_SAVED = null;
   var RET_SSA_B1 = 1286;
@@ -982,72 +984,186 @@ function collapseHouseNames(list) {
     d.birthYear = RET_SAVED.birthYear;
     d.filing = RET_SAVED.filing;
     d.statePct = RET_SAVED.statePct;
-    d.partBPeople = RET_SAVED.partBPeople;
     return d;
   }
-  function retLoad() {
-    var d = retApplySaved(retBlank());
-    var migrated = false;
+  function retBaseline() {
+    return retApplySaved(retBlank());
+  }
+  function retClone(d) {
+    var o = retBlank();
+    Object.keys(o).forEach(function (k) { o[k] = d[k]; });
+    return o;
+  }
+  function retSameVal(a, b) {
+    if (retFinite(a) && retFinite(b)) return Number(a) === Number(b);
+    if ((a == null || a === "") && (b == null || b === "")) return true;
+    return a === b;
+  }
+  function retStoreRead() {
     try {
       var raw = localStorage.getItem(RET_STORE);
-      if (!raw) return d;
+      if (!raw) return null;
       var o = JSON.parse(raw);
-      if (!o || typeof o !== "object") return d;
-      ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "statePct"].forEach(function (k) {
-        if (Object.prototype.hasOwnProperty.call(o, k) && retFinite(o[k])) d[k] = Number(o[k]);
-      });
-      ["monthly", "salary", "ss62", "ss67", "ss70"].forEach(function (k) {
-        if (!Object.prototype.hasOwnProperty.call(o, k)) return;
-        if (o[k] == null || o[k] === "") d[k] = null;
-        else if (retFinite(o[k])) d[k] = Number(o[k]);
-      });
-      if (!Object.prototype.hasOwnProperty.call(o, "ss67") && retFinite(o.ss)) {
-        d.ss67 = Number(o.ss);
-        migrated = true;
+      if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+      return o;
+    } catch (e) { return null; }
+  }
+  function retStoreWrite(store) {
+    try {
+      var edited = store && Array.isArray(store._edited) ? store._edited : [];
+      if (!edited.length) {
+        localStorage.removeItem(RET_STORE);
+        return;
       }
-      if (Object.prototype.hasOwnProperty.call(o, "retireAge") && o.retireAge != null && o.retireAge !== "") d.retireAge = retRetireAge(o.retireAge);
-      if (Object.prototype.hasOwnProperty.call(o, "salaryYear")) {
-        if (o.salaryYear == null || o.salaryYear === "") d.salaryYear = null;
-        else if (retFinite(o.salaryYear)) d.salaryYear = Math.round(Number(o.salaryYear));
-      } else if (Object.prototype.hasOwnProperty.call(o, "salary")) {
-        d.salaryYear = null;
-      }
-      var bm = Object.prototype.hasOwnProperty.call(o, "birthMonth") ? retOptMonth(o.birthMonth) : null;
-      var by = Object.prototype.hasOwnProperty.call(o, "birthYear") ? retOptYear(o.birthYear) : null;
+      var out = { _edited: [] };
+      edited.forEach(function (k) {
+        if (!k || k === "_edited" || out._edited.indexOf(k) >= 0) return;
+        if (!Object.prototype.hasOwnProperty.call(store, k)) return;
+        out[k] = store[k];
+        out._edited.push(k);
+      });
+      if (!out._edited.length) localStorage.removeItem(RET_STORE);
+      else localStorage.setItem(RET_STORE, JSON.stringify(out));
+    } catch (e) {}
+  }
+  /* Old bq/br blobs are full snapshots, not per-field edits. Drop nulls and
+     anything equal to the file or the built-in default, including the pct
+     defaults 5 / 2.5 / 1 / 6 / 6 / 0 when the file still has that value.
+     A stored Social Security or birth value that differs from the file is kept.
+     Salary is the exception: without _edited it was copied from whatever the
+     file said at the time, so drop it. */
+  function retMigrateBlob(o, base) {
+    var keep = {};
+    var edited = [];
+    function keepKey(k, v) {
+      keep[k] = v;
+      if (edited.indexOf(k) < 0) edited.push(k);
+    }
+    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "statePct", "extraMonthly", "retireAge"].forEach(function (k) {
+      if (!Object.prototype.hasOwnProperty.call(o, k)) return;
+      if (o[k] == null || o[k] === "" || !retFinite(o[k])) return;
+      var n = k === "retireAge" ? retRetireAge(o[k]) : Number(o[k]);
+      if (retSameVal(n, base[k])) return;
+      keepKey(k, n);
+    });
+    if (Object.prototype.hasOwnProperty.call(o, "extra401kPct") && retFinite(o.extra401kPct)) {
+      var extraPct = Number(o.extra401kPct);
+      if (extraPct > 0 && !retSameVal(extraPct, base.extra401kPct)) keepKey("extra401kPct", extraPct);
+    }
+    if (retFinite(o.monthly)) keepKey("monthly", Number(o.monthly));
+    ["ss62", "ss67", "ss70"].forEach(function (k) {
+      if (o[k] == null || o[k] === "" || !retFinite(o[k])) return;
+      var n = Number(o[k]);
+      if (retSameVal(n, base[k])) return;
+      keepKey(k, n);
+    });
+    if (!Object.prototype.hasOwnProperty.call(o, "ss67") && retFinite(o.ss)) {
+      var legacy = Number(o.ss);
+      if (!retSameVal(legacy, base.ss67)) keepKey("ss67", legacy);
+    }
+    var bm = retOptMonth(o.birthMonth);
+    var by = retOptYear(o.birthYear);
+    if (bm != null && by != null && (!retSameVal(bm, base.birthMonth) || !retSameVal(by, base.birthYear))) {
+      keepKey("birthMonth", bm);
+      keepKey("birthYear", by);
+    }
+    var filing = base.filing === "single" ? "single" : "mfj";
+    if ((o.filing === "single" || o.filing === "mfj") && o.filing !== filing) {
+      keepKey("filing", o.filing);
+      filing = o.filing;
+    }
+    var pb = retPartBExplicit(o.partBPeople);
+    if (pb && pb !== retPartBDefault(filing)) keepKey("partBPeople", pb);
+    keep._edited = edited;
+    return keep;
+  }
+  function retApplyOverrides(d, store) {
+    if (!store || !Array.isArray(store._edited)) return d;
+    var edited = store._edited;
+    function on(k) {
+      return edited.indexOf(k) >= 0 && Object.prototype.hasOwnProperty.call(store, k);
+    }
+    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "statePct", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
+      if (!on(k) || store[k] == null || store[k] === "" || !retFinite(store[k])) return;
+      d[k] = Number(store[k]);
+    });
+    if (on("extra401kPct") && retFinite(store.extra401kPct) && Number(store.extra401kPct) > 0) d.extra401kPct = Number(store.extra401kPct);
+    if (on("retireAge") && store.retireAge != null && store.retireAge !== "") d.retireAge = retRetireAge(store.retireAge);
+    if (on("salary") && retFinite(store.salary)) {
+      d.salary = Number(store.salary);
+      if (on("salaryYear") && (store.salaryYear == null || store.salaryYear === "")) d.salaryYear = null;
+      else if (on("salaryYear") && retFinite(store.salaryYear)) d.salaryYear = Math.round(Number(store.salaryYear));
+      else d.salaryYear = null;
+    }
+    if (on("birthMonth") && on("birthYear")) {
+      var bm = retOptMonth(store.birthMonth);
+      var by = retOptYear(store.birthYear);
       if (bm != null && by != null) {
         d.birthMonth = bm;
         d.birthYear = by;
       }
-      if (o.filing === "single" || o.filing === "mfj") d.filing = o.filing;
-      if (Object.prototype.hasOwnProperty.call(o, "partBPeople")) {
-        var pb = retPartBExplicit(o.partBPeople);
-        if (pb) d.partBPeople = pb;
-      }
-      if (Object.prototype.hasOwnProperty.call(o, "extra401kPct") && retFinite(o.extra401kPct)) {
-        var extraPct = Number(o.extra401kPct);
-        d.extra401kPct = extraPct > 0 ? extraPct : 0;
-      }
-    } catch (e) {}
-    if (migrated) retSave(d);
+    }
+    if (on("filing") && (store.filing === "single" || store.filing === "mfj")) d.filing = store.filing;
+    if (on("partBPeople")) {
+      var pb = retPartBExplicit(store.partBPeople);
+      if (pb) d.partBPeople = pb;
+    }
     return d;
   }
+  function retLoad() {
+    var base = retBaseline();
+    var d = retClone(base);
+    var original = retStoreRead();
+    if (!original) return d;
+    var store = original;
+    var dirty = false;
+    if (!Array.isArray(original._edited)) {
+      store = retMigrateBlob(original, base);
+      dirty = true;
+    }
+    if (dirty && RET_SAVED) retStoreWrite(store);
+    return retApplyOverrides(d, store);
+  }
   function retSave(d) {
-    var year = null;
-    if (d.salaryYear != null && d.salaryYear !== "" && retFinite(d.salaryYear)) year = Math.round(Number(d.salaryYear));
-    try {
-      localStorage.setItem(RET_STORE, JSON.stringify({
-        realPct: d.realPct, inflPct: d.inflPct, raisePct: d.raisePct,
-        eePct: d.eePct, matchPct: d.matchPct, extraMonthly: d.extraMonthly,
-        monthly: d.monthly, salary: d.salary, salaryYear: year,
-        ss62: d.ss62, ss67: d.ss67, ss70: d.ss70,
-        retireAge: retRetireAge(d.retireAge),
-        birthMonth: d.birthMonth, birthYear: d.birthYear,
-        filing: d.filing === "single" ? "single" : "mfj",
-        statePct: retFinite(d.statePct) ? Number(d.statePct) : 0,
-        partBPeople: retPartBExplicit(d.partBPeople),
-        extra401kPct: retFinite(d.extra401kPct) && Number(d.extra401kPct) > 0 ? Number(d.extra401kPct) : 0
-      }));
-    } catch (e) {}
+    var base = retBaseline();
+    var out = {};
+    var edited = [];
+    function put(k, v) {
+      out[k] = v;
+      if (edited.indexOf(k) < 0) edited.push(k);
+    }
+    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "statePct", "extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
+      if (d[k] == null || d[k] === "" || !retFinite(d[k])) return;
+      var n = Number(d[k]);
+      if (retSameVal(n, base[k])) return;
+      put(k, n);
+    });
+    if (retFinite(d.extra401kPct) && Number(d.extra401kPct) > 0 && !retSameVal(Number(d.extra401kPct), base.extra401kPct)) {
+      put("extra401kPct", Number(d.extra401kPct));
+    }
+    var age = retRetireAge(d.retireAge);
+    if (!retSameVal(age, retRetireAge(base.retireAge))) put("retireAge", age);
+    if (retFinite(d.salary) && !retSameVal(Number(d.salary), base.salary)) {
+      put("salary", Number(d.salary));
+      var year = null;
+      if (d.salaryYear != null && d.salaryYear !== "" && retFinite(d.salaryYear)) year = Math.round(Number(d.salaryYear));
+      put("salaryYear", year);
+    }
+    var bm = retOptMonth(d.birthMonth);
+    var by = retOptYear(d.birthYear);
+    if (bm != null && by != null && (!retSameVal(bm, base.birthMonth) || !retSameVal(by, base.birthYear))) {
+      put("birthMonth", bm);
+      put("birthYear", by);
+    }
+    var filing = d.filing === "single" ? "single" : "mfj";
+    if (filing !== (base.filing === "single" ? "single" : "mfj")) put("filing", filing);
+    var pb = retPartBExplicit(d.partBPeople);
+    var prevStore = retStoreRead();
+    var prevPb = prevStore && Array.isArray(prevStore._edited) && prevStore._edited.indexOf("partBPeople") >= 0
+      ? retPartBExplicit(prevStore.partBPeople) : null;
+    if (pb && (pb === prevPb || pb !== retPartBDefault(filing))) put("partBPeople", pb);
+    out._edited = edited;
+    retStoreWrite(out);
   }
   function retClear() {
     try { localStorage.removeItem(RET_STORE); } catch (e) {}
@@ -1134,16 +1250,21 @@ function collapseHouseNames(list) {
     if (!patch) return;
     var keys = Object.keys(patch);
     if (!keys.length) return;
-    var o = {};
-    try {
-      var raw = localStorage.getItem(RET_STORE);
-      if (raw) {
-        var parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) o = parsed;
-      }
-    } catch (e) {}
+    var existing = retStoreRead();
+    var o;
+    if (existing && Array.isArray(existing._edited)) o = existing;
+    else if (existing && RET_SAVED) o = retMigrateBlob(existing, retBaseline());
+    else o = { _edited: [] };
     keys.forEach(function (k) { o[k] = patch[k]; });
-    try { localStorage.setItem(RET_STORE, JSON.stringify(o)); } catch (e2) {}
+    if (Object.prototype.hasOwnProperty.call(patch, "salary") && !Object.prototype.hasOwnProperty.call(patch, "salaryYear")) {
+      o.salaryYear = null;
+    }
+    var edited = Array.isArray(o._edited) ? o._edited.slice() : [];
+    function mark(k) { if (edited.indexOf(k) < 0) edited.push(k); }
+    keys.forEach(mark);
+    if (Object.prototype.hasOwnProperty.call(patch, "salary")) mark("salaryYear");
+    o._edited = edited;
+    retStoreWrite(o);
   }
   function retConsumeRetHash() {
     try {
@@ -1158,11 +1279,11 @@ function collapseHouseNames(list) {
       history.replaceState(null, "", location.pathname + location.search);
     } catch (eAll) {}
   }
-  /* Same-origin defaults. Cache-busted with the tip br asset query.
+  /* Same-origin defaults. Cache-busted with the tip bt asset query.
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retSavedUrl() {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? "retirement.json" : "house/retirement.json") + "?v=20260904br";
+    return (housePath ? "retirement.json" : "house/retirement.json") + "?v=20260904bt";
   }
   function retSavedNum(v, lo, hi) {
     if (typeof v === "string" && String(v).trim() !== "") v = Number(v);
@@ -1307,15 +1428,28 @@ function collapseHouseNames(list) {
       extra401kPct: retFinite(state.extra401kPct) ? Number(state.extra401kPct) : 0
     };
   }
-  /* Unset until the user picks. Effective count follows filing: 2 MFJ, 1 single. */
+  /* Unset until this browser picks. Otherwise follow filing (MFJ 2, single 1).
+     The file's partb_people applies only when filing still matches the file. */
   function retPartBExplicit(raw) {
     if (raw === 1 || raw === "1") return 1;
     if (raw === 2 || raw === "2") return 2;
     return null;
   }
+  function retPartBDefault(filing) {
+    var f = filing === "single" ? "single" : "mfj";
+    if (RET_SAVED && RET_SAVED.filing === f) {
+      var saved = retPartBExplicit(RET_SAVED.partBPeople);
+      if (saved) return saved;
+    }
+    return f === "single" ? 1 : 2;
+  }
   function retPartBCount(state) {
-    if (state && (state.partBPeople === 1 || state.partBPeople === 2)) return state.partBPeople;
-    return state && state.filing === "single" ? 1 : 2;
+    var explicit = retPartBExplicit(state && state.partBPeople);
+    if (explicit) return explicit;
+    return retPartBDefault(state && state.filing);
+  }
+  function retPartBStored(state) {
+    return retPartBExplicit(state && state.partBPeople);
   }
   function retDeferralLimit(birthYear, calendarYear) {
     var cap = RET_401K_LIMIT;
@@ -1598,7 +1732,8 @@ function collapseHouseNames(list) {
   }
   /* Part B and the age-65 additional standard deduction apply at retirement age 65+.
      The aged deduction still follows filing status (1 single, 2 MFJ).
-     Part B uses the people toggle once picked; otherwise the same filing default. */
+     Part B uses an explicit people pick; otherwise the file's count when filing
+     matches the file, else 2 for married filing jointly and 1 for single. */
   function retTakeHome(drawMonthly, ssMonthly, state, years, retireAge) {
     if (drawMonthly == null || !isFinite(drawMonthly)) return null;
     var filing = state.filing === "single" ? "single" : "mfj";
@@ -1677,20 +1812,24 @@ function collapseHouseNames(list) {
       return s === "" ? null : retNum(s);
     }
     var extra = retNum(raw("extra"));
+    var base = retBaseline();
     var prev = retLoad();
     var salary = opt("salary");
     var salaryYear = prev.salaryYear;
     if (!((salary == null && prev.salary == null) || (salary != null && prev.salary != null && Number(salary) === Number(prev.salary)))) {
       salaryYear = null;
     }
+    var monthly = opt("monthly");
+    var printed = retPrintedMonthly();
+    if (prev.monthly == null && monthly != null && printed != null && Number(monthly) === Number(printed)) monthly = null;
     return {
-      realPct: pct("real", 5),
-      inflPct: pct("infl", 2.5),
-      raisePct: pct("raise", 1),
-      eePct: pct("ee", 6),
-      matchPct: pct("match", 6),
+      realPct: pct("real", base.realPct),
+      inflPct: pct("infl", base.inflPct),
+      raisePct: pct("raise", base.raisePct),
+      eePct: pct("ee", base.eePct),
+      matchPct: pct("match", base.matchPct),
       extraMonthly: extra == null ? 0 : extra,
-      monthly: opt("monthly"),
+      monthly: monthly,
       salary: salary,
       salaryYear: salaryYear,
       ss62: opt("ss62"),
@@ -1700,7 +1839,7 @@ function collapseHouseNames(list) {
       birthMonth: prev.birthMonth,
       birthYear: prev.birthYear,
       filing: raw("filing") === "single" ? "single" : "mfj",
-      statePct: pct("state", 0),
+      statePct: pct("state", base.statePct),
       partBPeople: retPartBExplicit(raw("partBPeople")),
       extra401kPct: (function () {
         var n = retNum(raw("extra401k"));
@@ -1824,10 +1963,7 @@ function collapseHouseNames(list) {
     var track = card.querySelector('[data-ret="track"]');
     var fill = card.querySelector('[data-ret="progress-fill"]');
     if (h.age == null) {
-      if (ageNow) {
-        ageNow.textContent = "";
-        ageNow.classList.remove("ret-prompt");
-      }
+      if (ageNow) ageNow.textContent = "";
       retShow(chip, false);
       retShow(targetEl, false);
       retShow(cap, false);
@@ -1838,10 +1974,7 @@ function collapseHouseNames(list) {
       var ageTxt = retOneDec(h.age);
       var yrsTxt = retOneDec(h.raw);
       var chipTxt = h.raw < 0 ? "Past retirement age" : (h.years <= 0 ? "At retirement age" : (yrsTxt + " years to go"));
-      if (ageNow) {
-        ageNow.textContent = "Age " + ageTxt;
-        ageNow.classList.remove("ret-prompt");
-      }
+      if (ageNow) ageNow.textContent = "Age " + ageTxt;
       if (chip) chip.textContent = chipTxt;
       if (targetEl) targetEl.textContent = String(h.target);
       retShow(chip, true);
@@ -1912,10 +2045,31 @@ function collapseHouseNames(list) {
     retSyncPartB(card, state);
     retSyncExtra(card, state, v);
   }
+  function retRestoreCleared(card, state) {
+    if (!card || !card.querySelector) return;
+    [
+      ["real", state.realPct], ["infl", state.inflPct], ["raise", state.raisePct],
+      ["ee", state.eePct], ["match", state.matchPct], ["extra", state.extraMonthly],
+      ["salary", state.salary], ["ss62", state.ss62], ["ss67", state.ss67],
+      ["ss70", state.ss70], ["state", state.statePct]
+    ].forEach(function (pair) {
+      var el = card.querySelector('[data-ret-in="' + pair[0] + '"]');
+      if (!el || String(el.value).trim() !== "") return;
+      if (pair[1] == null || !isFinite(Number(pair[1]))) return;
+      el.value = retInputValue(pair[1]);
+    });
+  }
+  function retCommit(card) {
+    retSave(retRead(card));
+    var state = retLoad();
+    retRestoreCleared(card, state);
+    retFill(card, state);
+  }
   function retSyncPartB(card, state) {
     var n = String(retPartBCount(state));
     var hidden = card.querySelector('[data-ret-in="partBPeople"]');
-    if (hidden) hidden.value = (state.partBPeople === 1 || state.partBPeople === 2) ? String(state.partBPeople) : "";
+    var stored = retPartBStored(state);
+    if (hidden) hidden.value = stored ? String(stored) : "";
     card.querySelectorAll("[data-ret-partb]").forEach(function (b) {
       b.setAttribute("aria-pressed", b.getAttribute("data-ret-partb") === n ? "true" : "false");
     });
@@ -1964,6 +2118,7 @@ function collapseHouseNames(list) {
   function retirementHtml() {
     if (!snap) return "";
     var state = retLoad();
+    var partStored = retPartBStored(state);
     var printed = retPrintedMonthly();
     var monthlyVal = state.monthly != null ? state.monthly : printed;
     var open = retirementOpen ? " open" : "";
@@ -2029,7 +2184,7 @@ function collapseHouseNames(list) {
       '<button type="button" data-ret-partb="1" aria-pressed="' + (retPartBCount(state) === 1 ? "true" : "false") + '">1</button>' +
       '<button type="button" data-ret-partb="2" aria-pressed="' + (retPartBCount(state) === 2 ? "true" : "false") + '">2</button>' +
       '</div>' +
-      '<input type="hidden" data-ret-in="partBPeople" value="' + (state.partBPeople === 1 || state.partBPeople === 2 ? String(state.partBPeople) : "") + '">' +
+      '<input type="hidden" data-ret-in="partBPeople" value="' + (partStored ? String(partStored) : "") + '">' +
       '<p class="ret-field-hint">People on Part B. About $203 a month each from age 65. Starts at 2 for married filing jointly and 1 for single until you pick.</p></div>' +
       '<div><label for="ret-state">State tax %</label>' +
       '<input id="ret-state" data-ret-in="state" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.statePct)) + '">' +
@@ -2228,10 +2383,7 @@ function collapseHouseNames(list) {
   }, true);
   function retOnEdit(e) {
     if (!e.target || !e.target.closest || !e.target.closest(".retirement-card")) return;
-    var card = e.target.closest(".retirement-card");
-    var state = retRead(card);
-    retSave(state);
-    retFill(card, state);
+    retCommit(e.target.closest(".retirement-card"));
   }
   document.addEventListener("input", retOnEdit);
   document.addEventListener("change", retOnEdit);
@@ -2243,9 +2395,7 @@ function collapseHouseNames(list) {
     e.preventDefault();
     var hidden = card.querySelector('[data-ret-in="partBPeople"]');
     if (hidden) hidden.value = btn.getAttribute("data-ret-partb") === "1" ? "1" : "2";
-    var state = retRead(card);
-    retSave(state);
-    retFill(card, state);
+    retCommit(card);
   });
   document.addEventListener("click", function (e) {
     var reset = e.target.closest && e.target.closest("[data-ret-reset-saved]");

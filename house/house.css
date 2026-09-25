@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904br");
-@import url("house-b.css?v=20260904br");
-@import url("mix.css?v=20260904br");
+@import url("house-a.css?v=20260904bt");
+@import url("house-b.css?v=20260904bt");
+@import url("mix.css?v=20260904bt");
 
 header .brand-block {
   min-width: 0;
@@ -647,14 +647,6 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   text-transform: uppercase;
   color: var(--ink-soft);
   font-weight: 600;
-}
-.ret-progress-top .ret-prompt {
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 13px;
-  font-weight: 650;
-  color: var(--ink);
-  flex: 1 1 auto;
 }
 .ret-slider { margin-top: 12px; padding: 0 18px; --ret-thumb: 28px; }
 .ret-slider-head {
