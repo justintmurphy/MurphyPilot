@@ -564,6 +564,7 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
 }
 .retirement-card .ret-kpi b { font-size: 15px; }
 .retirement-card .ret-kpi i,
+.retirement-card .ret-results-kpi i,
 .retirement-card .ret-ss-kpi i {
   display: block;
   margin-top: 2px;
@@ -867,6 +868,13 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
 .ret-pia b { color: var(--ink); font-weight: 650; }
 .retirement-card button.ghost { margin: 12px 0 2px; min-height: 44px; }
 .ret-ss-field { grid-column: 1 / -1; }
+.ret-tax { grid-column: 1 / -1; margin-top: 6px; }
+.ret-tax-line {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+}
 .ret-extra401k { grid-column: 1 / -1; }
 .ret-extra-stats {
   margin: 6px 0 0;

@@ -886,6 +886,7 @@ function collapseHouseNames(list) {
      is stored only from #ret= or when it differs from the file. */
   var RET_STORE = "murphyHouseRetirement";
   var RET_SAVED = null;
+  var RET_TAX = null;
   var RET_SSA_B1 = 1286;
   var RET_SSA_B2 = 7749;
   var RET_SSA_WAGE = 184500;
@@ -927,7 +928,7 @@ function collapseHouseNames(list) {
       extraMonthly: 0, monthly: null, salary: null, salaryYear: null,
       ss62: null, ss67: null, ss70: null,
       retireAge: 67, birthMonth: null, birthYear: null,
-      filing: "mfj", statePct: 0,
+      filing: "mfj",
       partBPeople: null, extra401kPct: 0
     };
   }
@@ -983,7 +984,6 @@ function collapseHouseNames(list) {
     d.birthMonth = RET_SAVED.birthMonth;
     d.birthYear = RET_SAVED.birthYear;
     d.filing = RET_SAVED.filing;
-    d.statePct = RET_SAVED.statePct;
     return d;
   }
   function retBaseline() {
@@ -1039,7 +1039,7 @@ function collapseHouseNames(list) {
       keep[k] = v;
       if (edited.indexOf(k) < 0) edited.push(k);
     }
-    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "statePct", "extraMonthly", "retireAge"].forEach(function (k) {
+    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "retireAge"].forEach(function (k) {
       if (!Object.prototype.hasOwnProperty.call(o, k)) return;
       if (o[k] == null || o[k] === "" || !retFinite(o[k])) return;
       var n = k === "retireAge" ? retRetireAge(o[k]) : Number(o[k]);
@@ -1083,7 +1083,7 @@ function collapseHouseNames(list) {
     function on(k) {
       return edited.indexOf(k) >= 0 && Object.prototype.hasOwnProperty.call(store, k);
     }
-    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "statePct", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
+    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
       if (!on(k) || store[k] == null || store[k] === "" || !retFinite(store[k])) return;
       d[k] = Number(store[k]);
     });
@@ -1110,6 +1110,26 @@ function collapseHouseNames(list) {
     }
     return d;
   }
+  /* Typed state % is gone. Drop leftovers from bq/br and from earlier bt saves. */
+  function retStripStatePct(store) {
+    if (!store || typeof store !== "object") return false;
+    var dirty = false;
+    ["statePct", "state_pct"].forEach(function (k) {
+      if (Object.prototype.hasOwnProperty.call(store, k)) {
+        delete store[k];
+        dirty = true;
+      }
+    });
+    if (Array.isArray(store._edited)) {
+      var next = [];
+      store._edited.forEach(function (k) {
+        if (k === "statePct" || k === "state_pct") dirty = true;
+        else next.push(k);
+      });
+      if (next.length !== store._edited.length) store._edited = next;
+    }
+    return dirty;
+  }
   function retLoad() {
     var base = retBaseline();
     var d = retClone(base);
@@ -1121,7 +1141,8 @@ function collapseHouseNames(list) {
       store = retMigrateBlob(original, base);
       dirty = true;
     }
-    if (dirty && RET_SAVED) retStoreWrite(store);
+    if (retStripStatePct(store)) dirty = true;
+    if (dirty && (RET_SAVED || Array.isArray(original._edited))) retStoreWrite(store);
     return retApplyOverrides(d, store);
   }
   function retSave(d) {
@@ -1132,7 +1153,7 @@ function collapseHouseNames(list) {
       out[k] = v;
       if (edited.indexOf(k) < 0) edited.push(k);
     }
-    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "statePct", "extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
+    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
       if (d[k] == null || d[k] === "" || !retFinite(d[k])) return;
       var n = Number(d[k]);
       if (retSameVal(n, base[k])) return;
@@ -1281,9 +1302,15 @@ function collapseHouseNames(list) {
   }
   /* Same-origin defaults. Cache-busted with the tip bt asset query.
      A missing or malformed file leaves RET_SAVED null (empty helper). */
-  function retSavedUrl() {
+  function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? "retirement.json" : "house/retirement.json") + "?v=20260904bt";
+    return (housePath ? name : "house/" + name) + "?v=20260904bt";
+  }
+  function retSavedUrl() {
+    return retAssetUrl("retirement.json");
+  }
+  function retTaxUrl() {
+    return retAssetUrl("tax-rules.json");
   }
   function retSavedNum(v, lo, hi) {
     if (typeof v === "string" && String(v).trim() !== "") v = Number(v);
@@ -1308,7 +1335,6 @@ function collapseHouseNames(list) {
     var raise = retSavedNum(o.raise_pct, -20, 50);
     var ee = retSavedNum(o.emp_pct, 0, 100);
     var match = retSavedNum(o.match_pct, 0, 100);
-    var statePct = retSavedNum(o.state_pct, 0, 100);
     var realPct = retSavedNum(o.real_return_pct, -50, 50);
     var inflPct = retSavedNum(o.inflation_pct, -20, 50);
     var filing = retNormFiling(o.filing);
@@ -1316,34 +1342,82 @@ function collapseHouseNames(list) {
     var born = retPrefillBirth(o.birth_ym);
     if (s62 == null || s67 == null || s70 == null || salary == null || salaryYear == null) return null;
     if (Math.round(salaryYear) !== salaryYear) return null;
-    if (raise == null || ee == null || match == null || statePct == null || realPct == null || inflPct == null) return null;
+    if (raise == null || ee == null || match == null || realPct == null || inflPct == null) return null;
     if (!filing || !partb || !born) return null;
     return {
       realPct: realPct, inflPct: inflPct, raisePct: raise, eePct: ee, matchPct: match,
       salary: salary, salaryYear: salaryYear,
       ss62: s62, ss67: s67, ss70: s70,
       birthMonth: born.birthMonth, birthYear: born.birthYear,
-      filing: filing, statePct: statePct, partBPeople: partb
+      filing: filing, partBPeople: partb
     };
+  }
+  /* Missing, 404, or version other than 1: no rules. Never invent a rate. */
+  function retParseTax(o) {
+    if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+    if (o.version !== 1) return null;
+    var rate = o.pit_rate;
+    if (typeof rate === "string" && String(rate).trim() !== "") rate = Number(rate);
+    if (typeof rate !== "number" || !isFinite(rate) || rate < 0 || rate > 1) return null;
+    var state = String(o.state == null ? "" : o.state).trim();
+    if (!state) return null;
+    if (typeof o.retirement_401k_exempt_after_59_5 !== "boolean") return null;
+    if (typeof o.ss_exempt !== "boolean") return null;
+    if (typeof o.employee_401k_contrib_state_deductible !== "boolean") return null;
+    var checked = String(o.checked == null ? "" : o.checked).trim();
+    return {
+      state: state,
+      pitRate: rate,
+      exempt401k: o.retirement_401k_exempt_after_59_5,
+      ssExempt: o.ss_exempt,
+      contribDeductible: o.employee_401k_contrib_state_deductible,
+      checked: checked
+    };
+  }
+  function retPitPctLabel(rate) {
+    if (!retFinite(rate)) return "";
+    var n = Math.round(Number(rate) * 10000) / 100;
+    if (!isFinite(n) || n < 0) return "";
+    var s = n.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+    return s + "%";
+  }
+  function retTaxSummary() {
+    if (!RET_TAX) return null;
+    var pct = retPitPctLabel(RET_TAX.pitRate);
+    if (!pct || !RET_TAX.state) return null;
+    var line = RET_TAX.state + " " + pct;
+    if (RET_TAX.exempt401k) line += " (retirement income exempt)";
+    return { line: line, asof: RET_TAX.checked ? ("checked " + RET_TAX.checked) : "" };
   }
   function retRefreshSaved() {
     if (typeof snap === "undefined" || !snap || typeof paint !== "function") return;
     paint();
   }
+  function retFetchJson(url) {
+    return fetch(url, { cache: "no-store" }).then(function (r) {
+      if (!r || !r.ok) throw new Error("status");
+      return r.json();
+    });
+  }
   function retFetchSaved() {
     try {
-      fetch(retSavedUrl(), { cache: "no-store" }).then(function (r) {
-        if (!r || !r.ok) throw new Error("status");
-        return r.json();
-      }).then(function (o) {
+      retFetchJson(retSavedUrl()).then(function (o) {
         RET_SAVED = retParseSaved(o);
         retRefreshSaved();
       }).catch(function () {
         RET_SAVED = null;
         retRefreshSaved();
       });
+      retFetchJson(retTaxUrl()).then(function (o) {
+        RET_TAX = retParseTax(o);
+        retRefreshSaved();
+      }).catch(function () {
+        RET_TAX = null;
+        retRefreshSaved();
+      });
     } catch (e) {
       RET_SAVED = null;
+      RET_TAX = null;
     }
   }
   function retOffPublic(id, book) {
@@ -1423,7 +1497,7 @@ function collapseHouseNames(list) {
       monthly: state.monthly, salary: state.salary, salaryYear: state.salaryYear,
       ss62: state.ss62, ss67: state.ss67, ss70: state.ss70,
       retireAge: state.retireAge, birthMonth: state.birthMonth, birthYear: state.birthYear,
-      filing: state.filing, statePct: state.statePct,
+      filing: state.filing,
       partBPeople: retPartBExplicit(state.partBPeople),
       extra401kPct: retFinite(state.extra401kPct) ? Number(state.extra401kPct) : 0
     };
@@ -1748,12 +1822,23 @@ function collapseHouseNames(list) {
     if (retireAge >= 65) std += RET_STD_AGED_2026[filing] * agedPeople;
     var taxable = Math.max(0, agi - std);
     var federal = retFederalTax(taxable, filing);
-    var stateRate = (retFinite(state.statePct) ? Number(state.statePct) : 0) / 100;
-    var stateTax = stateRate * taxable;
+    var stateTax = retStateTax(drawA, ssA, retireAge);
     var partBPeople = retPartBCount(state);
     var medicare = retireAge >= 65 ? partBPeople * RET_PART_B * 12 : 0;
     var net = drawA + ssA - federal - stateTax - medicare;
     return isFinite(net) ? net / 12 : null;
+  }
+  /* Draw is exempt at 59.5+ when the rules say so. SS is exempt when the rules say so.
+     No rules, or a bad file: state tax is zero. */
+  function retStateTax(drawAnnual, ssAnnual, retireAge) {
+    if (!RET_TAX || !(RET_TAX.pitRate > 0)) return 0;
+    var rate = Number(RET_TAX.pitRate);
+    var tax = 0;
+    var age = Number(retireAge);
+    var drawExempt = !!(RET_TAX.exempt401k && age >= 59.5);
+    if (!drawExempt && drawAnnual > 0) tax += drawAnnual * rate;
+    if (!RET_TAX.ssExempt && ssAnnual > 0) tax += ssAnnual * rate;
+    return isFinite(tax) ? tax : 0;
   }
   /* Savings at 67 cover 36 months of the age-67 total (4% draw + SS at 67)
      while the remainder keeps growing at the real return. Then 4% of what
@@ -1798,6 +1883,13 @@ function collapseHouseNames(list) {
   function retMoney(n) {
     return (n == null || !isFinite(Number(n))) ? "\u2014" : money(n);
   }
+  function retTotalCopy(income, ss) {
+    if (ss == null) return { sub: "stocks + 401k", split: "" };
+    return {
+      sub: "stocks + 401k + SS",
+      split: money(income) + " savings + " + money(ss) + " SS"
+    };
+  }
   function retRead(card) {
     function raw(name) {
       var el = card.querySelector('[data-ret-in="' + name + '"]');
@@ -1839,7 +1931,6 @@ function collapseHouseNames(list) {
       birthMonth: prev.birthMonth,
       birthYear: prev.birthYear,
       filing: raw("filing") === "single" ? "single" : "mfj",
-      statePct: pct("state", base.statePct),
       partBPeople: retPartBExplicit(raw("partBPeople")),
       extra401kPct: (function () {
         var n = retNum(raw("extra401k"));
@@ -1886,7 +1977,7 @@ function collapseHouseNames(list) {
     var std = RET_STD_2026[filing];
     if (h.age != null && h.age >= 65) std += RET_STD_AGED_2026[filing] * (filing === "single" ? 1 : 2);
     var marginal = retMarginalRate(salary - std, filing);
-    var stateRate = (retFinite(state.statePct) ? Number(state.statePct) : 0) / 100;
+    var stateRate = (RET_TAX && RET_TAX.contribDeductible && retFinite(RET_TAX.pitRate)) ? Number(RET_TAX.pitRate) : 0;
     var baseEmp = Math.min(salary * (ee / 100), limit);
     var withEmp = Math.min(salary * ((ee + extraPct) / 100), limit);
     var extraAnnual = Math.max(0, withEmp - baseEmp);
@@ -2001,22 +2092,37 @@ function collapseHouseNames(list) {
     if (v.total == null) {
       retSetText(card, "total-mo", "\u2014");
       retSetText(card, "total-sub", "");
+      retSetText(card, "total-split", "");
     } else if (v.ss == null) {
       retSetText(card, "total-mo", money(v.total));
-      retSetText(card, "total-sub", "savings only");
+      retSetText(card, "total-sub", "stocks + 401k");
+      retSetText(card, "total-split", "");
     } else {
+      var totalCopy = retTotalCopy(v.income, v.ss);
       retSetText(card, "total-mo", money(v.total));
-      retSetText(card, "total-sub", "savings + SS");
+      retSetText(card, "total-sub", totalCopy.sub);
+      retSetText(card, "total-split", totalCopy.split);
     }
     if (v.take == null) {
       retSetText(card, "take", "\u2014");
       retSetText(card, "take-sub", "");
     } else if (v.ss == null) {
       retSetText(card, "take", money(v.take));
-      retSetText(card, "take-sub", "savings only \u00b7 rough; excludes IRMAA, state rules on SS");
+      retSetText(card, "take-sub", "savings only \u00b7 rough; excludes IRMAA");
     } else {
       retSetText(card, "take", money(v.take));
-      retSetText(card, "take-sub", "rough; excludes IRMAA, state rules on SS");
+      retSetText(card, "take-sub", "rough; excludes IRMAA");
+    }
+    var taxSummary = retTaxSummary();
+    var taxWrap = card.querySelector('[data-ret="tax-wrap"]');
+    if (!taxSummary) {
+      retSetText(card, "tax-line", "");
+      retSetText(card, "tax-checked", "");
+      retShow(taxWrap, false);
+    } else {
+      retSetText(card, "tax-line", taxSummary.line);
+      retSetText(card, "tax-checked", taxSummary.asof);
+      retShow(taxWrap, true);
     }
     var br = card.querySelector('[data-ret="bridge"]');
     if (br) {
@@ -2051,7 +2157,7 @@ function collapseHouseNames(list) {
       ["real", state.realPct], ["infl", state.inflPct], ["raise", state.raisePct],
       ["ee", state.eePct], ["match", state.matchPct], ["extra", state.extraMonthly],
       ["salary", state.salary], ["ss62", state.ss62], ["ss67", state.ss67],
-      ["ss70", state.ss70], ["state", state.statePct]
+      ["ss70", state.ss70]
     ].forEach(function (pair) {
       var el = card.querySelector('[data-ret-in="' + pair[0] + '"]');
       if (!el || String(el.value).trim() !== "") return;
@@ -2145,7 +2251,7 @@ function collapseHouseNames(list) {
       '<p class="ret-nominal" data-ret="nominal-line">Nominal year \u2014</p>' +
       '<div class="kpi ret-results-kpi">' +
       '<div><span>SS / mo</span><b data-ret="ss-mo">\u2014</b><i data-ret="ss-sub"></i></div>' +
-      '<div><span>Total / mo</span><b data-ret="total-mo">\u2014</b><i data-ret="total-sub"></i></div>' +
+      '<div><span>Total / mo</span><b data-ret="total-mo">\u2014</b><i data-ret="total-sub"></i><i data-ret="total-split"></i></div>' +
       '</div>' +
       '<div class="ret-take"><span>Take-home / mo (est.)</span><b data-ret="take">\u2014</b><i data-ret="take-sub"></i></div>' +
       '<p class="ret-bridge" data-ret="bridge" hidden></p>' +
@@ -2186,9 +2292,9 @@ function collapseHouseNames(list) {
       '</div>' +
       '<input type="hidden" data-ret-in="partBPeople" value="' + (partStored ? String(partStored) : "") + '">' +
       '<p class="ret-field-hint">People on Part B. About $203 a month each from age 65. Starts at 2 for married filing jointly and 1 for single until you pick.</p></div>' +
-      '<div><label for="ret-state">State tax %</label>' +
-      '<input id="ret-state" data-ret-in="state" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.statePct)) + '">' +
-      '<p class="ret-field-hint">Percent of taxable income.</p></div>' +
+      '<div class="ret-tax" data-ret="tax-wrap" hidden>' +
+      '<p class="ret-tax-line" data-ret="tax-line"></p>' +
+      '<p class="ret-field-hint" data-ret="tax-checked"></p></div>' +
       '<div class="ret-extra401k ret-slider">' +
       '<div class="ret-slider-head"><span>Extra 401k % of pay</span><b data-ret="extra401k-val">0</b></div>' +
       '<p class="ret-field-hint" data-ret="extra401k-prompt">Enter annual salary to estimate an extra 401k deferral.</p>' +

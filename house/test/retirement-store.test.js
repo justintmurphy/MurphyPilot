@@ -24,7 +24,7 @@ function fileA(over) {
     filing: "MFJ",
     partb_people: 2,
     birth_ym: "1980-06",
-    state_pct: 0,
+    state: "PA",
     real_return_pct: 5,
     inflation_pct: 2.5
   };
@@ -124,7 +124,6 @@ function cardFrom(state, over) {
     retireAge: state.retireAge,
     filing: state.filing,
     partBPeople: "",
-    state: state.statePct,
     extra401k: state.extra401kPct || 0
   };
   if (over) Object.keys(over).forEach(function (k) { vals[k] = over[k]; });
@@ -411,4 +410,133 @@ test("#ret= prefill merges as explicit overrides and strips the hash", function 
   assert.equal(Object.prototype.hasOwnProperty.call(blob, "ss62"), false);
   assert.ok(blob._edited.indexOf("salary") >= 0);
   assert.equal(blob.retireAge, undefined);
+});
+
+function taxRules(over) {
+  const o = {
+    version: 1,
+    tax_year: 2026,
+    state: "PA",
+    pit_rate: 0.0307,
+    retirement_401k_exempt_after_59_5: true,
+    ss_exempt: true,
+    employee_401k_contrib_state_deductible: false,
+    source: "PA Department of Revenue",
+    checked: "2026-09-25"
+  };
+  if (over) Object.keys(over).forEach(function (k) { o[k] = over[k]; });
+  return o;
+}
+
+test("retirement draw at 67 and Social Security are state-tax exempt", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  const parsed = ctx.retParseTax(taxRules());
+  assert.ok(parsed);
+  ctx.RET_TAX = parsed;
+  const summary = ctx.retTaxSummary();
+  assert.equal(summary.line, "PA 3.07% (retirement income exempt)");
+  assert.equal(summary.asof, "checked 2026-09-25");
+  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904bt$/);
+  assert.match(String(ctx.retFetchJson), /no-store/);
+
+  const state = ctx.retLoad();
+  const draw = 2000;
+  const ss = 800;
+  const years = 15;
+  const exempt = ctx.retTakeHome(draw, ss, state, years, 67);
+  assert.equal(ctx.retStateTax(draw * 12, ss * 12, 67), 0);
+
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ retirement_401k_exempt_after_59_5: false }));
+  const taxedDraw = ctx.retTakeHome(draw, ss, state, years, 67);
+  assert.ok(Math.abs((exempt - taxedDraw) - draw * parsed.pitRate) < 0.02);
+
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ ss_exempt: false }));
+  const taxedSs = ctx.retTakeHome(draw, ss, state, years, 67);
+  assert.ok(Math.abs((exempt - taxedSs) - ss * parsed.pitRate) < 0.02);
+
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const youngTax = ctx.retStateTax(draw * 12, 0, 55);
+  assert.ok(Math.abs(youngTax - draw * 12 * parsed.pitRate) < 0.02);
+});
+
+test("extra 401k cost keeps the state rate when contributions are not deductible", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 100 } }
+  };
+  const state = ctx.retLoad();
+  state.extra401kPct = 2;
+  state.retireAge = 67;
+  const view = ctx.retView(state);
+  const parsed = ctx.retParseTax(taxRules());
+  ctx.RET_TAX = parsed;
+  const plain = ctx.retExtra401k(state, view);
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ employee_401k_contrib_state_deductible: true }));
+  const ded = ctx.retExtra401k(state, view);
+  const salary = ctx.retSalaryNow(state);
+  const limit = ctx.retDeferralLimit(state.birthYear, ctx.retTodayNy().year);
+  const extraPct = plain.extraPct;
+  const baseEmp = Math.min(salary * (state.eePct / 100), limit);
+  const withEmp = Math.min(salary * ((state.eePct + extraPct) / 100), limit);
+  const extraAnnual = Math.max(0, withEmp - baseEmp);
+  const marginal = ctx.retMarginalRate(salary - ctx.RET_STD_2026.mfj, "mfj");
+  const federalOnly = extraAnnual / 12 * (1 - marginal);
+  const reduced = extraAnnual / 12 * Math.max(0, 1 - marginal - parsed.pitRate);
+  assert.ok(extraAnnual > 0);
+  assert.ok(Math.abs(plain.cost - federalOnly) < 0.05);
+  assert.ok(Math.abs(ded.cost - reduced) < 0.05);
+  assert.ok(Math.abs((plain.cost - ded.cost) - (extraAnnual / 12 * parsed.pitRate)) < 0.05);
+});
+
+test("missing or malformed tax rules add no state tax and no line", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  assert.equal(ctx.retParseTax(null), null);
+  assert.equal(ctx.retParseTax({ version: 2, state: "PA", pit_rate: 0.0307, retirement_401k_exempt_after_59_5: true, ss_exempt: true, employee_401k_contrib_state_deductible: false }), null);
+  assert.equal(ctx.retParseTax({ version: 1, state: "PA" }), null);
+  ctx.RET_TAX = null;
+  assert.equal(ctx.retTaxSummary(), null);
+  const state = ctx.retLoad();
+  const bare = ctx.retTakeHome(2000, 800, state, 15, 67);
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const exempt = ctx.retTakeHome(2000, 800, state, 15, 67);
+  assert.equal(bare, exempt);
+  ctx.RET_TAX = null;
+  assert.equal(ctx.retStateTax(24000, 9600, 67), 0);
+  assert.equal(ctx.retTaxSummary(), null);
+});
+
+test("old state percent blobs are dropped", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const state = ctx.retLoad();
+  const before = ctx.retTakeHome(2000, 800, state, 15, 67);
+  seed(ctx, { statePct: 8, state_pct: 8, _edited: ["statePct", "state_pct", "retireAge"], retireAge: 64 });
+  const loaded = ctx.retLoad();
+  assert.equal(loaded.retireAge, 64);
+  const blob = stored(ctx);
+  assert.ok(blob);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "statePct"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "state_pct"), false);
+  assert.deepEqual(blob._edited, ["retireAge"]);
+  assert.equal(ctx.retTakeHome(2000, 800, loaded, 15, 67), before);
+  seed(ctx, { statePct: 8, state_pct: 5, salary: null, ss62: null, ss67: null, ss70: null });
+  const again = ctx.retLoad();
+  assert.equal(again.salary, 80000);
+  assert.equal(ctx.localStorage.getItem(storeKey), null);
+});
+
+test("total line says stocks plus 401k plus Social Security", function () {
+  const ctx = boot();
+  const both = ctx.retTotalCopy(1000, 250);
+  assert.equal(both.sub, "stocks + 401k + SS");
+  assert.equal(both.split, "$1,000.00 savings + $250.00 SS");
+  const nestOnly = ctx.retTotalCopy(1000, null);
+  assert.equal(nestOnly.sub, "stocks + 401k");
+  assert.equal(nestOnly.split, "");
 });
