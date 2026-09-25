@@ -1016,8 +1016,8 @@ function collapseHouseNames(list) {
      anything equal to the file or the built-in default, including the pct
      defaults 5 / 2.5 / 1 / 6 / 6 / 0 when the file still has that value.
      A stored Social Security or birth value that differs from the file is kept.
-     Salary is the exception: without _edited it was copied from whatever the
-     file said at the time, so drop it. */
+     Salary and raise are the exception: without _edited they were copied from
+     whatever the file said at the time, so drop them. */
   function retMigrateBlob(o, base) {
     var keep = {};
     var edited = [];
@@ -1025,7 +1025,7 @@ function collapseHouseNames(list) {
       keep[k] = v;
       if (edited.indexOf(k) < 0) edited.push(k);
     }
-    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "retireAge"].forEach(function (k) {
+    ["realPct", "inflPct", "eePct", "matchPct", "extraMonthly", "retireAge"].forEach(function (k) {
       if (!Object.prototype.hasOwnProperty.call(o, k)) return;
       if (o[k] == null || o[k] === "" || !retFinite(o[k])) return;
       var n = k === "retireAge" ? retRetireAge(o[k]) : Number(o[k]);
@@ -2092,6 +2092,16 @@ function collapseHouseNames(list) {
     if (Math.abs(r - Math.round(r)) < 0.001) return String(Math.round(r));
     return r.toFixed(1);
   }
+  /* Nominal = (1+real)*(1+inflation)-1. Inflation is the file's, not the field. */
+  function retNominalHint(realPct) {
+    if (!retFinite(realPct) || !RET_SAVED || !retFinite(RET_SAVED.inflPct)) return "";
+    var real = Number(realPct) / 100;
+    var infl = Number(RET_SAVED.inflPct) / 100;
+    var nominal = (1 + real) * (1 + infl) - 1;
+    if (!isFinite(nominal)) return "";
+    var nomPct = Math.round(nominal * 1000) / 10;
+    return retPctLabel(realPct) + "% real \u2248 " + nomPct.toFixed(1) + "%/yr at " + retPctLabel(RET_SAVED.inflPct) + "% inflation";
+  }
   /* What-if on top of the same salary projection. Match stays on match% only.
      Employee deferral (base % + extra %) is clamped to that year's IRS limit. */
   function retExtra401k(state, view) {
@@ -2191,6 +2201,7 @@ function collapseHouseNames(list) {
       depNote.textContent = showDep ? "No owner deposits on the last-30-days print." : "";
     }
     retSetText(card, "nest-k", (retFinite(state.realPct) ? String(state.realPct) : "5") + "% real");
+    retSetText(card, "real-hint", retNominalHint(state.realPct));
     retSetText(card, "nest", retMoney(v.mid.today));
     retSetText(card, "income", retMoney(v.income));
     retSetText(card, "low", retMoney(v.low.today));
@@ -2440,8 +2451,9 @@ function collapseHouseNames(list) {
       '<div><label for="ret-monthly">Monthly savings</label>' +
       '<input id="ret-monthly" data-ret-in="monthly" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(monthlyVal)) + '">' +
       '<p class="ret-field-hint" data-ret="monthly-hint"></p></div>' +
-      '<div><label for="ret-real">Real return %</label>' +
-      '<input id="ret-real" data-ret-in="real" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.realPct)) + '"></div>' +
+      '<div><label for="ret-real">Growth after inflation (real) %</label>' +
+      '<input id="ret-real" data-ret-in="real" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.realPct)) + '">' +
+      '<p class="ret-field-hint" data-ret="real-hint"></p></div>' +
       '<div><label for="ret-infl">Inflation %</label>' +
       '<input id="ret-infl" data-ret-in="infl" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.inflPct)) + '"></div>' +
       '<div><label for="ret-extra">Extra monthly deposits</label>' +

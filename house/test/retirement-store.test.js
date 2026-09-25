@@ -716,6 +716,50 @@ test("Social Security thresholds come from the file", function () {
   assert.ok(highTake > lowTake);
 });
 
+test("an old raise without an edit marker does not override the file", function () {
+  const ctx = boot();
+  useFile(ctx, fileA({ raise_pct: 4 }));
+  seed(ctx, { raisePct: 1, raise_pct: 9, salary: 55555, realPct: 4 });
+  let state = ctx.retLoad();
+  assert.equal(state.raisePct, 4);
+  assert.equal(state.salary, 80000);
+  assert.equal(state.realPct, 4);
+  let blob = stored(ctx);
+  assert.ok(blob);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "raisePct"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "raise_pct"), false);
+  assert.deepEqual(blob._edited, ["realPct"]);
+
+  seed(ctx, { raisePct: 7, _edited: ["raisePct"] });
+  useFile(ctx, fileA({ raise_pct: 4 }));
+  state = ctx.retLoad();
+  assert.equal(state.raisePct, 7);
+  blob = stored(ctx);
+  assert.equal(blob.raisePct, 7);
+});
+
+test("real growth hint shows nominal return from the file inflation", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  assert.equal(ctx.retNominalHint(5), "5% real \u2248 7.6%/yr at 2.5% inflation");
+  assert.equal(ctx.retNominalHint(6), "6% real \u2248 8.7%/yr at 2.5% inflation");
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 100 } }
+  };
+  assert.match(ctx.retirementHtml(), /Growth after inflation \(real\) %/);
+  assert.match(ctx.retirementHtml(), /data-ret="real-hint"/);
+  const state = ctx.retLoad();
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els["real-hint"].textContent, "5% real \u2248 7.6%/yr at 2.5% inflation");
+  state.realPct = 6;
+  state.inflPct = 9;
+  ctx.retFill(card, state);
+  assert.equal(card.els["real-hint"].textContent, "6% real \u2248 8.7%/yr at 2.5% inflation");
+});
+
 test("total line says stocks plus 401k plus Social Security", function () {
   const ctx = boot();
   const both = ctx.retTotalCopy(1000, 250);
