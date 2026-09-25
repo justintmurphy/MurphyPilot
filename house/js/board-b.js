@@ -1116,6 +1116,24 @@ function collapseHouseNames(list) {
     }
     return dirty;
   }
+  /* The loan lives only in the file. Drop any copy a browser tried to keep. */
+  function retStripLoan(store) {
+    if (!store || typeof store !== "object") return false;
+    var dirty = false;
+    if (Object.prototype.hasOwnProperty.call(store, "loan")) {
+      delete store.loan;
+      dirty = true;
+    }
+    if (Array.isArray(store._edited)) {
+      var next = [];
+      store._edited.forEach(function (k) {
+        if (k === "loan") dirty = true;
+        else next.push(k);
+      });
+      if (next.length !== store._edited.length) store._edited = next;
+    }
+    return dirty;
+  }
   function retLoad() {
     var base = retBaseline();
     var d = retClone(base);
@@ -1128,6 +1146,7 @@ function collapseHouseNames(list) {
       dirty = true;
     }
     if (retStripStatePct(store)) dirty = true;
+    if (retStripLoan(store)) dirty = true;
     if (dirty && (RET_SAVED || Array.isArray(original._edited))) retStoreWrite(store);
     return retApplyOverrides(d, store);
   }
@@ -1335,8 +1354,38 @@ function collapseHouseNames(list) {
       salary: salary, salaryYear: salaryYear,
       ss62: s62, ss67: s67, ss70: s70,
       birthMonth: born.birthMonth, birthYear: born.birthYear,
-      filing: filing, partBPeople: partb
+      filing: filing, partBPeople: partb,
+      loan: retParseLoan(o.loan)
     };
+  }
+  function retYmdMs(y, m, d) {
+    return Date.UTC(y, m - 1, d, 12, 0, 0);
+  }
+  function retParseYmd(raw) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(raw == null ? "" : raw).trim());
+    if (!m) return null;
+    var y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+    var ms = retYmdMs(y, mo, d);
+    var back = new Date(ms);
+    if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d) return null;
+    return ms;
+  }
+  function retTodayMs() {
+    var t = retTodayNy();
+    return retYmdMs(t.year, t.month, t.day);
+  }
+  /* A bad or missing loan is ignored. The rest of the file still applies. */
+  function retParseLoan(o) {
+    if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+    var balance = retNonNeg(o.balance);
+    var payment = retNonNeg(o.payment);
+    var per = o.payments_per_year;
+    if (typeof per === "string" && String(per).trim() !== "") per = Number(per);
+    if (typeof per !== "number" || !isFinite(per) || per < 1 || Math.round(per) !== per) return null;
+    var asofMs = retParseYmd(o.asof);
+    if (balance == null || !(balance > 0) || payment == null || !(payment > 0) || asofMs == null) return null;
+    return { balance: balance, payment: payment, perYear: per, asofMs: asofMs };
   }
   function retNonNeg(n) {
     if (typeof n === "string" && String(n).trim() !== "") n = Number(n);
@@ -1722,11 +1771,87 @@ function collapseHouseNames(list) {
       match: match
     };
   }
+  var RET_YEAR_MS = 365.2425 * 86400000;
+  /* Payments fall every 1/payments_per_year from asof. Ones on or before
+     today are already in the balance. A zero remainder means it is repaid. */
+  function retLoanStatus(loan, nowMs) {
+    if (!loan || nowMs == null || !isFinite(nowMs)) return null;
+    var elapsed = (nowMs - loan.asofMs) / RET_YEAR_MS;
+    if (!isFinite(elapsed)) return null;
+    var nPaid = elapsed > 0 ? Math.floor(elapsed * loan.perYear + 1e-9) : 0;
+    if (nPaid < 0) nPaid = 0;
+    var remaining = loan.balance - nPaid * loan.payment;
+    if (!(remaining > 0.005)) return null;
+    var slots = Math.ceil(loan.balance / loan.payment - 1e-9);
+    if (!(slots > nPaid)) return null;
+    var lastAmt = loan.balance - (slots - 1) * loan.payment;
+    if (!(lastAmt > 0)) return null;
+    return {
+      remaining: remaining,
+      payoffMs: loan.asofMs + (slots / loan.perYear) * RET_YEAR_MS,
+      nPaid: nPaid,
+      slots: slots,
+      lastAmt: lastAmt,
+      payment: loan.payment,
+      perYear: loan.perYear,
+      asofMs: loan.asofMs,
+      nowMs: nowMs,
+      balance: loan.balance
+    };
+  }
+  function retLoanActive() {
+    if (!RET_SAVED || !RET_SAVED.loan) return null;
+    return retLoanStatus(RET_SAVED.loan, retTodayMs());
+  }
+  /* Principal only, on the payment date, through the horizon. No match. */
+  function retLoanFuture(years, real, infl) {
+    var model = retLoanActive();
+    if (!model || !(years > 0)) return { nominal: 0, today: 0 };
+    var R = (1 + real) * (1 + infl) - 1;
+    var growth = 1 + R;
+    if (!(growth > 0) || !isFinite(growth)) return { nominal: 0, today: 0 };
+    var bal = 0;
+    var prev = 0;
+    var i;
+    for (i = model.nPaid + 1; i <= model.slots; i++) {
+      var t = (model.asofMs - model.nowMs) / RET_YEAR_MS + i / model.perYear;
+      if (!(t > 0) || t > years) continue;
+      var amt = i === model.slots ? model.lastAmt : model.payment;
+      if (!(amt > 0)) continue;
+      bal = bal * Math.pow(growth, t - prev) + amt;
+      prev = t;
+      if (!isFinite(bal)) return { nominal: 0, today: 0 };
+    }
+    bal = bal * Math.pow(growth, years - prev);
+    if (!isFinite(bal)) return { nominal: 0, today: 0 };
+    var deflator = Math.pow(1 + infl, years);
+    if (!isFinite(deflator) || deflator === 0) return { nominal: 0, today: 0 };
+    return { nominal: bal, today: bal / deflator };
+  }
+  function retWithLoan(empty, years, real, infl) {
+    if (!empty || (empty.today == null && empty.nominal == null)) return empty;
+    var add = retLoanFuture(years, real, infl);
+    if (empty.today != null) empty.today += add.today;
+    if (empty.nominal != null) empty.nominal += add.nominal;
+    return empty;
+  }
+  function retLoanCopy(model) {
+    if (!model) return "";
+    var d = new Date(model.payoffMs);
+    var names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    var month = names[d.getUTCMonth()];
+    if (!month) return "";
+    return "Loan repay: " + money(model.remaining) + " left \u00b7 paid off ~" + month + " " + d.getUTCFullYear();
+  }
+  function retLoanLine() {
+    return retLoanCopy(retLoanActive());
+  }
   /* No salary: today's-dollar FV of a level annual deposit.
      Salary set: nominal return R=(1+real)*(1+inflation)-1.
      Each year salary grows by the raise first, then a mid-year contribution
      salary*(employee%+match%) + extra monthly*12 earns half a year of R.
-     Headline = nominal / (1+inflation)^years. A partial last year uses the same shape. */
+     Headline = nominal / (1+inflation)^years. A partial last year uses the same shape.
+     Loan principal is added on its own dates, with no match and outside the deferral cap. */
   function retProject(pv, state, years, opts) {
     var meta = retSavingsMeta(state);
     var real = Number(state.realPct) / 100;
@@ -1805,7 +1930,7 @@ function collapseHouseNames(list) {
       empty.today = bal / deflator;
       empty.nominal = bal;
       if (useCap) empty.clamped = clamped;
-      return empty;
+      return retWithLoan(empty, years, real, infl);
     }
     var monthly = meta.monthly;
     var annual = (monthly == null ? 0 : monthly) * 12 + meta.extra * 12;
@@ -1820,7 +1945,7 @@ function collapseHouseNames(list) {
     var inf = retPow(1 + infl, years);
     empty.today = todayD;
     empty.nominal = inf == null ? null : todayD * inf;
-    return empty;
+    return retWithLoan(empty, years, real, infl);
   }
   /* FRA 67. Early: 5/9 of 1% per month for the first 36 months, then 5/12 of 1%.
      Delayed: 8% per year. Age 62 is 70% of PIA. Age 70 is 124%. */
@@ -2309,6 +2434,10 @@ function collapseHouseNames(list) {
     var rulesEl = card.querySelector('[data-ret="tax-rules"]');
     retSetText(card, "tax-rules", rules);
     retShow(rulesEl, !!rules);
+    var loanLine = retLoanLine();
+    var loanEl = card.querySelector('[data-ret="loan-line"]');
+    retSetText(card, "loan-line", loanLine);
+    retShow(loanEl, !!loanLine);
     var partbHint = card.querySelector('[data-ret="partb-hint"]');
     if (partbHint) partbHint.textContent = retPartBHint();
     var br = card.querySelector('[data-ret="bridge"]');
@@ -2453,6 +2582,7 @@ function collapseHouseNames(list) {
       '</div>' +
       '<div class="ret-take"><span>Take-home / mo (est.)</span><b data-ret="take">\u2014</b><i data-ret="take-sub"></i></div>' +
       '<p class="ret-rules" data-ret="tax-rules" hidden></p>' +
+      '<p class="ret-loan" data-ret="loan-line" hidden></p>' +
       '<p class="ret-bridge" data-ret="bridge" hidden></p>' +
       '<p class="ret-range"><span data-ret="low-lab">Low</span> <b data-ret="low">\u2014</b> \u00b7 <b data-ret="low-mo">\u2014</b>/mo' +
       '<span class="ret-range-gap"></span><span data-ret="high-lab">High</span> <b data-ret="high">\u2014</b> \u00b7 <b data-ret="high-mo">\u2014</b>/mo</p>' +

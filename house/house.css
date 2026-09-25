@@ -736,7 +736,8 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
 .ret-tick-mid { left: calc(var(--ret-thumb) / 2 + 0.625 * (100% - var(--ret-thumb))); }
 .ret-tick-hi { left: calc(100% - var(--ret-thumb) / 2); }
 .retirement-card .ret-results-kpi { margin-top: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.ret-rules {
+.ret-rules,
+.ret-loan {
   margin: 4px 0 0;
   font-size: 12px;
   line-height: 1.4;

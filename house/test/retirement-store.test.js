@@ -809,6 +809,125 @@ test("the range band sits one point around real growth", function () {
   assert.equal(ctx.retirementHtml().indexOf("High 6%"), -1);
 });
 
+test("loan remaining balance counts payments since asof", function () {
+  const ctx = boot();
+  const loan = ctx.retParseLoan({
+    balance: 1000, payment: 100, payments_per_year: 24, asof: "2026-03-01"
+  });
+  assert.ok(loan);
+  const year = 365.2425 * 86400000;
+  const at = ctx.retLoanStatus(loan, loan.asofMs);
+  assert.equal(at.remaining, 1000);
+  const one = ctx.retLoanStatus(loan, loan.asofMs + year / 24);
+  assert.ok(Math.abs(one.remaining - 900) < 0.001);
+  const five = ctx.retLoanStatus(loan, loan.asofMs + (5 * year) / 24);
+  assert.ok(Math.abs(five.remaining - 500) < 0.001);
+  const before = ctx.retLoanStatus(loan, loan.asofMs - year);
+  assert.equal(before.remaining, 1000);
+  assert.equal(ctx.retLoanStatus(loan, loan.asofMs + (10 * year) / 24), null);
+  const partial = ctx.retParseLoan({
+    balance: 250, payment: 100, payments_per_year: 12, asof: "2026-01-15"
+  });
+  const open = ctx.retLoanStatus(partial, partial.asofMs);
+  assert.equal(open.slots, 3);
+  assert.ok(Math.abs(open.lastAmt - 50) < 0.001);
+});
+
+test("loan payoff month is the last scheduled payment", function () {
+  const ctx = boot();
+  const loan = ctx.retParseLoan({
+    balance: 240, payment: 100, payments_per_year: 12, asof: "2026-01-15"
+  });
+  const status = ctx.retLoanStatus(loan, loan.asofMs);
+  assert.match(ctx.retLoanCopy(status), /^Loan repay: \$240\.00 left · paid off ~Apr 2026$/);
+});
+
+test("loan repayments add principal with no match and do not change the deferral cap", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 100 } }
+  };
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const loan = ctx.retParseLoan({
+    balance: 1200, payment: 100, payments_per_year: 12, asof: "2026-01-15"
+  });
+  const state = ctx.retLoad();
+  state.retireAge = 67;
+  state.extra401kPct = 2;
+  function nest(match) {
+    state.matchPct = match;
+    ctx.RET_SAVED.loan = null;
+    const plain = ctx.retView(state).mid.today;
+    ctx.RET_SAVED.loan = loan;
+    const withLoan = ctx.retView(state).mid.today;
+    return withLoan - plain;
+  }
+  const unmatched = nest(0);
+  const matched = nest(20);
+  assert.ok(unmatched > 100);
+  assert.ok(Math.abs(unmatched - matched) < 0.05);
+  const view = ctx.retView(state);
+  const cap = ctx.retDeferralLimit(state.birthYear, ctx.retTodayNy().year);
+  const costWith = ctx.retExtra401k(state, view).cost;
+  ctx.RET_SAVED.loan = null;
+  const costWithout = ctx.retExtra401k(state, view).cost;
+  assert.equal(ctx.retDeferralLimit(state.birthYear, ctx.retTodayNy().year), cap);
+  assert.ok(Math.abs(costWith - costWithout) < 0.001);
+  const tiny = federalFixture();
+  tiny.deferral_limit = 1000;
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: tiny }));
+  ctx.RET_SAVED.loan = null;
+  const cappedPlain = ctx.retView(state).mid.today;
+  ctx.RET_SAVED.loan = loan;
+  const cappedLoan = ctx.retView(state).mid.today;
+  assert.ok(Math.abs((cappedLoan - cappedPlain) - matched) < 0.05);
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els["loan-line"].hidden, false);
+  assert.match(card.els["loan-line"].textContent, /^Loan repay: /);
+});
+
+test("a missing or repaid loan adds nothing and is not stored", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 100 } }
+  };
+  assert.equal(ctx.retParseLoan(null), null);
+  assert.equal(ctx.retParseLoan({ balance: 100 }), null);
+  assert.equal(ctx.RET_SAVED.loan, null);
+  const state = ctx.retLoad();
+  state.retireAge = 67;
+  const plain = ctx.retView(state).mid.today;
+  assert.equal(ctx.retLoanLine(), "");
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els["loan-line"].textContent, "");
+  assert.equal(card.els["loan-line"].hidden, true);
+  const repaid = ctx.retParseLoan({
+    balance: 100, payment: 100, payments_per_year: 12, asof: "2020-01-01"
+  });
+  ctx.RET_SAVED.loan = repaid;
+  assert.equal(ctx.retLoanLine(), "");
+  assert.equal(ctx.retView(state).mid.today, plain);
+  ctx.RET_SAVED.loan = null;
+  seed(ctx, { loan: { balance: 50, payment: 10 }, retireAge: 64, _edited: ["loan", "retireAge"] });
+  const loaded = ctx.retLoad();
+  assert.equal(loaded.retireAge, 64);
+  const blob = stored(ctx);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "loan"), false);
+  assert.deepEqual(blob._edited, ["retireAge"]);
+  state.loan = { balance: 50 };
+  ctx.retSave(state);
+  const again = stored(ctx);
+  if (again) assert.equal(Object.prototype.hasOwnProperty.call(again, "loan"), false);
+});
+
 test("total line says stocks plus 401k plus Social Security", function () {
   const ctx = boot();
   const both = ctx.retTotalCopy(1000, 250);
