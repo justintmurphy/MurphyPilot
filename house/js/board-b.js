@@ -877,9 +877,9 @@ function collapseHouseNames(list) {
     return html;
   }
 
-  /* tip bv — Retirement helper.
+  /* tip bw — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904bv).
+     Defaults come from same-origin retirement.json (?v=20260904bw).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. A missing federal
      block leaves take-home, extra-401k cost, and the cap label as a dash.
@@ -889,7 +889,7 @@ function collapseHouseNames(list) {
      those defaults (_edited). A null or blank local value is not an override.
      The extra 401k range gets its real max before its value. Until that cap
      is known, a reload keeps the saved percent instead of the placeholder 0.
-     Once the cap is known, a stored extra above that max is clamped to it.
+     Once the cap is known, a stored extra above that max is floored to the slider step.
      Headline totals already include the extra, so the stats line does not add it again.
      Birth is not edited in the form and is stored only from #ret= or when it
      differs from the file. */
@@ -1338,7 +1338,7 @@ function collapseHouseNames(list) {
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904bv";
+    return (housePath ? name : "house/" + name) + "?v=20260904bw";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");
@@ -1499,6 +1499,8 @@ function collapseHouseNames(list) {
     var catch50 = retNonNeg(o.catchup_50);
     var catch60 = retNonNeg(o.catchup_60_63);
     if (partB == null || limit == null || !(limit > 0) || catch50 == null || catch60 == null) return null;
+    var deferralLimitsIndexed = flag("deferral_limits_indexed");
+    if (deferralLimitsIndexed == null) return null;
     var compLimit = null;
     var compLimitIndexed = false;
     if (Object.prototype.hasOwnProperty.call(o, "comp_limit")) {
@@ -1523,6 +1525,7 @@ function collapseHouseNames(list) {
       deferralLimit: limit,
       catchup50: catch50,
       catchup6063: catch60,
+      deferralLimitsIndexed: deferralLimitsIndexed,
       compLimit: compLimit,
       compLimitIndexed: compLimitIndexed,
       source: String(o.source == null ? "" : o.source).trim(),
@@ -1786,20 +1789,27 @@ function collapseHouseNames(list) {
     return retPartBExplicit(state && state.partBPeople);
   }
   /* Age is the age attained in the calendar year. 60 through 63 uses the
-     super catch-up instead of the age-50 catch-up. No federal block: null. */
-  function retDeferralLimit(birthYear, calendarYear) {
+     super catch-up instead of the age-50 catch-up. No federal block: null.
+     When deferral_limits_indexed is set, the base and both catch-ups grow
+     from tax_year the same way as the compensation limit. */
+  function retDeferralLimit(birthYear, calendarYear, state) {
     var fed = retFederal();
     if (!fed || !retFinite(fed.deferralLimit)) return null;
-    var cap = Number(fed.deferralLimit);
+    var scale = retIndexScale(!!fed.deferralLimitsIndexed, state, calendarYear);
+    function grow(n) {
+      var grown = Number(n) * scale;
+      return (isFinite(grown) && grown >= 0) ? grown : Number(n);
+    }
+    var cap = grow(fed.deferralLimit);
     if (birthYear == null || calendarYear == null) return cap;
     var age = Number(calendarYear) - Number(birthYear);
     if (age >= 60 && age <= 63) {
       if (!retFinite(fed.catchup6063)) return null;
-      return cap + Number(fed.catchup6063);
+      return cap + grow(fed.catchup6063);
     }
     if (age >= 50) {
       if (!retFinite(fed.catchup50)) return null;
-      return cap + Number(fed.catchup50);
+      return cap + grow(fed.catchup50);
     }
     return cap;
   }
@@ -1868,7 +1878,7 @@ function collapseHouseNames(list) {
     var match = (retFinite(state.matchPct) ? Number(state.matchPct) : 6) / 100;
     var sal1 = salaryNow * (1 + raise);
     var year0 = retTodayNy().year;
-    var emp1 = retCappedEmployee(sal1, ee, retExtraRate(state), state.birthYear, year0);
+    var emp1 = retCappedEmployee(sal1, ee, retExtraRate(state), state.birthYear, year0, state);
     var year1 = emp1.employee + retMatchDollars(sal1, match, state, year0) + extra * 12;
     return {
       mode: "salary",
@@ -1990,21 +2000,31 @@ function collapseHouseNames(list) {
      Today's dollars = nominal / (1+inflation)^years. A partial last year uses the same shape.
      A horizon that has already arrived applies no inflation.
      Employee deferral (base % plus any extra %) is capped at that year's IRS
-     limit plus the age catch-up when tax-rules.json has one. The extra percent
-     itself stops at the slider max. Employer match uses pay up to the IRS
-     compensation limit when tax-rules.json has one.
+     limit plus the age catch-up when tax-rules.json has one. Those dollar caps
+     index from tax_year when deferral_limits_indexed is set. The extra percent
+     itself stops at the slider max, floored to the 0.1 step. Employer match
+     uses pay up to the IRS compensation limit when tax-rules.json has one.
      Loan principal is added on its own dates, with no match and outside the deferral cap. */
-  /* Extra percent that reaches this year's deferral cap. Null when the cap
-     or the current salary is unknown, so a stored extra is left alone. */
+  /* The range step. A stored extra above the cap is floored to this so the
+     headline matches the value the slider can actually sit on. */
+  var RET_EXTRA_STEP = 0.1;
+  function retExtraStepFloor(pct) {
+    if (!(pct > 0)) return 0;
+    var tenths = Math.floor(Number(pct) / RET_EXTRA_STEP + 1e-6);
+    if (!(tenths > 0)) return 0;
+    return tenths / 10;
+  }
+  /* Extra percent that reaches this year's deferral cap, on the slider step.
+     Null when the cap or the current salary is unknown, so a stored extra is left alone. */
   function retMaxExtraPct(state) {
     var salary = retSalaryNow(state);
     if (salary == null || !(salary > 0)) return null;
-    var limit = retDeferralLimit(state && state.birthYear, retTodayNy().year);
+    var limit = retDeferralLimit(state && state.birthYear, retTodayNy().year, state);
     if (limit == null) return null;
     var ee = (state && retFinite(state.eePct)) ? Number(state.eePct) : 6;
     var maxExtra = (limit / salary) * 100 - ee;
     if (!(maxExtra > 0)) maxExtra = 0;
-    return maxExtra;
+    return retExtraStepFloor(maxExtra);
   }
   function retPersistExtraClamp(d) {
     if (!d) return;
@@ -2034,9 +2054,9 @@ function collapseHouseNames(list) {
     if (max != null && pct > max) pct = max;
     return pct / 100;
   }
-  function retCappedEmployee(sal, eeRate, extraRate, birthYear, calendarYear) {
+  function retCappedEmployee(sal, eeRate, extraRate, birthYear, calendarYear, state) {
     var employee = sal * (eeRate + extraRate);
-    var cap = retDeferralLimit(birthYear, calendarYear);
+    var cap = retDeferralLimit(birthYear, calendarYear, state);
     var clamped = cap != null && employee > cap;
     if (clamped) employee = cap;
     return { employee: employee, clamped: clamped };
@@ -2094,7 +2114,7 @@ function collapseHouseNames(list) {
       var y;
       for (y = 0; y < full; y++) {
         sal = sal * (1 + raise);
-        var empY = retCappedEmployee(sal, ee, extraRate, state.birthYear, year0 + y);
+        var empY = retCappedEmployee(sal, ee, extraRate, state.birthYear, year0 + y, state);
         if (empY.clamped) clamped = true;
         var contrib = empY.employee + retMatchDollars(sal, match, state, year0 + y) + extra * 12;
         bal = bal * growth + contrib * half;
@@ -2102,7 +2122,7 @@ function collapseHouseNames(list) {
       }
       if (frac > 1e-6) {
         sal = sal * Math.pow(1 + raise, frac);
-        var empF = retCappedEmployee(sal, ee, extraRate, state.birthYear, year0 + full);
+        var empF = retCappedEmployee(sal, ee, extraRate, state.birthYear, year0 + full, state);
         if (empF.clamped) clamped = true;
         var annualF = empF.employee + retMatchDollars(sal, match, state, year0 + full) + extra * 12;
         var contribF = annualF * frac;
@@ -2530,7 +2550,7 @@ function collapseHouseNames(list) {
         addedNest: null, addedIncome: null, newTotal: null, newTake: null, cost: null
       };
     }
-    var limit = retDeferralLimit(state.birthYear, retTodayNy().year);
+    var limit = retDeferralLimit(state.birthYear, retTodayNy().year, state);
     var extraPct = requested > maxExtra ? maxExtra : requested;
     var atCap = maxExtra <= 1e-6 || extraPct >= maxExtra - 0.05;
     var withX = retProject(view.src.base, state, h.years, { extra401kPct: extraPct });

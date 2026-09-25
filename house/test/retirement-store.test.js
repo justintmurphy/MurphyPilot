@@ -162,7 +162,7 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.ok(view.total != null && isFinite(view.total));
   assert.ok(Math.abs(view.total - (view.income + view.ss)) < 0.001);
   assert.equal(ctx.localStorage.getItem(storeKey), null);
-  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904bv$/);
+  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904bw$/);
 });
 
 test("slider touch does not pin salary, so a later file salary shows without Reset", function () {
@@ -504,7 +504,7 @@ test("retirement draw at 67 and Social Security are state-tax exempt", function 
   const summary = ctx.retTaxSummary();
   assert.equal(summary.line, "PA 3.07% (retirement income exempt)");
   assert.equal(summary.asof, "checked 2026-09-25");
-  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904bv$/);
+  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904bw$/);
   assert.match(String(ctx.retFetchJson), /no-store/);
 
   const state = ctx.retLoad();
@@ -1506,4 +1506,69 @@ test("nest egg line splits savings and loan while the loan contributes", functio
   ctx.retFill(card, state);
   assert.equal(card.els["nest-split"].textContent, "");
   assert.equal(card.els["nest-split"].hidden, true);
+});
+
+test("stored extra above the cap floors to the slider step", function () {
+  const ctx = boot();
+  useFile(ctx, fileA({ salary: 88000 }));
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  seed(ctx, { extra401kPct: 50, _edited: ["extra401kPct"] });
+  const state = ctx.retLoad();
+  state.retireAge = 67;
+  const raw = (20000 / 88000) * 100 - 6;
+  assert.ok(raw > 16.7 && raw < 16.8);
+  assert.ok(state.extra401kPct < raw - 0.02);
+  assert.equal(stored(ctx).extra401kPct, state.extra401kPct);
+  const card = textCard();
+  ctx.retFill(card, state);
+  const range = card.els["in:extra401k"];
+  const sliderPct = Math.floor(Number(range.max) * 10 + 1e-6) / 10;
+  assert.equal(state.extra401kPct, sliderPct);
+  assert.match(ctx.retirementHtml(), /step="0\.1"/);
+  const fromStore = ctx.retView(state);
+  const slid = ctx.retClone(state);
+  slid.extra401kPct = sliderPct;
+  const fromSlider = ctx.retView(slid);
+  assert.ok(fromStore.mid.nominal != null && isFinite(fromStore.mid.nominal));
+  assert.ok(fromStore.take != null && isFinite(fromStore.take));
+  assert.equal(fromStore.mid.nominal, fromSlider.mid.nominal);
+  assert.equal(fromStore.take, fromSlider.take);
+});
+
+test("deferral limits and the compensation limit index by the same factor", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  const state = ctx.retLoad();
+  state.inflPct = 10;
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const year = ctx.RET_TAX.federal.taxYear;
+  assert.equal(ctx.RET_TAX.federal.deferralLimitsIndexed, false);
+  assert.equal(ctx.retDeferralLimit(year + 10 - 40, year + 10, state), 20000);
+  assert.equal(ctx.retDeferralLimit(year + 10 - 61, year + 10, state), 27000);
+
+  const fed = federalFixture({
+    comp_limit: 100000,
+    comp_limit_indexed: true,
+    deferral_limits_indexed: true
+  });
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: fed }));
+  const factor = Math.pow(1.1, 10);
+  const defNow = ctx.retDeferralLimit(year - 40, year, state);
+  const defLater = ctx.retDeferralLimit(year + 10 - 40, year + 10, state);
+  const compNow = ctx.retCompLimit(state, year);
+  const compLater = ctx.retCompLimit(state, year + 10);
+  assert.equal(defNow, 20000);
+  assert.equal(compNow, 100000);
+  assert.ok(Math.abs(defLater / defNow - factor) < 1e-8);
+  assert.ok(Math.abs(compLater / compNow - defLater / defNow) < 1e-8);
+  assert.ok(Math.abs(ctx.retDeferralLimit(year + 10 - 55, year + 10, state) - 25000 * factor) < 0.05);
+  assert.ok(Math.abs(ctx.retDeferralLimit(year + 10 - 61, year + 10, state) - 27000 * factor) < 0.05);
+  const shipped = ctx.retParseTax(JSON.parse(fs.readFileSync(path.join(root, "house/tax-rules.json"), "utf8")));
+  assert.equal(shipped.federal.deferralLimitsIndexed, true);
+  assert.equal(shipped.federal.compLimitIndexed, true);
 });
