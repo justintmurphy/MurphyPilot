@@ -4,12 +4,10 @@
   "seats": [
     {
       "id": "justin",
-      "email": "justin.tucker.murphy@gmail.com",
       "theme": "justin"
     },
     {
       "id": "nina",
-      "email": "elle.nina27@gmail.com",
       "theme": "nina"
     }
   ],
