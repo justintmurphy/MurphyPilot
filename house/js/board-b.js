@@ -355,6 +355,7 @@ function collapseHouseNames(list) {
   var overlayMode = "live";
   var cashflowOpen = false;
   var mixOpen = false;
+  var retirementOpen = false;
 
   function applyTheme(choice) {
     var t = choice || document.documentElement.getAttribute("data-theme") || "justin";
@@ -876,6 +877,404 @@ function collapseHouseNames(list) {
     return html;
   }
 
+  /* tip bp — Retirement. Paint from live prints. Personal inputs stay in localStorage only. */
+  var RET_NOW = 47;
+  var RET_TARGET = 67;
+  var RET_YEARS = RET_TARGET - RET_NOW;
+  var RET_STORE = "murphyHouseRetirement";
+  var RET_SSA_B1 = 1286;
+  var RET_SSA_B2 = 7749;
+  var RET_SSA_WAGE = 184500;
+
+  function retFinite(n) {
+    return n != null && n !== "" && isFinite(Number(n));
+  }
+  function retNum(raw) {
+    if (raw == null) return null;
+    var s = String(raw).replace(/[$,\s]/g, "");
+    if (!s || s === "." || s === "-" || s === "-.") return null;
+    var n = Number(s);
+    return isFinite(n) ? n : null;
+  }
+  function retPow(base, exp) {
+    var v = Math.pow(base, exp);
+    return isFinite(v) ? v : null;
+  }
+  function retLoad() {
+    var d = {
+      realPct: 5, inflPct: 2.5, raisePct: 1, eePct: 6, matchPct: 6,
+      extraMonthly: 0, monthly: null, salary: null, ss: null
+    };
+    try {
+      var raw = localStorage.getItem(RET_STORE);
+      if (!raw) return d;
+      var o = JSON.parse(raw);
+      if (!o || typeof o !== "object") return d;
+      ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly"].forEach(function (k) {
+        if (retFinite(o[k])) d[k] = Number(o[k]);
+      });
+      ["monthly", "salary", "ss"].forEach(function (k) {
+        if (o[k] == null || o[k] === "") d[k] = null;
+        else if (retFinite(o[k])) d[k] = Number(o[k]);
+      });
+    } catch (e) {}
+    return d;
+  }
+  function retSave(d) {
+    try {
+      localStorage.setItem(RET_STORE, JSON.stringify({
+        realPct: d.realPct, inflPct: d.inflPct, raisePct: d.raisePct,
+        eePct: d.eePct, matchPct: d.matchPct, extraMonthly: d.extraMonthly,
+        monthly: d.monthly, salary: d.salary, ss: d.ss
+      }));
+    } catch (e) {}
+  }
+  function retClear() {
+    try { localStorage.removeItem(RET_STORE); } catch (e) {}
+  }
+  function retOffPublic(id, book) {
+    var s = String(id || "") + " " + String((book && (book.label || book.name || book.sleeve || book.account_name)) || "");
+    return /utma|smart\s*income/i.test(s);
+  }
+  function retEquity(book) {
+    if (!book || book.equity == null || book.equity === "") return null;
+    var n = Number(book.equity);
+    return isFinite(n) ? n : null;
+  }
+  function retRhEquity() {
+    var rh = snap && snap.robinhood;
+    if (rh && !retOffPublic("robinhood", rh)) {
+      var eq = retEquity(rh);
+      if (eq != null) return eq;
+    }
+    var ids = (typeof RH_IDS !== "undefined" && RH_IDS && RH_IDS.length)
+      ? RH_IDS : ["agentic", "individual", "auto_grok", "joint"];
+    var sum = 0, any = false;
+    ids.forEach(function (id) {
+      var b = snap && snap.accounts && snap.accounts[id];
+      if (!b || retOffPublic(id, b)) return;
+      var eq = retEquity(b);
+      if (eq == null) return;
+      any = true;
+      sum += eq;
+    });
+    return any ? sum : null;
+  }
+  function retTruthifiGap() {
+    return !!(snap && snap.truthifiFail && !snap.truthifiHeld);
+  }
+  function retSources() {
+    var gap = retTruthifiGap();
+    var phrase = "";
+    if (gap) {
+      phrase = (typeof truthifiFailPhrase === "function")
+        ? truthifiFailPhrase(snap.truthifiFail)
+        : (snap.truthifiFail === "unavailable" ? "Truthifi unavailable" : "Truthifi print broken");
+    }
+    var list = [];
+    var rhEq = retRhEquity();
+    list.push({ id: "robinhood", label: "Robinhood", equity: rhEq, missing: rhEq == null, flag: false });
+    [["fidelity", "Fidelity"], ["voya", "Voya"]].forEach(function (pair) {
+      var book = snap && snap.accounts && snap.accounts[pair[0]];
+      if (book && retOffPublic(pair[0], book)) return;
+      if (gap) {
+        list.push({ id: pair[0], label: pair[1], equity: null, missing: true, flag: true });
+        return;
+      }
+      var eq = retEquity(book);
+      list.push({ id: pair[0], label: pair[1], equity: eq, missing: eq == null, flag: false });
+    });
+    var base = 0, any = false, missing = [];
+    list.forEach(function (s) {
+      if (s.missing) missing.push(s);
+      else { any = true; base += s.equity; }
+    });
+    return {
+      list: list,
+      base: any ? base : null,
+      missing: missing,
+      flagPhrase: phrase,
+      held: !!(snap && snap.truthifiHeld && snap.truthifiFail)
+    };
+  }
+  function retPrintedMonthly() {
+    var cf = snap && snap.combined && snap.combined.cashflow_30d;
+    if (!cf || !retFinite(cf.owner_deposits)) return null;
+    return Number(cf.owner_deposits);
+  }
+  function retWithReal(state, realPct) {
+    return {
+      realPct: realPct, inflPct: state.inflPct, raisePct: state.raisePct,
+      eePct: state.eePct, matchPct: state.matchPct, extraMonthly: state.extraMonthly,
+      monthly: state.monthly, salary: state.salary, ss: state.ss
+    };
+  }
+  function retNominalYear() {
+    try {
+      var y = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric" }).format(new Date());
+      var n = Number(y);
+      if (isFinite(n)) return n + RET_YEARS;
+    } catch (e) {}
+    return new Date().getFullYear() + RET_YEARS;
+  }
+  /* No salary: today's-dollar FV of a level annual deposit (end of year).
+     Salary set: nominal return R=(1+real)*(1+inflation)-1.
+     Each year salary grows by the raise first, then a mid-year contribution
+     salary*(employee%+match%) + extra monthly*12 earns half a year of R.
+     Headline = nominal / (1+inflation)^years. */
+  function retProject(pv, state) {
+    var years = RET_YEARS;
+    var real = Number(state.realPct) / 100;
+    var infl = Number(state.inflPct) / 100;
+    var extra = retFinite(state.extraMonthly) ? Number(state.extraMonthly) : 0;
+    var printed = retPrintedMonthly();
+    var monthly = retFinite(state.monthly) ? Number(state.monthly) : printed;
+    var hasSalary = retFinite(state.salary) && Number(state.salary) > 0;
+    var empty = { today: null, nominal: null, mode: hasSalary ? "salary" : "deposits", monthlyShown: null, year1Annual: null, depositsMissing: false };
+    if (pv == null || !isFinite(pv)) return empty;
+    if (hasSalary) {
+      var raise = (retFinite(state.raisePct) ? Number(state.raisePct) : 1) / 100;
+      var ee = (retFinite(state.eePct) ? Number(state.eePct) : 6) / 100;
+      var match = (retFinite(state.matchPct) ? Number(state.matchPct) : 6) / 100;
+      var R = (1 + real) * (1 + infl) - 1;
+      var growth = 1 + R;
+      if (!(growth > 0) || !isFinite(growth)) return empty;
+      var half = Math.sqrt(growth);
+      var bal = pv;
+      var sal = Number(state.salary);
+      var year1 = null;
+      for (var y = 0; y < years; y++) {
+        sal = sal * (1 + raise);
+        var contrib = sal * (ee + match) + extra * 12;
+        if (y === 0) year1 = contrib;
+        bal = bal * growth + contrib * half;
+        if (!isFinite(bal)) return empty;
+      }
+      var deflator = retPow(1 + infl, years);
+      if (deflator == null || deflator === 0) return empty;
+      return {
+        today: bal / deflator,
+        nominal: bal,
+        mode: "salary",
+        monthlyShown: year1 / 12,
+        year1Annual: year1,
+        depositsMissing: false
+      };
+    }
+    var annual = (monthly == null ? 0 : monthly) * 12 + extra * 12;
+    var todayD;
+    if (!(real > -0.999) || Math.abs(real) < 1e-8) todayD = pv + annual * years;
+    else {
+      var g = retPow(1 + real, years);
+      if (g == null) return empty;
+      todayD = pv * g + annual * ((g - 1) / real);
+    }
+    if (!isFinite(todayD)) return empty;
+    var inf = retPow(1 + infl, years);
+    return {
+      today: todayD,
+      nominal: inf == null ? null : todayD * inf,
+      mode: "deposits",
+      monthlyShown: (monthly == null && extra === 0) ? null : ((monthly == null ? 0 : monthly) + extra),
+      year1Annual: null,
+      depositsMissing: printed == null && !retFinite(state.monthly)
+    };
+  }
+  function retRoughPia(salary) {
+    if (!retFinite(salary) || Number(salary) <= 0) return null;
+    var aime = Math.min(Number(salary), RET_SSA_WAGE) / 12;
+    var pia = 0.9 * Math.min(aime, RET_SSA_B1)
+      + 0.32 * Math.min(Math.max(aime - RET_SSA_B1, 0), RET_SSA_B2 - RET_SSA_B1)
+      + 0.15 * Math.max(aime - RET_SSA_B2, 0);
+    if (!isFinite(pia)) return null;
+    return Math.floor(pia * 10) / 10;
+  }
+  function retIncome(today) {
+    if (today == null || !isFinite(today)) return null;
+    return today * 0.04 / 12;
+  }
+  function retView(state) {
+    var src = retSources();
+    var mid = retProject(src.base, state);
+    var low = retProject(src.base, retWithReal(state, 4));
+    var high = retProject(src.base, retWithReal(state, 6));
+    var income = retIncome(mid.today);
+    var ss = retFinite(state.ss) ? Number(state.ss) : null;
+    var pia = retRoughPia(state.salary);
+    return {
+      src: src,
+      mid: mid,
+      low: low,
+      high: high,
+      income: income,
+      ss: ss,
+      total: (ss == null || income == null) ? null : income + ss,
+      pia: pia,
+      year: retNominalYear()
+    };
+  }
+  function retMoney(n) {
+    return (n == null || !isFinite(Number(n))) ? "\u2014" : money(n);
+  }
+  function retRead(card) {
+    function raw(name) {
+      var el = card.querySelector('[data-ret-in="' + name + '"]');
+      return el ? el.value : "";
+    }
+    function pct(name, fallback) {
+      var n = retNum(raw(name));
+      return n == null ? fallback : n;
+    }
+    var monthlyRaw = String(raw("monthly")).trim();
+    var salaryRaw = String(raw("salary")).trim();
+    var ssRaw = String(raw("ss")).trim();
+    var extra = retNum(raw("extra"));
+    return {
+      realPct: pct("real", 5),
+      inflPct: pct("infl", 2.5),
+      raisePct: pct("raise", 1),
+      eePct: pct("ee", 6),
+      matchPct: pct("match", 6),
+      extraMonthly: extra == null ? 0 : extra,
+      monthly: monthlyRaw === "" ? null : retNum(monthlyRaw),
+      salary: salaryRaw === "" ? null : retNum(salaryRaw),
+      ss: ssRaw === "" ? null : retNum(ssRaw)
+    };
+  }
+  function retSetText(card, name, text) {
+    var el = card.querySelector('[data-ret="' + name + '"]');
+    if (el) el.textContent = text;
+  }
+  function retFill(card, state) {
+    if (!card) return;
+    var v = retView(state);
+    var src = v.src;
+    retSetText(card, "base", retMoney(src.base));
+    var bits = src.list.map(function (s) {
+      return s.label + " " + (s.missing ? "\u2014" : money(s.equity));
+    });
+    retSetText(card, "sources", bits.join(" \u00b7 "));
+    var note = "";
+    if (src.missing.length) {
+      var names = src.missing.map(function (s) { return s.label; }).join(" and ");
+      note = "Partial base \u2014 " + names + " omitted";
+      if (src.flagPhrase) note += " (" + src.flagPhrase + ")";
+      note += ". Missing sources are left out, not counted as $0.";
+    } else if (src.held) {
+      note = "Fidelity and Voya use the last good Truthifi print.";
+    }
+    var noteEl = card.querySelector('[data-ret="gap"]');
+    if (noteEl) {
+      noteEl.textContent = note;
+      noteEl.hidden = !note;
+    }
+    var salaryOn = v.mid.mode === "salary";
+    retSetText(card, "save-k", salaryOn ? "401k + match" : "Monthly savings");
+    retSetText(card, "save", retMoney(v.mid.monthlyShown));
+    retSetText(card, "save-sub", salaryOn ? "year 1 \u00b7 replaces last 30 days" : "based on last 30 days");
+    var depNote = card.querySelector('[data-ret="dep-miss"]');
+    if (depNote) {
+      var showDep = !salaryOn && v.mid.depositsMissing;
+      depNote.hidden = !showDep;
+      depNote.textContent = showDep ? "No owner deposits on the last-30-days print." : "";
+    }
+    retSetText(card, "nest-k", (retFinite(state.realPct) ? String(state.realPct) : "5") + "% real");
+    retSetText(card, "nest", retMoney(v.mid.today));
+    retSetText(card, "income", retMoney(v.income));
+    retSetText(card, "low", retMoney(v.low.today));
+    retSetText(card, "low-mo", retMoney(retIncome(v.low.today)));
+    retSetText(card, "high", retMoney(v.high.today));
+    retSetText(card, "high-mo", retMoney(retIncome(v.high.today)));
+    retSetText(card, "nominal", v.mid.nominal == null ? "\u2014" : money(v.mid.nominal));
+    retSetText(card, "nominal-year", String(v.year));
+    var ssEl = card.querySelector('[data-ret="ss-block"]');
+    if (ssEl) {
+      if (v.ss == null) {
+        ssEl.innerHTML = '<p class="ret-ss-empty">Add your SSA estimate</p>';
+      } else {
+        ssEl.innerHTML = '<div class="kpi ret-ss-kpi">' +
+          '<div><span>Social Security</span><b>' + money(v.ss) + '</b><i>at 67</i></div>' +
+          '<div><span>Total monthly</span><b>' + retMoney(v.total) + '</b><i>savings + SS</i></div></div>';
+      }
+    }
+    var hint = card.querySelector('[data-ret="monthly-hint"]');
+    if (hint) {
+      hint.textContent = salaryOn
+        ? "Ignored while salary is set. The 401k contribution replaces last-30-days deposits. Extra monthly is added on top."
+        : "Default is owner deposits from the last 30 days. Clear this field to use that print again.";
+    }
+    var piaEl = card.querySelector('[data-ret="pia"]');
+    if (piaEl) {
+      if (v.pia == null) {
+        piaEl.innerHTML = '<p class="ret-pia-empty">Enter annual salary for a rough Social Security estimate. It will not fill the statement field.</p>';
+      } else {
+        piaEl.innerHTML = '<p class="ret-pia"><b>Rough estimate ' + money(v.pia) + '/mo</b> at full retirement age. Salary \u00f7 12 stands in for AIME (not a 35-year indexed average), capped at the 2026 wage base ($184,500). 2026 bend points $1,286 and $7,749 at 90% / 32% / 15%, rounded down to the next dime, in today\u2019s dollars. Those bend points are for people who turn 62 in 2026. SSA statement preferred. This does not fill the field above.</p>';
+      }
+    }
+  }
+  function retInputValue(n) {
+    return (n == null || !isFinite(Number(n))) ? "" : String(Number(n));
+  }
+  function retirementHtml() {
+    if (!snap) return "";
+    var state = retLoad();
+    var printed = retPrintedMonthly();
+    var monthlyVal = state.monthly != null ? state.monthly : printed;
+    var open = retirementOpen ? " open" : "";
+    return '<h2>Retirement</h2><div class="card span retirement-card" id="retirement">' +
+      '<div class="kpi ret-kpi">' +
+      '<div><span>Retirement base</span><b data-ret="base">\u2014</b><i data-ret="sources"></i></div>' +
+      '<div><span data-ret="save-k">Monthly savings</span><b data-ret="save">\u2014</b><i data-ret="save-sub">based on last 30 days</i></div>' +
+      '<div><span>Nest egg</span><b data-ret="nest">\u2014</b><i><span data-ret="nest-k">5% real</span> \u00b7 today\u2019s dollars</i></div>' +
+      '<div><span>Monthly income</span><b data-ret="income">\u2014</b><i>4% rule</i></div>' +
+      '</div>' +
+      '<p class="ret-gap" data-ret="gap" hidden></p>' +
+      '<p class="ret-dep-miss" data-ret="dep-miss" hidden></p>' +
+      '<p class="ret-range">Low 4% <b data-ret="low">\u2014</b> \u00b7 <b data-ret="low-mo">\u2014</b>/mo' +
+      '<span class="ret-range-gap"></span>High 6% <b data-ret="high">\u2014</b> \u00b7 <b data-ret="high-mo">\u2014</b>/mo</p>' +
+      '<div class="ret-progress" role="img" aria-label="Age ' + RET_NOW + ' to ' + RET_TARGET + ', ' + RET_YEARS + ' years to go">' +
+      '<div class="ret-progress-top"><span>Age ' + RET_NOW + '</span>' +
+      '<span class="ret-chip">' + RET_YEARS + ' years to go</span><span>' + RET_TARGET + '</span></div>' +
+      '<div class="ret-track" aria-hidden="true"><i></i></div></div>' +
+      '<div data-ret="ss-block"></div>' +
+      '<p class="ret-nominal">Nominal in <span data-ret="nominal-year"></span>: <b data-ret="nominal">\u2014</b></p>' +
+      '<p class="hint ret-foot">Estimates, not advice. Assumes deposits continue and these balances are for retirement.</p>' +
+      '<details class="ret-more"' + open + '>' +
+      '<summary><span class="ret-sum">Helper</span> <span class="ret-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
+      '<span class="ret-lab-show">Adjust</span><span class="ret-lab-hide">Hide</span></span></summary>' +
+      '<div class="ret-fields">' +
+      '<div><label for="ret-monthly">Monthly savings</label>' +
+      '<input id="ret-monthly" data-ret-in="monthly" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(monthlyVal)) + '">' +
+      '<p class="ret-field-hint" data-ret="monthly-hint"></p></div>' +
+      '<div><label for="ret-real">Real return %</label>' +
+      '<input id="ret-real" data-ret-in="real" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.realPct)) + '"></div>' +
+      '<div><label for="ret-infl">Inflation %</label>' +
+      '<input id="ret-infl" data-ret-in="infl" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.inflPct)) + '"></div>' +
+      '<div><label for="ret-extra">Extra monthly deposits</label>' +
+      '<input id="ret-extra" data-ret-in="extra" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.extraMonthly)) + '">' +
+      '<p class="ret-field-hint">On top of 401k. RH and Fidelity savings beyond the match.</p></div>' +
+      '<div><label for="ret-salary">Annual salary</label>' +
+      '<input id="ret-salary" data-ret-in="salary" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Optional" value="' + esc(retInputValue(state.salary)) + '">' +
+      '<p class="ret-field-hint">Empty uses last-30-days deposits. A salary switches to employee % + match, growing by the raise each year.</p></div>' +
+      '<div><label for="ret-raise">Annual raise %</label>' +
+      '<input id="ret-raise" data-ret-in="raise" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.raisePct)) + '"></div>' +
+      '<div><label for="ret-ee">Employee contribution %</label>' +
+      '<input id="ret-ee" data-ret-in="ee" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.eePct)) + '"></div>' +
+      '<div><label for="ret-match">Employer match %</label>' +
+      '<input id="ret-match" data-ret-in="match" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.matchPct)) + '"></div>' +
+      '<div class="ret-ss-field"><label for="ret-ss">Monthly at 67 <span class="ret-quiet">(from your ssa.gov statement)</span></label>' +
+      '<input id="ret-ss" data-ret-in="ss" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Add your SSA estimate" value="' + esc(retInputValue(state.ss)) + '"></div>' +
+      '</div>' +
+      '<div data-ret="pia"></div>' +
+      '<button type="button" class="ghost" data-ret-reset="1">Reset to defaults</button>' +
+      '</details></div>';
+  }
+  function retSync() {
+    var card = document.querySelector(".retirement-card");
+    if (!card) return;
+    retFill(card, retRead(card));
+  }
+
   function paint() {
     if (!snap) return;
     paintNav();
@@ -916,6 +1315,7 @@ function collapseHouseNames(list) {
       html += cardsHtml();
       html += stateHtml(b, "House");
       html += cashflowStripHtml(b, true);
+      html += retirementHtml();
       html += tapeHtml("combined", "House", true);
       html += "<h2>Where it sits</h2>" + mixHtml(b, "combined");
       html += "<h2>Book</h2>" + tableHtml(b.names, true, true);
@@ -952,6 +1352,7 @@ function collapseHouseNames(list) {
     else if (tab === "voya") footMsg = "Murphy Pilot \u00b7 Voya is Truthifi EOD.";
     html += '<footer class="desk-foot">' + footMsg + "</footer>";
     document.getElementById("desk").innerHTML = html;
+    retSync();
     syncOverlay();
   }
 
@@ -1040,7 +1441,38 @@ function collapseHouseNames(list) {
     if (!e.target || !e.target.classList) return;
     if (e.target.classList.contains("cf-more")) cashflowOpen = !!e.target.open;
     if (e.target.classList.contains("mix-more")) mixOpen = !!e.target.open;
+    if (e.target.classList.contains("ret-more")) retirementOpen = !!e.target.open;
   }, true);
+  document.addEventListener("input", function (e) {
+    if (!e.target || !e.target.closest || !e.target.closest(".retirement-card")) return;
+    var card = e.target.closest(".retirement-card");
+    var state = retRead(card);
+    retSave(state);
+    retFill(card, state);
+  });
+  document.addEventListener("click", function (e) {
+    var reset = e.target.closest && e.target.closest("[data-ret-reset]");
+    if (!reset) return;
+    e.preventDefault();
+    retClear();
+    var card = document.querySelector(".retirement-card");
+    if (!card) return;
+    var printed = retPrintedMonthly();
+    function setIn(name, value) {
+      var el = card.querySelector('[data-ret-in="' + name + '"]');
+      if (el) el.value = value;
+    }
+    setIn("monthly", printed == null ? "" : String(printed));
+    setIn("real", "5");
+    setIn("infl", "2.5");
+    setIn("extra", "0");
+    setIn("salary", "");
+    setIn("raise", "1");
+    setIn("ee", "6");
+    setIn("match", "6");
+    setIn("ss", "");
+    retFill(card, retLoad());
+  });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       closeDeskMenu();
