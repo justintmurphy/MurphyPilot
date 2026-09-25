@@ -25,7 +25,7 @@ function fileA(over) {
     partb_people: 2,
     birth_ym: "1980-06",
     state: "PA",
-    real_return_pct: 5,
+    nominal_return_pct: 5,
     inflation_pct: 2.5
   };
   if (over) Object.keys(over).forEach(function (k) { o[k] = over[k]; });
@@ -110,7 +110,7 @@ function fakeCard(vals) {
 
 function cardFrom(state, over) {
   const vals = {
-    real: state.realPct,
+    nominal: state.nominalPct,
     infl: state.inflPct,
     raise: state.raisePct,
     ee: state.eePct,
@@ -143,7 +143,7 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.equal(d.birthMonth, 6);
   assert.equal(d.birthYear, 1980);
   assert.equal(d.filing, "mfj");
-  assert.equal(d.realPct, 5);
+  assert.equal(d.nominalPct, 5);
   assert.equal(d.inflPct, 2.5);
   assert.equal(d.partBPeople, null);
   assert.equal(ctx.retPartBCount(d), 2);
@@ -156,7 +156,8 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
     combined: { cashflow_30d: { owner_deposits: 100 } }
   };
   const view = ctx.retView(d);
-  assert.equal(view.ss, 1500);
+  const cola = ctx.retYearFactor(ctx.retTodayNy().year, d.birthYear + d.retireAge, d.inflPct);
+  assert.ok(Math.abs(view.ss - 1500 * cola) < 0.01);
   assert.ok(view.income != null && isFinite(view.income));
   assert.ok(view.total != null && isFinite(view.total));
   assert.ok(Math.abs(view.total - (view.income + view.ss)) < 0.001);
@@ -270,7 +271,7 @@ test("old null blob and old full snapshot both fill from the file", function () 
   assert.equal(state.ss70, 2000);
   assert.equal(state.birthMonth, 7);
   assert.equal(state.birthYear, 1971);
-  assert.equal(state.realPct, 5);
+  assert.equal(state.nominalPct, 5);
   blob = stored(ctx);
   assert.equal(Object.prototype.hasOwnProperty.call(blob, "salary"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(blob, "realPct"), false);
@@ -689,25 +690,24 @@ test("Social Security thresholds come from the file", function () {
   useFile(ctx, fileA());
   const state = ctx.retLoad();
   state.inflPct = 0;
-  function taxable(thresholds, unindexed, deflator) {
+  function taxable(thresholds) {
     const federal = federalFixture({
       ss_thresholds: {
         single: thresholds,
         mfj: thresholds,
-        unindexed: unindexed
+        unindexed: true
       }
     });
     ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: federal }));
-    return ctx.retTaxableSs(30000, 10000, "mfj", deflator);
+    return ctx.retTaxableSs(30000, 10000, "mfj", 1);
   }
-  const open = taxable([900000, 950000], true, 1);
-  const tight = taxable([1000, 2000], true, 1);
-  assert.equal(open, 0);
-  assert.ok(tight > 0);
-  const deflated = taxable([40000, 50000], true, 2);
-  const indexed = taxable([40000, 50000], false, 2);
-  assert.equal(indexed, 0);
-  assert.ok(deflated > 0);
+  assert.equal(taxable([900000, 950000]), 0);
+  assert.ok(taxable([1000, 2000]) > 0);
+  ctx.RET_TAX = ctx.retParseTax(taxRules({
+    federal: federalFixture({
+      ss_thresholds: { single: [900000, 950000], mfj: [900000, 950000], unindexed: true }
+    })
+  }));
   const highTake = ctx.retTakeHome(2000, 1000, state, 0, 60);
   ctx.RET_TAX = ctx.retParseTax(taxRules({
     federal: federalFixture({
@@ -718,6 +718,63 @@ test("Social Security thresholds come from the file", function () {
   assert.ok(highTake > lowTake);
 });
 
+test("indexed brackets raise take-home and unindexed Social Security thresholds stay statutory", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  const state = ctx.retLoad();
+  state.birthYear = 1980;
+  state.retireAge = 67;
+  state.inflPct = 2.5;
+  const draw = 8000;
+  const ss = 3000;
+  function fed(flags) {
+    return federalFixture(Object.assign({
+      brackets_indexed: false,
+      std_deduction_indexed: false,
+      age65_addon_indexed: false,
+      part_b_indexed: false,
+      ss_thresholds_indexed: false
+    }, flags));
+  }
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: fed({
+    brackets_indexed: true,
+    std_deduction_indexed: true,
+    age65_addon_indexed: true
+  }) }));
+  const indexed = ctx.retTakeHome(draw, ss, state, 21, 67);
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: fed({}) }));
+  const flat = ctx.retTakeHome(draw, ss, state, 21, 67);
+  assert.ok(indexed > flat);
+  state.inflPct = 0;
+  const flatZero = ctx.retTakeHome(draw, ss, state, 21, 67);
+  state.inflPct = 10;
+  const flatHigh = ctx.retTakeHome(draw, ss, state, 21, 67);
+  assert.equal(flatZero, flatHigh);
+  const scale = ctx.retYearFactor(2026, 2047, 2.5);
+  assert.ok(scale > 1);
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: fed({}) }));
+  const statutory = ctx.retTaxableSs(30000, 18000, "mfj", 1);
+  const grownBases = ctx.retTaxableSs(30000, 18000, "mfj", scale);
+  assert.ok(statutory > 0);
+  assert.equal(grownBases, 0);
+  state.inflPct = 2.5;
+  const modestDraw = 2500;
+  const modestSs = 1500;
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: fed({ ss_thresholds_indexed: true }) }));
+  assert.equal(ctx.RET_TAX.federal.ssThresholds.indexed, true);
+  const takeIndexedSs = ctx.retTakeHome(modestDraw, modestSs, state, 21, 67);
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: fed({ ss_thresholds_indexed: false }) }));
+  assert.equal(ctx.RET_TAX.federal.ssThresholds.indexed, false);
+  const takeStatutory = ctx.retTakeHome(modestDraw, modestSs, state, 21, 67);
+  assert.ok(takeIndexedSs > takeStatutory);
+  const shipped = ctx.retParseTax(JSON.parse(fs.readFileSync(path.join(root, "house/tax-rules.json"), "utf8")));
+  assert.equal(shipped.federal.bracketsIndexed, true);
+  assert.equal(shipped.federal.stdIndexed, true);
+  assert.equal(shipped.federal.age65Indexed, true);
+  assert.equal(shipped.federal.partBIndexed, true);
+  assert.equal(shipped.federal.ssThresholds.indexed, false);
+});
+
 test("an old raise without an edit marker does not override the file", function () {
   const ctx = boot();
   useFile(ctx, fileA({ raise_pct: 4 }));
@@ -725,7 +782,7 @@ test("an old raise without an edit marker does not override the file", function 
   let state = ctx.retLoad();
   assert.equal(state.raisePct, 4);
   assert.equal(state.salary, 80000);
-  assert.equal(state.realPct, 5);
+  assert.equal(state.nominalPct, 5);
   assert.equal(state.inflPct, 3);
   let blob = stored(ctx);
   assert.ok(blob);
@@ -742,46 +799,63 @@ test("an old raise without an edit marker does not override the file", function 
   assert.equal(blob.raisePct, 7);
 });
 
-test("real growth hint shows nominal return from the file inflation", function () {
+test("growth hint is the after-inflation rate", function () {
   const ctx = boot();
   useFile(ctx, fileA());
-  assert.equal(ctx.retNominalHint(5), "5% real \u2248 7.6%/yr at 2.5% inflation");
-  assert.equal(ctx.retNominalHint(2.5), "2.5% real \u2248 5.1%/yr at 2.5% inflation");
-  assert.equal(ctx.retNominalHint(6), "6% real \u2248 8.7%/yr at 2.5% inflation");
+  assert.equal(ctx.retAfterInflationHint(5, 2.5), "\u2248 2.4% after inflation");
+  assert.equal(ctx.retAfterInflationHint(6, 2.5), "\u2248 3.4% after inflation");
   ctx.snap = {
     robinhood: { equity: 10000, label: "Robinhood" },
     accounts: {},
     combined: { cashflow_30d: { owner_deposits: 100 } }
   };
-  assert.match(ctx.retirementHtml(), /Growth after inflation \(real\) %/);
-  assert.match(ctx.retirementHtml(), /data-ret="real-hint"/);
+  const html = ctx.retirementHtml();
+  assert.match(html, /Growth %\/yr \(before inflation\)/);
+  assert.equal(html.indexOf("Growth after inflation"), -1);
+  assert.equal(html.indexOf("today\u2019s dollars"), -1);
+  assert.equal(html.indexOf("Nominal in"), -1);
   const state = ctx.retLoad();
   const card = textCard();
   ctx.retFill(card, state);
-  assert.equal(card.els["real-hint"].textContent, "5% real \u2248 7.6%/yr at 2.5% inflation");
-  state.realPct = 6;
-  state.inflPct = 9;
+  assert.equal(card.els["growth-hint"].textContent, "\u2248 2.4% after inflation");
+  state.nominalPct = 6;
+  state.inflPct = 2.5;
   ctx.retFill(card, state);
-  assert.equal(card.els["real-hint"].textContent, "6% real \u2248 8.7%/yr at 2.5% inflation");
+  assert.equal(card.els["growth-hint"].textContent, "\u2248 3.4% after inflation");
+  state.inflPct = 0;
+  ctx.retFill(card, state);
+  assert.equal(card.els["growth-hint"].textContent, "\u2248 6% after inflation");
 });
 
-test("an old real return without an edit marker does not override the file", function () {
+test("migration drops real_return_pct even when it was edited", function () {
   const ctx = boot();
-  useFile(ctx, fileA({ real_return_pct: 3 }));
-  seed(ctx, { realPct: 8, real_return_pct: 9, inflPct: 3 });
+  const stale = fileA();
+  delete stale.nominal_return_pct;
+  stale.real_return_pct = 9;
+  assert.equal(ctx.retParseSaved(stale), null);
+  useFile(ctx, fileA({ nominal_return_pct: 5, real_return_pct: 9 }));
+  assert.equal(ctx.RET_SAVED.nominalPct, 5);
+  assert.equal(ctx.RET_SAVED.realPct, undefined);
+  seed(ctx, {
+    realPct: 8, real_return_pct: 9, inflPct: 3,
+    _edited: ["realPct", "real_return_pct", "inflPct"]
+  });
   let state = ctx.retLoad();
-  assert.equal(state.realPct, 3);
+  assert.equal(state.nominalPct, 5);
   assert.equal(state.inflPct, 3);
   let blob = stored(ctx);
   assert.equal(Object.prototype.hasOwnProperty.call(blob, "realPct"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(blob, "real_return_pct"), false);
   assert.deepEqual(blob._edited, ["inflPct"]);
-  seed(ctx, { realPct: 8, _edited: ["realPct"] });
+  seed(ctx, { nominalPct: 8, _edited: ["nominalPct"] });
+  useFile(ctx, fileA({ nominal_return_pct: 4 }));
   state = ctx.retLoad();
-  assert.equal(state.realPct, 8);
+  assert.equal(state.nominalPct, 8);
+  blob = stored(ctx);
+  assert.equal(blob.nominalPct, 8);
 });
 
-test("the range band sits one point around real growth", function () {
+test("the range band sits one point around nominal growth", function () {
   const ctx = boot();
   useFile(ctx, fileA());
   ctx.snap = {
@@ -789,24 +863,29 @@ test("the range band sits one point around real growth", function () {
     accounts: {},
     combined: { cashflow_30d: { owner_deposits: 100 } }
   };
-  const around = ctx.retBandRates(2.5);
-  assert.equal(around.low, 1.5);
-  assert.equal(around.high, 3.5);
+  const around = ctx.retBandRates(5);
+  assert.equal(around.low, 4);
+  assert.equal(around.high, 6);
   const floored = ctx.retBandRates(0.4);
   assert.equal(floored.low, 0);
   assert.equal(floored.high, 1.4);
   const state = ctx.retLoad();
-  state.realPct = 2.5;
+  state.nominalPct = 5;
   state.retireAge = 67;
   const view = ctx.retView(state);
-  assert.equal(view.band.low, 1.5);
-  assert.equal(view.band.high, 3.5);
+  assert.equal(view.band.low, 4);
+  assert.equal(view.band.high, 6);
   const card = textCard();
   ctx.retFill(card, state);
-  assert.equal(card.els["low-lab"].textContent, "Low 1.5%");
-  assert.equal(card.els["high-lab"].textContent, "High 3.5%");
-  assert.equal(ctx.retirementHtml().indexOf("Low 4%"), -1);
-  assert.equal(ctx.retirementHtml().indexOf("High 6%"), -1);
+  assert.equal(card.els["low-lab"].textContent, "Low 4%");
+  assert.equal(card.els["high-lab"].textContent, "High 6%");
+  state.nominalPct = 7;
+  ctx.retFill(card, state);
+  assert.equal(card.els["low-lab"].textContent, "Low 6%");
+  assert.equal(card.els["high-lab"].textContent, "High 8%");
+  const html = ctx.retirementHtml();
+  assert.equal(html.indexOf("Low 4%"), -1);
+  assert.equal(html.indexOf("High 6%"), -1);
 });
 
 test("loan remaining balance counts payments since asof", function () {
@@ -936,4 +1015,97 @@ test("total line says stocks plus 401k plus Social Security", function () {
   const nestOnly = ctx.retTotalCopy(1000, null);
   assert.equal(nestOnly.sub, "stocks + 401k");
   assert.equal(nestOnly.split, "");
+});
+
+test("displayed nest and draw are nominal for the retirement year", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 0 } }
+  };
+  const state = ctx.retLoad();
+  state.eePct = 0;
+  state.matchPct = 0;
+  state.extraMonthly = 0;
+  state.nominalPct = 5;
+  state.raisePct = 0;
+  const years = 10;
+  state.inflPct = 2.5;
+  const withInfl = ctx.retProject(10000, state, years);
+  state.inflPct = 0;
+  const noInfl = ctx.retProject(10000, state, years);
+  const grown = 10000 * Math.pow(1.05, years);
+  assert.ok(Math.abs(withInfl.nominal - grown) < 0.05);
+  assert.ok(Math.abs(noInfl.nominal - grown) < 0.05);
+  assert.ok(Math.abs(withInfl.today - grown / Math.pow(1.025, years)) < 0.05);
+  assert.ok(Math.abs(noInfl.today - grown) < 0.05);
+  assert.ok(Math.abs(ctx.retIncome(withInfl.nominal) - grown * 0.04 / 12) < 0.001);
+  state.inflPct = 2.5;
+  state.salary = null;
+  state.monthly = 0;
+  const level = ctx.retProject(10000, state, years);
+  assert.ok(Math.abs(level.nominal - grown) < 0.05);
+  assert.ok(Math.abs(level.today - level.nominal / Math.pow(1.025, years)) < 0.05);
+  const view = ctx.retView(state);
+  assert.ok(Math.abs(view.income - view.mid.nominal * 0.04 / 12) < 0.001);
+  assert.ok(view.low.nominal < view.mid.nominal && view.mid.nominal < view.high.nominal);
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els.nest.textContent, ctx.money(view.mid.nominal));
+  assert.equal(card.els.income.textContent, ctx.money(view.income));
+  assert.equal(card.els.low.textContent, ctx.money(view.low.nominal));
+  assert.equal(card.els.high.textContent, ctx.money(view.high.nominal));
+  assert.equal(card.els["today-line"].textContent, "about " + ctx.money(view.mid.today) + " in today\u2019s dollars");
+  assert.equal(card.els["today-line"].hidden, false);
+});
+
+test("Social Security COLA compounds inflation to the retirement year", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  const factor = ctx.retYearFactor(2026, 2046, 2.5);
+  assert.ok(Math.abs(factor - Math.pow(1.025, 20)) < 1e-9);
+  assert.equal(ctx.retYearFactor(2046, 2026, 2.5), 1);
+  const state = ctx.retLoad();
+  const todayY = ctx.retTodayNy().year;
+  state.birthYear = todayY - 40;
+  state.birthMonth = 1;
+  state.retireAge = 67;
+  const gap = (state.birthYear + state.retireAge) - todayY;
+  const view = ctx.retView(state);
+  assert.equal(ctx.retSsMonthly(67, state), 1500);
+  assert.ok(Math.abs(view.ss - 1500 * Math.pow(1 + state.inflPct / 100, gap)) < 0.02);
+  assert.ok(Math.abs(view.total - (view.income + view.ss)) < 0.001);
+});
+
+test("the dollar year follows the retirement age slider", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const state = ctx.retLoad();
+  state.extra401kPct = 1;
+  state.retireAge = 67;
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els["nest-year"].textContent, "in 2047 dollars");
+  assert.equal(card.els["total-year"].textContent, "in 2047 dollars");
+  assert.equal(card.els["take-year"].textContent, "in 2047 dollars");
+  assert.match(card.els["extra401k-stats"].innerHTML, /Paycheck cost <b>.+<\/b> today/);
+  assert.equal(card.els["extra401k-stats"].innerHTML.indexOf("today\u2019s dollars"), -1);
+  state.retireAge = 70;
+  ctx.retFill(card, state);
+  assert.equal(card.els["nest-year"].textContent, "in 2050 dollars");
+  assert.equal(card.els["total-year"].textContent, "in 2050 dollars");
+  assert.equal(card.els["take-year"].textContent, "in 2050 dollars");
 });

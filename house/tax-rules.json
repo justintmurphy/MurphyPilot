@@ -12,6 +12,11 @@
     "tax_year": 2026,
     "source": "IRS / CMS",
     "checked": "2026-09-25",
+    "brackets_indexed": true,
+    "std_deduction_indexed": true,
+    "age65_addon_indexed": true,
+    "part_b_indexed": true,
+    "ss_thresholds_indexed": false,
     "brackets": {
       "single": [
         { "up_to": 12400, "rate": 0.10 },

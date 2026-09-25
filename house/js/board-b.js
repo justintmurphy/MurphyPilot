@@ -910,7 +910,7 @@ function collapseHouseNames(list) {
   }
   function retBlank() {
     return {
-      realPct: 5, inflPct: 2.5, raisePct: 1, eePct: 6, matchPct: 6,
+      nominalPct: 5, inflPct: 2.5, raisePct: 1, eePct: 6, matchPct: 6,
       extraMonthly: 0, monthly: null, salary: null, salaryYear: null,
       ss62: null, ss67: null, ss70: null,
       retireAge: 67, birthMonth: null, birthYear: null,
@@ -957,7 +957,7 @@ function collapseHouseNames(list) {
   }
   function retApplySaved(d) {
     if (!RET_SAVED) return d;
-    d.realPct = RET_SAVED.realPct;
+    d.nominalPct = RET_SAVED.nominalPct;
     d.inflPct = RET_SAVED.inflPct;
     d.raisePct = RET_SAVED.raisePct;
     d.eePct = RET_SAVED.eePct;
@@ -1016,8 +1016,9 @@ function collapseHouseNames(list) {
      anything equal to the file or the built-in default, including the pct
      defaults 5 / 2.5 / 1 / 6 / 6 / 0 when the file still has that value.
      A stored Social Security or birth value that differs from the file is kept.
-     Salary, raise, and real growth are the exception: without _edited they
-     were copied from whatever the file said at the time, so drop them. */
+     Salary and raise are the exception: without _edited they were copied
+     from whatever the file said at the time, so drop them. An old real
+     growth rate is a different input; retStripReal drops it even if edited. */
   function retMigrateBlob(o, base) {
     var keep = {};
     var edited = [];
@@ -1069,7 +1070,7 @@ function collapseHouseNames(list) {
     function on(k) {
       return edited.indexOf(k) >= 0 && Object.prototype.hasOwnProperty.call(store, k);
     }
-    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
+    ["nominalPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
       if (!on(k) || store[k] == null || store[k] === "" || !retFinite(store[k])) return;
       d[k] = Number(store[k]);
     });
@@ -1116,6 +1117,27 @@ function collapseHouseNames(list) {
     }
     return dirty;
   }
+  /* realPct was a real rate. The field is nominal now, so drop the old key
+     even when this browser marked it edited. Do not read it as nominal. */
+  function retStripReal(store) {
+    if (!store || typeof store !== "object") return false;
+    var dirty = false;
+    ["realPct", "real_return_pct"].forEach(function (k) {
+      if (Object.prototype.hasOwnProperty.call(store, k)) {
+        delete store[k];
+        dirty = true;
+      }
+    });
+    if (Array.isArray(store._edited)) {
+      var next = [];
+      store._edited.forEach(function (k) {
+        if (k === "realPct" || k === "real_return_pct") dirty = true;
+        else next.push(k);
+      });
+      if (next.length !== store._edited.length) store._edited = next;
+    }
+    return dirty;
+  }
   /* The loan lives only in the file. Drop any copy a browser tried to keep. */
   function retStripLoan(store) {
     if (!store || typeof store !== "object") return false;
@@ -1147,6 +1169,7 @@ function collapseHouseNames(list) {
     }
     if (retStripStatePct(store)) dirty = true;
     if (retStripLoan(store)) dirty = true;
+    if (retStripReal(store)) dirty = true;
     if (dirty && (RET_SAVED || Array.isArray(original._edited))) retStoreWrite(store);
     return retApplyOverrides(d, store);
   }
@@ -1158,7 +1181,7 @@ function collapseHouseNames(list) {
       out[k] = v;
       if (edited.indexOf(k) < 0) edited.push(k);
     }
-    ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
+    ["nominalPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
       if (d[k] == null || d[k] === "" || !retFinite(d[k])) return;
       var n = Number(d[k]);
       if (retSameVal(n, base[k])) return;
@@ -1340,17 +1363,17 @@ function collapseHouseNames(list) {
     var raise = retSavedNum(o.raise_pct, -20, 50);
     var ee = retSavedNum(o.emp_pct, 0, 100);
     var match = retSavedNum(o.match_pct, 0, 100);
-    var realPct = retSavedNum(o.real_return_pct, -50, 50);
+    var nominalPct = retSavedNum(o.nominal_return_pct, -50, 50);
     var inflPct = retSavedNum(o.inflation_pct, -20, 50);
     var filing = retNormFiling(o.filing);
     var partb = retPartBExplicit(o.partb_people);
     var born = retPrefillBirth(o.birth_ym);
     if (s62 == null || s67 == null || s70 == null || salary == null || salaryYear == null) return null;
     if (Math.round(salaryYear) !== salaryYear) return null;
-    if (raise == null || ee == null || match == null || realPct == null || inflPct == null) return null;
+    if (raise == null || ee == null || match == null || nominalPct == null || inflPct == null) return null;
     if (!filing || !partb || !born) return null;
     return {
-      realPct: realPct, inflPct: inflPct, raisePct: raise, eePct: ee, matchPct: match,
+      nominalPct: nominalPct, inflPct: inflPct, raisePct: raise, eePct: ee, matchPct: match,
       salary: salary, salaryYear: salaryYear,
       ss62: s62, ss67: s67, ss70: s70,
       birthMonth: born.birthMonth, birthYear: born.birthYear,
@@ -1445,10 +1468,26 @@ function collapseHouseNames(list) {
     if (!std || !aged) return null;
     var ss = o.ss_thresholds;
     if (!ss || typeof ss !== "object" || Array.isArray(ss)) return null;
-    if (typeof ss.unindexed !== "boolean") return null;
     var ssSingle = retThresholdPair(ss.single);
     var ssMfj = retThresholdPair(ss.mfj);
     if (!ssSingle || !ssMfj) return null;
+    var ssIndexed;
+    if (Object.prototype.hasOwnProperty.call(o, "ss_thresholds_indexed")) {
+      if (typeof o.ss_thresholds_indexed !== "boolean") return null;
+      ssIndexed = o.ss_thresholds_indexed;
+    } else if (typeof ss.unindexed === "boolean") {
+      ssIndexed = !ss.unindexed;
+    } else return null;
+    function flag(key) {
+      if (!Object.prototype.hasOwnProperty.call(o, key)) return false;
+      if (typeof o[key] !== "boolean") return null;
+      return o[key];
+    }
+    var bracketsIndexed = flag("brackets_indexed");
+    var stdIndexed = flag("std_deduction_indexed");
+    var age65Indexed = flag("age65_addon_indexed");
+    var partBIndexed = flag("part_b_indexed");
+    if (bracketsIndexed == null || stdIndexed == null || age65Indexed == null || partBIndexed == null) return null;
     var partB = retNonNeg(o.part_b_monthly);
     var limit = retNonNeg(o.deferral_limit);
     var catch50 = retNonNeg(o.catchup_50);
@@ -1459,9 +1498,13 @@ function collapseHouseNames(list) {
     return {
       taxYear: year,
       brackets: { single: single, mfj: mfj },
+      bracketsIndexed: bracketsIndexed,
+      stdIndexed: stdIndexed,
+      age65Indexed: age65Indexed,
       standardDeduction: std,
       additionalDeduction65: aged,
-      ssThresholds: { single: ssSingle, mfj: ssMfj, unindexed: ss.unindexed },
+      ssThresholds: { single: ssSingle, mfj: ssMfj, indexed: ssIndexed },
+      partBIndexed: partBIndexed,
       partBMonthly: partB,
       deferralLimit: limit,
       catchup50: catch50,
@@ -1636,17 +1679,17 @@ function collapseHouseNames(list) {
     if (!cf || !retFinite(cf.owner_deposits)) return null;
     return Number(cf.owner_deposits);
   }
-  /* One point under and over the real growth the user is using. Floor at zero. */
-  function retBandRates(realPct) {
-    var real = retFinite(realPct) ? Number(realPct) : 0;
+  /* One point under and over the nominal growth the user is using. Floor at zero. */
+  function retBandRates(nominalPct) {
+    var nominal = retFinite(nominalPct) ? Number(nominalPct) : 0;
     var span = 1;
-    var low = real - span;
+    var low = nominal - span;
     if (!(low > 0)) low = 0;
-    return { low: low, high: real + span };
+    return { low: low, high: nominal + span };
   }
-  function retWithReal(state, realPct) {
+  function retWithNominal(state, nominalPct) {
     return {
-      realPct: realPct, inflPct: state.inflPct, raisePct: state.raisePct,
+      nominalPct: nominalPct, inflPct: state.inflPct, raisePct: state.raisePct,
       eePct: state.eePct, matchPct: state.matchPct, extraMonthly: state.extraMonthly,
       monthly: state.monthly, salary: state.salary, salaryYear: state.salaryYear,
       ss62: state.ss62, ss67: state.ss67, ss70: state.ss70,
@@ -1804,10 +1847,10 @@ function collapseHouseNames(list) {
     return retLoanStatus(RET_SAVED.loan, retTodayMs());
   }
   /* Principal only, on the payment date, through the horizon. No match. */
-  function retLoanFuture(years, real, infl) {
+  function retLoanFuture(years, nominal, infl) {
     var model = retLoanActive();
     if (!model || !(years > 0)) return { nominal: 0, today: 0 };
-    var R = (1 + real) * (1 + infl) - 1;
+    var R = nominal;
     var growth = 1 + R;
     if (!(growth > 0) || !isFinite(growth)) return { nominal: 0, today: 0 };
     var bal = 0;
@@ -1828,9 +1871,9 @@ function collapseHouseNames(list) {
     if (!isFinite(deflator) || deflator === 0) return { nominal: 0, today: 0 };
     return { nominal: bal, today: bal / deflator };
   }
-  function retWithLoan(empty, years, real, infl) {
+  function retWithLoan(empty, years, nominal, infl) {
     if (!empty || (empty.today == null && empty.nominal == null)) return empty;
-    var add = retLoanFuture(years, real, infl);
+    var add = retLoanFuture(years, nominal, infl);
     if (empty.today != null) empty.today += add.today;
     if (empty.nominal != null) empty.nominal += add.nominal;
     return empty;
@@ -1846,15 +1889,15 @@ function collapseHouseNames(list) {
   function retLoanLine() {
     return retLoanCopy(retLoanActive());
   }
-  /* No salary: today's-dollar FV of a level annual deposit.
-     Salary set: nominal return R=(1+real)*(1+inflation)-1.
-     Each year salary grows by the raise first, then a mid-year contribution
-     salary*(employee%+match%) + extra monthly*12 earns half a year of R.
-     Headline = nominal / (1+inflation)^years. A partial last year uses the same shape.
+  /* Growth % is nominal, before inflation.
+     No salary: level deposits compound at that rate.
+     Salary set: the same rate. Each year salary grows by the raise first,
+     then a mid-year contribution earns half a year.
+     Today's dollars = nominal / (1+inflation)^years. A partial last year uses the same shape.
      Loan principal is added on its own dates, with no match and outside the deferral cap. */
   function retProject(pv, state, years, opts) {
     var meta = retSavingsMeta(state);
-    var real = Number(state.realPct) / 100;
+    var nominal = Number(state.nominalPct) / 100;
     var infl = Number(state.inflPct) / 100;
     var empty = {
       today: null, nominal: null, mode: meta.mode,
@@ -1875,7 +1918,7 @@ function collapseHouseNames(list) {
       var ee = meta.ee;
       var match = meta.match;
       var extra = meta.extra;
-      var R = (1 + real) * (1 + infl) - 1;
+      var R = nominal;
       var growth = 1 + R;
       if (!(growth > 0) || !isFinite(growth)) return empty;
       var half = Math.sqrt(growth);
@@ -1930,22 +1973,23 @@ function collapseHouseNames(list) {
       empty.today = bal / deflator;
       empty.nominal = bal;
       if (useCap) empty.clamped = clamped;
-      return retWithLoan(empty, years, real, infl);
+      return retWithLoan(empty, years, nominal, infl);
     }
     var monthly = meta.monthly;
     var annual = (monthly == null ? 0 : monthly) * 12 + meta.extra * 12;
-    var todayD;
-    if (!(real > -0.999) || Math.abs(real) < 1e-8) todayD = pv + annual * years;
+    var nominalBal;
+    if (!(nominal > -0.999) || Math.abs(nominal) < 1e-8) nominalBal = pv + annual * years;
     else {
-      var g = retPow(1 + real, years);
+      var g = retPow(1 + nominal, years);
       if (g == null) return empty;
-      todayD = pv * g + annual * ((g - 1) / real);
+      nominalBal = pv * g + annual * ((g - 1) / nominal);
     }
-    if (!isFinite(todayD)) return empty;
+    if (!isFinite(nominalBal)) return empty;
     var inf = retPow(1 + infl, years);
-    empty.today = todayD;
-    empty.nominal = inf == null ? null : todayD * inf;
-    return retWithLoan(empty, years, real, infl);
+    if (inf == null || inf === 0) return empty;
+    empty.nominal = nominalBal;
+    empty.today = nominalBal / inf;
+    return retWithLoan(empty, years, nominal, infl);
   }
   /* FRA 67. Early: 5/9 of 1% per month for the first 36 months, then 5/12 of 1%.
      Delayed: 8% per year. Age 62 is 70% of PIA. Age 70 is 124%. */
@@ -2016,13 +2060,14 @@ function collapseHouseNames(list) {
     var rows = fed.brackets[key];
     return (rows && rows.length) ? rows : null;
   }
-  function retFederalTax(taxable, filing) {
+  function retFederalTax(taxable, filing, scale) {
     var rows = retBracketRows(filing);
     if (!rows) return null;
+    var mult = (retFinite(scale) && Number(scale) > 0) ? Number(scale) : 1;
     if (!(taxable > 0)) return 0;
     var tax = 0, prev = 0, i;
     for (i = 0; i < rows.length; i++) {
-      var cap = rows[i].upTo;
+      var cap = rows[i].upTo == null ? null : rows[i].upTo * mult;
       var rate = rows[i].rate;
       if (taxable <= prev) break;
       if (cap == null) {
@@ -2037,13 +2082,15 @@ function collapseHouseNames(list) {
     return isFinite(tax) ? tax : null;
   }
   /* Rate on the last dollar. Zero when nothing is taxable yet. Null without brackets. */
-  function retMarginalRate(taxable, filing) {
+  function retMarginalRate(taxable, filing, scale) {
     var rows = retBracketRows(filing);
     if (!rows) return null;
+    var mult = (retFinite(scale) && Number(scale) > 0) ? Number(scale) : 1;
     if (!(taxable > 0)) return 0;
     var i;
     for (i = 0; i < rows.length; i++) {
-      if (rows[i].upTo == null || taxable <= rows[i].upTo) return rows[i].rate;
+      var cap = rows[i].upTo == null ? null : rows[i].upTo * mult;
+      if (cap == null || taxable <= cap) return rows[i].rate;
     }
     return rows[rows.length - 1].rate;
   }
@@ -2054,30 +2101,56 @@ function collapseHouseNames(list) {
     var bases = fed.ssThresholds[key];
     return (bases && bases.length === 2) ? bases : null;
   }
-  function retTaxableSs(other, ssAnnual, filing, deflator) {
+  /* Whole years of inflation from fromYear to toYear. One when the gap is not positive. */
+  function retYearFactor(fromYear, toYear, inflPct) {
+    if (!retFinite(fromYear) || !retFinite(toYear) || !retFinite(inflPct)) return null;
+    var exp = Math.round(Number(toYear)) - Math.round(Number(fromYear));
+    if (!(exp > 0)) return 1;
+    return retPow(1 + Number(inflPct) / 100, exp);
+  }
+  function retIndexScale(on, state, retireYear) {
+    if (!on) return 1;
+    var fed = retFederal();
+    if (!fed || retireYear == null) return 1;
+    var infl = (state && retFinite(state.inflPct)) ? Number(state.inflPct) : null;
+    if (infl == null && RET_SAVED && retFinite(RET_SAVED.inflPct)) infl = Number(RET_SAVED.inflPct);
+    var f = retYearFactor(fed.taxYear, retireYear, infl);
+    return (f == null || !(f > 0)) ? 1 : f;
+  }
+  function retSsCola(amount, state, age) {
+    if (amount == null || !isFinite(Number(amount))) return null;
+    var retireYear = (state && state.birthYear != null && retFinite(age))
+      ? Number(state.birthYear) + Math.round(Number(age)) : null;
+    var factor = retYearFactor(retTodayNy().year, retireYear, state && state.inflPct);
+    if (factor == null) return Number(amount);
+    return Number(amount) * factor;
+  }
+  function retTaxableSs(other, ssAnnual, filing, scale) {
     var bases = retSsBases(filing);
     if (!bases) return null;
     if (!(ssAnnual > 0)) return 0;
-    var fed = retFederal();
-    var scale = (fed && fed.ssThresholds.unindexed && deflator > 0) ? deflator : 1;
-    var b1 = bases[0] / scale;
-    var b2 = bases[1] / scale;
+    var mult = (retFinite(scale) && Number(scale) > 0) ? Number(scale) : 1;
+    var b1 = bases[0] * mult;
+    var b2 = bases[1] * mult;
     var pi = other + 0.5 * ssAnnual;
     if (pi <= b1) return 0;
     var portion50 = Math.min(0.5 * ssAnnual, Math.max(0, 0.5 * (Math.min(pi, b2) - b1)));
     if (pi <= b2) return portion50;
     return Math.min(0.85 * ssAnnual, portion50 + 0.85 * (pi - b2));
   }
-  function retStandardDeduction(filing, age) {
+  function retStandardDeduction(filing, age, stdScale, addonScale) {
     var fed = retFederal();
     if (!fed || !fed.standardDeduction) return null;
     var key = filing === "single" ? "single" : "mfj";
     var std = fed.standardDeduction[key];
     if (!retFinite(std)) return null;
-    std = Number(std);
+    var stdMult = (retFinite(stdScale) && Number(stdScale) > 0) ? Number(stdScale) : 1;
+    var addMult = (retFinite(addonScale) && Number(addonScale) > 0) ? Number(addonScale) : 1;
+    std = Number(std) * stdMult;
     if (Number(age) >= 65) {
       if (!fed.additionalDeduction65 || !retFinite(fed.additionalDeduction65[key])) return null;
-      std += Number(fed.additionalDeduction65[key]) * (key === "single" ? 1 : 2);
+      var people = key === "single" ? 1 : 2;
+      std += Number(fed.additionalDeduction65[key]) * people * addMult;
     }
     return std;
   }
@@ -2088,24 +2161,30 @@ function collapseHouseNames(list) {
      No federal block: null, so the card shows a dash. */
   function retTakeHome(drawMonthly, ssMonthly, state, years, retireAge) {
     if (drawMonthly == null || !isFinite(drawMonthly)) return null;
-    if (!retFederal()) return null;
+    var fed = retFederal();
+    if (!fed) return null;
     var filing = state.filing === "single" ? "single" : "mfj";
     var drawA = drawMonthly * 12;
     var ssA = (ssMonthly == null || !isFinite(ssMonthly)) ? 0 : ssMonthly * 12;
-    var deflator = retPow(1 + (Number(state.inflPct) / 100), years);
-    if (deflator == null || !(deflator > 0)) deflator = 1;
-    var tss = retTaxableSs(drawA, ssA, filing, deflator);
+    var retireYear = (state && state.birthYear != null && retFinite(retireAge))
+      ? Number(state.birthYear) + Math.round(Number(retireAge)) : null;
+    var bracketScale = retIndexScale(fed.bracketsIndexed, state, retireYear);
+    var stdScale = retIndexScale(fed.stdIndexed, state, retireYear);
+    var addonScale = retIndexScale(fed.age65Indexed, state, retireYear);
+    var ssScale = retIndexScale(fed.ssThresholds && fed.ssThresholds.indexed, state, retireYear);
+    var partScale = retIndexScale(fed.partBIndexed, state, retireYear);
+    var tss = retTaxableSs(drawA, ssA, filing, ssScale);
     if (tss == null) return null;
-    var std = retStandardDeduction(filing, retireAge);
+    var std = retStandardDeduction(filing, retireAge, stdScale, addonScale);
     if (std == null) return null;
     var taxable = Math.max(0, drawA + tss - std);
-    var federal = retFederalTax(taxable, filing);
+    var federal = retFederalTax(taxable, filing, bracketScale);
     if (federal == null) return null;
     var stateTax = retStateTax(drawA, ssA, retireAge);
     var partBPeople = retPartBCount(state);
-    var premium = retFederal().partBMonthly;
+    var premium = fed.partBMonthly;
     if (!retFinite(premium)) return null;
-    var medicare = retireAge >= 65 ? partBPeople * Number(premium) * 12 : 0;
+    var medicare = retireAge >= 65 ? partBPeople * Number(premium) * partScale * 12 : 0;
     var net = drawA + ssA - federal - stateTax - medicare;
     return isFinite(net) ? net / 12 : null;
   }
@@ -2122,13 +2201,13 @@ function collapseHouseNames(list) {
     return isFinite(tax) ? tax : 0;
   }
   /* Savings at 67 cover 36 months of the age-67 total (4% draw + SS at 67)
-     while the remainder keeps growing at the real return. Then 4% of what
-     remains, per month, plus SS at 70. */
-  function retBridge(nest, realPct, ss67, ss70) {
-    var real = Number(realPct) / 100;
-    if (!(real > -0.999) || nest == null || !isFinite(nest)) return null;
+     while the remainder keeps growing at the nominal return. Then 4% of what
+     remains, per month, plus SS at 70. Amounts are already nominal. */
+  function retBridge(nest, nominalPct, ss67, ss70) {
+    var nominal = Number(nominalPct) / 100;
+    if (!(nominal > -0.999) || nest == null || !isFinite(nest)) return null;
     var spend = nest * 0.04 / 12 + Number(ss67);
-    var grown = nest * Math.pow(1 + real, 3);
+    var grown = nest * Math.pow(1 + nominal, 3);
     if (!isFinite(grown) || !isFinite(spend)) return null;
     var left = grown - 36 * spend;
     if (left < 0) left = 0;
@@ -2139,19 +2218,19 @@ function collapseHouseNames(list) {
     var src = retSources();
     var h = retHorizon(state);
     var mid = retProject(src.base, state, h.years);
-    var band = retBandRates(state.realPct);
-    var low = retProject(src.base, retWithReal(state, band.low), h.years);
-    var high = retProject(src.base, retWithReal(state, band.high), h.years);
-    var income = retIncome(mid.today);
-    var ss = retSsMonthly(state.retireAge, state);
+    var band = retBandRates(state.nominalPct);
+    var low = retProject(src.base, retWithNominal(state, band.low), h.years);
+    var high = retProject(src.base, retWithNominal(state, band.high), h.years);
+    var income = retIncome(mid.nominal);
+    var ss = retSsCola(retSsMonthly(state.retireAge, state), state, state.retireAge);
     var hasAnchor = retSsAnchors(state).length > 0;
     var total = null;
     if (income != null && ss != null) total = income + ss;
     else if (income != null && !hasAnchor) total = income;
     var take = (h.years == null || income == null) ? null : retTakeHome(income, hasAnchor ? ss : null, state, h.years, state.retireAge);
     var bridge = null;
-    if (state.retireAge === 67 && h.age != null && h.age < 67 && state.ss67 != null && state.ss70 != null && mid.today != null) {
-      bridge = retBridge(mid.today, state.realPct, state.ss67, state.ss70);
+    if (state.retireAge === 67 && h.age != null && h.age < 67 && state.ss67 != null && state.ss70 != null && mid.nominal != null) {
+      bridge = retBridge(mid.nominal, state.nominalPct, retSsCola(state.ss67, state, 67), retSsCola(state.ss70, state, 70));
     }
     return {
       src: src, mid: mid, low: low, high: high, band: band,
@@ -2197,7 +2276,7 @@ function collapseHouseNames(list) {
     var printed = retPrintedMonthly();
     if (prev.monthly == null && monthly != null && printed != null && Number(monthly) === Number(printed)) monthly = null;
     return {
-      realPct: pct("real", base.realPct),
+      nominalPct: pct("nominal", base.nominalPct),
       inflPct: pct("infl", base.inflPct),
       raisePct: pct("raise", base.raisePct),
       eePct: pct("ee", base.eePct),
@@ -2226,15 +2305,15 @@ function collapseHouseNames(list) {
     if (Math.abs(r - Math.round(r)) < 0.001) return String(Math.round(r));
     return r.toFixed(1);
   }
-  /* Nominal = (1+real)*(1+inflation)-1. Inflation is the file's, not the field. */
-  function retNominalHint(realPct) {
-    if (!retFinite(realPct) || !RET_SAVED || !retFinite(RET_SAVED.inflPct)) return "";
-    var real = Number(realPct) / 100;
-    var infl = Number(RET_SAVED.inflPct) / 100;
-    var nominal = (1 + real) * (1 + infl) - 1;
-    if (!isFinite(nominal)) return "";
-    var nomPct = Math.round(nominal * 1000) / 10;
-    return retPctLabel(realPct) + "% real \u2248 " + nomPct.toFixed(1) + "%/yr at " + retPctLabel(RET_SAVED.inflPct) + "% inflation";
+  /* After inflation: (1+nominal)/(1+inflation)-1. */
+  function retAfterInflationHint(nominalPct, inflPct) {
+    if (!retFinite(nominalPct) || !retFinite(inflPct)) return "";
+    var n = Number(nominalPct) / 100;
+    var i = Number(inflPct) / 100;
+    if (!((1 + i) > 0)) return "";
+    var real = (1 + n) / (1 + i) - 1;
+    if (!isFinite(real)) return "";
+    return "\u2248 " + retPctLabel(real * 100) + "% after inflation";
   }
   /* What-if on top of the same salary projection. Match stays on match% only.
      Employee deferral (base % + extra %) is clamped to that year's IRS limit. */
@@ -2264,7 +2343,7 @@ function collapseHouseNames(list) {
     var atCap = maxExtra <= 1e-6 || extraPct >= maxExtra - 0.05;
     var withX = retProject(view.src.base, state, h.years, { capDeferral: true, extra401kPct: extraPct });
     var baseX = retProject(view.src.base, state, h.years, { capDeferral: true, extra401kPct: 0 });
-    var addedNest = (withX.today != null && baseX.today != null) ? withX.today - baseX.today : null;
+    var addedNest = (withX.nominal != null && baseX.nominal != null) ? withX.nominal - baseX.nominal : null;
     var addedIncome = addedNest != null ? addedNest * 0.04 / 12 : null;
     if (withX.clamped) atCap = true;
     var newDraw = (view.income != null && addedIncome != null) ? view.income + addedIncome : null;
@@ -2334,14 +2413,13 @@ function collapseHouseNames(list) {
       depNote.hidden = !showDep;
       depNote.textContent = showDep ? "No owner deposits on the last-30-days print." : "";
     }
-    retSetText(card, "nest-k", (retFinite(state.realPct) ? String(state.realPct) : "5") + "% real");
-    retSetText(card, "real-hint", retNominalHint(state.realPct));
-    retSetText(card, "nest", retMoney(v.mid.today));
+    retSetText(card, "growth-hint", retAfterInflationHint(state.nominalPct, state.inflPct));
+    retSetText(card, "nest", retMoney(v.mid.nominal));
     retSetText(card, "income", retMoney(v.income));
-    retSetText(card, "low", retMoney(v.low.today));
-    retSetText(card, "low-mo", retMoney(retIncome(v.low.today)));
-    retSetText(card, "high", retMoney(v.high.today));
-    retSetText(card, "high-mo", retMoney(retIncome(v.high.today)));
+    retSetText(card, "low", retMoney(v.low.nominal));
+    retSetText(card, "low-mo", retMoney(retIncome(v.low.nominal)));
+    retSetText(card, "high", retMoney(v.high.nominal));
+    retSetText(card, "high-mo", retMoney(retIncome(v.high.nominal)));
     if (v.band) {
       retSetText(card, "low-lab", "Low " + retPctLabel(v.band.low) + "%");
       retSetText(card, "high-lab", "High " + retPctLabel(v.band.high) + "%");
@@ -2382,11 +2460,19 @@ function collapseHouseNames(list) {
       if (fill) fill.style.width = span.toFixed(1) + "%";
       if (prog) prog.setAttribute("aria-label", "Age " + ageTxt + " of " + h.target + ", " + chipTxt + ". Bar is current age divided by retirement age.");
     }
-    var nomEl = card.querySelector('[data-ret="nominal-line"]');
-    if (nomEl) {
-      if (h.years == null) nomEl.textContent = "Nominal year \u2014";
-      else if (!(h.raw > 0)) nomEl.textContent = "Nest egg is today\u2019s balance.";
-      else nomEl.innerHTML = "Nominal in " + h.year + ": <b>" + (v.mid.nominal == null ? "\u2014" : money(v.mid.nominal)) + "</b>";
+    var yearCaption = (h.year == null) ? "" : ("in " + h.year + " dollars");
+    retSetText(card, "nest-year", yearCaption);
+    retSetText(card, "total-year", yearCaption);
+    retSetText(card, "take-year", yearCaption);
+    var todayEl = card.querySelector('[data-ret="today-line"]');
+    if (todayEl) {
+      if (h.raw > 0 && v.mid.today != null && isFinite(v.mid.today)) {
+        todayEl.hidden = false;
+        todayEl.textContent = "about " + money(v.mid.today) + " in today\u2019s dollars";
+      } else {
+        todayEl.hidden = true;
+        todayEl.textContent = "";
+      }
     }
     if (v.ss == null) {
       retSetText(card, "ss-mo", "\u2014");
@@ -2461,7 +2547,7 @@ function collapseHouseNames(list) {
       if (v.pia == null) {
         piaEl.innerHTML = '<p class="ret-pia-empty">Enter annual salary for a rough Social Security estimate. It will not fill the statement fields.</p>';
       } else {
-        piaEl.innerHTML = '<p class="ret-pia"><b>Rough estimate ' + money(v.pia) + '/mo</b> at full retirement age. Salary \u00f7 12 stands in for AIME (not a 35-year indexed average), capped at the 2026 wage base ($184,500). 2026 bend points $1,286 and $7,749 at 90% / 32% / 15%, rounded down to the next dime, in today\u2019s dollars. Those bend points are for people who turn 62 in 2026. SSA statement preferred. This does not fill the statement fields.</p>';
+        piaEl.innerHTML = '<p class="ret-pia"><b>Rough estimate ' + money(v.pia) + '/mo</b> at full retirement age. Salary \u00f7 12 stands in for AIME (not a 35-year indexed average), capped at the 2026 wage base ($184,500). 2026 bend points $1,286 and $7,749 at 90% / 32% / 15%, rounded down to the next dime. Those bend points are for people who turn 62 in 2026. SSA statement preferred. This does not fill the statement fields.</p>';
       }
     }
     retSyncPartB(card, state);
@@ -2470,7 +2556,7 @@ function collapseHouseNames(list) {
   function retRestoreCleared(card, state) {
     if (!card || !card.querySelector) return;
     [
-      ["real", state.realPct], ["infl", state.inflPct], ["raise", state.raisePct],
+      ["nominal", state.nominalPct], ["infl", state.inflPct], ["raise", state.raisePct],
       ["ee", state.eePct], ["match", state.matchPct], ["extra", state.extraMonthly],
       ["salary", state.salary], ["ss62", state.ss62], ["ss67", state.ss67],
       ["ss70", state.ss70]
@@ -2542,7 +2628,7 @@ function collapseHouseNames(list) {
         + " \u00b7 Added income <b>" + retMoney(x.addedIncome) + "/mo</b>"
         + "<br>Total <b>" + retMoney(x.newTotal) + "</b>"
         + " \u00b7 Take-home <b>" + retMoney(x.newTake) + "</b>"
-        + "<br>Paycheck cost <b>" + retMoney(x.cost) + "/mo</b>";
+        + "<br>Paycheck cost <b>" + retMoney(x.cost) + "/mo</b> today";
     }
   }
   function retInputValue(n) {
@@ -2570,17 +2656,17 @@ function collapseHouseNames(list) {
       '<div class="kpi ret-kpi">' +
       '<div><span>Retirement base</span><b data-ret="base">\u2014</b><i data-ret="sources"></i></div>' +
       '<div><span data-ret="save-k">Monthly savings</span><b data-ret="save">\u2014</b><i data-ret="save-sub">based on last 30 days</i></div>' +
-      '<div><span>Nest egg</span><b data-ret="nest">\u2014</b><i><span data-ret="nest-k">5% real</span> \u00b7 today\u2019s dollars</i></div>' +
+      '<div><span>Nest egg</span><b data-ret="nest">\u2014</b><i data-ret="nest-year"></i></div>' +
       '<div><span>4% draw</span><b data-ret="income">\u2014</b><i>per month</i></div>' +
       '</div>' +
       '<p class="ret-gap" data-ret="gap" hidden></p>' +
       '<p class="ret-dep-miss" data-ret="dep-miss" hidden></p>' +
-      '<p class="ret-nominal" data-ret="nominal-line">Nominal year \u2014</p>' +
+      '<p class="ret-nominal" data-ret="today-line" hidden></p>' +
       '<div class="kpi ret-results-kpi">' +
       '<div><span>SS / mo</span><b data-ret="ss-mo">\u2014</b><i data-ret="ss-sub"></i></div>' +
-      '<div><span>Total / mo</span><b data-ret="total-mo">\u2014</b><i data-ret="total-sub"></i><i data-ret="total-split"></i></div>' +
+      '<div><span>Total / mo</span><b data-ret="total-mo">\u2014</b><i data-ret="total-sub"></i><i data-ret="total-year"></i><i data-ret="total-split"></i></div>' +
       '</div>' +
-      '<div class="ret-take"><span>Take-home / mo (est.)</span><b data-ret="take">\u2014</b><i data-ret="take-sub"></i></div>' +
+      '<div class="ret-take"><span>Take-home / mo (est.)</span><b data-ret="take">\u2014</b><i data-ret="take-year"></i><i data-ret="take-sub"></i></div>' +
       '<p class="ret-rules" data-ret="tax-rules" hidden></p>' +
       '<p class="ret-loan" data-ret="loan-line" hidden></p>' +
       '<p class="ret-bridge" data-ret="bridge" hidden></p>' +
@@ -2594,9 +2680,9 @@ function collapseHouseNames(list) {
       '<div><label for="ret-monthly">Monthly savings</label>' +
       '<input id="ret-monthly" data-ret-in="monthly" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(monthlyVal)) + '">' +
       '<p class="ret-field-hint" data-ret="monthly-hint"></p></div>' +
-      '<div><label for="ret-real">Growth after inflation (real) %</label>' +
-      '<input id="ret-real" data-ret-in="real" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.realPct)) + '">' +
-      '<p class="ret-field-hint" data-ret="real-hint"></p></div>' +
+      '<div><label for="ret-growth">Growth %/yr (before inflation)</label>' +
+      '<input id="ret-growth" data-ret-in="nominal" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.nominalPct)) + '">' +
+      '<p class="ret-field-hint" data-ret="growth-hint"></p></div>' +
       '<div><label for="ret-infl">Inflation %</label>' +
       '<input id="ret-infl" data-ret-in="infl" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.inflPct)) + '"></div>' +
       '<div><label for="ret-extra">Extra monthly deposits</label>' +
