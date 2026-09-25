@@ -556,8 +556,9 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   details.mix-more .cf-chev { transition: none; }
 }
 
-/* tip bp — Retirement, directly after Past 30 days. Helper inputs are local only. */
-.retirement-card { padding: 12px 14px 14px; }
+/* tip bq — Retirement slider, birth month/year, SS anchors, take-home. */
+.retirement-card { padding: 12px 14px 14px; overflow-x: hidden; }
+.retirement-card [hidden] { display: none !important; }
 .retirement-card .ret-kpi {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -598,6 +599,7 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   font-size: 11px;
   letter-spacing: 0.4px;
@@ -629,14 +631,152 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
 .ret-track i {
   position: absolute;
   left: 0;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  margin-top: -6px;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  height: auto;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--brand-fg);
+  max-width: 100%;
+}
+.ret-progress-cap {
+  margin: 0 0 4px;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.ret-progress-top .ret-prompt {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+  flex: 1 1 auto;
+}
+.ret-born {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.8fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+.ret-born > div { min-width: 0; }
+.ret-slider { margin-top: 12px; padding: 0 18px; }
+.ret-slider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.ret-slider-head b {
+  color: var(--ink);
+  font-size: 18px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+.retirement-card input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px;
+  margin: 2px 0 0;
+  padding: 0;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+  font-size: inherit;
+}
+.retirement-card input[type="range"]:focus { outline: none; }
+.retirement-card input[type="range"]:focus-visible {
+  outline: 2px solid var(--brand-fg);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.retirement-card input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  background: var(--row);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+}
+.retirement-card input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  margin-top: -11px;
   border-radius: 50%;
   background: var(--brand-fg);
-  box-shadow: 0 0 0 2px var(--paper);
+  border: 2px solid var(--paper);
+  box-shadow: 0 0 0 1px var(--rule);
 }
+.retirement-card input[type="range"]::-moz-range-track {
+  height: 8px;
+  background: var(--row);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+}
+.retirement-card input[type="range"]::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  background: var(--brand-fg);
+  box-shadow: 0 0 0 1px var(--rule);
+}
+.ret-ticks { position: relative; height: 16px; margin-top: 0; }
+.ret-tick {
+  position: absolute;
+  top: 0;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.ret-tick-lo { left: 0; }
+.ret-tick-mid { left: 62.5%; transform: translateX(-50%); }
+.ret-tick-hi { right: 0; }
+.retirement-card .ret-results-kpi { margin-top: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ret-take {
+  margin-top: 8px;
+  background: var(--row);
+  border-radius: 4px;
+  padding: 7px 10px;
+  min-width: 0;
+}
+.ret-take span {
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.ret-take b {
+  display: block;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.ret-take i,
+.ret-bridge {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--ink-soft);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ret-bridge { margin: 8px 0 0; }
 .ret-ss-empty {
   margin: 10px 0 0;
   font-size: 13px;
@@ -712,9 +852,20 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   letter-spacing: 0;
   font-weight: 500;
 }
-.retirement-card input {
+.retirement-card input:not([type="range"]),
+.retirement-card select {
   font-size: 16px;
   min-height: 44px;
+  max-width: 100%;
+}
+.retirement-card select {
+  width: 100%;
+  font: 16px/1.35 "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 8px 10px;
 }
 .ret-field-hint,
 .ret-pia,
@@ -733,8 +884,12 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
 }
 @media (max-width: 390px) {
   .retirement-card { padding: 10px 10px 12px; }
-  .retirement-card .ret-kpi b { font-size: 14px; }
-  .ret-chip { letter-spacing: 0; }
+  .retirement-card .ret-kpi b,
+  .ret-take b { font-size: 14px; }
+  .ret-chip { letter-spacing: 0; padding: 2px 6px; }
+  .ret-slider { padding: 0 18px; }
+  .ret-slider-head b { font-size: 16px; }
+  .ret-progress-top { gap: 6px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .retirement-card details.ret-more[open] .cf-chev { transform: rotate(180deg); }
