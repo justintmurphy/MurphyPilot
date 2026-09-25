@@ -44,9 +44,22 @@
       "mfj": [32000, 44000],
       "unindexed": true
     },
-    "part_b_monthly": 203,
+    "part_b_monthly": 202.90,
     "deferral_limit": 24500,
     "catchup_50": 8000,
     "catchup_60_63": 11250
+  },
+  "ssa": {
+    "source": "SSA",
+    "checked": "2026-09-25",
+    "bend_1": 1286,
+    "bend_2": 7749,
+    "bend_rates": [0.9, 0.32, 0.15],
+    "wage_base": 184500,
+    "fra_age": 67,
+    "delayed_annual": 0.08,
+    "early_months": 36,
+    "early_first": [5, 9],
+    "early_rest": [5, 12]
   }
 }
