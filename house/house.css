@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904bo");
-@import url("house-b.css?v=20260904bo");
-@import url("mix.css?v=20260904bo");
+@import url("house-a.css?v=20260904bp");
+@import url("house-b.css?v=20260904bp");
+@import url("mix.css?v=20260904bp");
 
 header .brand-block {
   min-width: 0;
@@ -554,6 +554,190 @@ details.mix-more[open] .mix-lab-show { display: none; }
 details.mix-more[open] .mix-lab-hide { display: inline; }
 @media (prefers-reduced-motion: reduce) {
   details.mix-more .cf-chev { transition: none; }
+}
+
+/* tip bp — Retirement, directly after Past 30 days. Helper inputs are local only. */
+.retirement-card { padding: 12px 14px 14px; }
+.retirement-card .ret-kpi {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.retirement-card .ret-kpi b { font-size: 15px; }
+.retirement-card .ret-kpi i,
+.retirement-card .ret-ss-kpi i {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.2px;
+  text-transform: none;
+  color: var(--ink-soft);
+  font-weight: 500;
+  line-height: 1.3;
+}
+.retirement-card .ret-gap,
+.retirement-card .ret-dep-miss {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--stop);
+}
+.retirement-card .ret-range {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.retirement-card .ret-range b {
+  color: var(--ink);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.retirement-card .ret-range-gap { display: inline-block; width: 0.75rem; }
+.ret-progress { margin-top: 12px; }
+.ret-progress-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.ret-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--brand-fg) 14%, transparent);
+  color: var(--brand-fg);
+  letter-spacing: 0.3px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.ret-track {
+  position: relative;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--row);
+  border: 1px solid var(--rule);
+}
+.ret-track i {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--brand-fg);
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.ret-ss-empty {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.retirement-card .ret-ss-kpi { margin-top: 10px; }
+.ret-nominal {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.ret-nominal b {
+  color: var(--ink);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.retirement-card .ret-foot { font-size: 11px; margin-top: 8px; }
+.retirement-card details.ret-more { margin-top: 8px; }
+.retirement-card details.ret-more > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  min-height: 44px;
+}
+.retirement-card details.ret-more > summary::-webkit-details-marker,
+.retirement-card details.ret-more > summary::marker { display: none; content: ""; }
+.retirement-card details.ret-more > summary:focus { outline: none; }
+.retirement-card details.ret-more > summary:focus-visible {
+  outline: 2px solid var(--brand-fg);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.retirement-card .ret-sum {
+  font-size: 12px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.retirement-card .ret-affordance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  min-height: 32px;
+}
+.retirement-card .cf-chev {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+}
+.retirement-card details.ret-more[open] .cf-chev { transform: rotate(180deg); }
+.retirement-card .ret-lab-hide { display: none; }
+.retirement-card details.ret-more[open] .ret-lab-show { display: none; }
+.retirement-card details.ret-more[open] .ret-lab-hide { display: inline; }
+.ret-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px 12px;
+}
+.retirement-card label .ret-quiet {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.retirement-card input {
+  font-size: 16px;
+  min-height: 44px;
+}
+.ret-field-hint,
+.ret-pia,
+.ret-pia-empty {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+.ret-pia b { color: var(--ink); font-weight: 650; }
+.retirement-card button.ghost { margin: 12px 0 2px; min-height: 44px; }
+.ret-ss-field { grid-column: 1 / -1; }
+@media (min-width: 721px) {
+  .retirement-card .ret-kpi { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ret-fields { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 390px) {
+  .retirement-card { padding: 10px 10px 12px; }
+  .retirement-card .ret-kpi b { font-size: 14px; }
+  .ret-chip { letter-spacing: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .retirement-card details.ret-more[open] .cf-chev { transform: rotate(180deg); }
 }
 @media (min-width: 721px) {
   details.mix-more > summary { cursor: default; }
