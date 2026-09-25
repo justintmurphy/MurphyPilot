@@ -162,7 +162,7 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.ok(view.total != null && isFinite(view.total));
   assert.ok(Math.abs(view.total - (view.income + view.ss)) < 0.001);
   assert.equal(ctx.localStorage.getItem(storeKey), null);
-  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904bt$/);
+  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904bu$/);
 });
 
 test("slider touch does not pin salary, so a later file salary shows without Reset", function () {
@@ -504,7 +504,7 @@ test("retirement draw at 67 and Social Security are state-tax exempt", function 
   const summary = ctx.retTaxSummary();
   assert.equal(summary.line, "PA 3.07% (retirement income exempt)");
   assert.equal(summary.asof, "checked 2026-09-25");
-  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904bt$/);
+  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904bu$/);
   assert.match(String(ctx.retFetchJson), /no-store/);
 
   const state = ctx.retLoad();
@@ -967,6 +967,9 @@ test("loan repayments add principal with no match and do not change the deferral
   ctx.retFill(card, state);
   assert.equal(card.els["loan-line"].hidden, false);
   assert.match(card.els["loan-line"].textContent, /^Loan repay: /);
+  const shown = ctx.retView(state).mid.monthlyShown;
+  assert.equal(card.els["save-split"].hidden, false);
+  assert.equal(card.els["save-split"].textContent, ctx.money(shown) + " savings + " + ctx.money(100) + " loan repay");
 });
 
 test("a missing or repaid loan adds nothing and is not stored", function () {
@@ -988,6 +991,8 @@ test("a missing or repaid loan adds nothing and is not stored", function () {
   ctx.retFill(card, state);
   assert.equal(card.els["loan-line"].textContent, "");
   assert.equal(card.els["loan-line"].hidden, true);
+  assert.equal(card.els["save-split"].textContent, "");
+  assert.equal(card.els["save-split"].hidden, true);
   const repaid = ctx.retParseLoan({
     balance: 100, payment: 100, payments_per_year: 12, asof: "2020-01-01"
   });
@@ -1108,4 +1113,208 @@ test("the dollar year follows the retirement age slider", function () {
   assert.equal(card.els["nest-year"].textContent, "in 2050 dollars");
   assert.equal(card.els["total-year"].textContent, "in 2050 dollars");
   assert.equal(card.els["take-year"].textContent, "in 2050 dollars");
+});
+
+test("stored extra 401k percent survives a reload and stays in the projection", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 100 } }
+  };
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  seed(ctx, { extra401kPct: 2, _edited: ["extra401kPct"] });
+  let state = ctx.retLoad();
+  assert.equal(state.extra401kPct, 2);
+  assert.equal(stored(ctx).extra401kPct, 2);
+  const html = ctx.retirementHtml();
+  assert.match(html, /id="ret-extra401k"[^>]*min="0" max="2" step="0.1" value="2"/);
+  assert.equal(html.indexOf('max="0"'), -1);
+
+  const card = cardFrom(state, { extra401k: "0" });
+  const range = card.inputs.extra401k;
+  range.max = "0";
+  range.getAttribute = function (name) {
+    if (name === "max") return "0";
+    return null;
+  };
+  range.removeAttribute = function () {};
+  ctx.retCommit(card);
+  state = ctx.retLoad();
+  assert.equal(state.extra401kPct, 2);
+  assert.equal(stored(ctx).extra401kPct, 2);
+  const withExtra = ctx.retView(state).mid.nominal;
+  state.extra401kPct = 0;
+  const plain = ctx.retView(state).mid.nominal;
+  assert.ok(withExtra > plain);
+
+  const capped = cardFrom(ctx.retLoad());
+  const el = capped.inputs.extra401k;
+  el.value = "9";
+  el.max = "3.5";
+  el.getAttribute = function (name) {
+    if (name === "data-ret-cap") return "1";
+    if (name === "max") return "3.5";
+    return null;
+  };
+  assert.equal(ctx.retRead(capped).extra401kPct, 3.5);
+});
+
+test("legacy monthly without an edit marker is dropped", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 80 } }
+  };
+  seed(ctx, { monthly: 9000, inflPct: 3 });
+  let state = ctx.retLoad();
+  assert.equal(state.monthly, null);
+  assert.equal(state.inflPct, 3);
+  const blob = stored(ctx);
+  assert.ok(blob);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "monthly"), false);
+  assert.deepEqual(blob._edited, ["inflPct"]);
+  state.salary = null;
+  assert.equal(ctx.retSavingsMeta(state).monthly, 80);
+  const open = ctx.retProject(10000, state, 10).nominal;
+  const pinned = ctx.retClone(state);
+  pinned.monthly = 9000;
+  const old = ctx.retProject(10000, pinned, 10).nominal;
+  assert.ok(open < old);
+  seed(ctx, { monthly: 9000, _edited: ["monthly"] });
+  state = ctx.retLoad();
+  assert.equal(state.monthly, 9000);
+});
+
+test("dollar year is the current year once age has reached the slider", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  const state = ctx.retLoad();
+  const todayY = ctx.retTodayNy().year;
+  state.birthYear = todayY - 80;
+  state.birthMonth = 1;
+  state.retireAge = 62;
+  state.inflPct = 2.5;
+  const h = ctx.retHorizon(state);
+  assert.ok(h.age >= state.retireAge);
+  assert.equal(h.years, 0);
+  assert.equal(h.year, todayY);
+  assert.equal(ctx.retYearFactor(todayY, state.birthYear + state.retireAge, state.inflPct), 1);
+  const view = ctx.retView(state);
+  assert.equal(view.horizon.year, todayY);
+  assert.ok(Math.abs(view.mid.nominal - view.mid.today) < 0.001);
+  assert.ok(Math.abs(view.ss - 1000) < 0.02);
+  const card = textCard();
+  ctx.retFill(card, state);
+  const label = "in " + todayY + " dollars";
+  assert.equal(card.els["nest-year"].textContent, label);
+  assert.equal(card.els["total-year"].textContent, label);
+  assert.equal(card.els["take-year"].textContent, label);
+});
+
+test("headline projection caps employee deferral at the IRS limit plus catch-up", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 0, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  const state = ctx.retLoad();
+  const year = ctx.retTodayNy().year;
+  state.salary = 200000;
+  state.salaryYear = year;
+  state.raisePct = 0;
+  state.eePct = 100;
+  state.matchPct = 0;
+  state.extraMonthly = 0;
+  state.extra401kPct = 0;
+  state.nominalPct = 0;
+  state.inflPct = 0;
+  state.birthMonth = 1;
+  state.birthYear = year - 40;
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const young = ctx.retProject(0, state, 1);
+  const youngCap = ctx.retDeferralLimit(year - 40, year);
+  state.birthYear = year - 61;
+  const older = ctx.retProject(0, state, 1);
+  const olderCap = ctx.retDeferralLimit(year - 61, year);
+  assert.equal(youngCap, 20000);
+  assert.equal(olderCap, 27000);
+  assert.equal(young.clamped, true);
+  assert.equal(older.clamped, true);
+  assert.ok(older.nominal > young.nominal);
+  const open = federalFixture();
+  open.deferral_limit = 1000000;
+  open.catchup_50 = 0;
+  open.catchup_60_63 = 0;
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: open }));
+  state.birthYear = year - 40;
+  const loose = ctx.retProject(0, state, 1);
+  assert.equal(loose.clamped, false);
+  assert.ok(loose.nominal > young.nominal);
+});
+
+/* Public SSA formula kept in the test so a move into tax-rules.json cannot drift. */
+function legacySsFactor(age) {
+  const fromFra = Number(age) - 67;
+  if (fromFra >= 0) return 1 + 0.08 * fromFra;
+  const earlyMonths = Math.round(-fromFra * 12);
+  const first = Math.min(earlyMonths, 36);
+  const rest = Math.max(0, earlyMonths - 36);
+  const reduction = first * (5 / 9) * 0.01 + rest * (5 / 12) * 0.01;
+  const factor = 1 - reduction;
+  return factor > 0 ? factor : 0;
+}
+function legacyPia(salary) {
+  const aime = Math.min(salary, 184500) / 12;
+  const pia = 0.9 * Math.min(aime, 1286)
+    + 0.32 * Math.min(Math.max(aime - 1286, 0), 7749 - 1286)
+    + 0.15 * Math.max(aime - 7749, 0);
+  return Math.floor(pia * 10) / 10;
+}
+
+test("Social Security factors come from the ssa block", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  const shipped = ctx.retParseTax(JSON.parse(fs.readFileSync(path.join(root, "house/tax-rules.json"), "utf8")));
+  assert.equal(shipped.federal.partBMonthly, 202.9);
+  assert.equal(shipped.ssa.source, "SSA");
+  assert.equal(shipped.ssa.checked, "2026-09-25");
+  assert.equal(shipped.ssa.bend1, 1286);
+  assert.equal(shipped.ssa.bend2, 7749);
+  assert.equal(shipped.ssa.wageBase, 184500);
+  assert.equal(shipped.ssa.fraAge, 67);
+  ctx.RET_TAX = shipped;
+  assert.match(ctx.retPartBHint(), /\$202\.90/);
+  assert.equal(ctx.retRoughPia(60000), legacyPia(60000));
+  let age;
+  for (age = 62; age <= 70; age++) assert.equal(ctx.retSsFactor(age), legacySsFactor(age));
+  const state = ctx.retLoad();
+  state.retireAge = 64;
+  const estimated = ctx.retSsMonthly(64, state);
+  assert.ok(estimated > state.ss62 && estimated < state.ss67);
+
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  assert.equal(ctx.RET_TAX.ssa, null);
+  assert.equal(ctx.retRoughPia(60000), null);
+  assert.equal(ctx.retSsFactor(64), null);
+  assert.equal(ctx.retSsMonthly(64, state), null);
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.match(card.els.pia.innerHTML, /Rough estimate \u2014\/mo/);
+  assert.equal(card.els["ss-mo"].textContent, "\u2014");
 });
