@@ -828,11 +828,11 @@
     },
     "invested_pct": 98.8,
     "cashflow_30d": {
-      "asof": "2026-09-24T16:23:00-04:00",
+      "asof": "2026-09-25T16:20:00-04:00",
       "from": "2026-08-25",
-      "to": "2026-09-23",
+      "to": "2026-09-24",
       "owner_deposits": 1121.91,
-      "market_earnings": -1145.43,
+      "market_earnings": -1091.28,
       "market_earnings_basis": "rh_realized+truthifi_totalPnL",
       "window_days": 30,
       "dividends": 0.53,
@@ -840,17 +840,17 @@
       "by_source": {
         "robinhood": {
           "owner_deposits": 250.0,
-          "market_earnings": -37.28
+          "market_earnings": -49.52
         },
         "fidelity": {
           "owner_deposits": 217.97,
-          "market_earnings": -113.34,
+          "market_earnings": -111.26,
           "dividends": 0.53,
           "reinvested": 0.52
         },
         "voya": {
           "owner_deposits": 653.94,
-          "market_earnings": -994.81
+          "market_earnings": -930.5
         }
       }
     }
