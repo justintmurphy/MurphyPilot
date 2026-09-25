@@ -162,7 +162,7 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.ok(view.total != null && isFinite(view.total));
   assert.ok(Math.abs(view.total - (view.income + view.ss)) < 0.001);
   assert.equal(ctx.localStorage.getItem(storeKey), null);
-  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904bu$/);
+  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904bv$/);
 });
 
 test("slider touch does not pin salary, so a later file salary shows without Reset", function () {
@@ -504,7 +504,7 @@ test("retirement draw at 67 and Social Security are state-tax exempt", function 
   const summary = ctx.retTaxSummary();
   assert.equal(summary.line, "PA 3.07% (retirement income exempt)");
   assert.equal(summary.asof, "checked 2026-09-25");
-  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904bu$/);
+  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904bv$/);
   assert.match(String(ctx.retFetchJson), /no-store/);
 
   const state = ctx.retLoad();
@@ -1307,14 +1307,203 @@ test("Social Security factors come from the ssa block", function () {
   state.retireAge = 64;
   const estimated = ctx.retSsMonthly(64, state);
   assert.ok(estimated > state.ss62 && estimated < state.ss67);
+  const withRules = ctx.retView(state);
+  assert.ok(withRules.ss != null && isFinite(withRules.ss));
+  assert.ok(withRules.take != null && isFinite(withRules.take));
 
   ctx.RET_TAX = ctx.retParseTax(taxRules());
   assert.equal(ctx.RET_TAX.ssa, null);
   assert.equal(ctx.retRoughPia(60000), null);
   assert.equal(ctx.retSsFactor(64), null);
   assert.equal(ctx.retSsMonthly(64, state), null);
+  const dashed = ctx.retView(state);
+  assert.equal(dashed.ss, null);
+  assert.equal(dashed.take, null);
   const card = textCard();
   ctx.retFill(card, state);
   assert.match(card.els.pia.innerHTML, /Rough estimate \u2014\/mo/);
   assert.equal(card.els["ss-mo"].textContent, "\u2014");
+  assert.equal(card.els.take.textContent, "\u2014");
+
+  state.retireAge = 67;
+  const exact = ctx.retView(state);
+  assert.ok(exact.ss != null && isFinite(exact.ss));
+  assert.ok(exact.take != null && isFinite(exact.take));
+  ctx.retFill(card, state);
+  assert.equal(card.els["ss-mo"].textContent, ctx.money(exact.ss));
+  assert.equal(card.els.take.textContent, ctx.money(exact.take));
+});
+
+test("extra 401k stats match the headline at the current extra", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 100 } }
+  };
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const state = ctx.retLoad();
+  state.extra401kPct = 2;
+  state.retireAge = 67;
+  const view = ctx.retView(state);
+  const stats = ctx.retExtra401k(state, view);
+  assert.equal(stats.newTotal, view.total);
+  assert.equal(stats.newTake, view.take);
+  const zero = ctx.retClone(state);
+  zero.extra401kPct = 0;
+  const base = ctx.retView(zero);
+  assert.ok(view.mid.nominal > base.mid.nominal);
+  assert.ok(Math.abs(stats.addedNest - (view.mid.nominal - base.mid.nominal)) < 0.05);
+  assert.ok(Math.abs(stats.addedIncome - (view.income - base.income)) < 0.001);
+  const card = textCard();
+  ctx.retFill(card, state);
+  const html = card.els["extra401k-stats"].innerHTML;
+  assert.ok(html.indexOf("Total <b>" + ctx.money(view.total) + "</b>") >= 0);
+  assert.ok(html.indexOf("Take-home <b>" + ctx.money(view.take) + "</b>") >= 0);
+});
+
+test("stored extra 401k percent clamps to the slider max", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  const fed = federalFixture();
+  fed.deferral_limit = 8000;
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: fed }));
+  seed(ctx, { extra401kPct: 20, _edited: ["extra401kPct"] });
+  const state = ctx.retLoad();
+  assert.ok(Math.abs(state.extra401kPct - 4) < 1e-6);
+  assert.ok(Math.abs(stored(ctx).extra401kPct - 4) < 1e-6);
+  const over = ctx.retClone(state);
+  over.extra401kPct = 20;
+  const atMax = ctx.retClone(state);
+  atMax.extra401kPct = 4;
+  const years = ctx.retHorizon(state).years;
+  const high = ctx.retProject(10000, over, years).nominal;
+  const capped = ctx.retProject(10000, atMax, years).nominal;
+  assert.ok(Math.abs(high - capped) < 0.05);
+  const card = textCard();
+  ctx.retFill(card, state);
+  const range = card.els["in:extra401k"];
+  assert.ok(Math.abs(Number(range.max) - 4) < 1e-6);
+  assert.ok(Number(range.value) <= Number(range.max) + 1e-6);
+  const headline = ctx.retView(state).mid.nominal;
+  assert.ok(Math.abs(headline - capped) < 0.05);
+});
+
+test("401k plus match includes the extra and respects the deferral and compensation caps", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 0, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  const year = ctx.retTodayNy().year;
+  const state = ctx.retLoad();
+  state.salaryYear = year;
+  state.raisePct = 0;
+  state.matchPct = 0;
+  state.extraMonthly = 0;
+  state.nominalPct = 0;
+  state.inflPct = 0;
+  state.birthMonth = 1;
+  state.birthYear = year - 40;
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+
+  state.salary = 80000;
+  state.eePct = 6;
+  state.extra401kPct = 2;
+  assert.equal(ctx.retSavingsMeta(state).year1Annual, 6400);
+  state.extra401kPct = 0;
+  assert.equal(ctx.retSavingsMeta(state).year1Annual, 4800);
+
+  state.salary = 200000;
+  state.eePct = 100;
+  state.extra401kPct = 2;
+  assert.equal(ctx.retSavingsMeta(state).year1Annual, 20000);
+  assert.ok(Math.abs(ctx.retProject(0, state, 1).nominal - 20000) < 0.05);
+
+  const fed = federalFixture({ comp_limit: 100000, comp_limit_indexed: true });
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: fed }));
+  state.salary = 400000;
+  state.eePct = 0;
+  state.extra401kPct = 0;
+  state.matchPct = 10;
+  state.inflPct = 0;
+  assert.equal(ctx.retCompLimit(state, year), 100000);
+  assert.equal(ctx.retSavingsMeta(state).year1Annual, 10000);
+  assert.ok(Math.abs(ctx.retProject(0, state, 1).nominal - 10000) < 0.05);
+  const open = federalFixture();
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: open }));
+  assert.equal(ctx.retCompLimit(state, year), null);
+  assert.equal(ctx.retSavingsMeta(state).year1Annual, 40000);
+
+  ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: fed }));
+  state.inflPct = 10;
+  const later = ctx.retCompLimit(state, year + 10);
+  assert.ok(Math.abs(later - 100000 * Math.pow(1.1, 10)) < 0.05);
+  const shipped = ctx.retParseTax(JSON.parse(fs.readFileSync(path.join(root, "house/tax-rules.json"), "utf8")));
+  assert.equal(shipped.federal.compLimit, 360000);
+  assert.equal(shipped.federal.compLimitIndexed, true);
+  assert.equal(ctx.retParseTax(taxRules({ federal: federalFixture({ comp_limit: 0 }) })).federal, null);
+});
+
+test("loan repay on the save split cannot exceed the remaining balance", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  const today = ctx.retTodayNy();
+  const ymd = today.year + "-" + String(today.month).padStart(2, "0") + "-" + String(today.day).padStart(2, "0");
+  const loan = ctx.retParseLoan({
+    balance: 40, payment: 100, payments_per_year: 12, asof: ymd
+  });
+  ctx.RET_SAVED.loan = loan;
+  const model = ctx.retLoanActive();
+  assert.ok(model);
+  assert.ok(Math.abs(model.remaining - 40) < 0.001);
+  assert.equal(ctx.retLoanMonthPay(model), 40);
+  const state = ctx.retLoad();
+  const card = textCard();
+  ctx.retFill(card, state);
+  const shown = ctx.retView(state).mid.monthlyShown;
+  assert.equal(card.els["save-split"].textContent, ctx.money(shown) + " savings + " + ctx.money(40) + " loan repay");
+  assert.equal(card.els["save-split"].textContent.indexOf(ctx.money(100)), -1);
+});
+
+test("nest egg line splits savings and loan while the loan contributes", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  const loan = ctx.retParseLoan({
+    balance: 1200, payment: 100, payments_per_year: 12, asof: "2026-01-15"
+  });
+  ctx.RET_SAVED.loan = loan;
+  const state = ctx.retLoad();
+  state.retireAge = 67;
+  const view = ctx.retView(state);
+  const add = ctx.retLoanFuture(view.horizon.years, state.nominalPct / 100, state.inflPct / 100);
+  assert.ok(add.nominal > 0.005);
+  const card = textCard();
+  ctx.retFill(card, state);
+  const expected = "savings " + ctx.money(view.mid.nominal - add.nominal) + " + loan " + ctx.money(add.nominal);
+  assert.equal(card.els["nest-split"].textContent, expected);
+  assert.equal(card.els["nest-split"].hidden, false);
+  assert.match(card.els["nest-split"].textContent, /^savings \$[\d,]+\.\d{2} \+ loan \$[\d,]+\.\d{2}$/);
+  ctx.RET_SAVED.loan = null;
+  ctx.retFill(card, state);
+  assert.equal(card.els["nest-split"].textContent, "");
+  assert.equal(card.els["nest-split"].hidden, true);
 });

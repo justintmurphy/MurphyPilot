@@ -877,17 +877,20 @@ function collapseHouseNames(list) {
     return html;
   }
 
-  /* tip bu — Retirement helper on the tip bt card.
+  /* tip bv — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904bu).
+     Defaults come from same-origin retirement.json (?v=20260904bv).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. A missing federal
      block leaves take-home, extra-401k cost, and the cap label as a dash.
-     A missing ssa block leaves Social Security estimates as a dash.
+     A missing ssa block leaves Social Security estimates as a dash, and
+     take-home dashes with them when there is no statement amount to show.
      localStorage murphyHouseRetirement stores only fields that differ from
      those defaults (_edited). A null or blank local value is not an override.
      The extra 401k range gets its real max before its value. Until that cap
      is known, a reload keeps the saved percent instead of the placeholder 0.
+     Once the cap is known, a stored extra above that max is clamped to it.
+     Headline totals already include the extra, so the stats line does not add it again.
      Birth is not edited in the form and is stored only from #ret= or when it
      differs from the file. */
   var RET_STORE = "murphyHouseRetirement";
@@ -1172,7 +1175,9 @@ function collapseHouseNames(list) {
     if (retStripLoan(store)) dirty = true;
     if (retStripReal(store)) dirty = true;
     if (dirty && (RET_SAVED || Array.isArray(original._edited))) retStoreWrite(store);
-    return retApplyOverrides(d, store);
+    d = retApplyOverrides(d, store);
+    retPersistExtraClamp(d);
+    return d;
   }
   function retSave(d) {
     var base = retBaseline();
@@ -1333,7 +1338,7 @@ function collapseHouseNames(list) {
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904bu";
+    return (housePath ? name : "house/" + name) + "?v=20260904bv";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");
@@ -1494,6 +1499,14 @@ function collapseHouseNames(list) {
     var catch50 = retNonNeg(o.catchup_50);
     var catch60 = retNonNeg(o.catchup_60_63);
     if (partB == null || limit == null || !(limit > 0) || catch50 == null || catch60 == null) return null;
+    var compLimit = null;
+    var compLimitIndexed = false;
+    if (Object.prototype.hasOwnProperty.call(o, "comp_limit")) {
+      compLimit = retNonNeg(o.comp_limit);
+      if (compLimit == null || !(compLimit > 0)) return null;
+      compLimitIndexed = flag("comp_limit_indexed");
+      if (compLimitIndexed == null) return null;
+    }
     var checked = String(o.checked == null ? "" : o.checked).trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(checked)) return null;
     return {
@@ -1510,6 +1523,8 @@ function collapseHouseNames(list) {
       deferralLimit: limit,
       catchup50: catch50,
       catchup6063: catch60,
+      compLimit: compLimit,
+      compLimitIndexed: compLimitIndexed,
       source: String(o.source == null ? "" : o.source).trim(),
       checked: checked
     };
@@ -1851,7 +1866,10 @@ function collapseHouseNames(list) {
     var raise = (retFinite(state.raisePct) ? Number(state.raisePct) : 1) / 100;
     var ee = (retFinite(state.eePct) ? Number(state.eePct) : 6) / 100;
     var match = (retFinite(state.matchPct) ? Number(state.matchPct) : 6) / 100;
-    var year1 = salaryNow * (1 + raise) * (ee + match) + extra * 12;
+    var sal1 = salaryNow * (1 + raise);
+    var year0 = retTodayNy().year;
+    var emp1 = retCappedEmployee(sal1, ee, retExtraRate(state), state.birthYear, year0);
+    var year1 = emp1.employee + retMatchDollars(sal1, match, state, year0) + extra * 12;
     return {
       mode: "salary",
       monthlyShown: year1 / 12,
@@ -1929,11 +1947,14 @@ function collapseHouseNames(list) {
     if (empty.nominal != null) empty.nominal += add.nominal;
     return empty;
   }
-  /* Monthly principal: payment times payments per year, spread over 12. */
+  /* Monthly principal: payment times payments per year, spread over 12.
+     Never more than the balance still left. */
   function retLoanMonthPay(model) {
     if (!model || !(Number(model.perYear) > 0) || !retFinite(model.payment)) return null;
     var mo = Number(model.payment) * Number(model.perYear) / 12;
-    return isFinite(mo) ? mo : null;
+    if (!isFinite(mo)) return null;
+    if (retFinite(model.remaining) && mo > Number(model.remaining)) mo = Number(model.remaining);
+    return mo;
   }
   function retSaveSplitText(monthlyShown, model) {
     if (!model) return "";
@@ -1941,6 +1962,15 @@ function collapseHouseNames(list) {
     if (loanMo == null) return "";
     var saveMo = (monthlyShown == null || !isFinite(Number(monthlyShown))) ? 0 : Number(monthlyShown);
     return money(saveMo) + " savings + " + money(loanMo) + " loan repay";
+  }
+  /* Nominal nest split while future loan principal is still in the balance. */
+  function retNestSplitText(nominal, years, nominalPct, inflPct) {
+    if (nominal == null || !isFinite(Number(nominal))) return "";
+    var rate = retFinite(nominalPct) ? Number(nominalPct) / 100 : 0;
+    var infl = retFinite(inflPct) ? Number(inflPct) / 100 : 0;
+    var add = retLoanFuture(years, rate, infl);
+    if (!add || !(add.nominal > 0.005)) return "";
+    return "savings " + money(Number(nominal) - add.nominal) + " + loan " + money(add.nominal);
   }
   function retLoanCopy(model) {
     if (!model) return "";
@@ -1960,8 +1990,38 @@ function collapseHouseNames(list) {
      Today's dollars = nominal / (1+inflation)^years. A partial last year uses the same shape.
      A horizon that has already arrived applies no inflation.
      Employee deferral (base % plus any extra %) is capped at that year's IRS
-     limit plus the age catch-up when tax-rules.json has one.
+     limit plus the age catch-up when tax-rules.json has one. The extra percent
+     itself stops at the slider max. Employer match uses pay up to the IRS
+     compensation limit when tax-rules.json has one.
      Loan principal is added on its own dates, with no match and outside the deferral cap. */
+  /* Extra percent that reaches this year's deferral cap. Null when the cap
+     or the current salary is unknown, so a stored extra is left alone. */
+  function retMaxExtraPct(state) {
+    var salary = retSalaryNow(state);
+    if (salary == null || !(salary > 0)) return null;
+    var limit = retDeferralLimit(state && state.birthYear, retTodayNy().year);
+    if (limit == null) return null;
+    var ee = (state && retFinite(state.eePct)) ? Number(state.eePct) : 6;
+    var maxExtra = (limit / salary) * 100 - ee;
+    if (!(maxExtra > 0)) maxExtra = 0;
+    return maxExtra;
+  }
+  function retPersistExtraClamp(d) {
+    if (!d) return;
+    var max = retMaxExtraPct(d);
+    if (max == null) return;
+    var pct = retFinite(d.extra401kPct) ? Number(d.extra401kPct) : 0;
+    if (!(pct > max + 1e-6)) return;
+    var next = max > 1e-6 ? max : 0;
+    d.extra401kPct = next;
+    var store = retStoreRead();
+    if (!store || !Array.isArray(store._edited) || store._edited.indexOf("extra401kPct") < 0) return;
+    if (!(next > 0)) {
+      delete store.extra401kPct;
+      store._edited = store._edited.filter(function (k) { return k !== "extra401kPct"; });
+    } else store.extra401kPct = next;
+    retStoreWrite(store);
+  }
   function retExtraRate(state, opts) {
     var pct = 0;
     if (opts && Object.prototype.hasOwnProperty.call(opts, "extra401kPct")) {
@@ -1970,6 +2030,8 @@ function collapseHouseNames(list) {
       pct = Number(state.extra401kPct);
     }
     if (!(pct > 0)) pct = 0;
+    var max = retMaxExtraPct(state);
+    if (max != null && pct > max) pct = max;
     return pct / 100;
   }
   function retCappedEmployee(sal, eeRate, extraRate, birthYear, calendarYear) {
@@ -1978,6 +2040,21 @@ function collapseHouseNames(list) {
     var clamped = cap != null && employee > cap;
     if (clamped) employee = cap;
     return { employee: employee, clamped: clamped };
+  }
+  /* Match percent times pay, and pay stops at the indexed compensation limit. */
+  function retCompLimit(state, calendarYear) {
+    var fed = retFederal();
+    if (!fed || fed.compLimit == null || !retFinite(fed.compLimit) || !(Number(fed.compLimit) > 0)) return null;
+    var scale = retIndexScale(!!fed.compLimitIndexed, state, calendarYear);
+    var grown = Number(fed.compLimit) * scale;
+    return (isFinite(grown) && grown > 0) ? grown : Number(fed.compLimit);
+  }
+  function retMatchDollars(sal, matchRate, state, calendarYear) {
+    var pay = sal;
+    var cap = retCompLimit(state, calendarYear);
+    if (cap != null && pay > cap) pay = cap;
+    var dollars = pay * matchRate;
+    return isFinite(dollars) ? dollars : 0;
   }
   function retProject(pv, state, years, opts) {
     var meta = retSavingsMeta(state);
@@ -2019,7 +2096,7 @@ function collapseHouseNames(list) {
         sal = sal * (1 + raise);
         var empY = retCappedEmployee(sal, ee, extraRate, state.birthYear, year0 + y);
         if (empY.clamped) clamped = true;
-        var contrib = empY.employee + sal * match + extra * 12;
+        var contrib = empY.employee + retMatchDollars(sal, match, state, year0 + y) + extra * 12;
         bal = bal * growth + contrib * half;
         if (!isFinite(bal)) return empty;
       }
@@ -2027,7 +2104,7 @@ function collapseHouseNames(list) {
         sal = sal * Math.pow(1 + raise, frac);
         var empF = retCappedEmployee(sal, ee, extraRate, state.birthYear, year0 + full);
         if (empF.clamped) clamped = true;
-        var annualF = empF.employee + sal * match + extra * 12;
+        var annualF = empF.employee + retMatchDollars(sal, match, state, year0 + full) + extra * 12;
         var contribF = annualF * frac;
         var gFrac = Math.pow(growth, frac);
         if (!(gFrac > 0) || !isFinite(gFrac)) return empty;
@@ -2321,6 +2398,7 @@ function collapseHouseNames(list) {
     if (income != null && ss != null) total = income + ss;
     else if (income != null && !hasAnchor) total = income;
     var take = (h.years == null || income == null) ? null : retTakeHome(income, hasAnchor ? ss : null, state, h.years, state.retireAge);
+    if (!retSsa() && ss == null) take = null;
     var bridge = null;
     if (state.retireAge === 67 && h.age != null && h.age < 67 && state.ss67 != null && state.ss70 != null && mid.nominal != null) {
       bridge = retBridge(mid.nominal, state.nominalPct, retSsCola(state.ss67, state, 67), retSsCola(state.ss70, state, 70));
@@ -2444,28 +2522,25 @@ function collapseHouseNames(list) {
     if (!hasSalary || !view) return empty;
     var ee = retFinite(state.eePct) ? Number(state.eePct) : 6;
     var filing = state.filing === "single" ? "single" : "mfj";
-    var limit = retDeferralLimit(state.birthYear, retTodayNy().year);
     var h = view.horizon;
-    if (limit == null) {
+    var maxExtra = retMaxExtraPct(state);
+    if (maxExtra == null) {
       return {
         ready: true, extraPct: 0, maxExtra: null, atCap: false, capKnown: false,
         addedNest: null, addedIncome: null, newTotal: null, newTake: null, cost: null
       };
     }
-    var maxExtra = (limit / salary) * 100 - ee;
-    if (!(maxExtra > 0)) maxExtra = 0;
+    var limit = retDeferralLimit(state.birthYear, retTodayNy().year);
     var extraPct = requested > maxExtra ? maxExtra : requested;
     var atCap = maxExtra <= 1e-6 || extraPct >= maxExtra - 0.05;
-    var withX = retProject(view.src.base, state, h.years, { capDeferral: true, extra401kPct: extraPct });
-    var baseX = retProject(view.src.base, state, h.years, { capDeferral: true, extra401kPct: 0 });
+    var withX = retProject(view.src.base, state, h.years, { extra401kPct: extraPct });
+    var baseX = retProject(view.src.base, state, h.years, { extra401kPct: 0 });
     var addedNest = (withX.nominal != null && baseX.nominal != null) ? withX.nominal - baseX.nominal : null;
     var addedIncome = addedNest != null ? addedNest * 0.04 / 12 : null;
     if (withX.clamped) atCap = true;
-    var newDraw = (view.income != null && addedIncome != null) ? view.income + addedIncome : null;
-    var newTotal = null;
-    if (newDraw != null && view.ss != null) newTotal = newDraw + view.ss;
-    else if (newDraw != null && !view.hasAnchor) newTotal = newDraw;
-    var newTake = (h.years == null || newDraw == null) ? null : retTakeHome(newDraw, view.hasAnchor ? view.ss : null, state, h.years, state.retireAge);
+    /* Headline income already includes this extra. Stats repeat those totals. */
+    var newTotal = view.total;
+    var newTake = view.take;
     var std = retStandardDeduction(filing, h.age);
     var marginal = std == null ? null : retMarginalRate(salary - std, filing);
     var stateRate = (RET_TAX && RET_TAX.contribDeductible && retFinite(RET_TAX.pitRate)) ? Number(RET_TAX.pitRate) : 0;
@@ -2533,6 +2608,9 @@ function collapseHouseNames(list) {
     }
     retSetText(card, "growth-hint", retAfterInflationHint(state.nominalPct, state.inflPct));
     retSetText(card, "nest", retMoney(v.mid.nominal));
+    var nestSplit = retNestSplitText(v.mid.nominal, h.years, state.nominalPct, state.inflPct);
+    retSetText(card, "nest-split", nestSplit);
+    retShow(card.querySelector('[data-ret="nest-split"]'), !!nestSplit);
     retSetText(card, "income", retMoney(v.income));
     retSetText(card, "low", retMoney(v.low.nominal));
     retSetText(card, "low-mo", retMoney(retIncome(v.low.nominal)));
@@ -2784,7 +2862,7 @@ function collapseHouseNames(list) {
       '<div class="kpi ret-kpi">' +
       '<div><span>Retirement base</span><b data-ret="base">\u2014</b><i data-ret="sources"></i></div>' +
       '<div><span data-ret="save-k">Monthly savings</span><b data-ret="save">\u2014</b><i data-ret="save-sub">based on last 30 days</i><i data-ret="save-split" hidden></i></div>' +
-      '<div><span>Nest egg</span><b data-ret="nest">\u2014</b><i data-ret="nest-year"></i></div>' +
+      '<div><span>Nest egg</span><b data-ret="nest">\u2014</b><i data-ret="nest-year"></i><i data-ret="nest-split" hidden></i></div>' +
       '<div><span>4% draw</span><b data-ret="income">\u2014</b><i>per month</i></div>' +
       '</div>' +
       '<p class="ret-gap" data-ret="gap" hidden></p>' +

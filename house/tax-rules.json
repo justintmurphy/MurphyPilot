@@ -47,7 +47,9 @@
     "part_b_monthly": 202.90,
     "deferral_limit": 24500,
     "catchup_50": 8000,
-    "catchup_60_63": 11250
+    "catchup_60_63": 11250,
+    "comp_limit": 360000,
+    "comp_limit_indexed": true
   },
   "ssa": {
     "source": "SSA",
