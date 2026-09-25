@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904bp");
-@import url("house-b.css?v=20260904bp");
-@import url("mix.css?v=20260904bp");
+@import url("house-a.css?v=20260904br");
+@import url("house-b.css?v=20260904br");
+@import url("mix.css?v=20260904br");
 
 header .brand-block {
   min-width: 0;
@@ -556,7 +556,7 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   details.mix-more .cf-chev { transition: none; }
 }
 
-/* tip bq — Retirement slider, birth month/year, SS anchors, take-home. */
+/* tip br — Retirement helper tidy. Slider ticks follow the thumb. */
 .retirement-card { padding: 12px 14px 14px; overflow-x: hidden; }
 .retirement-card [hidden] { display: none !important; }
 .retirement-card .ret-kpi {
@@ -656,14 +656,7 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   color: var(--ink);
   flex: 1 1 auto;
 }
-.ret-born {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.8fr);
-  gap: 8px;
-  margin-top: 10px;
-}
-.ret-born > div { min-width: 0; }
-.ret-slider { margin-top: 12px; padding: 0 18px; }
+.ret-slider { margin-top: 12px; padding: 0 18px; --ret-thumb: 28px; }
 .ret-slider-head {
   display: flex;
   align-items: baseline;
@@ -711,8 +704,9 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
 .retirement-card input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 28px;
-  height: 28px;
+  box-sizing: border-box;
+  width: var(--ret-thumb, 28px);
+  height: var(--ret-thumb, 28px);
   margin-top: -11px;
   border-radius: 50%;
   background: var(--brand-fg);
@@ -726,8 +720,9 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   border-radius: 999px;
 }
 .retirement-card input[type="range"]::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
+  box-sizing: border-box;
+  width: var(--ret-thumb, 28px);
+  height: var(--ret-thumb, 28px);
   border: 2px solid var(--paper);
   border-radius: 50%;
   background: var(--brand-fg);
@@ -738,13 +733,15 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   position: absolute;
   top: 0;
   font-size: 10px;
-  letter-spacing: 0.4px;
+  letter-spacing: 0;
   color: var(--ink-soft);
   font-weight: 600;
+  transform: translateX(-50%);
 }
-.ret-tick-lo { left: 0; }
-.ret-tick-mid { left: 62.5%; transform: translateX(-50%); }
-.ret-tick-hi { right: 0; }
+/* Center each label on the thumb: thumbHalf + (val-min)/(max-min) * (track - thumb). */
+.ret-tick-lo { left: calc(var(--ret-thumb) / 2); }
+.ret-tick-mid { left: calc(var(--ret-thumb) / 2 + 0.625 * (100% - var(--ret-thumb))); }
+.ret-tick-hi { left: calc(100% - var(--ret-thumb) / 2); }
 .retirement-card .ret-results-kpi { margin-top: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ret-take {
   margin-top: 8px;
@@ -878,6 +875,56 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
 .ret-pia b { color: var(--ink); font-weight: 650; }
 .retirement-card button.ghost { margin: 12px 0 2px; min-height: 44px; }
 .ret-ss-field { grid-column: 1 / -1; }
+.ret-extra401k { grid-column: 1 / -1; }
+.ret-extra-stats {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.ret-extra-stats b {
+  color: var(--ink);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.ret-seg {
+  display: flex;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+  min-height: 44px;
+}
+.ret-seg button {
+  flex: 1 1 0;
+  margin: 0;
+  min-height: 44px;
+  width: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 16px/1.2 "Segoe UI", system-ui, sans-serif;
+  cursor: pointer;
+}
+.ret-seg button + button { border-left: 1px solid var(--rule); }
+.ret-seg button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--brand-fg) 22%, transparent);
+  font-weight: 700;
+}
+.retirement-card .ret-reset-saved {
+  display: inline-flex;
+  align-items: center;
+  margin: 8px 0 2px;
+  padding: 0;
+  min-height: 44px;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font: 600 12px/1.4 "Segoe UI", system-ui, sans-serif;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
 @media (min-width: 721px) {
   .retirement-card .ret-kpi { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .ret-fields { grid-template-columns: 1fr 1fr; }
