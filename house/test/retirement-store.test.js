@@ -261,7 +261,7 @@ test("old null blob and old full snapshot both fill from the file", function () 
 
   seed(ctx, {
     salary: 55555, ss67: 3333, ss62: null, ss70: "",
-    birthMonth: 7, birthYear: 1971, realPct: 4
+    birthMonth: 7, birthYear: 1971, realPct: 8, real_return_pct: 8
   });
   state = ctx.retLoad();
   assert.equal(state.salary, 90000);
@@ -270,9 +270,11 @@ test("old null blob and old full snapshot both fill from the file", function () 
   assert.equal(state.ss70, 2000);
   assert.equal(state.birthMonth, 7);
   assert.equal(state.birthYear, 1971);
-  assert.equal(state.realPct, 4);
+  assert.equal(state.realPct, 5);
   blob = stored(ctx);
   assert.equal(Object.prototype.hasOwnProperty.call(blob, "salary"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "realPct"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "real_return_pct"), false);
   assert.ok(blob._edited.indexOf("ss67") >= 0);
   assert.ok(blob._edited.indexOf("birthYear") >= 0);
 });
@@ -719,16 +721,18 @@ test("Social Security thresholds come from the file", function () {
 test("an old raise without an edit marker does not override the file", function () {
   const ctx = boot();
   useFile(ctx, fileA({ raise_pct: 4 }));
-  seed(ctx, { raisePct: 1, raise_pct: 9, salary: 55555, realPct: 4 });
+  seed(ctx, { raisePct: 1, raise_pct: 9, salary: 55555, realPct: 8, inflPct: 3 });
   let state = ctx.retLoad();
   assert.equal(state.raisePct, 4);
   assert.equal(state.salary, 80000);
-  assert.equal(state.realPct, 4);
+  assert.equal(state.realPct, 5);
+  assert.equal(state.inflPct, 3);
   let blob = stored(ctx);
   assert.ok(blob);
   assert.equal(Object.prototype.hasOwnProperty.call(blob, "raisePct"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(blob, "raise_pct"), false);
-  assert.deepEqual(blob._edited, ["realPct"]);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "realPct"), false);
+  assert.deepEqual(blob._edited, ["inflPct"]);
 
   seed(ctx, { raisePct: 7, _edited: ["raisePct"] });
   useFile(ctx, fileA({ raise_pct: 4 }));
@@ -742,6 +746,7 @@ test("real growth hint shows nominal return from the file inflation", function (
   const ctx = boot();
   useFile(ctx, fileA());
   assert.equal(ctx.retNominalHint(5), "5% real \u2248 7.6%/yr at 2.5% inflation");
+  assert.equal(ctx.retNominalHint(2.5), "2.5% real \u2248 5.1%/yr at 2.5% inflation");
   assert.equal(ctx.retNominalHint(6), "6% real \u2248 8.7%/yr at 2.5% inflation");
   ctx.snap = {
     robinhood: { equity: 10000, label: "Robinhood" },
@@ -758,6 +763,50 @@ test("real growth hint shows nominal return from the file inflation", function (
   state.inflPct = 9;
   ctx.retFill(card, state);
   assert.equal(card.els["real-hint"].textContent, "6% real \u2248 8.7%/yr at 2.5% inflation");
+});
+
+test("an old real return without an edit marker does not override the file", function () {
+  const ctx = boot();
+  useFile(ctx, fileA({ real_return_pct: 3 }));
+  seed(ctx, { realPct: 8, real_return_pct: 9, inflPct: 3 });
+  let state = ctx.retLoad();
+  assert.equal(state.realPct, 3);
+  assert.equal(state.inflPct, 3);
+  let blob = stored(ctx);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "realPct"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "real_return_pct"), false);
+  assert.deepEqual(blob._edited, ["inflPct"]);
+  seed(ctx, { realPct: 8, _edited: ["realPct"] });
+  state = ctx.retLoad();
+  assert.equal(state.realPct, 8);
+});
+
+test("the range band sits one point around real growth", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 100 } }
+  };
+  const around = ctx.retBandRates(2.5);
+  assert.equal(around.low, 1.5);
+  assert.equal(around.high, 3.5);
+  const floored = ctx.retBandRates(0.4);
+  assert.equal(floored.low, 0);
+  assert.equal(floored.high, 1.4);
+  const state = ctx.retLoad();
+  state.realPct = 2.5;
+  state.retireAge = 67;
+  const view = ctx.retView(state);
+  assert.equal(view.band.low, 1.5);
+  assert.equal(view.band.high, 3.5);
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els["low-lab"].textContent, "Low 1.5%");
+  assert.equal(card.els["high-lab"].textContent, "High 3.5%");
+  assert.equal(ctx.retirementHtml().indexOf("Low 4%"), -1);
+  assert.equal(ctx.retirementHtml().indexOf("High 6%"), -1);
 });
 
 test("total line says stocks plus 401k plus Social Security", function () {

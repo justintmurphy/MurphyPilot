@@ -1016,8 +1016,8 @@ function collapseHouseNames(list) {
      anything equal to the file or the built-in default, including the pct
      defaults 5 / 2.5 / 1 / 6 / 6 / 0 when the file still has that value.
      A stored Social Security or birth value that differs from the file is kept.
-     Salary and raise are the exception: without _edited they were copied from
-     whatever the file said at the time, so drop them. */
+     Salary, raise, and real growth are the exception: without _edited they
+     were copied from whatever the file said at the time, so drop them. */
   function retMigrateBlob(o, base) {
     var keep = {};
     var edited = [];
@@ -1025,7 +1025,7 @@ function collapseHouseNames(list) {
       keep[k] = v;
       if (edited.indexOf(k) < 0) edited.push(k);
     }
-    ["realPct", "inflPct", "eePct", "matchPct", "extraMonthly", "retireAge"].forEach(function (k) {
+    ["inflPct", "eePct", "matchPct", "extraMonthly", "retireAge"].forEach(function (k) {
       if (!Object.prototype.hasOwnProperty.call(o, k)) return;
       if (o[k] == null || o[k] === "" || !retFinite(o[k])) return;
       var n = k === "retireAge" ? retRetireAge(o[k]) : Number(o[k]);
@@ -1587,6 +1587,14 @@ function collapseHouseNames(list) {
     if (!cf || !retFinite(cf.owner_deposits)) return null;
     return Number(cf.owner_deposits);
   }
+  /* One point under and over the real growth the user is using. Floor at zero. */
+  function retBandRates(realPct) {
+    var real = retFinite(realPct) ? Number(realPct) : 0;
+    var span = 1;
+    var low = real - span;
+    if (!(low > 0)) low = 0;
+    return { low: low, high: real + span };
+  }
   function retWithReal(state, realPct) {
     return {
       realPct: realPct, inflPct: state.inflPct, raisePct: state.raisePct,
@@ -2006,8 +2014,9 @@ function collapseHouseNames(list) {
     var src = retSources();
     var h = retHorizon(state);
     var mid = retProject(src.base, state, h.years);
-    var low = retProject(src.base, retWithReal(state, 4), h.years);
-    var high = retProject(src.base, retWithReal(state, 6), h.years);
+    var band = retBandRates(state.realPct);
+    var low = retProject(src.base, retWithReal(state, band.low), h.years);
+    var high = retProject(src.base, retWithReal(state, band.high), h.years);
     var income = retIncome(mid.today);
     var ss = retSsMonthly(state.retireAge, state);
     var hasAnchor = retSsAnchors(state).length > 0;
@@ -2020,7 +2029,7 @@ function collapseHouseNames(list) {
       bridge = retBridge(mid.today, state.realPct, state.ss67, state.ss70);
     }
     return {
-      src: src, mid: mid, low: low, high: high,
+      src: src, mid: mid, low: low, high: high, band: band,
       income: income, ss: ss, hasAnchor: hasAnchor,
       total: total, take: take, bridge: bridge,
       pia: retRoughPia(retSalaryNow(state)),
@@ -2208,6 +2217,10 @@ function collapseHouseNames(list) {
     retSetText(card, "low-mo", retMoney(retIncome(v.low.today)));
     retSetText(card, "high", retMoney(v.high.today));
     retSetText(card, "high-mo", retMoney(retIncome(v.high.today)));
+    if (v.band) {
+      retSetText(card, "low-lab", "Low " + retPctLabel(v.band.low) + "%");
+      retSetText(card, "high-lab", "High " + retPctLabel(v.band.high) + "%");
+    }
     retSetText(card, "retire-val", String(state.retireAge));
     var range = card.querySelector('[data-ret-in="retireAge"]');
     if (range) {
@@ -2441,8 +2454,8 @@ function collapseHouseNames(list) {
       '<div class="ret-take"><span>Take-home / mo (est.)</span><b data-ret="take">\u2014</b><i data-ret="take-sub"></i></div>' +
       '<p class="ret-rules" data-ret="tax-rules" hidden></p>' +
       '<p class="ret-bridge" data-ret="bridge" hidden></p>' +
-      '<p class="ret-range">Low 4% <b data-ret="low">\u2014</b> \u00b7 <b data-ret="low-mo">\u2014</b>/mo' +
-      '<span class="ret-range-gap"></span>High 6% <b data-ret="high">\u2014</b> \u00b7 <b data-ret="high-mo">\u2014</b>/mo</p>' +
+      '<p class="ret-range"><span data-ret="low-lab">Low</span> <b data-ret="low">\u2014</b> \u00b7 <b data-ret="low-mo">\u2014</b>/mo' +
+      '<span class="ret-range-gap"></span><span data-ret="high-lab">High</span> <b data-ret="high">\u2014</b> \u00b7 <b data-ret="high-mo">\u2014</b>/mo</p>' +
       '<p class="hint ret-foot">Estimates, not advice. Assumes deposits continue and these balances are for retirement.</p>' +
       '<details class="ret-more"' + open + '>' +
       '<summary><span class="ret-sum">Helper</span> <span class="ret-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
