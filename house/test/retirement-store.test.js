@@ -412,6 +412,34 @@ test("#ret= prefill merges as explicit overrides and strips the hash", function 
   assert.equal(blob.retireAge, undefined);
 });
 
+/* Small synthetic federal table. Not the shipped brackets. */
+function federalFixture(over) {
+  const o = {
+    tax_year: 2026,
+    source: "IRS / CMS",
+    checked: "2026-09-25",
+    brackets: {
+      single: [
+        { up_to: 10000, rate: 0.1 },
+        { up_to: null, rate: 0.2 }
+      ],
+      mfj: [
+        { up_to: 20000, rate: 0.1 },
+        { up_to: null, rate: 0.2 }
+      ]
+    },
+    standard_deduction: { single: 5000, mfj: 10000 },
+    additional_deduction_65: { single: 1000, mfj: 800 },
+    ss_thresholds: { single: [25000, 34000], mfj: [32000, 44000], unindexed: true },
+    part_b_monthly: 100,
+    deferral_limit: 20000,
+    catchup_50: 5000,
+    catchup_60_63: 7000
+  };
+  if (over) Object.keys(over).forEach(function (k) { o[k] = over[k]; });
+  return o;
+}
+
 function taxRules(over) {
   const o = {
     version: 1,
@@ -422,10 +450,46 @@ function taxRules(over) {
     ss_exempt: true,
     employee_401k_contrib_state_deductible: false,
     source: "PA Department of Revenue",
-    checked: "2026-09-25"
+    checked: "2026-09-25",
+    federal: federalFixture()
   };
   if (over) Object.keys(over).forEach(function (k) { o[k] = over[k]; });
   return o;
+}
+
+function textCard() {
+  const els = {};
+  function el(name) {
+    if (!els[name]) {
+      els[name] = {
+        textContent: "",
+        innerHTML: "",
+        hidden: false,
+        value: "0",
+        style: {},
+        setAttribute: function (k, v) {
+          this[k] = v;
+          if (k === "hidden") this.hidden = true;
+        },
+        removeAttribute: function (k) {
+          if (k === "hidden") this.hidden = false;
+        },
+        getAttribute: function (k) { return this[k]; }
+      };
+    }
+    return els[name];
+  }
+  return {
+    els: els,
+    querySelector: function (sel) {
+      const named = /data-ret="([^"]+)"/.exec(sel);
+      if (named) return el(named[1]);
+      const input = /data-ret-in="([^"]+)"/.exec(sel);
+      if (input) return el("in:" + input[1]);
+      return null;
+    },
+    querySelectorAll: function () { return []; }
+  };
 }
 
 test("retirement draw at 67 and Social Security are state-tax exempt", function () {
@@ -483,7 +547,7 @@ test("extra 401k cost keeps the state rate when contributions are not deductible
   const baseEmp = Math.min(salary * (state.eePct / 100), limit);
   const withEmp = Math.min(salary * ((state.eePct + extraPct) / 100), limit);
   const extraAnnual = Math.max(0, withEmp - baseEmp);
-  const marginal = ctx.retMarginalRate(salary - ctx.RET_STD_2026.mfj, "mfj");
+  const marginal = ctx.retMarginalRate(salary - parsed.federal.standardDeduction.mfj, "mfj");
   const federalOnly = extraAnnual / 12 * (1 - marginal);
   const reduced = extraAnnual / 12 * Math.max(0, 1 - marginal - parsed.pitRate);
   assert.ok(extraAnnual > 0);
@@ -501,13 +565,9 @@ test("missing or malformed tax rules add no state tax and no line", function () 
   ctx.RET_TAX = null;
   assert.equal(ctx.retTaxSummary(), null);
   const state = ctx.retLoad();
-  const bare = ctx.retTakeHome(2000, 800, state, 15, 67);
-  ctx.RET_TAX = ctx.retParseTax(taxRules());
-  const exempt = ctx.retTakeHome(2000, 800, state, 15, 67);
-  assert.equal(bare, exempt);
-  ctx.RET_TAX = null;
+  assert.equal(ctx.retTakeHome(2000, 800, state, 15, 67), null);
   assert.equal(ctx.retStateTax(24000, 9600, 67), 0);
-  assert.equal(ctx.retTaxSummary(), null);
+  assert.equal(ctx.retFederalRulesLine(), "");
 });
 
 test("old state percent blobs are dropped", function () {
@@ -529,6 +589,131 @@ test("old state percent blobs are dropped", function () {
   const again = ctx.retLoad();
   assert.equal(again.salary, 80000);
   assert.equal(ctx.localStorage.getItem(storeKey), null);
+});
+
+test("brackets and the standard deduction come from the file", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  const state = ctx.retLoad();
+  state.inflPct = 0;
+  function take(federal) {
+    ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: federal }));
+    return ctx.retTakeHome(5000, 0, state, 0, 60);
+  }
+  const baseFed = federalFixture();
+  const base = take(baseFed);
+  const wider = federalFixture();
+  wider.standard_deduction = { single: 5000, mfj: 40000 };
+  const withWider = take(wider);
+  const steeper = federalFixture();
+  steeper.brackets = {
+    single: baseFed.brackets.single,
+    mfj: [
+      { up_to: 20000, rate: 0.1 },
+      { up_to: null, rate: 0.5 }
+    ]
+  };
+  const withSteeper = take(steeper);
+  assert.ok(base > 0 && withWider > base);
+  assert.ok(withSteeper < base);
+  const shipped = ctx.retParseTax(JSON.parse(fs.readFileSync(path.join(root, "house/tax-rules.json"), "utf8")));
+  assert.equal(shipped.federal.standardDeduction.single, 16100);
+  assert.equal(shipped.federal.standardDeduction.mfj, 32200);
+  assert.equal(shipped.federal.brackets.single.length, 7);
+  assert.equal(shipped.federal.brackets.mfj[6].upTo, null);
+  assert.equal(shipped.federal.brackets.mfj[6].rate, 0.37);
+  ctx.RET_TAX = shipped;
+  assert.equal(ctx.retFederalRulesLine(), "Tax rules: 2026 (checked Sep 25)");
+});
+
+test("super catch-up applies at age 61", function () {
+  const ctx = boot();
+  const raw = JSON.parse(fs.readFileSync(path.join(root, "house/tax-rules.json"), "utf8"));
+  ctx.RET_TAX = ctx.retParseTax(raw);
+  const fed = ctx.RET_TAX.federal;
+  const year = 2026;
+  assert.equal(fed.catchup6063, 11250);
+  assert.equal(ctx.retDeferralLimit(year - 61, year), fed.deferralLimit + fed.catchup6063);
+  assert.equal(ctx.retDeferralLimit(year - 60, year), fed.deferralLimit + fed.catchup6063);
+  assert.equal(ctx.retDeferralLimit(year - 63, year), fed.deferralLimit + fed.catchup6063);
+  assert.equal(ctx.retDeferralLimit(year - 59, year), fed.deferralLimit + fed.catchup50);
+  assert.equal(ctx.retDeferralLimit(year - 64, year), fed.deferralLimit + fed.catchup50);
+  assert.equal(ctx.retDeferralLimit(year - 49, year), fed.deferralLimit);
+  raw.federal.catchup_60_63 = 11111;
+  ctx.RET_TAX = ctx.retParseTax(raw);
+  assert.equal(ctx.retDeferralLimit(year - 61, year), raw.federal.deferral_limit + 11111);
+});
+
+test("a missing federal block dashes take-home, extra 401k cost, and the cap", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 100 } }
+  };
+  const rules = taxRules();
+  delete rules.federal;
+  ctx.RET_TAX = ctx.retParseTax(rules);
+  assert.ok(ctx.RET_TAX);
+  assert.equal(ctx.RET_TAX.federal, null);
+  assert.equal(ctx.retTaxSummary().line, "PA 3.07% (retirement income exempt)");
+  const state = ctx.retLoad();
+  state.extra401kPct = 2;
+  assert.equal(ctx.retTakeHome(2000, 800, state, 15, 67), null);
+  assert.equal(ctx.retDeferralLimit(state.birthYear, 2026), null);
+  const view = ctx.retView(state);
+  assert.equal(view.take, null);
+  const extra = ctx.retExtra401k(state, view);
+  assert.equal(extra.cost, null);
+  assert.equal(extra.capKnown, false);
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els.take.textContent, "\u2014");
+  assert.equal(card.els["extra401k-cap"].textContent, "\u2014");
+  assert.equal(card.els["extra401k-cap"].hidden, false);
+  assert.match(card.els["extra401k-stats"].innerHTML, /Paycheck cost <b>\u2014\/mo<\/b>/);
+  assert.equal(card.els["tax-rules"].textContent, "");
+  assert.equal(card.els["tax-rules"].hidden, true);
+  assert.equal(card.els["partb-hint"].textContent.indexOf("$"), -1);
+  const broken = taxRules({ federal: { tax_year: 2026 } });
+  ctx.RET_TAX = ctx.retParseTax(broken);
+  assert.equal(ctx.RET_TAX.federal, null);
+  assert.equal(ctx.retTakeHome(2000, 800, state, 15, 67), null);
+});
+
+test("Social Security thresholds come from the file", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  const state = ctx.retLoad();
+  state.inflPct = 0;
+  function taxable(thresholds, unindexed, deflator) {
+    const federal = federalFixture({
+      ss_thresholds: {
+        single: thresholds,
+        mfj: thresholds,
+        unindexed: unindexed
+      }
+    });
+    ctx.RET_TAX = ctx.retParseTax(taxRules({ federal: federal }));
+    return ctx.retTaxableSs(30000, 10000, "mfj", deflator);
+  }
+  const open = taxable([900000, 950000], true, 1);
+  const tight = taxable([1000, 2000], true, 1);
+  assert.equal(open, 0);
+  assert.ok(tight > 0);
+  const deflated = taxable([40000, 50000], true, 2);
+  const indexed = taxable([40000, 50000], false, 2);
+  assert.equal(indexed, 0);
+  assert.ok(deflated > 0);
+  const highTake = ctx.retTakeHome(2000, 1000, state, 0, 60);
+  ctx.RET_TAX = ctx.retParseTax(taxRules({
+    federal: federalFixture({
+      ss_thresholds: { single: [1, 2], mfj: [1, 2], unindexed: true }
+    })
+  }));
+  const lowTake = ctx.retTakeHome(2000, 1000, state, 0, 60);
+  assert.ok(highTake > lowTake);
 });
 
 test("total line says stocks plus 401k plus Social Security", function () {

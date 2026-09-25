@@ -878,35 +878,21 @@ function collapseHouseNames(list) {
   }
 
   /* tip bt — Retirement helper on the tip br card.
-     Part B people, full 2026 brackets, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904bt). A missing or
-     malformed file keeps the empty helper. localStorage murphyHouseRetirement
-     stores only fields that differ from those defaults (_edited). A null or
-     blank local value is not an override. Birth is not edited in the form and
-     is stored only from #ret= or when it differs from the file. */
+     Part B people, extra 401k estimator, optional #ret= prefill.
+     Defaults come from same-origin retirement.json (?v=20260904bt).
+     Federal and state tax figures come from tax-rules.json. A missing or
+     malformed file keeps the empty helper. A missing federal block leaves
+     take-home, extra-401k cost, and the cap label as a dash.
+     localStorage murphyHouseRetirement stores only fields that differ from
+     those defaults (_edited). A null or blank local value is not an override.
+     Birth is not edited in the form and is stored only from #ret= or when it
+     differs from the file. */
   var RET_STORE = "murphyHouseRetirement";
   var RET_SAVED = null;
   var RET_TAX = null;
   var RET_SSA_B1 = 1286;
   var RET_SSA_B2 = 7749;
   var RET_SSA_WAGE = 184500;
-  /* 2026 IRS figures, Rev. Proc. 2025-32. Standard deduction is indexed.
-     Brackets are the full 10/12/22/24/32/35/37 table (upper bounds of every
-     bracket except 37%, which applies above the last cap).
-     Social Security combined-income thresholds are not indexed, so they are deflated.
-     2026 employee deferral limit is $24,500 including the base employee percent,
-     plus an $8,000 catch-up in the calendar year age 50 is reached and after. */
-  var RET_STD_2026 = { single: 16100, mfj: 32200 };
-  var RET_STD_AGED_2026 = { single: 2050, mfj: 1650 };
-  var RET_BRACKETS_2026 = {
-    single: [12400, 50400, 105700, 201775, 256225, 640600],
-    mfj: [24800, 100800, 211400, 403550, 512450, 768700]
-  };
-  var RET_BRACKET_RATES = [0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37];
-  var RET_SS_BASE = { single: [25000, 34000], mfj: [32000, 44000] };
-  var RET_PART_B = 203;
-  var RET_401K_LIMIT = 24500;
-  var RET_401K_CATCHUP = 8000;
 
   function retFinite(n) {
     return n != null && n !== "" && isFinite(Number(n));
@@ -1352,7 +1338,95 @@ function collapseHouseNames(list) {
       filing: filing, partBPeople: partb
     };
   }
-  /* Missing, 404, or version other than 1: no rules. Never invent a rate. */
+  function retNonNeg(n) {
+    if (typeof n === "string" && String(n).trim() !== "") n = Number(n);
+    if (typeof n !== "number" || !isFinite(n) || n < 0) return null;
+    return n;
+  }
+  function retBracketTable(rows) {
+    if (!Array.isArray(rows) || rows.length < 2) return null;
+    var out = [];
+    var prev = 0;
+    var i;
+    for (i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+      var rate = retNonNeg(row.rate);
+      if (rate == null || rate > 1) return null;
+      var last = i === rows.length - 1;
+      if (last) {
+        if (row.up_to != null) return null;
+        out.push({ upTo: null, rate: rate });
+      } else {
+        var up = retNonNeg(row.up_to);
+        if (up == null || !(up > prev)) return null;
+        out.push({ upTo: up, rate: rate });
+        prev = up;
+      }
+    }
+    return out;
+  }
+  function retMoneyPair(o) {
+    if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+    var single = retNonNeg(o.single);
+    var mfj = retNonNeg(o.mfj);
+    if (single == null || mfj == null) return null;
+    return { single: single, mfj: mfj };
+  }
+  function retThresholdPair(arr) {
+    if (!Array.isArray(arr) || arr.length !== 2) return null;
+    var lo = retNonNeg(arr[0]);
+    var hi = retNonNeg(arr[1]);
+    if (lo == null || hi == null || !(hi > lo)) return null;
+    return [lo, hi];
+  }
+  /* A bad federal block is null. Callers dash; they do not invent a rate. */
+  function retParseFederal(o) {
+    if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+    var year = o.tax_year;
+    if (typeof year === "string" && String(year).trim() !== "") year = Number(year);
+    if (typeof year !== "number" || !isFinite(year) || Math.round(year) !== year) return null;
+    var brackets = o.brackets;
+    if (!brackets || typeof brackets !== "object" || Array.isArray(brackets)) return null;
+    var single = retBracketTable(brackets.single);
+    var mfj = retBracketTable(brackets.mfj);
+    if (!single || !mfj) return null;
+    var std = retMoneyPair(o.standard_deduction);
+    var aged = retMoneyPair(o.additional_deduction_65);
+    if (!std || !aged) return null;
+    var ss = o.ss_thresholds;
+    if (!ss || typeof ss !== "object" || Array.isArray(ss)) return null;
+    if (typeof ss.unindexed !== "boolean") return null;
+    var ssSingle = retThresholdPair(ss.single);
+    var ssMfj = retThresholdPair(ss.mfj);
+    if (!ssSingle || !ssMfj) return null;
+    var partB = retNonNeg(o.part_b_monthly);
+    var limit = retNonNeg(o.deferral_limit);
+    var catch50 = retNonNeg(o.catchup_50);
+    var catch60 = retNonNeg(o.catchup_60_63);
+    if (partB == null || limit == null || !(limit > 0) || catch50 == null || catch60 == null) return null;
+    var checked = String(o.checked == null ? "" : o.checked).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(checked)) return null;
+    return {
+      taxYear: year,
+      brackets: { single: single, mfj: mfj },
+      standardDeduction: std,
+      additionalDeduction65: aged,
+      ssThresholds: { single: ssSingle, mfj: ssMfj, unindexed: ss.unindexed },
+      partBMonthly: partB,
+      deferralLimit: limit,
+      catchup50: catch50,
+      catchup6063: catch60,
+      source: String(o.source == null ? "" : o.source).trim(),
+      checked: checked
+    };
+  }
+  function retFederal() {
+    return (RET_TAX && RET_TAX.federal) ? RET_TAX.federal : null;
+  }
+  /* Missing, 404, or version other than 1: no rules. Never invent a rate.
+     State and federal parse separately. A version-1 file can keep state rules
+     when the federal block is missing or malformed. */
   function retParseTax(o) {
     if (!o || typeof o !== "object" || Array.isArray(o)) return null;
     if (o.version !== 1) return null;
@@ -1371,7 +1445,8 @@ function collapseHouseNames(list) {
       exempt401k: o.retirement_401k_exempt_after_59_5,
       ssExempt: o.ss_exempt,
       contribDeductible: o.employee_401k_contrib_state_deductible,
-      checked: checked
+      checked: checked,
+      federal: retParseFederal(o.federal)
     };
   }
   function retPitPctLabel(rate) {
@@ -1388,6 +1463,28 @@ function collapseHouseNames(list) {
     var line = RET_TAX.state + " " + pct;
     if (RET_TAX.exempt401k) line += " (retirement income exempt)";
     return { line: line, asof: RET_TAX.checked ? ("checked " + RET_TAX.checked) : "" };
+  }
+  function retCheckedMonthDay(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || "").trim());
+    if (!m) return "";
+    var names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    var month = Number(m[2]);
+    var day = Number(m[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return "";
+    return names[month - 1] + " " + String(day);
+  }
+  function retFederalRulesLine() {
+    var fed = retFederal();
+    if (!fed || !retFinite(fed.taxYear)) return "";
+    var when = retCheckedMonthDay(fed.checked);
+    if (!when) return "";
+    return "Tax rules: " + String(Math.round(Number(fed.taxYear))) + " (checked " + when + ")";
+  }
+  function retPartBHint() {
+    var fed = retFederal();
+    var premium = "";
+    if (fed && retFinite(fed.partBMonthly)) premium = " About " + money(fed.partBMonthly) + " a month each from age 65.";
+    return "People on Part B." + premium + " Starts at 2 for married filing jointly and 1 for single until you pick.";
   }
   function retRefreshSaved() {
     if (typeof snap === "undefined" || !snap || typeof paint !== "function") return;
@@ -1525,9 +1622,22 @@ function collapseHouseNames(list) {
   function retPartBStored(state) {
     return retPartBExplicit(state && state.partBPeople);
   }
+  /* Age is the age attained in the calendar year. 60 through 63 uses the
+     super catch-up instead of the age-50 catch-up. No federal block: null. */
   function retDeferralLimit(birthYear, calendarYear) {
-    var cap = RET_401K_LIMIT;
-    if (birthYear != null && calendarYear != null && calendarYear >= birthYear + 50) cap += RET_401K_CATCHUP;
+    var fed = retFederal();
+    if (!fed || !retFinite(fed.deferralLimit)) return null;
+    var cap = Number(fed.deferralLimit);
+    if (birthYear == null || calendarYear == null) return cap;
+    var age = Number(calendarYear) - Number(birthYear);
+    if (age >= 60 && age <= 63) {
+      if (!retFinite(fed.catchup6063)) return null;
+      return cap + Number(fed.catchup6063);
+    }
+    if (age >= 50) {
+      if (!retFinite(fed.catchup50)) return null;
+      return cap + Number(fed.catchup50);
+    }
     return cap;
   }
   /* salary_year pay, grown by the raise to the current calendar year.
@@ -1657,7 +1767,7 @@ function collapseHouseNames(list) {
         if (useCap) {
           var employee = sal * (ee + extraRate);
           var capY = retDeferralLimit(state.birthYear, year0 + y);
-          if (employee > capY) { employee = capY; clamped = true; }
+          if (capY != null && employee > capY) { employee = capY; clamped = true; }
           contrib = employee + sal * match + extra * 12;
         } else {
           contrib = sal * (ee + match) + extra * 12;
@@ -1671,7 +1781,7 @@ function collapseHouseNames(list) {
         if (useCap) {
           var employeeF = sal * (ee + extraRate);
           var capF = retDeferralLimit(state.birthYear, year0 + full);
-          if (employeeF > capF) { employeeF = capF; clamped = true; }
+          if (capF != null && employeeF > capF) { employeeF = capF; clamped = true; }
           annualF = employeeF + sal * match + extra * 12;
         } else {
           annualF = sal * (ee + match) + extra * 12;
@@ -1766,36 +1876,57 @@ function collapseHouseNames(list) {
     if (today == null || !isFinite(today)) return null;
     return today * 0.04 / 12;
   }
-  function retFederalTax(taxable, filing) {
-    if (!(taxable > 0)) return 0;
-    var caps = RET_BRACKETS_2026[filing] || RET_BRACKETS_2026.mfj;
-    var rates = RET_BRACKET_RATES;
-    var tax = 0, prev = 0, i;
-    for (i = 0; i < caps.length; i++) {
-      if (taxable <= prev) break;
-      var slice = Math.min(taxable, caps[i]) - prev;
-      if (slice > 0) tax += slice * rates[i];
-      prev = caps[i];
-      if (taxable <= caps[i]) return tax;
-    }
-    if (taxable > prev) tax += (taxable - prev) * rates[rates.length - 1];
-    return tax;
+  function retBracketRows(filing) {
+    var fed = retFederal();
+    if (!fed || !fed.brackets) return null;
+    var key = filing === "single" ? "single" : "mfj";
+    var rows = fed.brackets[key];
+    return (rows && rows.length) ? rows : null;
   }
-  /* Rate on the last dollar. Zero when nothing is taxable yet. */
-  function retMarginalRate(taxable, filing) {
+  function retFederalTax(taxable, filing) {
+    var rows = retBracketRows(filing);
+    if (!rows) return null;
     if (!(taxable > 0)) return 0;
-    var caps = RET_BRACKETS_2026[filing] || RET_BRACKETS_2026.mfj;
-    var rates = RET_BRACKET_RATES;
-    var i;
-    for (i = 0; i < caps.length; i++) {
-      if (taxable <= caps[i]) return rates[i];
+    var tax = 0, prev = 0, i;
+    for (i = 0; i < rows.length; i++) {
+      var cap = rows[i].upTo;
+      var rate = rows[i].rate;
+      if (taxable <= prev) break;
+      if (cap == null) {
+        tax += (taxable - prev) * rate;
+        return isFinite(tax) ? tax : null;
+      }
+      var slice = Math.min(taxable, cap) - prev;
+      if (slice > 0) tax += slice * rate;
+      prev = cap;
+      if (taxable <= cap) return isFinite(tax) ? tax : null;
     }
-    return rates[rates.length - 1];
+    return isFinite(tax) ? tax : null;
+  }
+  /* Rate on the last dollar. Zero when nothing is taxable yet. Null without brackets. */
+  function retMarginalRate(taxable, filing) {
+    var rows = retBracketRows(filing);
+    if (!rows) return null;
+    if (!(taxable > 0)) return 0;
+    var i;
+    for (i = 0; i < rows.length; i++) {
+      if (rows[i].upTo == null || taxable <= rows[i].upTo) return rows[i].rate;
+    }
+    return rows[rows.length - 1].rate;
+  }
+  function retSsBases(filing) {
+    var fed = retFederal();
+    if (!fed || !fed.ssThresholds) return null;
+    var key = filing === "single" ? "single" : "mfj";
+    var bases = fed.ssThresholds[key];
+    return (bases && bases.length === 2) ? bases : null;
   }
   function retTaxableSs(other, ssAnnual, filing, deflator) {
+    var bases = retSsBases(filing);
+    if (!bases) return null;
     if (!(ssAnnual > 0)) return 0;
-    var bases = RET_SS_BASE[filing] || RET_SS_BASE.mfj;
-    var scale = deflator > 0 ? deflator : 1;
+    var fed = retFederal();
+    var scale = (fed && fed.ssThresholds.unindexed && deflator > 0) ? deflator : 1;
     var b1 = bases[0] / scale;
     var b2 = bases[1] / scale;
     var pi = other + 0.5 * ssAnnual;
@@ -1804,27 +1935,44 @@ function collapseHouseNames(list) {
     if (pi <= b2) return portion50;
     return Math.min(0.85 * ssAnnual, portion50 + 0.85 * (pi - b2));
   }
+  function retStandardDeduction(filing, age) {
+    var fed = retFederal();
+    if (!fed || !fed.standardDeduction) return null;
+    var key = filing === "single" ? "single" : "mfj";
+    var std = fed.standardDeduction[key];
+    if (!retFinite(std)) return null;
+    std = Number(std);
+    if (Number(age) >= 65) {
+      if (!fed.additionalDeduction65 || !retFinite(fed.additionalDeduction65[key])) return null;
+      std += Number(fed.additionalDeduction65[key]) * (key === "single" ? 1 : 2);
+    }
+    return std;
+  }
   /* Part B and the age-65 additional standard deduction apply at retirement age 65+.
      The aged deduction still follows filing status (1 single, 2 MFJ).
      Part B uses an explicit people pick; otherwise the file's count when filing
-     matches the file, else 2 for married filing jointly and 1 for single. */
+     matches the file, else 2 for married filing jointly and 1 for single.
+     No federal block: null, so the card shows a dash. */
   function retTakeHome(drawMonthly, ssMonthly, state, years, retireAge) {
     if (drawMonthly == null || !isFinite(drawMonthly)) return null;
+    if (!retFederal()) return null;
     var filing = state.filing === "single" ? "single" : "mfj";
     var drawA = drawMonthly * 12;
     var ssA = (ssMonthly == null || !isFinite(ssMonthly)) ? 0 : ssMonthly * 12;
     var deflator = retPow(1 + (Number(state.inflPct) / 100), years);
     if (deflator == null || !(deflator > 0)) deflator = 1;
     var tss = retTaxableSs(drawA, ssA, filing, deflator);
-    var agi = drawA + tss;
-    var std = RET_STD_2026[filing];
-    var agedPeople = filing === "single" ? 1 : 2;
-    if (retireAge >= 65) std += RET_STD_AGED_2026[filing] * agedPeople;
-    var taxable = Math.max(0, agi - std);
+    if (tss == null) return null;
+    var std = retStandardDeduction(filing, retireAge);
+    if (std == null) return null;
+    var taxable = Math.max(0, drawA + tss - std);
     var federal = retFederalTax(taxable, filing);
+    if (federal == null) return null;
     var stateTax = retStateTax(drawA, ssA, retireAge);
     var partBPeople = retPartBCount(state);
-    var medicare = retireAge >= 65 ? partBPeople * RET_PART_B * 12 : 0;
+    var premium = retFederal().partBMonthly;
+    if (!retFinite(premium)) return null;
+    var medicare = retireAge >= 65 ? partBPeople * Number(premium) * 12 : 0;
     var net = drawA + ssA - federal - stateTax - medicare;
     return isFinite(net) ? net / 12 : null;
   }
@@ -1959,11 +2107,17 @@ function collapseHouseNames(list) {
     var ee = retFinite(state.eePct) ? Number(state.eePct) : 6;
     var filing = state.filing === "single" ? "single" : "mfj";
     var limit = retDeferralLimit(state.birthYear, retTodayNy().year);
+    var h = view.horizon;
+    if (limit == null) {
+      return {
+        ready: true, extraPct: 0, maxExtra: null, atCap: false, capKnown: false,
+        addedNest: null, addedIncome: null, newTotal: null, newTake: null, cost: null
+      };
+    }
     var maxExtra = (limit / salary) * 100 - ee;
     if (!(maxExtra > 0)) maxExtra = 0;
     var extraPct = requested > maxExtra ? maxExtra : requested;
     var atCap = maxExtra <= 1e-6 || extraPct >= maxExtra - 0.05;
-    var h = view.horizon;
     var withX = retProject(view.src.base, state, h.years, { capDeferral: true, extra401kPct: extraPct });
     var baseX = retProject(view.src.base, state, h.years, { capDeferral: true, extra401kPct: 0 });
     var addedNest = (withX.today != null && baseX.today != null) ? withX.today - baseX.today : null;
@@ -1974,20 +2128,23 @@ function collapseHouseNames(list) {
     if (newDraw != null && view.ss != null) newTotal = newDraw + view.ss;
     else if (newDraw != null && !view.hasAnchor) newTotal = newDraw;
     var newTake = (h.years == null || newDraw == null) ? null : retTakeHome(newDraw, view.hasAnchor ? view.ss : null, state, h.years, state.retireAge);
-    var std = RET_STD_2026[filing];
-    if (h.age != null && h.age >= 65) std += RET_STD_AGED_2026[filing] * (filing === "single" ? 1 : 2);
-    var marginal = retMarginalRate(salary - std, filing);
+    var std = retStandardDeduction(filing, h.age);
+    var marginal = std == null ? null : retMarginalRate(salary - std, filing);
     var stateRate = (RET_TAX && RET_TAX.contribDeductible && retFinite(RET_TAX.pitRate)) ? Number(RET_TAX.pitRate) : 0;
-    var baseEmp = Math.min(salary * (ee / 100), limit);
-    var withEmp = Math.min(salary * ((ee + extraPct) / 100), limit);
-    var extraAnnual = Math.max(0, withEmp - baseEmp);
-    var keep = 1 - marginal - stateRate;
-    if (keep < 0) keep = 0;
-    var cost = extraAnnual / 12 * keep;
+    var cost = null;
+    if (marginal != null) {
+      var baseEmp = Math.min(salary * (ee / 100), limit);
+      var withEmp = Math.min(salary * ((ee + extraPct) / 100), limit);
+      var extraAnnual = Math.max(0, withEmp - baseEmp);
+      var keep = 1 - marginal - stateRate;
+      if (keep < 0) keep = 0;
+      var rawCost = extraAnnual / 12 * keep;
+      cost = isFinite(rawCost) ? rawCost : null;
+    }
     return {
-      ready: true, extraPct: extraPct, maxExtra: maxExtra, atCap: atCap,
+      ready: true, extraPct: extraPct, maxExtra: maxExtra, atCap: atCap, capKnown: true,
       addedNest: addedNest, addedIncome: addedIncome, newTotal: newTotal, newTake: newTake,
-      cost: isFinite(cost) ? cost : null
+      cost: cost
     };
   }
   function retSetText(card, name, text) {
@@ -2124,6 +2281,12 @@ function collapseHouseNames(list) {
       retSetText(card, "tax-checked", taxSummary.asof);
       retShow(taxWrap, true);
     }
+    var rules = retFederalRulesLine();
+    var rulesEl = card.querySelector('[data-ret="tax-rules"]');
+    retSetText(card, "tax-rules", rules);
+    retShow(rulesEl, !!rules);
+    var partbHint = card.querySelector('[data-ret="partb-hint"]');
+    if (partbHint) partbHint.textContent = retPartBHint();
     var br = card.querySelector('[data-ret="bridge"]');
     if (br) {
       if (v.bridge == null) {
@@ -2198,17 +2361,28 @@ function collapseHouseNames(list) {
     }
     retShow(prompt, false);
     retShow(controls, true);
+    var capKnown = x.capKnown !== false;
     if (range) {
-      range.min = "0";
-      range.max = String(x.maxExtra);
-      range.setAttribute("aria-valuemin", "0");
-      range.setAttribute("aria-valuemax", retPctLabel(x.maxExtra));
-      range.setAttribute("aria-valuenow", retPctLabel(x.extraPct));
-      if (document.activeElement !== range) range.value = String(x.extraPct);
+      retShow(range, capKnown);
+      if (capKnown) {
+        range.min = "0";
+        range.max = String(x.maxExtra);
+        range.setAttribute("aria-valuemin", "0");
+        range.setAttribute("aria-valuemax", retPctLabel(x.maxExtra));
+        range.setAttribute("aria-valuenow", retPctLabel(x.extraPct));
+        if (document.activeElement !== range) range.value = String(x.extraPct);
+      }
     }
-    if (valEl) valEl.textContent = retPctLabel(range && document.activeElement === range ? range.value : x.extraPct);
-    if (capEl) capEl.textContent = x.atCap ? "at IRS cap" : "";
-    retShow(capEl, x.atCap);
+    if (valEl) {
+      valEl.textContent = capKnown
+        ? retPctLabel(range && document.activeElement === range ? range.value : x.extraPct)
+        : "\u2014";
+    }
+    if (capEl) {
+      if (!capKnown) capEl.textContent = "\u2014";
+      else capEl.textContent = x.atCap ? "at IRS cap" : "";
+    }
+    retShow(capEl, !capKnown || x.atCap);
     if (stats) {
       stats.hidden = false;
       stats.innerHTML = "Added nest egg <b>" + retMoney(x.addedNest) + "</b>"
@@ -2254,6 +2428,7 @@ function collapseHouseNames(list) {
       '<div><span>Total / mo</span><b data-ret="total-mo">\u2014</b><i data-ret="total-sub"></i><i data-ret="total-split"></i></div>' +
       '</div>' +
       '<div class="ret-take"><span>Take-home / mo (est.)</span><b data-ret="take">\u2014</b><i data-ret="take-sub"></i></div>' +
+      '<p class="ret-rules" data-ret="tax-rules" hidden></p>' +
       '<p class="ret-bridge" data-ret="bridge" hidden></p>' +
       '<p class="ret-range">Low 4% <b data-ret="low">\u2014</b> \u00b7 <b data-ret="low-mo">\u2014</b>/mo' +
       '<span class="ret-range-gap"></span>High 6% <b data-ret="high">\u2014</b> \u00b7 <b data-ret="high-mo">\u2014</b>/mo</p>' +
@@ -2291,7 +2466,7 @@ function collapseHouseNames(list) {
       '<button type="button" data-ret-partb="2" aria-pressed="' + (retPartBCount(state) === 2 ? "true" : "false") + '">2</button>' +
       '</div>' +
       '<input type="hidden" data-ret-in="partBPeople" value="' + (partStored ? String(partStored) : "") + '">' +
-      '<p class="ret-field-hint">People on Part B. About $203 a month each from age 65. Starts at 2 for married filing jointly and 1 for single until you pick.</p></div>' +
+      '<p class="ret-field-hint" data-ret="partb-hint">People on Part B. Starts at 2 for married filing jointly and 1 for single until you pick.</p></div>' +
       '<div class="ret-tax" data-ret="tax-wrap" hidden>' +
       '<p class="ret-tax-line" data-ret="tax-line"></p>' +
       '<p class="ret-field-hint" data-ret="tax-checked"></p></div>' +
