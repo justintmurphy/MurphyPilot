@@ -877,14 +877,25 @@ function collapseHouseNames(list) {
     return html;
   }
 
-  /* tip bp — Retirement. Paint from live prints. Personal inputs stay in localStorage only. */
-  var RET_NOW = 47;
-  var RET_TARGET = 67;
-  var RET_YEARS = RET_TARGET - RET_NOW;
+  /* tip bq — Retirement age slider, birth month/year, SS anchors, take-home.
+     Personal inputs stay in localStorage (murphyHouseRetirement) only.
+     Tip bp projection math and sanity defaults stay. */
   var RET_STORE = "murphyHouseRetirement";
   var RET_SSA_B1 = 1286;
   var RET_SSA_B2 = 7749;
   var RET_SSA_WAGE = 184500;
+  /* 2026 IRS figures, Rev. Proc. 2025-32. Standard deduction is indexed.
+     Social Security combined-income thresholds are not, so they are deflated. */
+  var RET_STD_2026 = { single: 16100, mfj: 32200 };
+  var RET_STD_AGED_2026 = { single: 2050, mfj: 1650 };
+  var RET_BRACKETS_2026 = {
+    single: [12400, 50400, 105700],
+    mfj: [24800, 100800, 211400]
+  };
+  var RET_BRACKET_RATES = [0.10, 0.12, 0.22, 0.24];
+  var RET_SS_BASE = { single: [25000, 34000], mfj: [32000, 44000] };
+  var RET_PART_B = 203;
+  var RET_PROMPT = "Enter your birth month and year";
 
   function retFinite(n) {
     return n != null && n !== "" && isFinite(Number(n));
@@ -900,24 +911,77 @@ function collapseHouseNames(list) {
     var v = Math.pow(base, exp);
     return isFinite(v) ? v : null;
   }
-  function retLoad() {
-    var d = {
+  function retBlank() {
+    return {
       realPct: 5, inflPct: 2.5, raisePct: 1, eePct: 6, matchPct: 6,
-      extraMonthly: 0, monthly: null, salary: null, ss: null
+      extraMonthly: 0, monthly: null, salary: null,
+      ss62: null, ss67: null, ss70: null,
+      retireAge: 67, birthMonth: null, birthYear: null,
+      filing: "mfj", statePct: 0
     };
+  }
+  function retRetireAge(raw) {
+    var n = Math.round(Number(raw));
+    if (!isFinite(n)) return 67;
+    if (n < 62) return 62;
+    if (n > 70) return 70;
+    return n;
+  }
+  function retTodayNy() {
+    try {
+      var fmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        year: "numeric", month: "numeric", day: "numeric"
+      });
+      var parts = fmt.formatToParts(new Date());
+      var o = { year: 0, month: 0, day: 0 };
+      parts.forEach(function (p) {
+        if (p.type === "year" || p.type === "month" || p.type === "day") o[p.type] = Number(p.value);
+      });
+      if (o.year && o.month && o.day) return o;
+    } catch (e) {}
+    var d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+  }
+  function retOptMonth(raw) {
+    if (raw == null || raw === "") return null;
+    var n = Math.round(Number(raw));
+    if (!isFinite(n) || n < 1 || n > 12) return null;
+    return n;
+  }
+  function retOptYear(raw) {
+    if (raw == null || raw === "") return null;
+    var n = Math.round(Number(String(raw).replace(/[^\d-]/g, "")));
+    if (!isFinite(n)) return null;
+    var today = retTodayNy();
+    if (n < 1900 || n > today.year) return null;
+    return n;
+  }
+  function retLoad() {
+    var d = retBlank();
+    var migrated = false;
     try {
       var raw = localStorage.getItem(RET_STORE);
       if (!raw) return d;
       var o = JSON.parse(raw);
       if (!o || typeof o !== "object") return d;
-      ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly"].forEach(function (k) {
+      ["realPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "statePct"].forEach(function (k) {
         if (retFinite(o[k])) d[k] = Number(o[k]);
       });
-      ["monthly", "salary", "ss"].forEach(function (k) {
+      ["monthly", "salary", "ss62", "ss67", "ss70"].forEach(function (k) {
         if (o[k] == null || o[k] === "") d[k] = null;
         else if (retFinite(o[k])) d[k] = Number(o[k]);
       });
+      if (d.ss67 == null && retFinite(o.ss)) {
+        d.ss67 = Number(o.ss);
+        migrated = true;
+      }
+      if (o.retireAge != null && o.retireAge !== "") d.retireAge = retRetireAge(o.retireAge);
+      d.birthMonth = retOptMonth(o.birthMonth);
+      d.birthYear = retOptYear(o.birthYear);
+      d.filing = o.filing === "single" ? "single" : "mfj";
     } catch (e) {}
+    if (migrated) retSave(d);
     return d;
   }
   function retSave(d) {
@@ -925,7 +989,12 @@ function collapseHouseNames(list) {
       localStorage.setItem(RET_STORE, JSON.stringify({
         realPct: d.realPct, inflPct: d.inflPct, raisePct: d.raisePct,
         eePct: d.eePct, matchPct: d.matchPct, extraMonthly: d.extraMonthly,
-        monthly: d.monthly, salary: d.salary, ss: d.ss
+        monthly: d.monthly, salary: d.salary,
+        ss62: d.ss62, ss67: d.ss67, ss70: d.ss70,
+        retireAge: retRetireAge(d.retireAge),
+        birthMonth: d.birthMonth, birthYear: d.birthYear,
+        filing: d.filing === "single" ? "single" : "mfj",
+        statePct: retFinite(d.statePct) ? Number(d.statePct) : 0
       }));
     } catch (e) {}
   }
@@ -1006,62 +1075,130 @@ function collapseHouseNames(list) {
     return {
       realPct: realPct, inflPct: state.inflPct, raisePct: state.raisePct,
       eePct: state.eePct, matchPct: state.matchPct, extraMonthly: state.extraMonthly,
-      monthly: state.monthly, salary: state.salary, ss: state.ss
+      monthly: state.monthly, salary: state.salary,
+      ss62: state.ss62, ss67: state.ss67, ss70: state.ss70,
+      retireAge: state.retireAge, birthMonth: state.birthMonth, birthYear: state.birthYear,
+      filing: state.filing, statePct: state.statePct
     };
   }
-  function retNominalYear() {
-    try {
-      var y = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric" }).format(new Date());
-      var n = Number(y);
-      if (isFinite(n)) return n + RET_YEARS;
-    } catch (e) {}
-    return new Date().getFullYear() + RET_YEARS;
+  function retCurrentAge(state) {
+    var y = state.birthYear, m = state.birthMonth;
+    if (y == null || m == null) return null;
+    var today = retTodayNy();
+    var birth = Date.UTC(y, m - 1, 1);
+    var now = Date.UTC(today.year, today.month - 1, today.day);
+    var days = (now - birth) / 86400000;
+    if (!(days >= 0)) return null;
+    return days / 365.2425;
   }
-  /* No salary: today's-dollar FV of a level annual deposit (end of year).
-     Salary set: nominal return R=(1+real)*(1+inflation)-1.
-     Each year salary grows by the raise first, then a mid-year contribution
-     salary*(employee%+match%) + extra monthly*12 earns half a year of R.
-     Headline = nominal / (1+inflation)^years. */
-  function retProject(pv, state) {
-    var years = RET_YEARS;
-    var real = Number(state.realPct) / 100;
-    var infl = Number(state.inflPct) / 100;
+  function retHorizon(state) {
+    var target = retRetireAge(state.retireAge);
+    var age = retCurrentAge(state);
+    var today = retTodayNy();
+    if (age == null) return { age: null, years: null, raw: null, year: null, target: target };
+    var raw = target - age;
+    var years = raw > 0 ? raw : 0;
+    var year = state.birthYear + target;
+    return { age: age, years: years, raw: raw, year: year, target: target, todayYear: today.year };
+  }
+  function retOneDec(n) {
+    var r = Math.round(Number(n) * 10) / 10;
+    if (!isFinite(r)) return "";
+    if (Math.abs(r - Math.round(r)) < 0.05) return String(Math.round(r));
+    return r.toFixed(1);
+  }
+  function retSavingsMeta(state) {
     var extra = retFinite(state.extraMonthly) ? Number(state.extraMonthly) : 0;
     var printed = retPrintedMonthly();
     var monthly = retFinite(state.monthly) ? Number(state.monthly) : printed;
     var hasSalary = retFinite(state.salary) && Number(state.salary) > 0;
-    var empty = { today: null, nominal: null, mode: hasSalary ? "salary" : "deposits", monthlyShown: null, year1Annual: null, depositsMissing: false };
+    if (!hasSalary) {
+      return {
+        mode: "deposits",
+        monthlyShown: (monthly == null && extra === 0) ? null : ((monthly == null ? 0 : monthly) + extra),
+        year1Annual: null,
+        depositsMissing: printed == null && !retFinite(state.monthly),
+        extra: extra,
+        monthly: monthly,
+        hasSalary: false
+      };
+    }
+    var raise = (retFinite(state.raisePct) ? Number(state.raisePct) : 1) / 100;
+    var ee = (retFinite(state.eePct) ? Number(state.eePct) : 6) / 100;
+    var match = (retFinite(state.matchPct) ? Number(state.matchPct) : 6) / 100;
+    var year1 = Number(state.salary) * (1 + raise) * (ee + match) + extra * 12;
+    return {
+      mode: "salary",
+      monthlyShown: year1 / 12,
+      year1Annual: year1,
+      depositsMissing: false,
+      extra: extra,
+      monthly: monthly,
+      hasSalary: true,
+      raise: raise,
+      ee: ee,
+      match: match
+    };
+  }
+  /* No salary: today's-dollar FV of a level annual deposit.
+     Salary set: nominal return R=(1+real)*(1+inflation)-1.
+     Each year salary grows by the raise first, then a mid-year contribution
+     salary*(employee%+match%) + extra monthly*12 earns half a year of R.
+     Headline = nominal / (1+inflation)^years. A partial last year uses the same shape. */
+  function retProject(pv, state, years) {
+    var meta = retSavingsMeta(state);
+    var real = Number(state.realPct) / 100;
+    var infl = Number(state.inflPct) / 100;
+    var empty = {
+      today: null, nominal: null, mode: meta.mode,
+      monthlyShown: meta.monthlyShown, year1Annual: meta.year1Annual,
+      depositsMissing: meta.depositsMissing
+    };
     if (pv == null || !isFinite(pv)) return empty;
-    if (hasSalary) {
-      var raise = (retFinite(state.raisePct) ? Number(state.raisePct) : 1) / 100;
-      var ee = (retFinite(state.eePct) ? Number(state.eePct) : 6) / 100;
-      var match = (retFinite(state.matchPct) ? Number(state.matchPct) : 6) / 100;
+    if (years == null || !isFinite(Number(years))) return empty;
+    years = Number(years);
+    if (years < 0) years = 0;
+    if (years === 0) {
+      empty.today = pv;
+      empty.nominal = pv;
+      return empty;
+    }
+    if (meta.hasSalary) {
+      var raise = meta.raise;
+      var ee = meta.ee;
+      var match = meta.match;
+      var extra = meta.extra;
       var R = (1 + real) * (1 + infl) - 1;
       var growth = 1 + R;
       if (!(growth > 0) || !isFinite(growth)) return empty;
       var half = Math.sqrt(growth);
       var bal = pv;
       var sal = Number(state.salary);
-      var year1 = null;
-      for (var y = 0; y < years; y++) {
+      var full = Math.floor(years + 1e-9);
+      var frac = years - full;
+      var y;
+      for (y = 0; y < full; y++) {
         sal = sal * (1 + raise);
         var contrib = sal * (ee + match) + extra * 12;
-        if (y === 0) year1 = contrib;
         bal = bal * growth + contrib * half;
+        if (!isFinite(bal)) return empty;
+      }
+      if (frac > 1e-6) {
+        sal = sal * Math.pow(1 + raise, frac);
+        var contribF = (sal * (ee + match) + extra * 12) * frac;
+        var gFrac = Math.pow(growth, frac);
+        if (!(gFrac > 0) || !isFinite(gFrac)) return empty;
+        bal = bal * gFrac + contribF * Math.sqrt(gFrac);
         if (!isFinite(bal)) return empty;
       }
       var deflator = retPow(1 + infl, years);
       if (deflator == null || deflator === 0) return empty;
-      return {
-        today: bal / deflator,
-        nominal: bal,
-        mode: "salary",
-        monthlyShown: year1 / 12,
-        year1Annual: year1,
-        depositsMissing: false
-      };
+      empty.today = bal / deflator;
+      empty.nominal = bal;
+      return empty;
     }
-    var annual = (monthly == null ? 0 : monthly) * 12 + extra * 12;
+    var monthly = meta.monthly;
+    var annual = (monthly == null ? 0 : monthly) * 12 + meta.extra * 12;
     var todayD;
     if (!(real > -0.999) || Math.abs(real) < 1e-8) todayD = pv + annual * years;
     else {
@@ -1071,14 +1208,58 @@ function collapseHouseNames(list) {
     }
     if (!isFinite(todayD)) return empty;
     var inf = retPow(1 + infl, years);
-    return {
-      today: todayD,
-      nominal: inf == null ? null : todayD * inf,
-      mode: "deposits",
-      monthlyShown: (monthly == null && extra === 0) ? null : ((monthly == null ? 0 : monthly) + extra),
-      year1Annual: null,
-      depositsMissing: printed == null && !retFinite(state.monthly)
-    };
+    empty.today = todayD;
+    empty.nominal = inf == null ? null : todayD * inf;
+    return empty;
+  }
+  /* FRA 67. Early: 5/9 of 1% per month for the first 36 months, then 5/12 of 1%.
+     Delayed: 8% per year. Age 62 is 70% of PIA. Age 70 is 124%. */
+  function retSsFactor(age) {
+    var fromFra = Number(age) - 67;
+    if (fromFra >= 0) return 1 + 0.08 * fromFra;
+    var earlyMonths = Math.round(-fromFra * 12);
+    var first = Math.min(earlyMonths, 36);
+    var rest = Math.max(0, earlyMonths - 36);
+    var reduction = first * (5 / 9) * 0.01 + rest * (5 / 12) * 0.01;
+    var factor = 1 - reduction;
+    return factor > 0 ? factor : 0;
+  }
+  function retSsAnchors(state) {
+    var list = [];
+    if (state.ss62 != null && isFinite(Number(state.ss62))) list.push({ age: 62, amt: Number(state.ss62) });
+    if (state.ss67 != null && isFinite(Number(state.ss67))) list.push({ age: 67, amt: Number(state.ss67) });
+    if (state.ss70 != null && isFinite(Number(state.ss70))) list.push({ age: 70, amt: Number(state.ss70) });
+    return list;
+  }
+  function retSsMonthly(age, state) {
+    var anchors = retSsAnchors(state);
+    if (!anchors.length || !isFinite(Number(age))) return null;
+    var i, lo = null, hi = null;
+    for (i = 0; i < anchors.length; i++) {
+      if (anchors[i].age === age) return anchors[i].amt;
+    }
+    for (i = 0; i < anchors.length; i++) {
+      if (anchors[i].age < age) lo = anchors[i];
+      if (anchors[i].age > age && !hi) hi = anchors[i];
+    }
+    function ratio(a) {
+      var f = retSsFactor(a.age);
+      return f ? a.amt / f : a.amt;
+    }
+    if (lo && hi) {
+      var t = (age - lo.age) / (hi.age - lo.age);
+      var pia = ratio(lo) + (ratio(hi) - ratio(lo)) * t;
+      return pia * retSsFactor(age);
+    }
+    var near = lo || hi;
+    if (!near) return null;
+    return ratio(near) * retSsFactor(age);
+  }
+  function retSsExact(age, state) {
+    if (age === 62 && state.ss62 != null) return true;
+    if (age === 67 && state.ss67 != null) return true;
+    if (age === 70 && state.ss70 != null) return true;
+    return false;
   }
   function retRoughPia(salary) {
     if (!retFinite(salary) || Number(salary) <= 0) return null;
@@ -1093,24 +1274,93 @@ function collapseHouseNames(list) {
     if (today == null || !isFinite(today)) return null;
     return today * 0.04 / 12;
   }
+  function retFederalTax(taxable, filing) {
+    if (!(taxable > 0)) return 0;
+    var caps = RET_BRACKETS_2026[filing] || RET_BRACKETS_2026.mfj;
+    var rates = RET_BRACKET_RATES;
+    var tax = 0, prev = 0, i;
+    for (i = 0; i < caps.length; i++) {
+      if (taxable <= prev) break;
+      var slice = Math.min(taxable, caps[i]) - prev;
+      if (slice > 0) tax += slice * rates[i];
+      prev = caps[i];
+      if (taxable <= caps[i]) return tax;
+    }
+    if (taxable > prev) tax += (taxable - prev) * rates[rates.length - 1];
+    return tax;
+  }
+  function retTaxableSs(other, ssAnnual, filing, deflator) {
+    if (!(ssAnnual > 0)) return 0;
+    var bases = RET_SS_BASE[filing] || RET_SS_BASE.mfj;
+    var scale = deflator > 0 ? deflator : 1;
+    var b1 = bases[0] / scale;
+    var b2 = bases[1] / scale;
+    var pi = other + 0.5 * ssAnnual;
+    if (pi <= b1) return 0;
+    var portion50 = Math.min(0.5 * ssAnnual, Math.max(0, 0.5 * (Math.min(pi, b2) - b1)));
+    if (pi <= b2) return portion50;
+    return Math.min(0.85 * ssAnnual, portion50 + 0.85 * (pi - b2));
+  }
+  /* Part B and the age-65 additional standard deduction apply at retirement age 65+.
+     MFJ assumes both people are 65+. */
+  function retTakeHome(drawMonthly, ssMonthly, state, years, retireAge) {
+    if (drawMonthly == null || !isFinite(drawMonthly)) return null;
+    var filing = state.filing === "single" ? "single" : "mfj";
+    var drawA = drawMonthly * 12;
+    var ssA = (ssMonthly == null || !isFinite(ssMonthly)) ? 0 : ssMonthly * 12;
+    var deflator = retPow(1 + (Number(state.inflPct) / 100), years);
+    if (deflator == null || !(deflator > 0)) deflator = 1;
+    var tss = retTaxableSs(drawA, ssA, filing, deflator);
+    var agi = drawA + tss;
+    var std = RET_STD_2026[filing];
+    var people = filing === "single" ? 1 : 2;
+    if (retireAge >= 65) std += RET_STD_AGED_2026[filing] * people;
+    var taxable = Math.max(0, agi - std);
+    var federal = retFederalTax(taxable, filing);
+    var stateRate = (retFinite(state.statePct) ? Number(state.statePct) : 0) / 100;
+    var stateTax = stateRate * taxable;
+    var medicare = retireAge >= 65 ? people * RET_PART_B * 12 : 0;
+    var net = drawA + ssA - federal - stateTax - medicare;
+    return isFinite(net) ? net / 12 : null;
+  }
+  /* Savings at 67 cover 36 months of the age-67 total (4% draw + SS at 67)
+     while the remainder keeps growing at the real return. Then 4% of what
+     remains, per month, plus SS at 70. */
+  function retBridge(nest, realPct, ss67, ss70) {
+    var real = Number(realPct) / 100;
+    if (!(real > -0.999) || nest == null || !isFinite(nest)) return null;
+    var spend = nest * 0.04 / 12 + Number(ss67);
+    var grown = nest * Math.pow(1 + real, 3);
+    if (!isFinite(grown) || !isFinite(spend)) return null;
+    var left = grown - 36 * spend;
+    if (left < 0) left = 0;
+    var out = left * 0.04 / 12 + Number(ss70);
+    return isFinite(out) ? out : null;
+  }
   function retView(state) {
     var src = retSources();
-    var mid = retProject(src.base, state);
-    var low = retProject(src.base, retWithReal(state, 4));
-    var high = retProject(src.base, retWithReal(state, 6));
+    var h = retHorizon(state);
+    var mid = retProject(src.base, state, h.years);
+    var low = retProject(src.base, retWithReal(state, 4), h.years);
+    var high = retProject(src.base, retWithReal(state, 6), h.years);
     var income = retIncome(mid.today);
-    var ss = retFinite(state.ss) ? Number(state.ss) : null;
-    var pia = retRoughPia(state.salary);
+    var ss = retSsMonthly(state.retireAge, state);
+    var hasAnchor = retSsAnchors(state).length > 0;
+    var total = null;
+    if (income != null && ss != null) total = income + ss;
+    else if (income != null && !hasAnchor) total = income;
+    var take = (h.years == null || income == null) ? null : retTakeHome(income, hasAnchor ? ss : null, state, h.years, state.retireAge);
+    var bridge = null;
+    if (state.retireAge === 67 && h.years != null && state.ss67 != null && state.ss70 != null && mid.today != null) {
+      bridge = retBridge(mid.today, state.realPct, state.ss67, state.ss70);
+    }
     return {
-      src: src,
-      mid: mid,
-      low: low,
-      high: high,
-      income: income,
-      ss: ss,
-      total: (ss == null || income == null) ? null : income + ss,
-      pia: pia,
-      year: retNominalYear()
+      src: src, mid: mid, low: low, high: high,
+      income: income, ss: ss, hasAnchor: hasAnchor,
+      total: total, take: take, bridge: bridge,
+      pia: retRoughPia(state.salary),
+      horizon: h,
+      ssExact: retSsExact(state.retireAge, state)
     };
   }
   function retMoney(n) {
@@ -1125,9 +1375,10 @@ function collapseHouseNames(list) {
       var n = retNum(raw(name));
       return n == null ? fallback : n;
     }
-    var monthlyRaw = String(raw("monthly")).trim();
-    var salaryRaw = String(raw("salary")).trim();
-    var ssRaw = String(raw("ss")).trim();
+    function opt(name) {
+      var s = String(raw(name)).trim();
+      return s === "" ? null : retNum(s);
+    }
     var extra = retNum(raw("extra"));
     return {
       realPct: pct("real", 5),
@@ -1136,19 +1387,32 @@ function collapseHouseNames(list) {
       eePct: pct("ee", 6),
       matchPct: pct("match", 6),
       extraMonthly: extra == null ? 0 : extra,
-      monthly: monthlyRaw === "" ? null : retNum(monthlyRaw),
-      salary: salaryRaw === "" ? null : retNum(salaryRaw),
-      ss: ssRaw === "" ? null : retNum(ssRaw)
+      monthly: opt("monthly"),
+      salary: opt("salary"),
+      ss62: opt("ss62"),
+      ss67: opt("ss67"),
+      ss70: opt("ss70"),
+      retireAge: retRetireAge(raw("retireAge")),
+      birthMonth: retOptMonth(raw("birthMonth")),
+      birthYear: retOptYear(raw("birthYear")),
+      filing: raw("filing") === "single" ? "single" : "mfj",
+      statePct: pct("state", 0)
     };
   }
   function retSetText(card, name, text) {
     var el = card.querySelector('[data-ret="' + name + '"]');
     if (el) el.textContent = text;
   }
+  function retShow(el, on) {
+    if (!el) return;
+    if (on) el.removeAttribute("hidden");
+    else el.setAttribute("hidden", "");
+  }
   function retFill(card, state) {
     if (!card) return;
     var v = retView(state);
     var src = v.src;
+    var h = v.horizon;
     retSetText(card, "base", retMoney(src.base));
     var bits = src.list.map(function (s) {
       return s.label + " " + (s.missing ? "\u2014" : money(s.equity));
@@ -1185,16 +1449,90 @@ function collapseHouseNames(list) {
     retSetText(card, "low-mo", retMoney(retIncome(v.low.today)));
     retSetText(card, "high", retMoney(v.high.today));
     retSetText(card, "high-mo", retMoney(retIncome(v.high.today)));
-    retSetText(card, "nominal", v.mid.nominal == null ? "\u2014" : money(v.mid.nominal));
-    retSetText(card, "nominal-year", String(v.year));
-    var ssEl = card.querySelector('[data-ret="ss-block"]');
-    if (ssEl) {
-      if (v.ss == null) {
-        ssEl.innerHTML = '<p class="ret-ss-empty">Add your SSA estimate</p>';
+    retSetText(card, "retire-val", String(state.retireAge));
+    var range = card.querySelector('[data-ret-in="retireAge"]');
+    if (range) {
+      range.setAttribute("aria-valuenow", String(state.retireAge));
+      range.setAttribute("aria-valuetext", String(state.retireAge));
+    }
+    var prog = card.querySelector('[data-ret="progress"]');
+    var ageNow = card.querySelector('[data-ret="age-now"]');
+    var chip = card.querySelector('[data-ret="years-chip"]');
+    var targetEl = card.querySelector('[data-ret="age-target"]');
+    var cap = card.querySelector('[data-ret="progress-cap"]');
+    var track = card.querySelector('[data-ret="track"]');
+    var fill = card.querySelector('[data-ret="progress-fill"]');
+    if (h.age == null) {
+      var prompt = (state.birthMonth != null && state.birthYear != null) ? "Check birth month and year" : RET_PROMPT;
+      if (ageNow) {
+        ageNow.textContent = prompt;
+        ageNow.classList.add("ret-prompt");
+      }
+      retShow(chip, false);
+      retShow(targetEl, false);
+      retShow(cap, false);
+      retShow(track, false);
+      if (fill) fill.style.width = "0%";
+      if (prog) prog.setAttribute("aria-label", prompt);
+    } else {
+      var ageTxt = retOneDec(h.age);
+      var yrsTxt = retOneDec(h.raw);
+      var chipTxt = h.raw < 0 ? "Past retirement age" : (h.years <= 0 ? "At retirement age" : (yrsTxt + " years to go"));
+      if (ageNow) {
+        ageNow.textContent = "Age " + ageTxt;
+        ageNow.classList.remove("ret-prompt");
+      }
+      if (chip) chip.textContent = chipTxt;
+      if (targetEl) targetEl.textContent = String(h.target);
+      retShow(chip, true);
+      retShow(targetEl, true);
+      retShow(cap, true);
+      retShow(track, true);
+      var span = h.target > 0 ? Math.max(0, Math.min(100, (h.age / h.target) * 100)) : 0;
+      if (fill) fill.style.width = span.toFixed(1) + "%";
+      if (prog) prog.setAttribute("aria-label", "Age " + ageTxt + " of " + h.target + ", " + chipTxt + ". Bar is current age divided by retirement age.");
+    }
+    var nomEl = card.querySelector('[data-ret="nominal-line"]');
+    if (nomEl) {
+      if (h.years == null) nomEl.textContent = "Nominal year \u2014";
+      else if (!(h.raw > 0)) nomEl.textContent = "Nest egg is today\u2019s balance.";
+      else nomEl.innerHTML = "Nominal in " + h.year + ": <b>" + (v.mid.nominal == null ? "\u2014" : money(v.mid.nominal)) + "</b>";
+    }
+    if (v.ss == null) {
+      retSetText(card, "ss-mo", "\u2014");
+      retSetText(card, "ss-sub", "");
+    } else {
+      retSetText(card, "ss-mo", money(v.ss));
+      retSetText(card, "ss-sub", v.ssExact ? ("at " + state.retireAge) : ("at " + state.retireAge + " \u00b7 estimated"));
+    }
+    if (v.total == null) {
+      retSetText(card, "total-mo", "\u2014");
+      retSetText(card, "total-sub", "");
+    } else if (v.ss == null) {
+      retSetText(card, "total-mo", money(v.total));
+      retSetText(card, "total-sub", "savings only");
+    } else {
+      retSetText(card, "total-mo", money(v.total));
+      retSetText(card, "total-sub", "savings + SS");
+    }
+    if (v.take == null) {
+      retSetText(card, "take", "\u2014");
+      retSetText(card, "take-sub", "");
+    } else if (v.ss == null) {
+      retSetText(card, "take", money(v.take));
+      retSetText(card, "take-sub", "savings only \u00b7 rough; excludes IRMAA, state rules on SS");
+    } else {
+      retSetText(card, "take", money(v.take));
+      retSetText(card, "take-sub", "rough; excludes IRMAA, state rules on SS");
+    }
+    var br = card.querySelector('[data-ret="bridge"]');
+    if (br) {
+      if (v.bridge == null) {
+        br.hidden = true;
+        br.textContent = "";
       } else {
-        ssEl.innerHTML = '<div class="kpi ret-ss-kpi">' +
-          '<div><span>Social Security</span><b>' + money(v.ss) + '</b><i>at 67</i></div>' +
-          '<div><span>Total monthly</span><b>' + retMoney(v.total) + '</b><i>savings + SS</i></div></div>';
+        br.hidden = false;
+        br.textContent = "Retire 67, claim 70 \u00b7 " + money(v.bridge) + "/mo after 3 years of age-67 spending.";
       }
     }
     var hint = card.querySelector('[data-ret="monthly-hint"]');
@@ -1206,14 +1544,23 @@ function collapseHouseNames(list) {
     var piaEl = card.querySelector('[data-ret="pia"]');
     if (piaEl) {
       if (v.pia == null) {
-        piaEl.innerHTML = '<p class="ret-pia-empty">Enter annual salary for a rough Social Security estimate. It will not fill the statement field.</p>';
+        piaEl.innerHTML = '<p class="ret-pia-empty">Enter annual salary for a rough Social Security estimate. It will not fill the statement fields.</p>';
       } else {
-        piaEl.innerHTML = '<p class="ret-pia"><b>Rough estimate ' + money(v.pia) + '/mo</b> at full retirement age. Salary \u00f7 12 stands in for AIME (not a 35-year indexed average), capped at the 2026 wage base ($184,500). 2026 bend points $1,286 and $7,749 at 90% / 32% / 15%, rounded down to the next dime, in today\u2019s dollars. Those bend points are for people who turn 62 in 2026. SSA statement preferred. This does not fill the field above.</p>';
+        piaEl.innerHTML = '<p class="ret-pia"><b>Rough estimate ' + money(v.pia) + '/mo</b> at full retirement age. Salary \u00f7 12 stands in for AIME (not a 35-year indexed average), capped at the 2026 wage base ($184,500). 2026 bend points $1,286 and $7,749 at 90% / 32% / 15%, rounded down to the next dime, in today\u2019s dollars. Those bend points are for people who turn 62 in 2026. SSA statement preferred. This does not fill the statement fields.</p>';
       }
     }
   }
   function retInputValue(n) {
     return (n == null || !isFinite(Number(n))) ? "" : String(Number(n));
+  }
+  function retMonthOptions(selected) {
+    var names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    var html = '<option value="">Month</option>';
+    for (var i = 0; i < 12; i++) {
+      var v = i + 1;
+      html += '<option value="' + v + '"' + (selected === v ? " selected" : "") + ">" + names[i] + "</option>";
+    }
+    return html;
   }
   function retirementHtml() {
     if (!snap) return "";
@@ -1221,23 +1568,41 @@ function collapseHouseNames(list) {
     var printed = retPrintedMonthly();
     var monthlyVal = state.monthly != null ? state.monthly : printed;
     var open = retirementOpen ? " open" : "";
+    var age = state.retireAge;
     return '<h2>Retirement</h2><div class="card span retirement-card" id="retirement">' +
+      '<div class="ret-progress" data-ret="progress" role="img" aria-label="' + esc(RET_PROMPT) + '">' +
+      '<p class="ret-progress-cap" data-ret="progress-cap" hidden>Elapsed toward retirement age</p>' +
+      '<div class="ret-progress-top"><span class="ret-prompt" data-ret="age-now">' + esc(RET_PROMPT) + '</span>' +
+      '<span class="ret-chip" data-ret="years-chip" hidden></span><span data-ret="age-target" hidden></span></div>' +
+      '<div class="ret-track" data-ret="track" hidden aria-hidden="true"><i data-ret="progress-fill"></i></div></div>' +
+      '<div class="ret-born">' +
+      '<div><label for="ret-birth-month">Birth month</label>' +
+      '<select id="ret-birth-month" data-ret-in="birthMonth" autocomplete="off">' + retMonthOptions(state.birthMonth) + '</select></div>' +
+      '<div><label for="ret-birth-year">Birth year</label>' +
+      '<input id="ret-birth-year" data-ret-in="birthYear" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="4" placeholder="Year" value="' + esc(retInputValue(state.birthYear)) + '"></div>' +
+      '</div>' +
+      '<div class="ret-slider">' +
+      '<div class="ret-slider-head"><span>Retirement age</span><b data-ret="retire-val">' + age + '</b></div>' +
+      '<input id="ret-age" data-ret-in="retireAge" type="range" min="62" max="70" step="1" value="' + age + '" aria-label="Retirement age" aria-valuemin="62" aria-valuemax="70" aria-valuenow="' + age + '" aria-valuetext="' + age + '">' +
+      '<div class="ret-ticks" aria-hidden="true"><span class="ret-tick ret-tick-lo">62</span><span class="ret-tick ret-tick-mid">67</span><span class="ret-tick ret-tick-hi">70</span></div>' +
+      '</div>' +
       '<div class="kpi ret-kpi">' +
       '<div><span>Retirement base</span><b data-ret="base">\u2014</b><i data-ret="sources"></i></div>' +
       '<div><span data-ret="save-k">Monthly savings</span><b data-ret="save">\u2014</b><i data-ret="save-sub">based on last 30 days</i></div>' +
       '<div><span>Nest egg</span><b data-ret="nest">\u2014</b><i><span data-ret="nest-k">5% real</span> \u00b7 today\u2019s dollars</i></div>' +
-      '<div><span>Monthly income</span><b data-ret="income">\u2014</b><i>4% rule</i></div>' +
+      '<div><span>4% draw</span><b data-ret="income">\u2014</b><i>per month</i></div>' +
       '</div>' +
       '<p class="ret-gap" data-ret="gap" hidden></p>' +
       '<p class="ret-dep-miss" data-ret="dep-miss" hidden></p>' +
+      '<p class="ret-nominal" data-ret="nominal-line">Nominal year \u2014</p>' +
+      '<div class="kpi ret-results-kpi">' +
+      '<div><span>SS / mo</span><b data-ret="ss-mo">\u2014</b><i data-ret="ss-sub"></i></div>' +
+      '<div><span>Total / mo</span><b data-ret="total-mo">\u2014</b><i data-ret="total-sub"></i></div>' +
+      '</div>' +
+      '<div class="ret-take"><span>Take-home / mo (est.)</span><b data-ret="take">\u2014</b><i data-ret="take-sub"></i></div>' +
+      '<p class="ret-bridge" data-ret="bridge" hidden></p>' +
       '<p class="ret-range">Low 4% <b data-ret="low">\u2014</b> \u00b7 <b data-ret="low-mo">\u2014</b>/mo' +
       '<span class="ret-range-gap"></span>High 6% <b data-ret="high">\u2014</b> \u00b7 <b data-ret="high-mo">\u2014</b>/mo</p>' +
-      '<div class="ret-progress" role="img" aria-label="Age ' + RET_NOW + ' to ' + RET_TARGET + ', ' + RET_YEARS + ' years to go">' +
-      '<div class="ret-progress-top"><span>Age ' + RET_NOW + '</span>' +
-      '<span class="ret-chip">' + RET_YEARS + ' years to go</span><span>' + RET_TARGET + '</span></div>' +
-      '<div class="ret-track" aria-hidden="true"><i></i></div></div>' +
-      '<div data-ret="ss-block"></div>' +
-      '<p class="ret-nominal">Nominal in <span data-ret="nominal-year"></span>: <b data-ret="nominal">\u2014</b></p>' +
       '<p class="hint ret-foot">Estimates, not advice. Assumes deposits continue and these balances are for retirement.</p>' +
       '<details class="ret-more"' + open + '>' +
       '<summary><span class="ret-sum">Helper</span> <span class="ret-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
@@ -1262,8 +1627,19 @@ function collapseHouseNames(list) {
       '<input id="ret-ee" data-ret-in="ee" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.eePct)) + '"></div>' +
       '<div><label for="ret-match">Employer match %</label>' +
       '<input id="ret-match" data-ret-in="match" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.matchPct)) + '"></div>' +
-      '<div class="ret-ss-field"><label for="ret-ss">Monthly at 67 <span class="ret-quiet">(from your ssa.gov statement)</span></label>' +
-      '<input id="ret-ss" data-ret-in="ss" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Add your SSA estimate" value="' + esc(retInputValue(state.ss)) + '"></div>' +
+      '<div><label for="ret-filing">Filing status</label>' +
+      '<select id="ret-filing" data-ret-in="filing" autocomplete="off">' +
+      '<option value="mfj"' + (state.filing !== "single" ? " selected" : "") + '>Married filing jointly</option>' +
+      '<option value="single"' + (state.filing === "single" ? " selected" : "") + '>Single</option></select></div>' +
+      '<div><label for="ret-state">State tax %</label>' +
+      '<input id="ret-state" data-ret-in="state" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.statePct)) + '">' +
+      '<p class="ret-field-hint">Percent of taxable income.</p></div>' +
+      '<div class="ret-ss-field"><label for="ret-ss62">Monthly at 62 <span class="ret-quiet">(from your ssa.gov statement)</span></label>' +
+      '<input id="ret-ss62" data-ret-in="ss62" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.ss62)) + '"></div>' +
+      '<div class="ret-ss-field"><label for="ret-ss67">Monthly at 67 <span class="ret-quiet">(from your ssa.gov statement)</span></label>' +
+      '<input id="ret-ss67" data-ret-in="ss67" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.ss67)) + '"></div>' +
+      '<div class="ret-ss-field"><label for="ret-ss70">Monthly at 70 <span class="ret-quiet">(from your ssa.gov statement)</span></label>' +
+      '<input id="ret-ss70" data-ret-in="ss70" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(retInputValue(state.ss70)) + '"></div>' +
       '</div>' +
       '<div data-ret="pia"></div>' +
       '<button type="button" class="ghost" data-ret-reset="1">Reset to defaults</button>' +
@@ -1443,13 +1819,15 @@ function collapseHouseNames(list) {
     if (e.target.classList.contains("mix-more")) mixOpen = !!e.target.open;
     if (e.target.classList.contains("ret-more")) retirementOpen = !!e.target.open;
   }, true);
-  document.addEventListener("input", function (e) {
+  function retOnEdit(e) {
     if (!e.target || !e.target.closest || !e.target.closest(".retirement-card")) return;
     var card = e.target.closest(".retirement-card");
     var state = retRead(card);
     retSave(state);
     retFill(card, state);
-  });
+  }
+  document.addEventListener("input", retOnEdit);
+  document.addEventListener("change", retOnEdit);
   document.addEventListener("click", function (e) {
     var reset = e.target.closest && e.target.closest("[data-ret-reset]");
     if (!reset) return;
@@ -1470,7 +1848,14 @@ function collapseHouseNames(list) {
     setIn("raise", "1");
     setIn("ee", "6");
     setIn("match", "6");
-    setIn("ss", "");
+    setIn("ss62", "");
+    setIn("ss67", "");
+    setIn("ss70", "");
+    setIn("retireAge", "67");
+    setIn("birthMonth", "");
+    setIn("birthYear", "");
+    setIn("filing", "mfj");
+    setIn("state", "0");
     retFill(card, retLoad());
   });
   document.addEventListener("keydown", function (e) {
