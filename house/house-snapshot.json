@@ -1,1 +1,858 @@
-PLACEHOLDER
+{
+  "asof": "2026-09-28T09:24:13-04:00",
+  "tip": "ba+bb+bc+be+bg+bh+bi+bj",
+  "note": "Mon 09:02 Site data House/pilot weekday refresh. live RH portfolios+positions+realized+quotes+crypto+indexes. KEEP cashflow_30d. Truthifi untouched. Quiet Justin. | cashflow_30d recomputed Thu Fid Close 2026-09-24 (RH window realized; Fid Truthifi PnL/ITS; Voya by_source KEPT).",
+  "accounts": {
+    "individual": {
+      "id": "individual",
+      "label": "Individual",
+      "suffix": "8723",
+      "source": "live RH portfolios+positions+realized+quotes+crypto_positions+index_quotes 2026-09-28 ET; KEEP cashflow_30d; Truthifi untouched",
+      "asof": "2026-09-28T09:24:13-04:00",
+      "equity": 737.96,
+      "equity_value": 528.6,
+      "crypto_value": 209.22,
+      "cash": 0.14,
+      "buying_power": 0.14,
+      "pending_deposits": 0,
+      "invested_pct": 99.98,
+      "open_orders": 0,
+      "asset_mix": {
+        "equity": 528.6,
+        "crypto": 209.22,
+        "options": 0.0,
+        "cash": 0.14
+      },
+      "realized_pnl": {
+        "day": 0.0,
+        "week": 0.0,
+        "month": 0.0
+      },
+      "names": [
+        {
+          "symbol": "SPCX",
+          "name": "SpaceX",
+          "kind": "equity",
+          "qty": 2.105144,
+          "avg_cost": 136.51,
+          "last": 149.25,
+          "value": 314.1927,
+          "cost": 287.3732,
+          "unrealized_pnl": 26.8195,
+          "unrealized_pnl_pct": 9.33
+        },
+        {
+          "symbol": "NVDA",
+          "name": "NVIDIA",
+          "kind": "equity",
+          "qty": 0.47381,
+          "avg_cost": 211.06,
+          "last": 229.4799,
+          "value": 108.7299,
+          "cost": 100.0023,
+          "unrealized_pnl": 8.7275,
+          "unrealized_pnl_pct": 8.73
+        },
+        {
+          "symbol": "TSLA",
+          "name": "Tesla",
+          "kind": "equity",
+          "qty": 0.284086,
+          "avg_cost": 352.01,
+          "last": 369.84,
+          "value": 105.0664,
+          "cost": 100.0011,
+          "unrealized_pnl": 5.0653,
+          "unrealized_pnl_pct": 5.07
+        },
+        {
+          "symbol": "XRP",
+          "name": "XRP",
+          "qty": 35.556,
+          "avg": 0.0,
+          "avg_cost": 0.0,
+          "last": 1.5194,
+          "value": 54.025,
+          "account": "individual",
+          "asset_class": "crypto",
+          "pnl_pct": 0.0
+        },
+        {
+          "symbol": "BTC",
+          "name": "Bitcoin",
+          "qty": 0.001862,
+          "avg": 0.0,
+          "avg_cost": 0.0,
+          "last": 83384.08,
+          "value": 155.2612,
+          "account": "individual",
+          "asset_class": "crypto",
+          "pnl_pct": 0.0
+        }
+      ]
+    },
+    "auto_grok": {
+      "id": "auto_grok",
+      "label": "Grok",
+      "suffix": "6577",
+      "source": "live RH portfolios+positions+realized+quotes+crypto_positions+index_quotes 2026-09-28 ET; KEEP cashflow_30d; Truthifi untouched",
+      "asof": "2026-09-28T09:24:13-04:00",
+      "equity": 1034.73,
+      "equity_value": 1033.49,
+      "crypto_value": 0.0,
+      "cash": 1.24,
+      "buying_power": 1.24,
+      "pending_deposits": 0,
+      "invested_pct": 99.88,
+      "open_orders": 0,
+      "asset_mix": {
+        "equity": 1033.49,
+        "crypto": 0.0,
+        "options": 0.0,
+        "cash": 1.24
+      },
+      "realized_pnl": {
+        "day": 0.0,
+        "week": 0.0,
+        "month": -2.63
+      },
+      "names": [
+        {
+          "symbol": "SYK",
+          "name": "Stryker",
+          "kind": "equity",
+          "qty": 0.359116,
+          "avg_cost": 268.72,
+          "last": 272.2469,
+          "value": 97.7682,
+          "cost": 96.5017,
+          "unrealized_pnl": 1.2666,
+          "unrealized_pnl_pct": 1.31
+        },
+        {
+          "symbol": "AVGO",
+          "name": "Broadcom",
+          "kind": "equity",
+          "qty": 0.208756,
+          "avg_cost": 363.29,
+          "last": 351.49,
+          "value": 73.3756,
+          "cost": 75.839,
+          "unrealized_pnl": -2.4633,
+          "unrealized_pnl_pct": -3.25
+        },
+        {
+          "symbol": "VST",
+          "name": "Vistra",
+          "kind": "equity",
+          "qty": 0.455666,
+          "avg_cost": 140.8,
+          "last": 138.1187,
+          "value": 62.936,
+          "cost": 64.1578,
+          "unrealized_pnl": -1.2218,
+          "unrealized_pnl_pct": -1.9
+        },
+        {
+          "symbol": "BSX",
+          "name": "Boston Scientific",
+          "kind": "equity",
+          "qty": 2.980055,
+          "avg_cost": 43.12,
+          "last": 43.53,
+          "value": 129.7218,
+          "cost": 128.5,
+          "unrealized_pnl": 1.2218,
+          "unrealized_pnl_pct": 0.95
+        },
+        {
+          "symbol": "INTU",
+          "name": "Intuit",
+          "kind": "equity",
+          "qty": 0.307555,
+          "avg_cost": 315.39,
+          "last": 269.99,
+          "value": 83.0368,
+          "cost": 96.9998,
+          "unrealized_pnl": -13.963,
+          "unrealized_pnl_pct": -14.39
+        },
+        {
+          "symbol": "NRG",
+          "name": "NRG Energy",
+          "kind": "equity",
+          "qty": 0.851307,
+          "avg_cost": 113.36,
+          "last": 99.2746,
+          "value": 84.5132,
+          "cost": 96.5042,
+          "unrealized_pnl": -11.991,
+          "unrealized_pnl_pct": -12.43
+        },
+        {
+          "symbol": "NBIX",
+          "name": "Neurocrine",
+          "kind": "equity",
+          "qty": 0.475665,
+          "avg_cost": 158.73,
+          "last": 138.4,
+          "value": 65.832,
+          "cost": 75.5023,
+          "unrealized_pnl": -9.6703,
+          "unrealized_pnl_pct": -12.81
+        },
+        {
+          "symbol": "PAM",
+          "name": "Pampa Energia",
+          "kind": "equity",
+          "qty": 0.733591,
+          "avg_cost": 87.38,
+          "last": 77.78,
+          "value": 57.0587,
+          "cost": 64.1012,
+          "unrealized_pnl": -7.0425,
+          "unrealized_pnl_pct": -10.99
+        },
+        {
+          "symbol": "WAY",
+          "name": "Waystar",
+          "kind": "equity",
+          "qty": 2.760611,
+          "avg_cost": 23.21,
+          "last": 24.51,
+          "value": 67.6626,
+          "cost": 64.0738,
+          "unrealized_pnl": 3.5888,
+          "unrealized_pnl_pct": 5.6
+        },
+        {
+          "symbol": "AXS",
+          "name": "Axis Capital",
+          "kind": "equity",
+          "qty": 0.558071,
+          "avg_cost": 98.55,
+          "last": 94.45,
+          "value": 52.7098,
+          "cost": 54.9979,
+          "unrealized_pnl": -2.2881,
+          "unrealized_pnl_pct": -4.16
+        },
+        {
+          "symbol": "NVDA",
+          "name": "NVIDIA",
+          "kind": "equity",
+          "qty": 0.241812,
+          "avg_cost": 220.01,
+          "last": 229.4799,
+          "value": 55.491,
+          "cost": 53.2011,
+          "unrealized_pnl": 2.2899,
+          "unrealized_pnl_pct": 4.3
+        },
+        {
+          "symbol": "ALNY",
+          "name": "Alnylam",
+          "kind": "equity",
+          "qty": 0.214738,
+          "avg_cost": 246.95,
+          "last": 255.96,
+          "value": 54.9643,
+          "cost": 53.0295,
+          "unrealized_pnl": 1.9348,
+          "unrealized_pnl_pct": 3.65
+        },
+        {
+          "symbol": "CXM",
+          "name": "Sprinklr",
+          "kind": "equity",
+          "qty": 7.720254,
+          "avg_cost": 5.51,
+          "last": 5.08,
+          "value": 39.2189,
+          "cost": 42.5386,
+          "unrealized_pnl": -3.3197,
+          "unrealized_pnl_pct": -7.8
+        },
+        {
+          "symbol": "MP",
+          "name": "MP Materials",
+          "kind": "equity",
+          "qty": 0.837438,
+          "avg_cost": 50.75,
+          "last": 47.84,
+          "value": 40.063,
+          "cost": 42.5,
+          "unrealized_pnl": -2.4369,
+          "unrealized_pnl_pct": -5.73
+        },
+        {
+          "symbol": "PINS",
+          "name": "Pinterest",
+          "kind": "equity",
+          "qty": 3.693144,
+          "avg_cost": 18.38,
+          "last": 18.72,
+          "value": 69.1357,
+          "cost": 67.88,
+          "unrealized_pnl": 1.2557,
+          "unrealized_pnl_pct": 1.85
+        }
+      ]
+    },
+    "joint": {
+      "id": "joint",
+      "label": "Deep Seek",
+      "suffix": "4446",
+      "source": "live RH portfolios+positions+realized+quotes+crypto_positions+index_quotes 2026-09-28 ET; KEEP cashflow_30d; Truthifi untouched",
+      "asof": "2026-09-28T09:24:13-04:00",
+      "equity": 909.04,
+      "equity_value": 907.88,
+      "crypto_value": 0.0,
+      "cash": 1.16,
+      "buying_power": 1.16,
+      "pending_deposits": 0,
+      "invested_pct": 99.87,
+      "open_orders": 0,
+      "asset_mix": {
+        "equity": 907.88,
+        "crypto": 0.0,
+        "options": 0.0,
+        "cash": 1.16
+      },
+      "realized_pnl": {
+        "day": 0.0,
+        "week": 0.0,
+        "month": -10.39
+      },
+      "names": [
+        {
+          "symbol": "MLTX",
+          "name": "MoonLake",
+          "kind": "equity",
+          "qty": 4.576494,
+          "avg_cost": 16.6,
+          "last": 12.03,
+          "value": 55.0552,
+          "cost": 75.9698,
+          "unrealized_pnl": -20.9146,
+          "unrealized_pnl_pct": -27.53
+        },
+        {
+          "symbol": "NVDA",
+          "name": "NVIDIA",
+          "kind": "equity",
+          "qty": 0.294235,
+          "avg_cost": 223.43,
+          "last": 229.4799,
+          "value": 67.521,
+          "cost": 65.7409,
+          "unrealized_pnl": 1.7801,
+          "unrealized_pnl_pct": 2.71
+        },
+        {
+          "symbol": "VST",
+          "name": "Vistra",
+          "kind": "equity",
+          "qty": 0.194425,
+          "avg_cost": 144.01,
+          "last": 138.1187,
+          "value": 26.8537,
+          "cost": 27.9991,
+          "unrealized_pnl": -1.1454,
+          "unrealized_pnl_pct": -4.09
+        },
+        {
+          "symbol": "BSX",
+          "name": "Boston Scientific",
+          "kind": "equity",
+          "qty": 2.047443,
+          "avg_cost": 43.42,
+          "last": 43.53,
+          "value": 89.1252,
+          "cost": 88.9,
+          "unrealized_pnl": 0.2252,
+          "unrealized_pnl_pct": 0.25
+        },
+        {
+          "symbol": "PAM",
+          "name": "Pampa Energia",
+          "kind": "equity",
+          "qty": 0.915958,
+          "avg_cost": 87.53,
+          "last": 77.78,
+          "value": 71.2432,
+          "cost": 80.1738,
+          "unrealized_pnl": -8.9306,
+          "unrealized_pnl_pct": -11.14
+        },
+        {
+          "symbol": "INTU",
+          "name": "Intuit",
+          "kind": "equity",
+          "qty": 0.19668,
+          "avg_cost": 317.52,
+          "last": 269.99,
+          "value": 53.1016,
+          "cost": 62.4498,
+          "unrealized_pnl": -9.3482,
+          "unrealized_pnl_pct": -14.97
+        },
+        {
+          "symbol": "AXS",
+          "name": "Axis Capital",
+          "kind": "equity",
+          "qty": 0.545207,
+          "avg_cost": 99.32,
+          "last": 94.45,
+          "value": 51.4948,
+          "cost": 54.15,
+          "unrealized_pnl": -2.6552,
+          "unrealized_pnl_pct": -4.9
+        },
+        {
+          "symbol": "SYK",
+          "name": "Stryker",
+          "kind": "equity",
+          "qty": 0.197344,
+          "avg_cost": 270.75,
+          "last": 272.2469,
+          "value": 53.7263,
+          "cost": 53.4309,
+          "unrealized_pnl": 0.2954,
+          "unrealized_pnl_pct": 0.55
+        },
+        {
+          "symbol": "NRG",
+          "name": "NRG Energy",
+          "kind": "equity",
+          "qty": 0.473415,
+          "avg_cost": 112.76,
+          "last": 99.2746,
+          "value": 46.9981,
+          "cost": 53.3823,
+          "unrealized_pnl": -6.3842,
+          "unrealized_pnl_pct": -11.96
+        },
+        {
+          "symbol": "AVGO",
+          "name": "Broadcom",
+          "kind": "equity",
+          "qty": 0.146612,
+          "avg_cost": 363.54,
+          "last": 351.49,
+          "value": 51.5327,
+          "cost": 53.2993,
+          "unrealized_pnl": -1.7667,
+          "unrealized_pnl_pct": -3.31
+        },
+        {
+          "symbol": "WAY",
+          "name": "Waystar",
+          "kind": "equity",
+          "qty": 1.918559,
+          "avg_cost": 23.33,
+          "last": 24.51,
+          "value": 47.0239,
+          "cost": 44.76,
+          "unrealized_pnl": 2.2639,
+          "unrealized_pnl_pct": 5.06
+        },
+        {
+          "symbol": "NBIX",
+          "name": "Neurocrine",
+          "kind": "equity",
+          "qty": 0.278642,
+          "avg_cost": 158.95,
+          "last": 138.4,
+          "value": 38.5641,
+          "cost": 44.2901,
+          "unrealized_pnl": -5.7261,
+          "unrealized_pnl_pct": -12.93
+        },
+        {
+          "symbol": "PHVS",
+          "name": "Pharvaris",
+          "kind": "equity",
+          "qty": 0.930809,
+          "avg_cost": 38.3,
+          "last": 31.98,
+          "value": 29.7673,
+          "cost": 35.65,
+          "unrealized_pnl": -5.8827,
+          "unrealized_pnl_pct": -16.5
+        },
+        {
+          "symbol": "CXM",
+          "name": "Sprinklr",
+          "kind": "equity",
+          "qty": 6.464188,
+          "avg_cost": 5.52,
+          "last": 5.08,
+          "value": 32.8381,
+          "cost": 35.6823,
+          "unrealized_pnl": -2.8442,
+          "unrealized_pnl_pct": -7.97
+        },
+        {
+          "symbol": "GENI",
+          "name": "Genius Sports",
+          "kind": "equity",
+          "qty": 5.234633,
+          "avg_cost": 6.81,
+          "last": 6.43,
+          "value": 33.6587,
+          "cost": 35.6479,
+          "unrealized_pnl": -1.9892,
+          "unrealized_pnl_pct": -5.58
+        },
+        {
+          "symbol": "MP",
+          "name": "MP Materials",
+          "kind": "equity",
+          "qty": 0.698518,
+          "avg_cost": 50.66,
+          "last": 47.84,
+          "value": 33.4171,
+          "cost": 35.3869,
+          "unrealized_pnl": -1.9698,
+          "unrealized_pnl_pct": -5.57
+        },
+        {
+          "symbol": "IONS",
+          "name": "Ionis",
+          "kind": "equity",
+          "qty": 1.323107,
+          "avg_cost": 45.96,
+          "last": 44.23,
+          "value": 58.521,
+          "cost": 60.81,
+          "unrealized_pnl": -2.289,
+          "unrealized_pnl_pct": -3.76
+        },
+        {
+          "symbol": "BCRX",
+          "name": "BioCryst",
+          "kind": "equity",
+          "qty": 7.760093,
+          "avg_cost": 8.55,
+          "last": 8.69,
+          "value": 67.4352,
+          "cost": 66.3488,
+          "unrealized_pnl": 1.0864,
+          "unrealized_pnl_pct": 1.64
+        }
+      ]
+    },
+    "agentic": {
+      "id": "agentic",
+      "label": "AI WWIII",
+      "suffix": "3794",
+      "source": "live RH portfolios+positions+realized+quotes+crypto_positions+index_quotes 2026-09-28 ET; KEEP cashflow_30d; Truthifi untouched",
+      "asof": "2026-09-28T09:24:13-04:00",
+      "equity": 631.92,
+      "equity_value": 594.71,
+      "crypto_value": 0.0,
+      "cash": 37.21,
+      "buying_power": 37.21,
+      "pending_deposits": 0,
+      "invested_pct": 94.11,
+      "open_orders": 0,
+      "asset_mix": {
+        "equity": 594.71,
+        "crypto": 0.0,
+        "options": 0.0,
+        "cash": 37.21
+      },
+      "realized_pnl": {
+        "day": 0.0,
+        "week": 0.0,
+        "month": -38.88
+      },
+      "names": [
+        {
+          "symbol": "KTOS",
+          "name": "Kratos",
+          "kind": "equity",
+          "qty": 0.788627,
+          "avg_cost": 45.23,
+          "last": 45.1999,
+          "value": 35.6459,
+          "cost": 35.6696,
+          "unrealized_pnl": -0.0237,
+          "unrealized_pnl_pct": -0.07
+        },
+        {
+          "symbol": "ONDS",
+          "name": "Ondas",
+          "kind": "equity",
+          "qty": 3.581653,
+          "avg_cost": 7.2,
+          "last": 7.59,
+          "value": 27.1847,
+          "cost": 25.7879,
+          "unrealized_pnl": 1.3968,
+          "unrealized_pnl_pct": 5.42
+        },
+        {
+          "symbol": "RTX",
+          "name": "RTX",
+          "kind": "equity",
+          "qty": 0.209021,
+          "avg_cost": 191.99,
+          "last": 189.4,
+          "value": 39.5886,
+          "cost": 40.1299,
+          "unrealized_pnl": -0.5414,
+          "unrealized_pnl_pct": -1.35
+        },
+        {
+          "symbol": "LMT",
+          "name": "Lockheed Martin",
+          "kind": "equity",
+          "qty": 0.04878,
+          "avg_cost": 527.06,
+          "last": 520.25,
+          "value": 25.3778,
+          "cost": 25.71,
+          "unrealized_pnl": -0.3322,
+          "unrealized_pnl_pct": -1.29
+        },
+        {
+          "symbol": "KBR",
+          "name": "KBR",
+          "kind": "equity",
+          "qty": 1.160528,
+          "avg_cost": 35.17,
+          "last": 35.04,
+          "value": 40.6649,
+          "cost": 40.8158,
+          "unrealized_pnl": -0.1509,
+          "unrealized_pnl_pct": -0.37
+        },
+        {
+          "symbol": "VVX",
+          "name": "V2X",
+          "kind": "equity",
+          "qty": 0.867743,
+          "avg_cost": 74.93,
+          "last": 75.65,
+          "value": 65.6448,
+          "cost": 65.02,
+          "unrealized_pnl": 0.6248,
+          "unrealized_pnl_pct": 0.96
+        },
+        {
+          "symbol": "PANW",
+          "name": "Palo Alto",
+          "kind": "equity",
+          "qty": 0.103434,
+          "avg_cost": 390.49,
+          "last": 366.61,
+          "value": 37.9199,
+          "cost": 40.3899,
+          "unrealized_pnl": -2.47,
+          "unrealized_pnl_pct": -6.12
+        },
+        {
+          "symbol": "NOC",
+          "name": "Northrop",
+          "kind": "equity",
+          "qty": 0.07676,
+          "avg_cost": 514.98,
+          "last": 511.0,
+          "value": 39.2244,
+          "cost": 39.5299,
+          "unrealized_pnl": -0.3055,
+          "unrealized_pnl_pct": -0.77
+        },
+        {
+          "symbol": "TDG",
+          "name": "TransDigm",
+          "kind": "equity",
+          "qty": 0.028666,
+          "avg_cost": 1100.26,
+          "last": 1113.0,
+          "value": 31.9053,
+          "cost": 31.5401,
+          "unrealized_pnl": 0.3652,
+          "unrealized_pnl_pct": 1.16
+        },
+        {
+          "symbol": "HAWK",
+          "name": "Hawkeye",
+          "kind": "equity",
+          "qty": 1.964945,
+          "avg_cost": 15.69,
+          "last": 16.1,
+          "value": 31.6356,
+          "cost": 30.83,
+          "unrealized_pnl": 0.8056,
+          "unrealized_pnl_pct": 2.61
+        },
+        {
+          "symbol": "HII",
+          "name": "HII",
+          "kind": "equity",
+          "qty": 0.114427,
+          "avg_cost": 268.82,
+          "last": 262.5,
+          "value": 30.0371,
+          "cost": 30.7603,
+          "unrealized_pnl": -0.7232,
+          "unrealized_pnl_pct": -2.35
+        },
+        {
+          "symbol": "CACI",
+          "name": "CACI",
+          "kind": "equity",
+          "qty": 0.048011,
+          "avg_cost": 614.44,
+          "last": 617.48,
+          "value": 29.6458,
+          "cost": 29.4999,
+          "unrealized_pnl": 0.146,
+          "unrealized_pnl_pct": 0.49
+        },
+        {
+          "symbol": "FLY",
+          "name": "Firefly Aerospace",
+          "kind": "equity",
+          "qty": 1.314785,
+          "avg_cost": 21.75,
+          "last": 23.88,
+          "value": 31.3971,
+          "cost": 28.5966,
+          "unrealized_pnl": 2.8005,
+          "unrealized_pnl_pct": 9.79
+        },
+        {
+          "symbol": "MP",
+          "name": "MP Materials",
+          "kind": "equity",
+          "qty": 0.547302,
+          "avg_cost": 47.73,
+          "last": 47.84,
+          "value": 26.1829,
+          "cost": 26.1227,
+          "unrealized_pnl": 0.0602,
+          "unrealized_pnl_pct": 0.23
+        },
+        {
+          "symbol": "XE",
+          "name": "XEnergy",
+          "kind": "equity",
+          "qty": 1.594551,
+          "avg_cost": 15.79,
+          "last": 14.95,
+          "value": 23.8385,
+          "cost": 25.178,
+          "unrealized_pnl": -1.3394,
+          "unrealized_pnl_pct": -5.32
+        },
+        {
+          "symbol": "PPTA",
+          "name": "Perpetua",
+          "kind": "equity",
+          "qty": 1.070184,
+          "avg_cost": 22.88,
+          "last": 22.11,
+          "value": 23.6618,
+          "cost": 24.4858,
+          "unrealized_pnl": -0.824,
+          "unrealized_pnl_pct": -3.37
+        },
+        {
+          "symbol": "UUUU",
+          "name": "Energy Fuels",
+          "kind": "equity",
+          "qty": 2.129801,
+          "avg_cost": 11.33,
+          "last": 11.26,
+          "value": 23.9816,
+          "cost": 24.1306,
+          "unrealized_pnl": -0.1491,
+          "unrealized_pnl_pct": -0.62
+        },
+        {
+          "symbol": "TXT",
+          "name": "Textron",
+          "kind": "equity",
+          "qty": 0.406225,
+          "avg_cost": 76.29,
+          "last": 76.39,
+          "value": 31.0315,
+          "cost": 30.9909,
+          "unrealized_pnl": 0.0406,
+          "unrealized_pnl_pct": 0.13
+        }
+      ]
+    }
+  },
+  "combined": {
+    "equity": 3313.65,
+    "equity_value": 3064.68,
+    "crypto_value": 209.22,
+    "cash": 39.75,
+    "books": [
+      {
+        "id": "individual",
+        "label": "Individual",
+        "equity": 737.96
+      },
+      {
+        "id": "auto_grok",
+        "label": "Grok",
+        "equity": 1034.73
+      },
+      {
+        "id": "joint",
+        "label": "Deep Seek",
+        "equity": 909.04
+      },
+      {
+        "id": "agentic",
+        "label": "AI WWIII",
+        "equity": 631.92
+      }
+    ],
+    "asset_mix": {
+      "equity": 3064.68,
+      "crypto": 209.22,
+      "options": 0.0,
+      "cash": 39.75
+    },
+    "realized_pnl": {
+      "day": 0.0,
+      "week": 0.0,
+      "month": -51.9
+    },
+    "invested_pct": 98.8,
+    "cashflow_30d": {
+      "asof": "2026-09-25T16:20:00-04:00",
+      "from": "2026-08-25",
+      "to": "2026-09-24",
+      "owner_deposits": 1121.91,
+      "market_earnings": -1091.28,
+      "market_earnings_basis": "rh_realized+truthifi_totalPnL",
+      "window_days": 30,
+      "dividends": 0.53,
+      "reinvested": 0.52,
+      "by_source": {
+        "robinhood": {
+          "owner_deposits": 250.0,
+          "market_earnings": -49.52
+        },
+        "fidelity": {
+          "owner_deposits": 217.97,
+          "market_earnings": -111.26,
+          "dividends": 0.53,
+          "reinvested": 0.52
+        },
+        "voya": {
+          "owner_deposits": 653.94,
+          "market_earnings": -930.5
+        }
+      }
+    }
+  }
+}
