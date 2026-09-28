@@ -938,8 +938,13 @@ function collapseHouseNames(list) {
      Part B people, extra 401k estimator, optional #ret= prefill.
      Defaults come from same-origin retirement.json (?v=20260904by).
      Federal, state, and Social Security factors come from tax-rules.json.
-     A missing or malformed file keeps the empty helper. A missing federal
-     block leaves take-home, extra-401k cost, and the cap label as a dash.
+     A missing or malformed file keeps the empty helper. Once that file has
+     loaded, a missing or invalid federal block does not project without the
+     deferral and compensation caps. Nest egg, monthly savings, the 4% draw,
+     Social Security, total, take-home, the savings + loan line, and the
+     low/high totals show a dash, with a note that tax rules are unavailable.
+     A loaded file with a valid federal block is unchanged. Extra 401k cost
+     and the cap label stay a dash without a deferral cap.
      A missing ssa block leaves Social Security estimates as a dash, and
      take-home dashes with them when there is no statement amount to show.
      localStorage murphyHouseRetirement stores only fields that differ from
@@ -1595,6 +1600,26 @@ function collapseHouseNames(list) {
   function retFederal() {
     return (RET_TAX && RET_TAX.federal) ? RET_TAX.federal : null;
   }
+  /* Rules not loaded yet still project. A loaded file with no usable federal
+     block must not run the nest egg without deferral and compensation caps. */
+  function retProjectionBlocked() {
+    return !!(RET_TAX && !retFederal());
+  }
+  function retBlockedNest(state) {
+    var salaryNow = retSalaryNow(state);
+    var hasSalary = salaryNow != null && salaryNow > 0;
+    return {
+      today: null,
+      nominal: null,
+      mode: hasSalary ? "salary" : "deposits",
+      monthlyShown: null,
+      year1Annual: null,
+      depositsMissing: false,
+      extra: 0,
+      monthly: null,
+      hasSalary: hasSalary
+    };
+  }
   function retIntPair(arr) {
     if (!Array.isArray(arr) || arr.length !== 2) return null;
     var a = arr[0], b = arr[1];
@@ -1917,6 +1942,7 @@ function collapseHouseNames(list) {
     return r.toFixed(1);
   }
   function retSavingsMeta(state) {
+    if (retProjectionBlocked()) return retBlockedNest(state);
     var extra = retFinite(state.extraMonthly) ? Number(state.extraMonthly) : 0;
     var printed = retPrintedMonthly();
     var monthly = retFinite(state.monthly) ? Number(state.monthly) : printed;
@@ -2161,6 +2187,7 @@ function collapseHouseNames(list) {
     return isFinite(dollars) ? dollars : 0;
   }
   function retProject(pv, state, years, opts) {
+    if (retProjectionBlocked()) return retBlockedNest(state);
     var meta = retSavingsMeta(state);
     var nominal = Number(state.nominalPct) / 100;
     var infl = Number(state.inflPct) / 100;
@@ -2491,6 +2518,25 @@ function collapseHouseNames(list) {
   function retView(state) {
     var src = retSources();
     var h = retHorizon(state);
+    if (retProjectionBlocked()) {
+      return {
+        src: src,
+        mid: retBlockedNest(state),
+        low: retBlockedNest(state),
+        high: retBlockedNest(state),
+        band: retBandRates(state.nominalPct),
+        income: null,
+        ss: null,
+        hasAnchor: false,
+        total: null,
+        take: null,
+        bridge: null,
+        pia: retRoughPia(retSalaryNow(state)),
+        horizon: h,
+        ssExact: false,
+        taxUnavailable: true
+      };
+    }
     var mid = retProject(src.base, state, h.years);
     var band = retBandRates(state.nominalPct);
     var low = retProject(src.base, retWithNominal(state, band.low), h.years);
@@ -2702,7 +2748,8 @@ function collapseHouseNames(list) {
     retSetText(card, "save-k", salaryOn ? "401k + match" : "Monthly savings");
     retSetText(card, "save", retMoney(v.mid.monthlyShown));
     retSetText(card, "save-sub", salaryOn ? "year 1 \u00b7 replaces last 30 days" : "based on last 30 days");
-    var saveSplit = retSaveSplitText(v.mid.monthlyShown, retLoanActive());
+    var blocked = !!v.taxUnavailable;
+    var saveSplit = blocked ? "\u2014" : retSaveSplitText(v.mid.monthlyShown, retLoanActive());
     retSetText(card, "save-split", saveSplit);
     retShow(card.querySelector('[data-ret="save-split"]'), !!saveSplit);
     var depNote = card.querySelector('[data-ret="dep-miss"]');
@@ -2713,7 +2760,7 @@ function collapseHouseNames(list) {
     }
     retSetText(card, "growth-hint", retAfterInflationHint(state.nominalPct, state.inflPct));
     retSetText(card, "nest", retMoney(v.mid.nominal));
-    var nestSplit = retNestSplitText(v.mid.nominal, h.years, state.nominalPct, state.inflPct);
+    var nestSplit = blocked ? "" : retNestSplitText(v.mid.nominal, h.years, state.nominalPct, state.inflPct);
     retSetText(card, "nest-split", nestSplit);
     retShow(card.querySelector('[data-ret="nest-split"]'), !!nestSplit);
     retSetText(card, "income", retMoney(v.income));
@@ -2821,6 +2868,9 @@ function collapseHouseNames(list) {
     var rulesEl = card.querySelector('[data-ret="tax-rules"]');
     retSetText(card, "tax-rules", rules);
     retShow(rulesEl, !!rules);
+    var unavailableEl = card.querySelector('[data-ret="tax-unavailable"]');
+    retSetText(card, "tax-unavailable", blocked ? "tax rules unavailable" : "");
+    retShow(unavailableEl, blocked);
     var loanLine = retLoanLine();
     var loanEl = card.querySelector('[data-ret="loan-line"]');
     retSetText(card, "loan-line", loanLine);
@@ -2979,6 +3029,7 @@ function collapseHouseNames(list) {
       '</div>' +
       '<div class="ret-take"><span>Take-home / mo (est.)</span><b data-ret="take">\u2014</b><i data-ret="take-year"></i><i data-ret="take-sub"></i></div>' +
       '<p class="ret-rules" data-ret="tax-rules" hidden></p>' +
+      '<p class="hint ret-tax-miss" data-ret="tax-unavailable" hidden></p>' +
       '<p class="ret-loan" data-ret="loan-line" hidden></p>' +
       '<p class="ret-bridge" data-ret="bridge" hidden></p>' +
       '<p class="ret-range"><span data-ret="low-lab">Low</span> <b data-ret="low">\u2014</b> \u00b7 <b data-ret="low-mo">\u2014</b>/mo' +
