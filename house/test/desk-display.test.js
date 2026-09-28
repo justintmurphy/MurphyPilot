@@ -240,24 +240,37 @@ test("custodial books, sleeves, and the Truthifi feed use close-print tone witho
 
   setNarrow(ctx, true);
   ctx.tab = "voya";
-  const sleeveNames = [
-    { symbol: "AA", value: 15, qty: 1 },
-    { symbol: "BB", value: 9, qty: 1 }
-  ];
-  const narrowBook = ctx.custodialTableHtml(sleeveNames, 24);
-  assert.match(narrowBook, /<details class="book-more">/);
-  assert.match(narrowBook, /Book · 2 names/);
-  assert.match(narrowBook, /custodial/);
-  const sleeveTop = narrowBook.split("<details")[0];
-  assert.match(sleeveTop, /AA/);
-  assert.match(sleeveTop, /BB/);
+  const shortBook = ctx.custodialTableHtml(names(2), 24);
+  assert.match(shortBook, /<table class="book custodial">/);
+  assert.doesNotMatch(shortBook, /book-more/);
+  assert.doesNotMatch(shortBook, /book-top3/);
+  assert.doesNotMatch(shortBook, /Book ·/);
+
+  const sevenBook = ctx.custodialTableHtml(names(7), 24);
+  assert.match(sevenBook, /<table class="book custodial">/);
+  assert.doesNotMatch(sevenBook, /book-more/);
+  assert.doesNotMatch(sevenBook, /book-top3/);
+
+  const eightBook = ctx.custodialTableHtml(names(8), 24);
+  assert.match(eightBook, /<details class="book-more">/);
+  assert.match(eightBook, /Book · 8 names/);
+  assert.match(eightBook, /custodial/);
+  assert.match(eightBook, /book-top3/);
+  const sleeveTop = eightBook.split("<details")[0];
+  assert.match(sleeveTop, /N0/);
+  assert.doesNotMatch(sleeveTop, /<table/);
 
   setNarrow(ctx, false);
-  const wideBook = ctx.custodialTableHtml(sleeveNames, 24);
+  const wideBook = ctx.custodialTableHtml(names(8), 24);
   assert.doesNotMatch(wideBook, /book-more/);
+  assert.doesNotMatch(wideBook, /book-top3/);
   assert.match(wideBook, /<table class="book custodial">/);
 
   setNarrow(ctx, true);
+  const one = ctx.bookPhoneDisclosure("<div class=\"card\">one</div>", names(1), 1);
+  assert.match(one, /Book · 1 name</);
+  assert.doesNotMatch(one, /1 names/);
+
   const noNames = ctx.custodialTableHtml([], 0);
   assert.doesNotMatch(noNames, /book-more/);
   assert.match(noNames, /No names/);
