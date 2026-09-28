@@ -1,15 +1,15 @@
 {
   "asof": "2026-09-27",
   "source": "Truthifi",
-  "note": "Holdings EOD 2026-09-27 (Truthifi date; prices = Fri 9/25 close). Fidelity-only Truthifi refresh 2026-09-28 13:14 ET scan 6abaa061f1ce5cfec56c9063 (link 6a97271f6f50340ade6d97f5). Voya left untouched. Cash sweeps counted as cash. ESPP empty. RSU 2 BNY. names[] full Truthifi securityName; Fid accounts[]+suffix last-4+equity.",
+  "note": "Holdings EOD 2026-09-27. Close scan 2026-09-28 16:00 ET. Fidelity scan complete. Voya FAULT (keep prior 2026-09-24 sleeve). Cash sweeps counted as cash. ESPP empty. RSU 2 BNY. names[] full Truthifi securityName; Fid accounts[]+suffix last-4+equity.",
   "accounts": {
     "fidelity": {
       "id": "fidelity",
       "label": "Fidelity",
       "source": "Truthifi",
       "asof": "2026-09-27",
-      "equity": 2973.929,
-      "equity_value": 2971.529,
+      "equity": 2973.93,
+      "equity_value": 2971.53,
       "cash": 2.4,
       "buying_power": 2.4,
       "pending_deposits": 0,
@@ -21,8 +21,8 @@
           "accountId": "15838942",
           "type": "Retirement",
           "subType": "ira",
-          "endingBalance": 105.895,
-          "equity": 105.895,
+          "endingBalance": 105.9,
+          "equity": 105.9,
           "suffix": "0306"
         },
         {
@@ -30,8 +30,8 @@
           "accountId": "15838901",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 186.941,
-          "equity": 186.941,
+          "endingBalance": 186.94,
+          "equity": 186.94,
           "suffix": "6913"
         },
         {
@@ -39,8 +39,8 @@
           "accountId": "15838900",
           "type": "Retirement",
           "subType": "roth_ira",
-          "endingBalance": 325.892,
-          "equity": 325.892,
+          "endingBalance": 325.89,
+          "equity": 325.89,
           "suffix": "5550"
         },
         {
@@ -48,8 +48,8 @@
           "accountId": "15838899",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 2054.901,
-          "equity": 2054.901,
+          "endingBalance": 2054.9,
+          "equity": 2054.9,
           "suffix": "9084"
         },
         {
@@ -623,35 +623,35 @@
       "id": "fidelity_bny",
       "label": "BNY",
       "asof": "2026-09-27",
-      "equity": 2054.901,
+      "equity": 2054.9,
       "cash": 0.04
     },
     "fidelity_roth": {
       "id": "fidelity_roth",
       "label": "Roth",
       "asof": "2026-09-27",
-      "equity": 325.892,
+      "equity": 325.89,
       "cash": 1.7
     },
     "fidelity_per": {
       "id": "fidelity_per",
       "label": "PER",
       "asof": "2026-09-27",
-      "equity": 186.941,
+      "equity": 186.94,
       "cash": 0.07
     },
     "fidelity_trad": {
       "id": "fidelity_trad",
       "label": "Trad",
       "asof": "2026-09-27",
-      "equity": 105.895,
+      "equity": 105.9,
       "cash": 0.59
     },
     "fidelity_espp": {
       "id": "fidelity_espp",
       "label": "ESPP",
       "asof": "2026-09-27",
-      "equity": 0,
+      "equity": 0.0,
       "cash": 0.0
     },
     "fidelity_rsu": {
@@ -669,15 +669,15 @@
       "cash": 0.0
     }
   },
-  "scanned_at": "2026-09-28 13:14 ET",
+  "scanned_at": "2026-09-28 16:20 ET",
   "holdings_asof": "2026-09-27",
   "overall": {
-    "equity": 64916.013,
-    "live_equity": 3321.91,
-    "custodial_equity": 64916.013,
-    "asof": "2026-09-28T13:14:25-04:00",
+    "equity": 68217.89,
+    "live_equity": 3301.88,
+    "custodial_equity": 64916.01,
+    "asof": "2026-09-28T16:00:00-04:00",
     "holdings_asof": "2026-09-27",
-    "live_asof": "2026-09-25T15:10:58-04:00"
+    "live_asof": "2026-09-28T15:16:51-04:00"
   },
   "tape": {
     "overall": [
@@ -806,6 +806,13 @@
         "equity": 68232.27,
         "live": 3321.91,
         "custodial": 64910.36
+      },
+      {
+        "t": "2026-09-28T16:00:00-04:00",
+        "dtg": "281600R SEP 26",
+        "equity": 68217.89,
+        "live": 3301.88,
+        "custodial": 64916.01
       }
     ]
   }
