@@ -582,9 +582,12 @@ function custodialStateHtml(b, title) {
   var pnl = s.pnl;
   var pnlPct = s.hasCost && s.cost ? (pnl / s.cost) * 100 : null;
   var t = snap.truthifi || {};
+  var printRaw = (b && (b.asof || b.holdings_asof)) || t.holdings_asof || t.asof || "";
+  var waiting = typeof closePrintStale === "function" && closePrintStale(printRaw);
+  var closeLab = waiting && typeof closePrintLabelHtml === "function" ? closePrintLabelHtml(true) : "";
   return "<h2>Book state · " + esc(title) + "</h2>" +
     (typeof sourceFreshnessChipsHtml === "function" ? sourceFreshnessChipsHtml() : "") +
-    "<div class=\"card span\"><div class=\"kpi\">" +
+    "<div class=\"card span" + (waiting ? " awaiting-close" : "") + "\"><div class=\"kpi\">" +
     "<div><span>Equity</span><b>" + money(b.equity) + "</b>" + (title === "Fidelity" || String(title).indexOf("Voya") === 0 ? dodHtml(dodTape(title === "Fidelity" ? "fidelity" : "voya"), b.equity) : "") + "</div>" +
     "<div><span>Holdings</span><b>" + money(held) + "</b></div>" +
     "<div><span>Cash</span><b>" + money(b.cash) + "</b></div>" +
@@ -592,7 +595,7 @@ function custodialStateHtml(b, title) {
     "</div><p class=\"hint\">Invested " + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "—") +
     " · " + s.n + " names · Truthifi holdings " + esc(t.holdings_asof || b.asof || "—") +
     " · scanned " + esc((t.scanned_at || "").replace("T", " ").slice(0, 16) || "—") +
-    ". Once a day. Sleeves by name only." + truthifiHeldNote() + "</p></div>";
+    ". Once a day." + closeLab + " Sleeves by name only." + truthifiHeldNote() + "</p></div>";
 }
 function custodialTableHtml(names, totalEq) {
   if (typeof collapseHouseNames === "function") names = collapseHouseNames(names || []);
@@ -613,7 +616,8 @@ function custodialTableHtml(names, totalEq) {
       "<td class=\"num\">" + (n.cost == null ? "—" : money(n.cost)) + "</td>" +
       "<td class=\"num tone-" + tone(n.pnl) + "\">" + (n.pnl == null ? "—" : money(n.pnl) + " " + pct(n.pnl_pct)) + "</td></tr>";
   }).join("");
-  return "<div class=\"card book-scroll\"><table class=\"book custodial\"><thead>" + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+  var table = "<div class=\"card book-scroll\"><table class=\"book custodial\"><thead>" + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+  return (typeof bookPhoneDisclosure === "function") ? bookPhoneDisclosure(table, names, 1) : table;
 }
 function eodTapeHtml(key, title) {
   var prints = ((snap.tape && snap.tape[key]) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
@@ -627,15 +631,19 @@ function eodTapeHtml(key, title) {
     "<p class=\"hint\">Truthifi weekday close. Day / week / month vs the prior close.</p></div>";
 }
 function truthifiMetaHtml() {
-  var t = snap.truthifi || {};
+  var t = snap && snap.truthifi;
+  if (!t || typeof t !== "object") return "";
+  var printRaw = t.holdings_asof || t.asof || "";
+  if (!printRaw && !t.scanned_at) return "";
+  var waiting = printRaw && typeof closePrintStale === "function" && closePrintStale(printRaw);
+  var closeLab = waiting && typeof closePrintLabelHtml === "function" ? closePrintLabelHtml(true) : "";
   return "<h2>Truthifi feed</h2>" +
-    (typeof sourceFreshnessChipsHtml === "function" ? sourceFreshnessChipsHtml() : "") +
-    "<div class=\"card span\"><div class=\"kpi\">" +
+    "<div class=\"card span" + (waiting ? " awaiting-close" : "") + "\"><div class=\"kpi\">" +
     "<div><span>Holdings date</span><b>" + esc(t.holdings_asof || t.asof || "—") + "</b></div>" +
     "<div><span>Scanned</span><b>" + esc((t.scanned_at || "").replace("T", " ").slice(0, 16) || "—") + "</b></div>" +
     "<div><span>Source</span><b>" + esc(t.source || "Truthifi") + "</b></div>" +
     "<div><span>Day</span><b>" + (function () { var d = vsLookback((t.tape && t.tape.overall) || [], (snap.combined || {}).equity, 1); return d ? ((d.delta > 0 ? "+" : "") + money(d.delta)) : "\u2014"; })() + "</b></div></div>" +
-    "<p class=\"hint\">" + esc(t.note || "Custodial EOD. Sleeves labeled as Truthifi names. No account numbers.") + truthifiHeldNote() + "</p></div>";
+    "<p class=\"hint\">" + esc(t.note || "Custodial EOD. Sleeves labeled as Truthifi names. No account numbers.") + closeLab + truthifiHeldNote() + "</p></div>";
 }
 function fidelityLiveStateHtml(b, title) {
   var s = nameStats(b.names);
@@ -700,6 +708,7 @@ function fidelityDeskHtml() {
   }
   html += "<h2>Where it sits</h2>" + mixHtml(mixBook, "fidelity");
   html += "<h2>Book</h2>" + custodialTableHtml(fid.names, fid.equity);
+  html += truthifiMetaHtml();
   return html;
 }
 function fidelitySleeveDeskHtml() {
@@ -733,6 +742,7 @@ function voyaDeskHtml() {
   html += eodTapeHtml("voya", "Voya");
   html += "<h2>Where it sits</h2>" + mixHtml(voya, "voya");
   html += "<h2>Book</h2>" + custodialTableHtml(voya.names, voya.equity);
+  html += truthifiMetaHtml();
   return html;
 }
 function overallCardHtml() {
@@ -866,6 +876,7 @@ function fetchTruthifi(url) {
   });
 }
 load = function () {
+  if (typeof pulseKpisForFetch === "function") pulseKpisForFetch(true);
   var housePath = /\/house(\/|$)/.test(location.pathname);
   var bust = "?t=" + Date.now();
   Promise.all([
@@ -873,6 +884,7 @@ load = function () {
     fetch((housePath ? "../pilot-snapshot.json" : "pilot-snapshot.json") + bust, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
     fetchTruthifi((housePath ? "truthifi-snapshot.json" : "house/truthifi-snapshot.json") + bust)
   ]).then(function (pair) {
+    if (typeof pulseKpisForFetch === "function") pulseKpisForFetch(false);
     var tf = pair[2] || { ok: false, fail: "unavailable", data: null };
     var outside = null;
     var fail = "";
@@ -892,6 +904,7 @@ load = function () {
     paint();
     if (!fail && truthifiSnapshotOk(tf.data)) rememberTruthifi(tf.data);
   }).catch(function (e) {
+    if (typeof pulseKpisForFetch === "function") pulseKpisForFetch(false);
     document.getElementById("desk").innerHTML = "<p class=\"hint\">Could not load snapshots. " + esc(e) + "</p>";
   });
 };

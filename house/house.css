@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904bx");
-@import url("house-b.css?v=20260904bx");
-@import url("mix.css?v=20260904bx");
+@import url("house-a.css?v=20260904by");
+@import url("house-b.css?v=20260904by");
+@import url("mix.css?v=20260904by");
 
 header .brand-block {
   min-width: 0;
@@ -556,6 +556,137 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
   details.mix-more .cf-chev { transition: none; }
 }
 
+/* tip by — close print waiting on a once-a-day card. Live chips stay untouched. */
+.card.awaiting-close {
+  border-style: dashed;
+  opacity: 0.88;
+}
+.close-print {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 6px;
+  border: 1px dashed var(--rule);
+  border-radius: 999px;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  line-height: 1.5;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ink-soft);
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+@keyframes kpi-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.kpi b.kpi-pulse {
+  animation: kpi-pulse 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kpi b.kpi-pulse { animation: none; opacity: 0.72; }
+}
+
+/* tip by — phone book disclosure. Same chevron affordance as mix-more. */
+.book-top3 {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+.book-top3-row {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  font-size: 12px;
+}
+.book-top3-row .sym {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-size: 12px;
+}
+.book-top3-row .val {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+details.book-more {
+  margin: 0;
+  max-width: 100%;
+  min-width: 0;
+}
+details.book-more > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  min-height: 44px;
+  margin: 0 0 6px;
+  max-width: 100%;
+}
+details.book-more > summary::-webkit-details-marker,
+details.book-more > summary::marker {
+  display: none;
+  content: "";
+}
+details.book-more > summary:focus { outline: none; }
+details.book-more > summary:focus-visible {
+  outline: 2px solid var(--brand-fg);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+details.book-more .book-sum {
+  font-size: 12px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+  min-width: 0;
+}
+details.book-more .book-affordance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  letter-spacing: 0.8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  min-height: 32px;
+  padding: 4px 2px;
+}
+details.book-more .book-dot { letter-spacing: 0; }
+details.book-more .cf-chev {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transition: transform 120ms ease;
+}
+details.book-more[open] .cf-chev { transform: rotate(180deg); }
+details.book-more .book-lab-hide { display: none; }
+details.book-more[open] .book-lab-show { display: none; }
+details.book-more[open] .book-lab-hide { display: inline; }
+details.book-more > .card { max-width: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  details.book-more .cf-chev { transition: none; }
+}
+
 /* tip br — Retirement helper tidy. Slider ticks follow the thumb. */
 .retirement-card { padding: 12px 14px 14px; overflow-x: hidden; }
 .retirement-card [hidden] { display: none !important; }
@@ -951,4 +1082,7 @@ details.mix-more[open] .mix-lab-hide { display: inline; }
 @media (min-width: 721px) {
   details.mix-more > summary { cursor: default; }
   details.mix-more .mix-affordance { display: none; }
+  .book-top3 { display: none; }
+  details.book-more > summary { display: none; }
+  details.book-more > .card { display: block; }
 }

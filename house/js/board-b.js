@@ -258,9 +258,12 @@ function collapseHouseNames(list) {
     } else {
       inner = windowLine + overallHtml + sourceHtml;
     }
-    return "<h2>" + heading + "</h2><div class=\"card span cashflow-strip" + (canExpand ? " cf-toggle" : "") + "\">" +
+    /* tip by — cashflow_30d is a once-a-day close print. Mark the card only when that print is past the soft stale line. */
+    var cfPrint = cf.asof || cf.to || "";
+    var cfWait = closePrintStale(cfPrint);
+    return "<h2>" + heading + "</h2><div class=\"card span cashflow-strip" + (canExpand ? " cf-toggle" : "") + (cfWait ? " awaiting-close" : "") + "\">" +
       inner +
-      '<p class="hint">Deposits are owner capital in, not earnings. Deposits \u2260 market earnings.' + basisHtml + "</p></div>";
+      '<p class="hint">Deposits are owner capital in, not earnings. Deposits \u2260 market earnings.' + basisHtml + closePrintLabelHtml(cfWait) + "</p></div>";
   }
   function fillWhen(ts) {
     var s = String(ts || "");
@@ -355,6 +358,8 @@ function collapseHouseNames(list) {
   var overlayMode = "live";
   var cashflowOpen = false;
   var mixOpen = false;
+  var bookMoreOpen = false;
+  var bookMoreTab = "";
   var retirementOpen = false;
 
   function applyTheme(choice) {
@@ -464,6 +469,27 @@ function collapseHouseNames(list) {
     if (info.days != null && info.days >= 2) return true;
     if (info.mins != null && info.mins >= 1440) return true;
     return false;
+  }
+  /* tip by — soft stale for a close print. Empty dates stay unmarked (no invented $0, no label). */
+  function closePrintStale(raw) {
+    if (raw == null) return false;
+    var s = String(raw).trim();
+    if (!s || s === "\u2014" || s === "—") return false;
+    return asofHoldingsStale(asofAgeInfo(s));
+  }
+  function closePrintLabelHtml(on) {
+    return on ? ' <span class="close-print">Close print</span>' : "";
+  }
+  function pulseKpisForFetch(on) {
+    try {
+      if (!document || !document.querySelectorAll) return;
+      var nodes = document.querySelectorAll(".kpi b");
+      for (var i = 0; i < nodes.length; i++) {
+        if (!nodes[i] || !nodes[i].classList) continue;
+        if (on) nodes[i].classList.add("kpi-pulse");
+        else nodes[i].classList.remove("kpi-pulse");
+      }
+    } catch (ePulse) {}
   }
   function freshChipHtml(key, text, stale, flag) {
     if (!text) return "";
@@ -750,7 +776,38 @@ function collapseHouseNames(list) {
         '<td class="num">' + moneyOrDash(n.value) + '</td><td class="num tone-' + tone(u.pnl) + '">' + uHtml + "</td></tr>";
     }).join("");
     var wrap = (showBook || names.length > 10) ? "card book-scroll" : "card";
-    return '<div class="' + wrap + '"><table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+    var table = '<div class="' + wrap + '"><table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+    return bookPhoneDisclosure(table, names, 8);
+  }
+  /* tip by — phone book disclosure. Wide viewports return the table unchanged. */
+  function bookValueCell(n) {
+    if (!n || n.value == null || n.value === "" || !isFinite(Number(n.value))) return "\u2014";
+    return money(n.value);
+  }
+  function bookTop3Html(names) {
+    var rows = (names || []).slice(0, 3);
+    if (!rows.length) return "";
+    return '<div class="book-top3">' + rows.map(function (n) {
+      var sym = String((n && n.symbol) || "").trim() || "\u2014";
+      return '<span class="book-top3-row"><b class="sym">' + esc(sym) + '</b><b class="val">' + bookValueCell(n) + "</b></span>";
+    }).join("") + "</div>";
+  }
+  function bookPhoneDisclosure(tableInner, names, minNames) {
+    var list = names || [];
+    var min = (minNames == null) ? 1 : minNames;
+    if (!list.length || list.length < min) return tableInner;
+    if (!deskIsNarrow()) return tableInner;
+    if (bookMoreTab !== tab) {
+      bookMoreTab = tab;
+      bookMoreOpen = false;
+    }
+    var n = list.length;
+    return bookTop3Html(list) +
+      '<details class="book-more"' + (bookMoreOpen ? " open" : "") + ">" +
+      '<summary><span class="book-sum">Book \u00b7 ' + n + " names</span>" +
+      ' <span class="book-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
+      '<span class="book-dot">\u00b7 </span><span class="book-lab-show">Show</span><span class="book-lab-hide">Hide</span></span></summary>' +
+      tableInner + "</details>";
   }
 
   function overlayIds(mode) {
@@ -879,7 +936,7 @@ function collapseHouseNames(list) {
 
   /* tip bx — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904bx).
+     Defaults come from same-origin retirement.json (?v=20260904by).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. A missing federal
      block leaves take-home, extra-401k cost, and the cap label as a dash.
@@ -1337,11 +1394,11 @@ function collapseHouseNames(list) {
       history.replaceState(null, "", location.pathname + location.search);
     } catch (eAll) {}
   }
-  /* Same-origin defaults. Cache-busted with the tip bx asset query.
+  /* Same-origin defaults. Cache-busted with the tip by asset query.
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904bx";
+    return (housePath ? name : "house/" + name) + "?v=20260904by";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");
@@ -3087,13 +3144,16 @@ function collapseHouseNames(list) {
   }
 
   function load() {
+    pulseKpisForFetch(true);
     Promise.all([
       fetch((/\/house(\/|$)/.test(location.pathname) ? "house-snapshot.json" : "house/house-snapshot.json") + "?t=" + Date.now(), { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
       fetch((/\/house(\/|$)/.test(location.pathname) ? "../pilot-snapshot.json" : "pilot-snapshot.json") + "?t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
     ]).then(function (pair) {
+      pulseKpisForFetch(false);
       snap = merge(pair[0], pair[1]);
       paint();
     }).catch(function (e) {
+      pulseKpisForFetch(false);
       document.getElementById("desk").innerHTML = "<p class='hint'>Could not load snapshots. " + esc(e) + "</p>";
     });
   }
@@ -3155,6 +3215,7 @@ function collapseHouseNames(list) {
     if (!e.target || !e.target.classList) return;
     if (e.target.classList.contains("cf-more")) cashflowOpen = !!e.target.open;
     if (e.target.classList.contains("mix-more")) mixOpen = !!e.target.open;
+    if (e.target.classList.contains("book-more")) bookMoreOpen = !!e.target.open;
     if (e.target.classList.contains("ret-more")) retirementOpen = !!e.target.open;
   }, true);
   function retOnEdit(e) {
@@ -3199,7 +3260,7 @@ function collapseHouseNames(list) {
   try {
     var mixMql = window.matchMedia("(max-width: 720px)");
     var onMixMql = function () {
-      if (tab === "agentic" && typeof paint === "function" && snap) paint();
+      if (typeof paint === "function" && snap) paint();
     };
     if (mixMql.addEventListener) mixMql.addEventListener("change", onMixMql);
     else if (mixMql.addListener) mixMql.addListener(onMixMql);
