@@ -708,7 +708,7 @@ function custodialTableHtml(names, totalEq, opts) {
       "<td class=\"num tone-" + tone(n.pnl) + "\">" + (n.pnl == null ? "—" : money(n.pnl) + " " + pct(n.pnl_pct)) + "</td></tr>";
   }).join("");
   var table = "<div class=\"card book-scroll\"><table class=\"book custodial\"><thead>" + head + "</thead><tbody>" + rows + "</tbody></table></div>";
-  return (typeof bookPhoneDisclosure === "function") ? bookPhoneDisclosure(table, names, 1) : table;
+  return (typeof bookPhoneDisclosure === "function") ? bookPhoneDisclosure(table, names, 8) : table;
 }
 function eodTapeHtml(key, title) {
   var prints = ((snap.tape && snap.tape[key]) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
