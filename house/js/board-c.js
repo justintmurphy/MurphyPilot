@@ -161,28 +161,105 @@ function tidyFidAccountLabel(name) {
   if (/BNY/i.test(n) || /Brokerage/i.test(n)) return "Brokerage";
   return n || "Fidelity";
 }
+/* Print tags: names[].sleeve is BNY / Roth / PER / Trad / RSU (any case).
+   names[].accounts is the account last-4, the same string as accounts[].suffix.
+   Account titles are longer ("INDIVIDUAL - BNY", "BNY RSU") and are not the tag. */
+function fidSleeveToken(raw) {
+  var s = String(raw || "").trim();
+  if (!s) return "";
+  if (/\bESPP\b/i.test(s)) return "espp";
+  if (/\bRSU\b/i.test(s)) return "rsu";
+  if (/roth/i.test(s)) return "roth";
+  if (/trad/i.test(s)) return "trad";
+  if (/\bHIGH\b/i.test(s)) return "high";
+  if (/\bPER\b/i.test(s) || /personal/i.test(s)) return "per";
+  if (/\bBNY\b/i.test(s) || /brokerage/i.test(s)) return "bny";
+  return s.toLowerCase();
+}
+function fidAccountToken(a) {
+  if (!a) return "";
+  return fidSleeveToken(a.sleeve || a.key || a.name || a.label || "");
+}
+function fidNameToken(n) {
+  if (!n) return "";
+  return fidSleeveToken(n.sleeve || n.account_name || "");
+}
+function fidNameSuffixes(n) {
+  var out = [];
+  function add(v) {
+    var s = String(v == null ? "" : v).trim().toLowerCase();
+    if (!s || /^(fidelity|voya|unknown)$/.test(s)) return;
+    if (out.indexOf(s) < 0) out.push(s);
+  }
+  if (!n) return out;
+  if (Array.isArray(n.accounts)) n.accounts.forEach(add);
+  else if (n.accounts != null && n.accounts !== "") add(n.accounts);
+  if (n.suffix != null && n.suffix !== "") add(n.suffix);
+  return out;
+}
+/* Each name lands on one account: last-4 first, then a unique sleeve token. */
+function partitionFidNames(accounts, names) {
+  var buckets = (accounts || []).map(function () { return []; });
+  (names || []).forEach(function (n) {
+    var hit = -1;
+    var suffixes = fidNameSuffixes(n);
+    var i;
+    if (suffixes.length) {
+      for (i = 0; i < accounts.length; i++) {
+        var suf = String((accounts[i] && accounts[i].suffix) || "").trim().toLowerCase();
+        if (suf && suffixes.indexOf(suf) >= 0) { hit = i; break; }
+      }
+    }
+    if (hit < 0) {
+      var token = fidNameToken(n);
+      if (token) {
+        var matches = [];
+        for (i = 0; i < accounts.length; i++) {
+          if (fidAccountToken(accounts[i]) === token) matches.push(i);
+        }
+        if (matches.length === 1) hit = matches[0];
+      }
+    }
+    if (hit >= 0) buckets[hit].push(n);
+  });
+  return buckets;
+}
 function fidelityAccountCard(a, i) {
   var names = a.names || [];
   var held = names.reduce(function (sum, n) { return sum + (Number(n.value) || 0); }, 0);
-  var equity = a.equity != null ? Number(a.equity) : (a.endingBalance != null ? Number(a.endingBalance) : (held + (Number(a.cash) || 0)));
-  var cash = a.cash != null ? Number(a.cash) : Math.max(0, equity - held);
+  var equity = null;
+  if (a.equity != null && a.equity !== "") equity = Number(a.equity);
+  else if (a.endingBalance != null && a.endingBalance !== "") equity = Number(a.endingBalance);
+  else if (names.length) equity = held + (Number(a.cash) || 0);
+  if (equity != null && !isFinite(equity)) equity = null;
+  var cash = null;
+  if (a.cash != null && a.cash !== "") cash = Number(a.cash);
+  else if (names.length && equity != null) cash = Math.max(0, equity - held);
+  if (cash != null && !isFinite(cash)) cash = null;
+  var equityValue = null;
+  if (a.equity_value != null && a.equity_value !== "") equityValue = Number(a.equity_value);
+  else if (names.length) equityValue = held;
+  if (equityValue != null && !isFinite(equityValue)) equityValue = null;
   var rawName = a.label || a.name || ("Account " + (i + 1));
   var id = a.id || slugId(rawName + "-" + (a.suffix || i));
   var label = tidyFidAccountLabel(rawName);
   if (a.suffix && String(label).indexOf(String(a.suffix)) < 0) label = label + " ···" + a.suffix;
+  var token = fidAccountToken(a);
+  var tokenKey = { espp: "ESPP", rsu: "RSU", roth: "Roth", trad: "Trad", high: "HIGH", per: "PER", bny: "BNY" }[token] || "";
   return registerFidSleeveLabel({
     id: id,
     label: label,
-    key: a.sleeve || a.key || label,
+    key: a.sleeve || a.key || tokenKey || label,
     suffix: a.suffix || "",
-    equity: rnd(equity),
-    cash: rnd(cash),
-    buying_power: rnd(a.buying_power != null ? a.buying_power : cash),
+    equity: equity == null ? null : rnd(equity),
+    cash: cash == null ? null : rnd(cash),
+    buying_power: a.buying_power != null && a.buying_power !== "" ? rnd(a.buying_power) : (cash == null ? null : rnd(cash)),
     pending_deposits: Number(a.pending_deposits) || 0,
-    equity_value: rnd(a.equity_value != null ? a.equity_value : held),
-    invested_pct: equity ? Math.min(100, (held / equity) * 100) : 0,
+    equity_value: equityValue == null ? null : rnd(equityValue),
+    invested_pct: equity && names.length ? Math.min(100, (held / equity) * 100) : (names.length ? 0 : null),
     open_orders: Number(a.open_orders) || 0,
     names: names,
+    namesUnavailable: names.length === 0,
     source: a.source || "SnapTrade"
   });
 }
@@ -191,7 +268,15 @@ function buildFidelitySleeves(fid, outside) {
   fid = fid || { names: [] };
   /* Prefer one card per real Fidelity account (SnapTrade / hybrid feed). */
   if (Array.isArray(fid.accounts) && fid.accounts.length) {
-    return fid.accounts.map(function (a, i) { return fidelityAccountCard(a, i); });
+    var parentNames = fid.names || [];
+    var buckets = partitionFidNames(fid.accounts, parentNames);
+    return fid.accounts.map(function (a, i) {
+      var own = (Array.isArray(a.names) && a.names.length) ? a.names : (buckets[i] || []);
+      var src = {};
+      Object.keys(a).forEach(function (k) { src[k] = a[k]; });
+      src.names = own;
+      return fidelityAccountCard(src, i);
+    });
   }
   var byKey = {};
   FID_SLEEVES.forEach(function (s) { byKey[s.key.toLowerCase()] = s; });
@@ -213,9 +298,10 @@ function buildFidelitySleeves(fid, outside) {
     var held = names.reduce(function (sum, n) { return sum + (Number(n.value) || 0); }, 0);
     var tot = totals[s.sleeveKey];
     var fromTot = tot == null ? NaN : Number(typeof tot === "object" ? tot.equity : tot);
-    var equity = isFinite(fromTot) ? fromTot : held;
-    var cash = Math.max(0, rnd(equity - held));
-    return registerFidSleeveLabel({ id: s.id, label: s.label, key: s.key, equity: rnd(equity), cash: cash, buying_power: cash, pending_deposits: 0, equity_value: rnd(held), invested_pct: equity ? Math.min(100, (held / equity) * 100) : 0, open_orders: 0, names: names });
+    var equity = isFinite(fromTot) ? fromTot : (names.length ? held : null);
+    var totCash = tot && typeof tot === "object" && tot.cash != null ? Number(tot.cash) : null;
+    var cash = names.length && equity != null ? Math.max(0, rnd(equity - held)) : (totCash != null && isFinite(totCash) ? rnd(totCash) : null);
+    return registerFidSleeveLabel({ id: s.id, label: s.label, key: s.key, equity: equity == null ? null : rnd(equity), cash: cash, buying_power: cash, pending_deposits: 0, equity_value: names.length ? rnd(held) : null, invested_pct: equity && names.length ? Math.min(100, (held / equity) * 100) : (names.length ? 0 : null), open_orders: 0, names: names, namesUnavailable: !names.length });
   }).filter(function (s) {
     /* Keep known empty sleeves for Truthifi fallback; drop empty UNKNOWN */
     if (String(s.key).toUpperCase() === "UNKNOWN" && !(s.names || []).length && !(s.equity > 0.004)) return false;
@@ -585,23 +671,28 @@ function custodialStateHtml(b, title) {
   var printRaw = (b && (b.asof || b.holdings_asof)) || t.holdings_asof || t.asof || "";
   var waiting = typeof closePrintStale === "function" && closePrintStale(printRaw);
   var closeLab = waiting && typeof closePrintLabelHtml === "function" ? closePrintLabelHtml(true) : "";
+  var showHeld = (b.names || []).length > 0 && held != null && isFinite(Number(held));
   return "<h2>Book state · " + esc(title) + "</h2>" +
     (typeof sourceFreshnessChipsHtml === "function" ? sourceFreshnessChipsHtml() : "") +
     "<div class=\"card span" + (waiting ? " awaiting-close" : "") + "\"><div class=\"kpi\">" +
-    "<div><span>Equity</span><b>" + money(b.equity) + "</b>" + (title === "Fidelity" || String(title).indexOf("Voya") === 0 ? dodHtml(dodTape(title === "Fidelity" ? "fidelity" : "voya"), b.equity) : "") + "</div>" +
-    "<div><span>Holdings</span><b>" + money(held) + "</b></div>" +
-    "<div><span>Cash</span><b>" + money(b.cash) + "</b></div>" +
+    "<div><span>Equity</span><b>" + (typeof moneyOrDash === "function" ? moneyOrDash(b.equity) : money(b.equity)) + "</b>" + (title === "Fidelity" || String(title).indexOf("Voya") === 0 ? dodHtml(dodTape(title === "Fidelity" ? "fidelity" : "voya"), b.equity) : "") + "</div>" +
+    (showHeld ? "<div><span>Holdings</span><b>" + money(held) + "</b></div>" : "") +
+    "<div><span>Cash</span><b>" + (typeof moneyOrDash === "function" ? moneyOrDash(b.cash) : money(b.cash)) + "</b></div>" +
     "<div><span>P&L</span><b class=\"tone-" + tone(pnl) + "\">" + (pnl == null ? "—" : money(pnl) + " " + pct(pnlPct)) + "</b></div>" +
     "</div><p class=\"hint\">Invested " + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "—") +
     " · " + s.n + " names · Truthifi holdings " + esc(t.holdings_asof || b.asof || "—") +
     " · scanned " + esc((t.scanned_at || "").replace("T", " ").slice(0, 16) || "—") +
     ". Once a day." + closeLab + " Sleeves by name only." + truthifiHeldNote() + "</p></div>";
 }
-function custodialTableHtml(names, totalEq) {
+function custodialTableHtml(names, totalEq, opts) {
   if (typeof collapseHouseNames === "function") names = collapseHouseNames(names || []);
   names = (names || []).slice().sort(function (a, b) { return (Number(b.value) || 0) - (Number(a.value) || 0); });
   var total = totalEq || names.reduce(function (s, n) { return s + (Number(n.value) || 0); }, 0) || 1;
-  if (!names.length) return "<div class=\"card\"><p class=\"hint\" style=\"margin:0\">No names on this sleeve. Cash-only or empty.</p></div>";
+  if (!names.length) {
+    var unavailable = opts && opts.namesUnavailable;
+    var emptyNote = unavailable ? "names not available" : "No names on this sleeve. Cash-only or empty.";
+    return "<div class=\"card\"><p class=\"hint\" style=\"margin:0\">" + emptyNote + "</p></div>";
+  }
   var head = "<tr><th>Name</th><th>Sleeve</th><th>Kind</th><th class=\"num\">Qty</th><th class=\"num\">Avg</th><th class=\"num\">Last</th><th class=\"num\">Value</th><th class=\"num\">Wt</th><th class=\"num\">Cost</th><th class=\"num\">P&L</th></tr>";
   var rows = names.map(function (n) {
     var wt = (Number(n.value) || 0) / total * 100;
@@ -653,12 +744,13 @@ function fidelityLiveStateHtml(b, title) {
   var src = b.source || (snap.truthifi && !(b.live || b.source === "snaptrade") ? "Truthifi" : "SnapTrade");
   var rollup = title === "Fidelity";
   var dod = rollup ? dodHtml(dodTape("fidelity"), b.equity) : "";
+  var showHeld = (b.names || []).length > 0 && held != null && isFinite(Number(held));
   return "<h2>Book state · " + esc(title) + "</h2>" +
     (typeof sourceFreshnessChipsHtml === "function" ? sourceFreshnessChipsHtml() : "") +
     "<div class=\"card span\"><div class=\"kpi\">" +
-    "<div><span>Equity</span><b>" + money(b.equity) + "</b>" + dod + "</div>" +
-    "<div><span>Holdings</span><b>" + money(held) + "</b></div>" +
-    "<div><span>Cash</span><b>" + money(b.cash) + "</b></div>" +
+    "<div><span>Equity</span><b>" + (typeof moneyOrDash === "function" ? moneyOrDash(b.equity) : money(b.equity)) + "</b>" + dod + "</div>" +
+    (showHeld ? "<div><span>Holdings</span><b>" + money(held) + "</b></div>" : "") +
+    "<div><span>Cash</span><b>" + (typeof moneyOrDash === "function" ? moneyOrDash(b.cash) : money(b.cash)) + "</b></div>" +
     "<div><span>P&L</span><b class=\"tone-" + tone(pnl) + "\">" + (pnl == null ? "—" : money(pnl) + " " + pct(pnlPct)) + "</b></div>" +
     "</div><p class=\"hint\">Invested " + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "—") +
     " · " + s.n + " names · " + (rollup ? "live like Robinhood · " : "") + esc(src) +
@@ -725,7 +817,7 @@ function fidelitySleeveDeskHtml() {
   if (fid.live) html += fidelityLiveStateHtml(s, title);
   else html += custodialStateHtml(s, title);
   html += "<h2>Where it sits</h2>" + mixHtml(s, s.id);
-  html += "<h2>Book</h2>" + custodialTableHtml(s.names, s.equity);
+  html += "<h2>Book</h2>" + custodialTableHtml(s.names, s.equity, { namesUnavailable: !!s.namesUnavailable });
   return html;
 }
 function voyaDeskHtml() {

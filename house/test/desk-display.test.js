@@ -264,3 +264,116 @@ test("custodial books, sleeves, and the Truthifi feed use close-print tone witho
 
   assert.equal(ctx.bookDisplayLabel("agentic", { label: "Agentic" }), "AI WWIII");
 });
+
+function fidelityPrint() {
+  return JSON.parse(fs.readFileSync(path.join(root, "house/truthifi-snapshot.json"), "utf8"));
+}
+
+function assertEachNameOnce(names, sleeves) {
+  names.forEach(function (n) {
+    const hits = sleeves.filter(function (s) { return (s.names || []).indexOf(n) >= 0; });
+    assert.equal(hits.length, 1);
+  });
+  const assigned = sleeves.reduce(function (sum, s) { return sum + (s.names || []).length; }, 0);
+  assert.equal(assigned, names.length);
+}
+
+test("each Fidelity print name lands in exactly one sleeve", function () {
+  const ctx = boot();
+  const print = fidelityPrint();
+  const fid = print.accounts.fidelity;
+  const sleeves = ctx.buildFidelitySleeves(fid, print);
+  assert.ok(sleeves.length > 1);
+  assertEachNameOnce(fid.names, sleeves);
+
+  sleeves.forEach(function (s) {
+    if (!(s.names || []).length) {
+      assert.equal(s.namesUnavailable, true);
+      assert.equal(s.equity_value, null);
+      return;
+    }
+    const sum = s.names.reduce(function (total, n) { return total + Number(n.value); }, 0);
+    assert.ok(Math.abs(Number(s.equity_value) - sum) < 0.02);
+  });
+
+  const brokerage = sleeves.find(function (s) { return /brokerage/i.test(s.label); });
+  assert.ok(brokerage && brokerage.names.length > 0);
+  brokerage.names.forEach(function (n) {
+    const token = ctx.fidNameToken(n);
+    const suffixes = ctx.fidNameSuffixes(n);
+    const onSuffix = suffixes.indexOf(String(brokerage.suffix).toLowerCase()) >= 0;
+    assert.ok(token === "bny" || onSuffix);
+  });
+
+  const bySuffix = JSON.parse(JSON.stringify(fid));
+  bySuffix.names.forEach(function (n) { delete n.sleeve; delete n.account_name; });
+  assertEachNameOnce(bySuffix.names, ctx.buildFidelitySleeves(bySuffix, print));
+
+  const bySleeve = JSON.parse(JSON.stringify(fid));
+  bySleeve.names.forEach(function (n) {
+    if (n.sleeve) n.sleeve = String(n.sleeve).toLowerCase();
+    delete n.accounts;
+    delete n.suffix;
+  });
+  assertEachNameOnce(bySleeve.names, ctx.buildFidelitySleeves(bySleeve, print));
+
+  ctx.snap = { truthifi: print, tape: {}, accounts: { fidelity: Object.assign({ sleeves: sleeves }, fid) } };
+  ctx.tab = "fid-" + brokerage.id;
+  const html = ctx.fidelitySleeveDeskHtml();
+  brokerage.names.forEach(function (n) { assert.match(html, new RegExp(n.symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))); });
+  assert.match(html, /Holdings/);
+  assert.match(html, new RegExp(ctx.money(brokerage.equity_value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(html, /names not available/);
+  assert.doesNotMatch(html, /No names on this sleeve/);
+
+  const cashRow = fid.names.find(function (n) {
+    return String(n.kind).toLowerCase() === "cash" && Array.isArray(n.accounts) && n.accounts.length;
+  });
+  assert.ok(cashRow);
+  const suffix = String(cashRow.accounts[0]);
+  const account = fid.accounts.find(function (a) { return String(a.suffix) === suffix; });
+  const onlyCash = fid.names.filter(function (n) {
+    return String(n.kind).toLowerCase() === "cash" && (n.accounts || []).map(String).indexOf(suffix) >= 0;
+  });
+  const cashSum = onlyCash.reduce(function (total, n) { return total + Number(n.value); }, 0);
+  const cashBook = {
+    names: onlyCash,
+    accounts: [{ name: account.name, suffix: account.suffix, equity: cashSum, cash: cashSum }]
+  };
+  const cashSleeves = ctx.buildFidelitySleeves(cashBook, print);
+  assert.equal(cashSleeves.length, 1);
+  assert.equal(cashSleeves[0].names.length, onlyCash.length);
+  assert.ok(Math.abs(Number(cashSleeves[0].equity_value) - cashSum) < 0.02);
+  assert.equal(cashSleeves[0].namesUnavailable, false);
+  ctx.snap.accounts.fidelity = Object.assign({ sleeves: cashSleeves }, cashBook);
+  ctx.tab = "fid-" + cashSleeves[0].id;
+  const cashHtml = ctx.fidelitySleeveDeskHtml();
+  onlyCash.forEach(function (n) { assert.match(cashHtml, new RegExp(n.symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))); });
+  assert.match(cashHtml, /Holdings/);
+  assert.doesNotMatch(cashHtml, /names not available/);
+});
+
+test("a sleeve with no tagged names hides holdings and does not invent $0.00", function () {
+  const ctx = boot();
+  const print = fidelityPrint();
+  const fid = JSON.parse(JSON.stringify(print.accounts.fidelity));
+  fid.accounts.push({ name: "Unlabeled sleeve" });
+  const sleeves = ctx.buildFidelitySleeves(fid, print);
+  const miss = sleeves.find(function (s) { return /unlabeled/i.test(s.label); });
+  assert.ok(miss);
+  assert.equal(miss.names.length, 0);
+  assert.equal(miss.namesUnavailable, true);
+  assert.equal(miss.equity_value, null);
+  assert.equal(miss.cash, null);
+  ctx.snap = {
+    truthifi: { holdings_asof: "2020-01-02", asof: "2020-01-02", source: "Truthifi" },
+    tape: {},
+    accounts: { fidelity: Object.assign({ sleeves: sleeves }, fid) }
+  };
+  ctx.tab = "fid-" + miss.id;
+  const html = ctx.fidelitySleeveDeskHtml();
+  assert.match(html, /names not available/);
+  assert.doesNotMatch(html, /No names on this sleeve/);
+  assert.doesNotMatch(html, /\$0\.00/);
+  assert.doesNotMatch(html, /<span>Holdings<\/span>/);
+});
