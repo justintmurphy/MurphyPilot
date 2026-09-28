@@ -162,7 +162,7 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.ok(view.total != null && isFinite(view.total));
   assert.ok(Math.abs(view.total - (view.income + view.ss)) < 0.001);
   assert.equal(ctx.localStorage.getItem(storeKey), null);
-  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904bx$/);
+  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904by$/);
 });
 
 test("slider touch does not pin salary, so a later file salary shows without Reset", function () {
@@ -504,7 +504,7 @@ test("retirement draw at 67 and Social Security are state-tax exempt", function 
   const summary = ctx.retTaxSummary();
   assert.equal(summary.line, "PA 3.07% (retirement income exempt)");
   assert.equal(summary.asof, "checked 2026-09-25");
-  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904bx$/);
+  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904by$/);
   assert.match(String(ctx.retFetchJson), /no-store/);
 
   const state = ctx.retLoad();
@@ -683,6 +683,93 @@ test("a missing federal block dashes take-home, extra 401k cost, and the cap", f
   ctx.RET_TAX = ctx.retParseTax(broken);
   assert.equal(ctx.RET_TAX.federal, null);
   assert.equal(ctx.retTakeHome(2000, 800, state, 15, 67), null);
+});
+
+test("a missing or invalid federal block dashes the whole projection", function () {
+  const dashFields = ["nest", "save", "income", "ss-mo", "total-mo", "take", "low", "high", "low-mo", "high-mo", "save-split"];
+  function assertDashed(ctx, state) {
+    const view = ctx.retView(state);
+    assert.equal(view.taxUnavailable, true);
+    assert.equal(view.mid.nominal, null);
+    assert.equal(view.mid.today, null);
+    assert.equal(view.mid.monthlyShown, null);
+    assert.equal(view.low.nominal, null);
+    assert.equal(view.high.nominal, null);
+    assert.equal(view.income, null);
+    assert.equal(view.ss, null);
+    assert.equal(view.total, null);
+    assert.equal(view.take, null);
+    assert.equal(view.bridge, null);
+    assert.equal(ctx.retProject(10000, state, 10).nominal, null);
+    assert.equal(ctx.retSavingsMeta(state).year1Annual, null);
+    assert.equal(ctx.retSavingsMeta(state).monthlyShown, null);
+    const card = textCard();
+    ctx.retFill(card, state);
+    dashFields.forEach(function (name) {
+      assert.equal(card.els[name].textContent, "\u2014", name);
+      assert.equal(card.els[name].textContent.indexOf("$"), -1, name);
+    });
+    assert.equal(card.els["save-split"].hidden, false);
+    assert.equal(card.els["save-split"].textContent.indexOf("savings"), -1);
+    assert.equal(card.els["nest-split"].textContent, "");
+    assert.equal(card.els["nest-split"].hidden, true);
+    assert.equal(card.els["today-line"].textContent, "");
+    assert.equal(card.els["today-line"].hidden, true);
+    assert.equal(card.els.bridge.textContent, "");
+    assert.equal(card.els.bridge.hidden, true);
+    assert.equal(card.els["total-split"].textContent, "");
+    assert.equal(card.els["tax-unavailable"].textContent, "tax rules unavailable");
+    assert.equal(card.els["tax-unavailable"].hidden, false);
+    assert.equal(card.els["tax-unavailable"].textContent.indexOf("$"), -1);
+    assert.equal(card.els["tax-rules"].textContent, "");
+    assert.equal(card.els["tax-rules"].hidden, true);
+  }
+
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 100 } }
+  };
+  const state = ctx.retLoad();
+  state.retireAge = 67;
+  state.extra401kPct = 2;
+  const missing = taxRules();
+  delete missing.federal;
+  ctx.RET_TAX = ctx.retParseTax(missing);
+  assert.ok(ctx.RET_TAX);
+  assert.equal(ctx.RET_TAX.federal, null);
+  assertDashed(ctx, state);
+
+  ctx.RET_SAVED.loan = ctx.retParseLoan({
+    balance: 1200, payment: 100, payments_per_year: 12, asof: "2026-01-15"
+  });
+  assertDashed(ctx, state);
+  ctx.RET_SAVED.loan = null;
+
+  const invalid = taxRules({ federal: { tax_year: 2026 } });
+  ctx.RET_TAX = ctx.retParseTax(invalid);
+  assert.equal(ctx.RET_TAX.federal, null);
+  assertDashed(ctx, state);
+
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const ok = ctx.retView(state);
+  assert.ok(!ok.taxUnavailable);
+  assert.ok(isFinite(ok.mid.nominal) && ok.mid.nominal > 0);
+  assert.ok(isFinite(ok.income) && ok.income > 0);
+  assert.ok(isFinite(ok.ss) && ok.ss > 0);
+  assert.ok(isFinite(ok.total) && ok.total > 0);
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els["tax-unavailable"].textContent, "");
+  assert.equal(card.els["tax-unavailable"].hidden, true);
+  assert.ok(card.els.nest.textContent.indexOf("$") === 0);
+  assert.notEqual(card.els.nest.textContent, "\u2014");
+  assert.notEqual(card.els.income.textContent, "\u2014");
+  assert.notEqual(card.els["ss-mo"].textContent, "\u2014");
+  assert.notEqual(card.els["total-mo"].textContent, "\u2014");
+  assert.notEqual(card.els.save.textContent, "\u2014");
 });
 
 test("Social Security thresholds come from the file", function () {
