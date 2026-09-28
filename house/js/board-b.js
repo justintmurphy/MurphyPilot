@@ -877,9 +877,9 @@ function collapseHouseNames(list) {
     return html;
   }
 
-  /* tip bw — Retirement helper.
+  /* tip bx — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904bw).
+     Defaults come from same-origin retirement.json (?v=20260904bx).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. A missing federal
      block leaves take-home, extra-401k cost, and the cap label as a dash.
@@ -890,6 +890,9 @@ function collapseHouseNames(list) {
      The extra 401k range gets its real max before its value. Until that cap
      is known, a reload keeps the saved percent instead of the placeholder 0.
      Once the cap is known, a stored extra above that max is floored to the slider step.
+     Below the cap, load and save snap a stored extra to the nearest 0.1 (ties up)
+     so the range, the nest math, and localStorage share one percent.
+     A snap or clamp that lands on 0 drops the override.
      Headline totals already include the extra, so the stats line does not add it again.
      Birth is not edited in the form and is stored only from #ret= or when it
      differs from the file. */
@@ -1193,9 +1196,9 @@ function collapseHouseNames(list) {
       if (retSameVal(n, base[k])) return;
       put(k, n);
     });
-    if (retFinite(d.extra401kPct) && Number(d.extra401kPct) > 0 && !retSameVal(Number(d.extra401kPct), base.extra401kPct)) {
-      put("extra401kPct", Number(d.extra401kPct));
-    }
+    var extraPct = retExtraStoredPct(d);
+    if (d) d.extra401kPct = extraPct;
+    if (extraPct > 0 && !retSameVal(extraPct, base.extra401kPct)) put("extra401kPct", extraPct);
     var age = retRetireAge(d.retireAge);
     if (!retSameVal(age, retRetireAge(base.retireAge))) put("retireAge", age);
     if (retFinite(d.salary) && !retSameVal(Number(d.salary), base.salary)) {
@@ -1334,11 +1337,11 @@ function collapseHouseNames(list) {
       history.replaceState(null, "", location.pathname + location.search);
     } catch (eAll) {}
   }
-  /* Same-origin defaults. Cache-busted with the tip bu asset query.
+  /* Same-origin defaults. Cache-busted with the tip bx asset query.
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904bw";
+    return (housePath ? name : "house/" + name) + "?v=20260904bx";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");
@@ -2002,11 +2005,13 @@ function collapseHouseNames(list) {
      Employee deferral (base % plus any extra %) is capped at that year's IRS
      limit plus the age catch-up when tax-rules.json has one. Those dollar caps
      index from tax_year when deferral_limits_indexed is set. The extra percent
-     itself stops at the slider max, floored to the 0.1 step. Employer match
-     uses pay up to the IRS compensation limit when tax-rules.json has one.
+     itself stops at the slider max, floored to the 0.1 step. Below that max it
+     snaps to the nearest 0.1. Employer match uses pay up to the IRS compensation
+     limit when tax-rules.json has one.
      Loan principal is added on its own dates, with no match and outside the deferral cap. */
-  /* The range step. A stored extra above the cap is floored to this so the
-     headline matches the value the slider can actually sit on. */
+  /* The range step. Above the cap, floor to this — the cap itself is already
+     floored, so the stored extra cannot sit past a step the slider can show.
+     Below the cap, retExtraStepSnap uses the nearest step. */
   var RET_EXTRA_STEP = 0.1;
   function retExtraStepFloor(pct) {
     if (!(pct > 0)) return 0;
@@ -2014,8 +2019,18 @@ function collapseHouseNames(list) {
     if (!(tenths > 0)) return 0;
     return tenths / 10;
   }
-  /* Extra percent that reaches this year's deferral cap, on the slider step.
-     Null when the cap or the current salary is unknown, so a stored extra is left alone. */
+  /* Nearest 0.1, ties toward +infinity. That is the value a step=0.1 range
+     paints and the value retPctLabel rounds to: 2.35 → 2.4, 2.34 → 2.3, 0.04 → 0.
+     Scale by 10, not by dividing by 0.1, so 1.15 is 11.5 rather than 11.499999.
+     The 1e-6 keeps a value that is already on a tenth from falling just short. */
+  function retExtraStepSnap(pct) {
+    if (!(pct > 0)) return 0;
+    var steps = Math.floor(Number(pct) * 10 + 0.5 + 1e-6);
+    if (!(steps > 0)) return 0;
+    return steps / 10;
+  }
+  /* Extra percent that reaches this year's deferral cap, floored to the slider step.
+     Null when the cap or the current salary is unknown — do not invent a max. */
   function retMaxExtraPct(state) {
     var salary = retSalaryNow(state);
     if (salary == null || !(salary > 0)) return null;
@@ -2026,20 +2041,31 @@ function collapseHouseNames(list) {
     if (!(maxExtra > 0)) maxExtra = 0;
     return retExtraStepFloor(maxExtra);
   }
+  /* On-step extra to store. Nearest step first, then the floored cap when one
+     is known. Cap unknown: snap only. */
+  function retExtraStoredPct(d) {
+    var pct = (d && retFinite(d.extra401kPct)) ? Number(d.extra401kPct) : 0;
+    var next = retExtraStepSnap(pct);
+    var max = retMaxExtraPct(d);
+    if (max != null && next > max + 1e-6) next = max > 1e-6 ? max : 0;
+    return next;
+  }
   function retPersistExtraClamp(d) {
     if (!d) return;
-    var max = retMaxExtraPct(d);
-    if (max == null) return;
-    var pct = retFinite(d.extra401kPct) ? Number(d.extra401kPct) : 0;
-    if (!(pct > max + 1e-6)) return;
-    var next = max > 1e-6 ? max : 0;
+    var next = retExtraStoredPct(d);
     d.extra401kPct = next;
     var store = retStoreRead();
     if (!store || !Array.isArray(store._edited) || store._edited.indexOf("extra401kPct") < 0) return;
+    var cur = retFinite(store.extra401kPct) ? Number(store.extra401kPct) : 0;
     if (!(next > 0)) {
+      if (!(cur > 0)) return;
       delete store.extra401kPct;
       store._edited = store._edited.filter(function (k) { return k !== "extra401kPct"; });
-    } else store.extra401kPct = next;
+      retStoreWrite(store);
+      return;
+    }
+    if (Math.abs(cur - next) <= 1e-9) return;
+    store.extra401kPct = next;
     retStoreWrite(store);
   }
   function retExtraRate(state, opts) {
@@ -2050,8 +2076,9 @@ function collapseHouseNames(list) {
       pct = Number(state.extra401kPct);
     }
     if (!(pct > 0)) pct = 0;
+    else pct = retExtraStepSnap(pct);
     var max = retMaxExtraPct(state);
-    if (max != null && pct > max) pct = max;
+    if (max != null && pct > max) pct = max > 1e-6 ? max : 0;
     return pct / 100;
   }
   function retCappedEmployee(sal, eeRate, extraRate, birthYear, calendarYear, state) {
@@ -2551,7 +2578,8 @@ function collapseHouseNames(list) {
       };
     }
     var limit = retDeferralLimit(state.birthYear, retTodayNy().year, state);
-    var extraPct = requested > maxExtra ? maxExtra : requested;
+    var extraPct = retExtraStepSnap(requested);
+    if (extraPct > maxExtra) extraPct = maxExtra > 1e-6 ? maxExtra : 0;
     var atCap = maxExtra <= 1e-6 || extraPct >= maxExtra - 0.05;
     var withX = retProject(view.src.base, state, h.years, { extra401kPct: extraPct });
     var baseX = retProject(view.src.base, state, h.years, { extra401kPct: 0 });

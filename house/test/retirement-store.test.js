@@ -162,7 +162,7 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.ok(view.total != null && isFinite(view.total));
   assert.ok(Math.abs(view.total - (view.income + view.ss)) < 0.001);
   assert.equal(ctx.localStorage.getItem(storeKey), null);
-  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904bw$/);
+  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904bx$/);
 });
 
 test("slider touch does not pin salary, so a later file salary shows without Reset", function () {
@@ -504,7 +504,7 @@ test("retirement draw at 67 and Social Security are state-tax exempt", function 
   const summary = ctx.retTaxSummary();
   assert.equal(summary.line, "PA 3.07% (retirement income exempt)");
   assert.equal(summary.asof, "checked 2026-09-25");
-  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904bw$/);
+  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904bx$/);
   assert.match(String(ctx.retFetchJson), /no-store/);
 
   const state = ctx.retLoad();
@@ -1506,6 +1506,110 @@ test("nest egg line splits savings and loan while the loan contributes", functio
   ctx.retFill(card, state);
   assert.equal(card.els["nest-split"].textContent, "");
   assert.equal(card.els["nest-split"].hidden, true);
+});
+
+/* Nearest 0.1, ties up — the step a range paints (2.35 → 2.4, 2.34 → 2.3, 0.04 → 0).
+   Above-cap values still floor to the cap step. */
+function paintExtra(ctx, state) {
+  const card = textCard();
+  ctx.retFill(card, state);
+  return card;
+}
+
+test("stored extra below the cap snaps to the nearest slider step", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+
+  seed(ctx, { extra401kPct: 2.35, inflPct: 3, _edited: ["extra401kPct", "inflPct"] });
+  let state = ctx.retLoad();
+  assert.equal(state.extra401kPct, 2.4);
+  assert.equal(state.inflPct, 3);
+  assert.equal(stored(ctx).extra401kPct, 2.4);
+  assert.equal(stored(ctx).inflPct, 3);
+  assert.match(ctx.retirementHtml(), /id="ret-extra401k"[^>]*step="0\.1"[^>]*value="2\.4"/);
+  const card = paintExtra(ctx, state);
+  const range = card.els["in:extra401k"];
+  assert.equal(Number(range.value), state.extra401kPct);
+  assert.equal(stored(ctx).extra401kPct, state.extra401kPct);
+  assert.ok(Number(range.max) > state.extra401kPct);
+  assert.equal(card.els["extra401k-val"].textContent, "2.4");
+  const fromStore = ctx.retView(state);
+  const atStep = ctx.retClone(state);
+  atStep.extra401kPct = 2.4;
+  const raw = ctx.retClone(state);
+  raw.extra401kPct = 2.35;
+  const lower = ctx.retClone(state);
+  lower.extra401kPct = 2.3;
+  assert.equal(fromStore.mid.nominal, ctx.retView(atStep).mid.nominal);
+  assert.equal(fromStore.take, ctx.retView(atStep).take);
+  assert.equal(ctx.retView(raw).mid.nominal, fromStore.mid.nominal);
+  assert.equal(ctx.retView(raw).take, fromStore.take);
+  assert.ok(Math.abs(fromStore.mid.nominal - ctx.retView(lower).mid.nominal) > 0.05);
+
+  seed(ctx, { extra401kPct: 2.34, _edited: ["extra401kPct"] });
+  state = ctx.retLoad();
+  assert.equal(state.extra401kPct, 2.3);
+  assert.equal(stored(ctx).extra401kPct, 2.3);
+  const down = paintExtra(ctx, state);
+  assert.equal(Number(down.els["in:extra401k"].value), 2.3);
+  assert.equal(down.els["extra401k-val"].textContent, "2.3");
+  assert.equal(ctx.retView(state).mid.nominal, ctx.retView(Object.assign(ctx.retClone(state), { extra401kPct: 2.3 })).mid.nominal);
+
+  state.extra401kPct = 2.35;
+  ctx.retSave(state);
+  assert.equal(state.extra401kPct, 2.4);
+  assert.equal(stored(ctx).extra401kPct, 2.4);
+  state = ctx.retLoad();
+  assert.equal(state.extra401kPct, 2.4);
+  assert.equal(stored(ctx).extra401kPct, state.extra401kPct);
+
+  state.extra401kPct = 2.34;
+  ctx.retSave(state);
+  assert.equal(state.extra401kPct, 2.3);
+  assert.equal(stored(ctx).extra401kPct, 2.3);
+  state = ctx.retLoad();
+  assert.equal(state.extra401kPct, 2.3);
+  assert.equal(Number(paintExtra(ctx, state).els["in:extra401k"].value), stored(ctx).extra401kPct);
+});
+
+test("off-step extra that snaps to zero is dropped", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  seed(ctx, { extra401kPct: 0.04, _edited: ["extra401kPct"] });
+  let state = ctx.retLoad();
+  assert.equal(state.extra401kPct, 0);
+  assert.equal(ctx.localStorage.getItem(storeKey), null);
+
+  seed(ctx, { extra401kPct: 0.04, retireAge: 64, _edited: ["extra401kPct", "retireAge"] });
+  state = ctx.retLoad();
+  assert.equal(state.extra401kPct, 0);
+  assert.equal(state.retireAge, 64);
+  let blob = stored(ctx);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "extra401kPct"), false);
+  assert.deepEqual(blob._edited, ["retireAge"]);
+
+  state.extra401kPct = 0.04;
+  ctx.retSave(state);
+  assert.equal(state.extra401kPct, 0);
+  blob = stored(ctx);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "extra401kPct"), false);
+  assert.ok(blob._edited.indexOf("extra401kPct") < 0);
+  assert.equal(blob.retireAge, 64);
+  state = ctx.retLoad();
+  assert.equal(state.extra401kPct, 0);
+  assert.equal(state.retireAge, 64);
 });
 
 test("stored extra above the cap floors to the slider step", function () {
