@@ -505,3 +505,110 @@ test("sleeve cash matches the print and holdings plus cash stays within a cent o
     });
   });
 });
+
+function costIsMissing(n) {
+  return !n || n.cost == null || n.cost === "" || !Number.isFinite(Number(n.cost));
+}
+
+function tableRowHtml(html, symbol) {
+  const needle = ("<span class=\"sym\">" + String(symbol) + "</span>").toUpperCase();
+  const hit = html.split("<tr").slice(1).find(function (row) {
+    return row.toUpperCase().indexOf(needle) >= 0;
+  });
+  assert.ok(hit);
+  return "<tr" + hit.slice(0, hit.indexOf("</tr>") + 5);
+}
+
+function tdTexts(row) {
+  const out = [];
+  const re = /<td\b[^>]*>([\s\S]*?)<\/td>/g;
+  let m;
+  while ((m = re.exec(row))) out.push(m[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim());
+  return out;
+}
+
+function assertMissingCostDash(html, symbol) {
+  const cells = tdTexts(tableRowHtml(html, symbol));
+  assert.equal(cells[4], "\u2014");
+  assert.equal(cells[8], "\u2014");
+  assert.equal(cells[9], "\u2014");
+  [4, 8, 9].forEach(function (i) { assert.equal(cells[i].indexOf("$0.00"), -1); });
+}
+
+function kpiValue(html, label) {
+  const esc = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const m = html.match(new RegExp("<span>" + esc + "</span><b[^>]*>([\\s\\S]*?)</b>"));
+  assert.ok(m);
+  return m[1].replace(/<[^>]+>/g, "").trim();
+}
+
+test("null cost renders a dash and a numeric cost still computes P&L", function () {
+  const ctx = boot();
+  const print = fidelityPrint();
+  const fid = print.accounts.fidelity;
+  const voya = print.accounts.voya;
+  const sleeves = ctx.buildFidelitySleeves(fid, print);
+  const missing = [];
+  voya.names.forEach(function (n) { missing.push(n); });
+  fid.names.forEach(function (n) { if (costIsMissing(n)) missing.push(n); });
+  assert.ok(missing.length > 1);
+  assert.ok(voya.names.every(costIsMissing));
+
+  ctx.snap = {
+    truthifi: print,
+    tape: {},
+    accounts: { fidelity: Object.assign({ sleeves: sleeves }, fid), voya: voya }
+  };
+  ctx.tab = "voya";
+  const voyaHtml = ctx.voyaDeskHtml();
+  assert.equal(kpiValue(voyaHtml, "P&L"), "\u2014");
+  assert.doesNotMatch(kpiValue(voyaHtml, "P&L"), /\$0\.00/);
+  voya.names.forEach(function (n) { assertMissingCostDash(voyaHtml, n.symbol); });
+  assert.match(voyaHtml, /<span>Holdings<\/span>/);
+  assert.match(voyaHtml, /<span>Cash<\/span>/);
+
+  ctx.tab = "fidelity";
+  const allHtml = ctx.fidelityDeskHtml();
+  assert.equal(kpiValue(allHtml, "P&L"), "\u2014");
+  missing.filter(function (n) { return fid.names.indexOf(n) >= 0; }).forEach(function (n) {
+    assertMissingCostDash(allHtml, n.symbol);
+  });
+
+  sleeves.forEach(function (s) {
+    ctx.tab = "fid-" + s.id;
+    const html = ctx.fidelitySleeveDeskHtml();
+    const names = s.names || [];
+    if (!names.length) return;
+    if (names.some(costIsMissing)) {
+      assert.equal(kpiValue(html, "P&L"), "\u2014");
+      names.filter(costIsMissing).forEach(function (n) { assertMissingCostDash(html, n.symbol); });
+      return;
+    }
+    const stats = ctx.nameStats(names);
+    assert.equal(stats.hasCost, true);
+    assert.ok(stats.pnl != null);
+    const pctN = stats.cost ? (stats.pnl / stats.cost) * 100 : null;
+    assert.equal(kpiValue(html, "P&L"), ctx.money(stats.pnl) + " " + ctx.pct(pctN));
+    const shown = ctx.collapseHouseNames(names);
+    const sample = shown.find(function (n) { return n.cost != null && String(n.kind).toLowerCase() !== "cash"; }) || shown[0];
+    const cells = tdTexts(tableRowHtml(html, sample.symbol));
+    assert.equal(cells[8], ctx.money(sample.cost));
+    assert.equal(cells[9], ctx.money(sample.pnl) + " " + ctx.pct(sample.pnl_pct));
+  });
+
+  setNarrow(ctx, true);
+  const pad = voya.names.concat([{ symbol: "ZZ", name: "Pad", kind: "equity", qty: 1, value: 4, cost: 3 }]);
+  const wrapped = ctx.custodialTableHtml(pad, 1);
+  assert.match(wrapped, /book-more/);
+  assert.match(wrapped, /book-top3/);
+  voya.names.forEach(function (n) { assertMissingCostDash(wrapped, n.symbol); });
+  const top = wrapped.slice(0, wrapped.indexOf("<details"));
+  assert.doesNotMatch(top, /\$0\.00/);
+
+  setNarrow(ctx, false);
+  const zeroHtml = ctx.custodialTableHtml([{ symbol: "ZZ", name: "Zero", kind: "equity", qty: 2, value: 5, cost: 0 }], 5);
+  const zeroCells = tdTexts(tableRowHtml(zeroHtml, "ZZ"));
+  assert.equal(zeroCells[4], ctx.money(0));
+  assert.equal(zeroCells[8], ctx.money(0));
+  assert.match(zeroCells[9], /\$/);
+});

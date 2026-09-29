@@ -28,8 +28,8 @@ function collapseHouseNames(list) {
     }
     var qty = Number(n.qty) || 0;
     var value = Number(n.value) || 0;
-    var cost = n.cost != null ? Number(n.cost) : ((n.avg != null && qty) ? Number(n.avg) * qty : 0);
-    if (!isFinite(cost)) cost = 0;
+    var cost = (typeof knownRowCost === "function") ? knownRowCost(n) : null;
+    var costKnown = cost != null;
     if (!hit) {
       groups.push({
         symbol: sym,
@@ -37,7 +37,8 @@ function collapseHouseNames(list) {
         kind: kind,
         qty: qty,
         value: value,
-        cost: cost,
+        cost: costKnown ? cost : 0,
+        costKnown: costKnown,
         last: n.last != null ? Number(n.last) : null,
         day_pct: n.day_pct != null ? Number(n.day_pct) : null,
         last_fill: n.last_fill || n.first_fill || "",
@@ -51,7 +52,8 @@ function collapseHouseNames(list) {
     }
     hit.qty += qty;
     hit.value += value;
-    hit.cost += cost;
+    if (!costKnown) hit.costKnown = false;
+    else if (hit.costKnown) hit.cost += cost;
     if (hit.last == null && n.last != null) hit.last = Number(n.last);
     if (hit.day_pct == null && n.day_pct != null) hit.day_pct = Number(n.day_pct);
     if (!hit.last_fill && (n.last_fill || n.first_fill)) hit.last_fill = n.last_fill || n.first_fill;
@@ -63,11 +65,18 @@ function collapseHouseNames(list) {
   });
   var _rnd = (typeof rnd === "function") ? rnd : function (x) { return Math.round(Number(x) * 100) / 100; };
   return groups.map(function (g) {
-    g.avg = g.qty ? _rnd(g.cost / g.qty) : null;
     g.value = _rnd(g.value);
-    g.cost = _rnd(g.cost);
-    g.pnl = _rnd(g.value - g.cost);
-    g.pnl_pct = g.cost ? _rnd((g.pnl / g.cost) * 100) : null;
+    if (!g.costKnown) {
+      g.avg = null;
+      g.cost = null;
+      g.pnl = null;
+      g.pnl_pct = null;
+    } else {
+      g.avg = g.qty ? _rnd(g.cost / g.qty) : null;
+      g.cost = _rnd(g.cost);
+      g.pnl = _rnd(g.value - g.cost);
+      g.pnl_pct = g.cost ? _rnd((g.pnl / g.cost) * 100) : null;
+    }
     if (g.sleeves.length) g.sleeve = g.sleeves.join(" \u00b7 ");
     return g;
   });

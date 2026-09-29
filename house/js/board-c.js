@@ -706,15 +706,28 @@ function eodNote(book, title) {
     ". Once a day. No account numbers." + truthifiHeldNote() + "</p>";
 }
 function nameStats(names) {
-  var value = 0, cost = 0, pnl = 0, hasCost = false, n = names || [];
+  var value = 0, cost = 0, pnl = 0, hasCost = true, sawPnl = false, n = names || [];
+  if (!n.length) hasCost = false;
   n.forEach(function (row) {
     value += Number(row.value) || 0;
-    if (row.cost != null && isFinite(Number(row.cost))) { cost += Number(row.cost); hasCost = true; }
-    if (row.pnl != null && isFinite(Number(row.pnl))) pnl += Number(row.pnl);
+    var c = typeof knownRowCost === "function" ? knownRowCost(row) : null;
+    if (c == null) hasCost = false;
+    else cost += c;
+    if (row.pnl != null && isFinite(Number(row.pnl))) { pnl += Number(row.pnl); sawPnl = true; }
   });
+  /* One row without a cost basis dashes the whole book. Do not fill the gap with market value. */
   if (!hasCost) pnl = null;
-  else if (!n.some(function (row) { return row.pnl != null; })) pnl = value - cost;
-  return { value: rnd(value), cost: rnd(cost), pnl: pnl == null ? null : rnd(pnl), n: n.length, hasCost: hasCost };
+  else if (!sawPnl) pnl = value - cost;
+  return { value: rnd(value), cost: hasCost ? rnd(cost) : null, pnl: pnl == null ? null : rnd(pnl), n: n.length, hasCost: hasCost };
+}
+function basisMoney(v) {
+  if (v == null || v === "" || !isFinite(Number(v))) return "\u2014";
+  return money(v);
+}
+function rowPnlHtml(n) {
+  if (typeof knownRowCost === "function" && knownRowCost(n) == null) return "\u2014";
+  if (!n || n.pnl == null || !isFinite(Number(n.pnl))) return "\u2014";
+  return money(n.pnl) + " " + pct(n.pnl_pct);
 }
 function custodialFigures(b) {
   var held = null;
@@ -764,12 +777,12 @@ function custodialTableHtml(names, totalEq, opts) {
     return "<tr><td class=\"name-cell tone-" + tone(n.pnl_pct) + "\">" + nameSiteLink(n, inner) + "</td>" +
       "<td>" + esc(tidySleeveLabel(n.sleeve || n.account_name || "—")) + "</td><td>" + esc(n.kind || "equity") + "</td>" +
       "<td class=\"num\">" + qty(n.qty) + "</td>" +
-      "<td class=\"num\">" + (n.avg == null ? "—" : money(n.avg)) + "</td>" +
-      "<td class=\"num\">" + (n.last == null ? "—" : money(n.last)) + "</td>" +
+      "<td class=\"num\">" + basisMoney(n.avg) + "</td>" +
+      "<td class=\"num\">" + (n.last == null || !isFinite(Number(n.last)) ? "—" : money(n.last)) + "</td>" +
       "<td class=\"num\">" + money(n.value) + "</td>" +
       "<td class=\"num\">" + wt.toFixed(1) + "%</td>" +
-      "<td class=\"num\">" + (n.cost == null ? "—" : money(n.cost)) + "</td>" +
-      "<td class=\"num tone-" + tone(n.pnl) + "\">" + (n.pnl == null ? "—" : money(n.pnl) + " " + pct(n.pnl_pct)) + "</td></tr>";
+      "<td class=\"num\">" + basisMoney(n.cost) + "</td>" +
+      "<td class=\"num tone-" + tone(n.pnl) + "\">" + rowPnlHtml(n) + "</td></tr>";
   }).join("");
   var table = "<div class=\"card book-scroll\"><table class=\"book custodial\"><thead>" + head + "</thead><tbody>" + rows + "</tbody></table></div>";
   return (typeof bookPhoneDisclosure === "function") ? bookPhoneDisclosure(table, names, 8) : table;
