@@ -148,15 +148,32 @@ function formatSourceLabels(labels) {
   if (uniq.length <= 2) return uniq.join(" \u00b7 ");
   return uniq[0] + " \u00b7 " + uniq[1] + " +" + (uniq.length - 2);
 }
-function mergedBookLabel(g) {
+function sourceNameList(g) {
   var books = (g.bookIds || []).map(cleanBookName).filter(Boolean);
   var all = (g.sleeveLabs || []).concat(books);
-  if (all.length === 1 && !(g.sleeveLabs || []).length && (g.bookIds || []).length === 1 && typeof bookDisplayLabel === "function") {
-    var id = g.bookIds[0];
-    var book = (typeof snap !== "undefined" && snap && snap.accounts && snap.accounts[id]) || {};
-    return bookDisplayLabel(id, book);
-  }
-  return formatSourceLabels(all);
+  var uniq = [];
+  all.forEach(function (s) {
+    s = String(s || "").trim();
+    if (!s || s === "\u2014" || s === "—" || uniq.indexOf(s) >= 0) return;
+    uniq.push(s);
+  });
+  return uniq;
+}
+function singleBookLabel(g) {
+  if ((g.sleeveLabs || []).length || (g.bookIds || []).length !== 1 || typeof bookDisplayLabel !== "function") return "";
+  var id = g.bookIds[0];
+  var book = (typeof snap !== "undefined" && snap && snap.accounts && snap.accounts[id]) || {};
+  return bookDisplayLabel(id, book);
+}
+function mergedBookLabel(g) {
+  var single = singleBookLabel(g);
+  if (single && sourceNameList(g).length === 1) return single;
+  return formatSourceLabels(sourceNameList(g));
+}
+function fullSourceTitle(g) {
+  var single = singleBookLabel(g);
+  if (single && sourceNameList(g).length === 1) return single;
+  return sourceNameList(g).join(" \u00b7 ");
 }
 function collapseHouseNames(list) {
   /* Merge same ticker across books/sleeves into one Book row. */
@@ -286,6 +303,7 @@ function collapseHouseNames(list) {
     }
     if (g.sleeves.length) g.sleeve = g.sleeves.join(" \u00b7 ");
     g.bookLabel = mergedBookLabel(g);
+    g.bookTitle = fullSourceTitle(g);
     return g;
   });
 }
@@ -913,8 +931,12 @@ function collapseHouseNames(list) {
       if (cls && cls !== "equity") sub = (sub ? sub + " \u00b7 " : "") + esc(cls);
       var inner = "<span class=\"sym\">" + esc(n.symbol) + '</span><span class="sub">' + sub + "</span>";
       var uHtml = (u.pnl == null && u.pct == null) ? "\u2014" : (moneyOrDash(u.pnl) + " " + (u.pct == null || !isFinite(Number(u.pct)) ? "\u2014" : pct(u.pct)));
+      var fullBooks = n.bookTitle || books;
+      var srcAttrs = fullBooks
+        ? (' title="' + esc(fullBooks) + '" aria-label="' + esc(fullBooks) + '" data-short="' + esc(books) + '"')
+        : "";
       return "<tr><td class=\"name-cell tone-" + nameTone + "\">" + nameSiteLink(n, inner) + "</td>" +
-        (showBook ? "<td class=\"book-src\"><span class=\"book-src-lab\">" + esc(books) + "</span></td>" : "") +
+        (showBook ? "<td class=\"book-src\"><span class=\"book-src-lab\"" + srcAttrs + ">" + esc(books) + "</span></td>" : "") +
         '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (function () { var a = (typeof displayAvg === "function") ? displayAvg(n) : n.avg; return (a == null || !isFinite(Number(a)) ? "\u2014" : money(a)); })() + "</td>" +
         '<td class="num">' + (n.last == null ? "\u2014" : money(n.last)) + "</td>" +
         '<td class="num">' + moneyOrDash(n.value) + '</td><td class="num tone-' + tone(u.pnl) + '">' + uHtml + "</td></tr>";
@@ -1081,7 +1103,7 @@ function collapseHouseNames(list) {
 
   /* tip bx — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904cf).
+     Defaults come from same-origin retirement.json (?v=20260904cg).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. Once that file has
      loaded, a missing or invalid federal block does not project without the
@@ -1548,7 +1570,7 @@ function collapseHouseNames(list) {
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904cf";
+    return (housePath ? name : "house/" + name) + "?v=20260904cg";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");
@@ -3354,7 +3376,20 @@ function collapseHouseNames(list) {
     });
   }
 
+  function toggleBookSource(lab) {
+    if (!lab || !deskIsNarrow()) return;
+    var full = lab.getAttribute("title") || "";
+    var short = lab.getAttribute("data-short") || "";
+    if (!full) return;
+    var open = lab.classList.toggle("book-src-open");
+    lab.textContent = open ? full : (short || full);
+  }
   document.addEventListener("click", function (e) {
+    var srcLab = e.target.closest && e.target.closest(".book-src-lab");
+    if (srcLab) {
+      toggleBookSource(srcLab);
+      return;
+    }
     var menuBtn = e.target.closest("#menuBtn");
     if (menuBtn) {
       var menu = document.getElementById("deskMenu");

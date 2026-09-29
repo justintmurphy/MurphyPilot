@@ -874,3 +874,41 @@ test("merged rows keep full-precision agentic P&L, every source, and one average
   assert.equal(rhAvg, expectedAvg);
   assert.equal(combinedSpcx[3], expectedAvg);
 });
+
+function sourceLabAttr(rowHtml, attr) {
+  const span = rowHtml.match(/<span class="book-src-lab"[^>]*>/);
+  assert.ok(span);
+  const m = span[0].match(new RegExp("\\s" + attr + '="([^"]*)"'));
+  assert.ok(m);
+  return m[1]
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+test("multi-source labels carry the full source list in title and aria-label", function () {
+  const ctx = boot();
+  const house = housePrint();
+  const print = fidelityPrint();
+  const snap = ctx.merge(house, null, print);
+  ctx.snap = snap;
+  ctx.tab = "combined";
+  const bookHtml = ctx.tableHtml(snap.combined.names, true);
+  const expectFull = {
+    NVDA: "Brokerage · Individual · Grok · Deep Seek",
+    NRG: "Personal · Grok · Deep Seek",
+    VST: "Personal · Grok · Deep Seek",
+    MP: "AI WWIII · Grok · Deep Seek"
+  };
+  Object.keys(expectFull).forEach(function (symbol) {
+    const row = tableRowHtml(bookHtml, symbol);
+    const full = expectFull[symbol];
+    assert.equal(sourceLabAttr(row, "title"), full);
+    assert.equal(sourceLabAttr(row, "aria-label"), full);
+    const visible = tdTexts(row)[1];
+    assert.match(visible, /\+\d+$/);
+    assert.notEqual(visible, full);
+  });
+});
