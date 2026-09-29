@@ -305,7 +305,10 @@ test("each Fidelity print name lands in exactly one sleeve", function () {
       assert.equal(s.equity_value, null);
       return;
     }
-    const sum = s.names.reduce(function (total, n) { return total + Number(n.value); }, 0);
+    const sum = s.names.reduce(function (total, n) {
+      if (String(n.kind).toLowerCase() === "cash") return total;
+      return total + Number(n.value);
+    }, 0);
     assert.ok(Math.abs(Number(s.equity_value) - sum) < 0.02);
   });
 
@@ -356,7 +359,11 @@ test("each Fidelity print name lands in exactly one sleeve", function () {
   const cashSleeves = ctx.buildFidelitySleeves(cashBook, print);
   assert.equal(cashSleeves.length, 1);
   assert.equal(cashSleeves[0].names.length, onlyCash.length);
-  assert.ok(Math.abs(Number(cashSleeves[0].equity_value) - cashSum) < 0.02);
+  assert.ok(Math.abs(Number(cashSleeves[0].equity_value)) < 0.02);
+  const cashRowPrint = printSleeveForCard(cashSleeves[0], print.sleeves);
+  assert.ok(cashRowPrint && Number.isFinite(Number(cashRowPrint.cash)));
+  assert.ok(Math.abs(Number(cashSleeves[0].cash) - Number(cashRowPrint.cash)) < 0.02);
+  assert.ok(Math.abs(Number(cashSleeves[0].cash) - cashSum) < 0.02);
   assert.equal(cashSleeves[0].namesUnavailable, false);
   ctx.snap.accounts.fidelity = Object.assign({ sleeves: cashSleeves }, cashBook);
   ctx.tab = "fid-" + cashSleeves[0].id;
@@ -389,4 +396,112 @@ test("a sleeve with no tagged names hides holdings and does not invent $0.00", f
   assert.doesNotMatch(html, /No names on this sleeve/);
   assert.doesNotMatch(html, /\$0\.00/);
   assert.doesNotMatch(html, /<span>Holdings<\/span>/);
+});
+
+function printSleeveForCard(card, sleevesMap) {
+  const tags = [
+    ["espp", /\bespp\b/i],
+    ["rsu", /\brsu\b/i],
+    ["roth", /\broth\b/i],
+    ["trad", /\btrad\b/i],
+    ["per", /\bper\b|\bpersonal\b/i],
+    ["bny", /\bbny\b|\bbrokerage\b/i]
+  ];
+  const blob = [card.label, card.key, card.id].filter(Boolean).join(" ");
+  let token = "";
+  for (let i = 0; i < tags.length; i++) {
+    if (tags[i][1].test(blob)) { token = tags[i][0]; break; }
+  }
+  const entries = Object.keys(sleevesMap || {}).filter(function (k) {
+    const row = sleevesMap[k];
+    return row && typeof row === "object" && row.cash != null && row.cash !== "" && Number.isFinite(Number(row.cash));
+  });
+  if (!token) return null;
+  const byId = entries.find(function (k) {
+    return k.replace(/^fidelity_/, "").replace(/^voya_/, "") === token;
+  });
+  if (byId) return sleevesMap[byId];
+  const byLabel = entries.find(function (k) {
+    const row = sleevesMap[k];
+    return tags.some(function (t) {
+      return t[0] === token && t[1].test(String(row.label || "") + " " + k);
+    });
+  });
+  return byLabel ? sleevesMap[byLabel] : null;
+}
+
+function moneyPattern(ctx, n) {
+  return new RegExp(ctx.money(n).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+}
+
+test("sleeve cash matches the print and holdings plus cash stays within a cent of equity", function () {
+  const ctx = boot();
+  const print = fidelityPrint();
+  const fid = print.accounts.fidelity;
+  const voya = print.accounts.voya;
+  const sleeves = ctx.buildFidelitySleeves(fid, print);
+  assert.ok(sleeves.length > 1);
+
+  sleeves.forEach(function (s) {
+    const row = printSleeveForCard(s, print.sleeves);
+    assert.ok(row);
+    assert.ok(Math.abs(Number(s.cash) - Number(row.cash)) < 0.005);
+    const held = s.equity_value == null ? 0 : Number(s.equity_value);
+    assert.ok(Math.abs(held + Number(s.cash) - Number(s.equity)) <= 0.01);
+    (s.names || []).filter(function (n) { return String(n.kind).toLowerCase() === "cash"; }).forEach(function (n) {
+      assert.ok((s.names || []).indexOf(n) >= 0);
+    });
+  });
+
+  assert.ok(Math.abs(Number(fid.equity_value) + Number(fid.cash) - Number(fid.equity)) <= 0.01);
+  assert.ok(Math.abs(Number(voya.equity_value) + Number(voya.cash) - Number(voya.equity)) <= 0.01);
+
+  const fidBare = JSON.parse(JSON.stringify(fid));
+  delete fidBare.cash;
+  delete fidBare.equity_value;
+  const fidFigs = ctx.custodialFigures(fidBare);
+  assert.ok(Math.abs(fidFigs.held - Number(fid.equity_value)) <= 0.01);
+  assert.ok(Math.abs(fidFigs.cash - Number(fid.cash)) <= 0.01);
+
+  const voyaBare = JSON.parse(JSON.stringify(voya));
+  delete voyaBare.cash;
+  delete voyaBare.equity_value;
+  const voyaFigs = ctx.custodialFigures(voyaBare);
+  assert.equal(voyaFigs.cash, null);
+  assert.ok(Math.abs(voyaFigs.held - Number(voya.equity_value)) <= 0.01);
+
+  ctx.snap = {
+    truthifi: print,
+    tape: {},
+    accounts: {
+      fidelity: Object.assign({ sleeves: sleeves }, fid),
+      voya: voya
+    }
+  };
+  ctx.tab = "fidelity";
+  const allHtml = ctx.fidelityDeskHtml();
+  assert.match(allHtml, /<span>Cash<\/span>/);
+  assert.match(allHtml, /<span>Holdings<\/span>/);
+  assert.match(allHtml, moneyPattern(ctx, fid.cash));
+  assert.match(allHtml, moneyPattern(ctx, fid.equity_value));
+  fid.names.filter(function (n) { return String(n.kind).toLowerCase() === "cash"; }).forEach(function (n) {
+    assert.match(allHtml, new RegExp(n.symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  });
+
+  ctx.tab = "voya";
+  const voyaHtml = ctx.voyaDeskHtml();
+  assert.match(voyaHtml, /<span>Cash<\/span>/);
+  assert.match(voyaHtml, /<span>Holdings<\/span>/);
+  assert.match(voyaHtml, moneyPattern(ctx, voya.cash));
+  assert.match(voyaHtml, moneyPattern(ctx, voya.equity_value));
+
+  sleeves.filter(function (s) { return (s.names || []).length; }).forEach(function (s) {
+    ctx.tab = "fid-" + s.id;
+    const html = ctx.fidelitySleeveDeskHtml();
+    assert.match(html, moneyPattern(ctx, s.cash));
+    assert.match(html, moneyPattern(ctx, s.equity_value));
+    (s.names || []).filter(function (n) { return String(n.kind).toLowerCase() === "cash"; }).forEach(function (n) {
+      assert.match(html, new RegExp(n.symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    });
+  });
 });

@@ -162,7 +162,7 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.ok(view.total != null && isFinite(view.total));
   assert.ok(Math.abs(view.total - (view.income + view.ss)) < 0.001);
   assert.equal(ctx.localStorage.getItem(storeKey), null);
-  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904ca$/);
+  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904cb$/);
 });
 
 test("slider touch does not pin salary, so a later file salary shows without Reset", function () {
@@ -504,7 +504,7 @@ test("retirement draw at 67 and Social Security are state-tax exempt", function 
   const summary = ctx.retTaxSummary();
   assert.equal(summary.line, "PA 3.07% (retirement income exempt)");
   assert.equal(summary.asof, "checked 2026-09-25");
-  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904ca$/);
+  assert.match(ctx.retTaxUrl(), /tax-rules\.json\?v=20260904cb$/);
   assert.match(String(ctx.retFetchJson), /no-store/);
 
   const state = ctx.retLoad();
