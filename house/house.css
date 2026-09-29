@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904cf");
-@import url("house-b.css?v=20260904cf");
-@import url("mix.css?v=20260904cf");
+@import url("house-a.css?v=20260904cg");
+@import url("house-b.css?v=20260904cg");
+@import url("mix.css?v=20260904cg");
 
 header .brand-block {
   min-width: 0;
@@ -179,6 +179,11 @@ header .header-end { grid-area: end; margin-left: 0; }
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  table.book td.book-src .book-src-lab.book-src-open {
+    white-space: normal;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
   }
 }
 .tape-card.tape-open { cursor: pointer; }
