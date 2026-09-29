@@ -1,7 +1,7 @@
 {
   "asof": "2026-09-29T13:13:00-04:00",
   "tip": "ba+bb+bc+be+bg+bh+bi+bj",
-  "note": "Tue 13:02 Site data House/pilot weekday refresh. live RH portfolios+positions+realized+quotes+crypto; Yahoo indexes (RH get_index_quotes arg reject). KEEP cashflow_30d. Truthifi untouched. Quiet Justin. | cashflow_30d recomputed Mon Fid+Voya Close 2026-09-28 (RH window realized; Fid Truthifi PnL/ITS; Voya refreshed 09-25 by_source KEPT).",
+  "note": "Tue 13:02 Site data House/pilot weekday refresh. live RH portfolios+positions+realized+quotes+crypto; Yahoo indexes (RH get_index_quotes arg reject). KEEP cashflow_30d. Truthifi untouched. Quiet Justin. | cashflow_30d recomputed Mon Fid+Voya Close 2026-09-28 (RH window realized; Fid Truthifi PnL/ITS; Voya refreshed 09-25 by_source KEPT). Crypto cost basis from RH get_crypto_positions cost_bases (XRP $50.00, BTC $151.86); null if RH basis is 0.",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -69,25 +69,31 @@
           "symbol": "XRP",
           "name": "XRP",
           "qty": 35.556,
-          "avg": 0.0,
-          "avg_cost": 0.0,
+          "avg": 1.4062,
+          "avg_cost": 1.4062,
           "last": 1.4872,
           "value": 52.8774,
           "account": "individual",
           "asset_class": "crypto",
-          "pnl_pct": 0.0
+          "pnl_pct": 5.75,
+          "cost": 50.0,
+          "unrealized_pnl": 2.8774,
+          "unrealized_pnl_pct": 5.75
         },
         {
           "symbol": "BTC",
           "name": "Bitcoin",
           "qty": 0.001862,
-          "avg": 0.0,
-          "avg_cost": 0.0,
+          "avg": 81557.47,
+          "avg_cost": 81557.47,
           "last": 83114.63,
           "value": 154.7594,
           "account": "individual",
           "asset_class": "crypto",
-          "pnl_pct": 0.0
+          "pnl_pct": 1.91,
+          "cost": 151.86,
+          "unrealized_pnl": 2.8994,
+          "unrealized_pnl_pct": 1.91
         }
       ]
     },
