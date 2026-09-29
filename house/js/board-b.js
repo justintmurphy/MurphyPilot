@@ -31,6 +31,39 @@ function tidySleeveLabel(raw) {
   if (typeof LABEL !== "undefined" && LABEL[k]) return LABEL[k];
   return k;
 }
+function sleeveBitsLabel(raw) {
+  var out = [];
+  String(raw || "").split(/\s*·\s*/).forEach(function (part) {
+    var lab = tidySleeveLabel(part);
+    if (lab && lab !== "\u2014" && lab !== "—" && out.indexOf(lab) < 0) out.push(lab);
+  });
+  return out.join(" \u00b7 ");
+}
+function costExcludeTag(row) {
+  var raw = row && (row.sleeve || row.key || row.account_name || "");
+  var part = String(raw).split(/\s*·\s*/)[0].trim();
+  if (!part || /^(fidelity|voya|unknown)$/i.test(part)) part = String((row && row.symbol) || "").trim();
+  if (!part) return "";
+  if (typeof fidSleeveToken === "function") {
+    var tok = fidSleeveToken(part);
+    var shortMap = { espp: "ESPP", rsu: "RSU", roth: "Roth", trad: "Trad", high: "HIGH", per: "PER", bny: "BNY" };
+    if (shortMap[tok]) return shortMap[tok];
+  }
+  if (/401/.test(part)) return "401(k)";
+  return part;
+}
+function exclNote(rows) {
+  rows = rows || [];
+  if (!rows.length) return "";
+  if (rows.length > 2) return "excl. " + rows.length + " names";
+  var tags = [];
+  rows.forEach(function (row) {
+    var tag = costExcludeTag(row);
+    if (tag && tags.indexOf(tag) < 0) tags.push(tag);
+  });
+  if (!tags.length) return "excl. " + rows.length + (rows.length === 1 ? " name" : " names");
+  return "excl. " + tags.join(", ");
+}
 function bookDisplayLabel(id, book) {
   book = book || (typeof snap !== "undefined" && snap && snap.accounts && snap.accounts[id]) || {};
   var base = (book && book.label) || (typeof LABEL !== "undefined" && LABEL[id]) || id;
@@ -85,15 +118,16 @@ function collapseHouseNames(list) {
     var sym = normSym(n.symbol);
     if (!sym) return;
     var kind = normKind(n.kind);
-    var hit = null;
-    for (var i = 0; i < groups.length; i++) {
-      var g = groups[i];
-      if (g.symbol === sym && g.kind === kind && sameName(g.name, n.name || sym)) { hit = g; break; }
-    }
     var qty = Number(n.qty) || 0;
     var value = Number(n.value) || 0;
     var cost = knownRowCost(n);
     var costKnown = cost != null;
+    var hit = null;
+    for (var i = 0; i < groups.length; i++) {
+      var g = groups[i];
+      /* Known cost and missing cost stay separate rows, labelled by sleeve. */
+      if (g.symbol === sym && g.kind === kind && g.costKnown === costKnown && sameName(g.name, n.name || sym)) { hit = g; break; }
+    }
     if (!hit) {
       groups.push({
         symbol: sym,
@@ -153,7 +187,8 @@ function collapseHouseNames(list) {
       } else if (g.unrealized_pnl != null) {
         g.unrealized_pnl = _rnd(g.unrealized_pnl);
       }
-      if (g.unrealized_pnl_pct == null && g.unrealized_pnl != null && g.cost) {
+      if (!g.cost) g.unrealized_pnl_pct = null;
+      else if (g.unrealized_pnl_pct == null && g.unrealized_pnl != null) {
         g.unrealized_pnl_pct = _rnd((g.unrealized_pnl / g.cost) * 100);
       } else if (g.unrealized_pnl_pct != null) {
         g.unrealized_pnl_pct = _rnd(g.unrealized_pnl_pct);
@@ -725,6 +760,10 @@ function collapseHouseNames(list) {
       cells.push("<div><span>Buying power</span><b>" + moneyOrDash(b.buying_power) + "</b></div>");
       cells.push("<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
     }
+    if (typeof nameStats === "function" && typeof pnlKpiText === "function") {
+      var ns = nameStats(b.names);
+      cells.push("<div><span>P&L</span><b class=\"tone-" + tone(ns.pnl) + "\">" + pnlKpiText(ns) + "</b></div>");
+    }
     return "<h2>Book state \u00b7 " + esc(title) + "</h2>" +
       (tab === "combined" ? sourceFreshnessChipsHtml() : "") +
       "<div class=\"card span\"><div class=\"kpi\">" +
@@ -785,7 +824,8 @@ function collapseHouseNames(list) {
     var head = "<tr><th>Name</th>" + (showBook ? "<th>Book</th>" : "") + '<th class="num">Qty</th><th class="num">Avg</th><th class="num">Last</th>' +
       '<th class="num">Value</th><th class="num">Unrealized</th></tr>';
     var rows = names.map(function (n) {
-      var books = (n.accounts || []).map(function (a) {
+      var sleeveLab = n.sleeve ? sleeveBitsLabel(n.sleeve) : "";
+      var books = sleeveLab || (n.accounts || []).map(function (a) {
         return (typeof bookDisplayLabel === "function") ? bookDisplayLabel(a, (snap.accounts && snap.accounts[a]) || {}) : (LABEL[a] || a);
       }).join(" \u00b7 ") || ((typeof bookDisplayLabel === "function" && n.account) ? bookDisplayLabel(n.account, (snap.accounts && snap.accounts[n.account]) || {}) : (LABEL[n.account] || ""));
       var u = nameUnrealized(n);
@@ -795,7 +835,7 @@ function collapseHouseNames(list) {
       var sub = esc(n.name || "");
       if (cls && cls !== "equity") sub = (sub ? sub + " \u00b7 " : "") + esc(cls);
       var inner = "<span class=\"sym\">" + esc(n.symbol) + '</span><span class="sub">' + sub + "</span>";
-      var uHtml = (u.pnl == null && u.pct == null) ? "\u2014" : (moneyOrDash(u.pnl) + " " + pct(u.pct));
+      var uHtml = (u.pnl == null && u.pct == null) ? "\u2014" : (moneyOrDash(u.pnl) + " " + (u.pct == null || !isFinite(Number(u.pct)) ? "\u2014" : pct(u.pct)));
       return "<tr><td class=\"name-cell tone-" + nameTone + "\">" + nameSiteLink(n, inner) + "</td>" +
         (showBook ? "<td>" + esc(books) + "</td>" : "") +
         '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (n.avg == null || !isFinite(Number(n.avg)) ? "\u2014" : money(n.avg)) + "</td>" +
@@ -964,7 +1004,7 @@ function collapseHouseNames(list) {
 
   /* tip bx — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904cc).
+     Defaults come from same-origin retirement.json (?v=20260904cd).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. Once that file has
      loaded, a missing or invalid federal block does not project without the
@@ -1431,7 +1471,7 @@ function collapseHouseNames(list) {
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904cc";
+    return (housePath ? name : "house/" + name) + "?v=20260904cd";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");

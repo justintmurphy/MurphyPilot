@@ -706,28 +706,46 @@ function eodNote(book, title) {
     ". Once a day. No account numbers." + truthifiHeldNote() + "</p>";
 }
 function nameStats(names) {
-  var value = 0, cost = 0, pnl = 0, hasCost = true, sawPnl = false, n = names || [];
-  if (!n.length) hasCost = false;
+  var value = 0, cost = 0, pnl = 0, saw = false, excluded = [], n = names || [];
   n.forEach(function (row) {
     value += Number(row.value) || 0;
     var c = typeof knownRowCost === "function" ? knownRowCost(row) : null;
-    if (c == null) hasCost = false;
-    else cost += c;
-    if (row.pnl != null && isFinite(Number(row.pnl))) { pnl += Number(row.pnl); sawPnl = true; }
+    if (c == null) { excluded.push(row); return; }
+    saw = true;
+    cost += c;
+    var rowPnl = (row.pnl != null && isFinite(Number(row.pnl))) ? Number(row.pnl) : ((Number(row.value) || 0) - c);
+    pnl += rowPnl;
   });
-  /* One row without a cost basis dashes the whole book. Do not fill the gap with market value. */
-  if (!hasCost) pnl = null;
-  else if (!sawPnl) pnl = value - cost;
-  return { value: rnd(value), cost: hasCost ? rnd(cost) : null, pnl: pnl == null ? null : rnd(pnl), n: n.length, hasCost: hasCost };
+  /* No costed row: dash. Some costed rows: P&L covers only those, and names the rest. */
+  return {
+    value: rnd(value),
+    cost: saw ? rnd(cost) : null,
+    pnl: saw ? rnd(pnl) : null,
+    n: n.length,
+    hasCost: saw,
+    partial: saw && excluded.length > 0,
+    excl: saw ? (typeof exclNote === "function" ? exclNote(excluded) : "") : ""
+  };
+}
+function pnlKpiText(stats) {
+  if (!stats || stats.pnl == null || !isFinite(Number(stats.pnl))) return "\u2014";
+  var pctHtml = (stats.cost != null && isFinite(Number(stats.cost)) && Number(stats.cost) !== 0)
+    ? pct((Number(stats.pnl) / Number(stats.cost)) * 100)
+    : "\u2014";
+  return money(stats.pnl) + " " + pctHtml + (stats.excl ? " " + stats.excl : "");
 }
 function basisMoney(v) {
   if (v == null || v === "" || !isFinite(Number(v))) return "\u2014";
   return money(v);
 }
+function pnlPctHtml(pctN) {
+  if (pctN == null || pctN === "" || !isFinite(Number(pctN))) return "\u2014";
+  return pct(pctN);
+}
 function rowPnlHtml(n) {
   if (typeof knownRowCost === "function" && knownRowCost(n) == null) return "\u2014";
   if (!n || n.pnl == null || !isFinite(Number(n.pnl))) return "\u2014";
-  return money(n.pnl) + " " + pct(n.pnl_pct);
+  return money(n.pnl) + " " + pnlPctHtml(n.pnl_pct);
 }
 function custodialFigures(b) {
   var held = null;
@@ -743,7 +761,6 @@ function custodialStateHtml(b, title) {
   var figs = custodialFigures(b);
   var held = figs.held;
   var pnl = s.pnl;
-  var pnlPct = s.hasCost && s.cost ? (pnl / s.cost) * 100 : null;
   var t = snap.truthifi || {};
   var printRaw = (b && (b.asof || b.holdings_asof)) || t.holdings_asof || t.asof || "";
   var waiting = typeof closePrintStale === "function" && closePrintStale(printRaw);
@@ -755,7 +772,7 @@ function custodialStateHtml(b, title) {
     "<div><span>Equity</span><b>" + (typeof moneyOrDash === "function" ? moneyOrDash(b.equity) : money(b.equity)) + "</b>" + (title === "Fidelity" || String(title).indexOf("Voya") === 0 ? dodHtml(dodTape(title === "Fidelity" ? "fidelity" : "voya"), b.equity) : "") + "</div>" +
     (showHeld ? "<div><span>Holdings</span><b>" + money(held) + "</b></div>" : "") +
     "<div><span>Cash</span><b>" + (typeof moneyOrDash === "function" ? moneyOrDash(figs.cash) : money(figs.cash)) + "</b></div>" +
-    "<div><span>P&L</span><b class=\"tone-" + tone(pnl) + "\">" + (pnl == null ? "—" : money(pnl) + " " + pct(pnlPct)) + "</b></div>" +
+    "<div><span>P&L</span><b class=\"tone-" + tone(pnl) + "\">" + pnlKpiText(s) + "</b></div>" +
     "</div><p class=\"hint\">Invested " + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "—") +
     " · " + s.n + " names · Truthifi holdings " + esc(t.holdings_asof || b.asof || "—") +
     " · scanned " + esc((t.scanned_at || "").replace("T", " ").slice(0, 16) || "—") +
@@ -775,7 +792,7 @@ function custodialTableHtml(names, totalEq, opts) {
     var wt = (Number(n.value) || 0) / total * 100;
     var inner = "<span class=\"sym\">" + esc(n.symbol) + "</span><span class=\"sub\">" + esc(n.name || "") + "</span>";
     return "<tr><td class=\"name-cell tone-" + tone(n.pnl_pct) + "\">" + nameSiteLink(n, inner) + "</td>" +
-      "<td>" + esc(tidySleeveLabel(n.sleeve || n.account_name || "—")) + "</td><td>" + esc(n.kind || "equity") + "</td>" +
+      "<td>" + esc((typeof sleeveBitsLabel === "function" ? sleeveBitsLabel(n.sleeve || n.account_name || "") : tidySleeveLabel(n.sleeve || n.account_name || "")) || "—") + "</td><td>" + esc(n.kind || "equity") + "</td>" +
       "<td class=\"num\">" + qty(n.qty) + "</td>" +
       "<td class=\"num\">" + basisMoney(n.avg) + "</td>" +
       "<td class=\"num\">" + (n.last == null || !isFinite(Number(n.last)) ? "—" : money(n.last)) + "</td>" +
@@ -818,7 +835,6 @@ function fidelityLiveStateHtml(b, title) {
   var figs = custodialFigures(b);
   var held = figs.held;
   var pnl = s.pnl;
-  var pnlPct = s.hasCost && s.cost ? (pnl / s.cost) * 100 : null;
   var src = b.source || (snap.truthifi && !(b.live || b.source === "snaptrade") ? "Truthifi" : "SnapTrade");
   var rollup = title === "Fidelity";
   var dod = rollup ? dodHtml(dodTape("fidelity"), b.equity) : "";
@@ -829,7 +845,7 @@ function fidelityLiveStateHtml(b, title) {
     "<div><span>Equity</span><b>" + (typeof moneyOrDash === "function" ? moneyOrDash(b.equity) : money(b.equity)) + "</b>" + dod + "</div>" +
     (showHeld ? "<div><span>Holdings</span><b>" + money(held) + "</b></div>" : "") +
     "<div><span>Cash</span><b>" + (typeof moneyOrDash === "function" ? moneyOrDash(figs.cash) : money(figs.cash)) + "</b></div>" +
-    "<div><span>P&L</span><b class=\"tone-" + tone(pnl) + "\">" + (pnl == null ? "—" : money(pnl) + " " + pct(pnlPct)) + "</b></div>" +
+    "<div><span>P&L</span><b class=\"tone-" + tone(pnl) + "\">" + pnlKpiText(s) + "</b></div>" +
     "</div><p class=\"hint\">Invested " + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "—") +
     " · " + s.n + " names · " + (rollup ? "live like Robinhood · " : "") + esc(src) +
     " · asof " + esc(b.asof || (snap.asof || "—")) +

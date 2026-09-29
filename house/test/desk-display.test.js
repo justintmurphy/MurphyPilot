@@ -510,13 +510,19 @@ function costIsMissing(n) {
   return !n || n.cost == null || n.cost === "" || !Number.isFinite(Number(n.cost));
 }
 
-function tableRowHtml(html, symbol) {
+function tableRowsHtml(html, symbol) {
   const needle = ("<span class=\"sym\">" + String(symbol) + "</span>").toUpperCase();
-  const hit = html.split("<tr").slice(1).find(function (row) {
+  return html.split("<tr").slice(1).filter(function (row) {
     return row.toUpperCase().indexOf(needle) >= 0;
+  }).map(function (row) {
+    return "<tr" + row.slice(0, row.indexOf("</tr>") + 5);
   });
-  assert.ok(hit);
-  return "<tr" + hit.slice(0, hit.indexOf("</tr>") + 5);
+}
+
+function tableRowHtml(html, symbol) {
+  const rows = tableRowsHtml(html, symbol);
+  assert.ok(rows.length);
+  return rows[0];
 }
 
 function tdTexts(row) {
@@ -528,11 +534,13 @@ function tdTexts(row) {
 }
 
 function assertMissingCostDash(html, symbol) {
-  const cells = tdTexts(tableRowHtml(html, symbol));
-  assert.equal(cells[4], "\u2014");
-  assert.equal(cells[8], "\u2014");
-  assert.equal(cells[9], "\u2014");
-  [4, 8, 9].forEach(function (i) { assert.equal(cells[i].indexOf("$0.00"), -1); });
+  const dashed = tableRowsHtml(html, symbol).map(tdTexts).filter(function (c) {
+    return c[4] === "\u2014" && c[8] === "\u2014" && c[9] === "\u2014";
+  });
+  assert.ok(dashed.length >= 1);
+  dashed.forEach(function (c) {
+    [4, 8, 9].forEach(function (i) { assert.equal(c[i].indexOf("$0.00"), -1); });
+  });
 }
 
 function kpiValue(html, label) {
@@ -569,7 +577,10 @@ test("null cost renders a dash and a numeric cost still computes P&L", function 
 
   ctx.tab = "fidelity";
   const allHtml = ctx.fidelityDeskHtml();
-  assert.equal(kpiValue(allHtml, "P&L"), "\u2014");
+  const allStats = ctx.nameStats(fid.names);
+  assert.ok(allStats.pnl != null);
+  assert.match(allStats.excl, /^excl\./);
+  assert.equal(kpiValue(allHtml, "P&L"), ctx.pnlKpiText(allStats));
   missing.filter(function (n) { return fid.names.indexOf(n) >= 0; }).forEach(function (n) {
     assertMissingCostDash(allHtml, n.symbol);
   });
@@ -579,16 +590,14 @@ test("null cost renders a dash and a numeric cost still computes P&L", function 
     const html = ctx.fidelitySleeveDeskHtml();
     const names = s.names || [];
     if (!names.length) return;
-    if (names.some(costIsMissing)) {
+    const stats = ctx.nameStats(names);
+    if (!stats.hasCost) {
       assert.equal(kpiValue(html, "P&L"), "\u2014");
       names.filter(costIsMissing).forEach(function (n) { assertMissingCostDash(html, n.symbol); });
       return;
     }
-    const stats = ctx.nameStats(names);
-    assert.equal(stats.hasCost, true);
     assert.ok(stats.pnl != null);
-    const pctN = stats.cost ? (stats.pnl / stats.cost) * 100 : null;
-    assert.equal(kpiValue(html, "P&L"), ctx.money(stats.pnl) + " " + ctx.pct(pctN));
+    assert.equal(kpiValue(html, "P&L"), ctx.pnlKpiText(stats));
     const shown = ctx.collapseHouseNames(names);
     const sample = shown.find(function (n) { return n.cost != null && String(n.kind).toLowerCase() !== "cash"; }) || shown[0];
     const cells = tdTexts(tableRowHtml(html, sample.symbol));
@@ -608,7 +617,91 @@ test("null cost renders a dash and a numeric cost still computes P&L", function 
   setNarrow(ctx, false);
   const zeroHtml = ctx.custodialTableHtml([{ symbol: "ZZ", name: "Zero", kind: "equity", qty: 2, value: 5, cost: 0 }], 5);
   const zeroCells = tdTexts(tableRowHtml(zeroHtml, "ZZ"));
+  const zeroRow = ctx.collapseHouseNames([{ symbol: "ZZ", name: "Zero", kind: "equity", qty: 2, value: 5, cost: 0 }])[0];
   assert.equal(zeroCells[4], ctx.money(0));
   assert.equal(zeroCells[8], ctx.money(0));
-  assert.match(zeroCells[9], /\$/);
+  assert.equal(zeroRow.pnl_pct, null);
+  assert.equal(zeroCells[9], ctx.money(zeroRow.pnl) + " \u2014");
+  assert.equal(zeroCells[9].indexOf("%"), -1);
+});
+
+test("partial cost labels the excluded rows, keeps mixed sleeves apart, and dashes a zero percent", function () {
+  const ctx = boot();
+  const print = fidelityPrint();
+  const fid = print.accounts.fidelity;
+  const voya = print.accounts.voya;
+  const sleeves = ctx.buildFidelitySleeves(fid, print);
+  const bySym = {};
+  fid.names.forEach(function (n) {
+    const sym = String(n.symbol || "").toUpperCase();
+    (bySym[sym] = bySym[sym] || []).push(n);
+  });
+  const pair = Object.keys(bySym).map(function (sym) { return bySym[sym]; }).find(function (rows) {
+    return rows.some(costIsMissing) && rows.some(function (n) { return !costIsMissing(n); });
+  });
+  assert.ok(pair && pair.length >= 2);
+  const known = pair.find(function (n) { return !costIsMissing(n); });
+  const unknown = pair.find(costIsMissing);
+
+  ctx.snap = {
+    truthifi: print,
+    tape: {},
+    accounts: { fidelity: Object.assign({ sleeves: sleeves }, fid), voya: voya },
+    combined: { names: fid.names.concat(voya.names), cash: 0, buying_power: 0, invested_pct: 0, equity: 0 }
+  };
+  ctx.tab = "fidelity";
+  const allHtml = ctx.fidelityDeskHtml();
+  const allStats = ctx.nameStats(fid.names);
+  assert.ok(allStats.pnl != null && allStats.partial);
+  assert.equal(allStats.excl, "excl. " + ctx.costExcludeTag(unknown));
+  assert.equal(kpiValue(allHtml, "P&L"), ctx.pnlKpiText(allStats));
+  assert.match(kpiValue(allHtml, "P&L"), /\$/);
+
+  ctx.tab = "voya";
+  assert.equal(kpiValue(ctx.voyaDeskHtml(), "P&L"), "\u2014");
+  assert.equal(ctx.nameStats(voya.names).pnl, null);
+
+  const shown = ctx.collapseHouseNames(fid.names).filter(function (n) {
+    return n.symbol === String(known.symbol).toUpperCase();
+  });
+  assert.equal(shown.length, 2);
+  const knownShown = shown.find(function (n) { return n.cost != null; });
+  const unknownShown = shown.find(function (n) { return n.cost == null; });
+  assert.ok(knownShown && knownShown.pnl != null);
+  assert.equal(unknownShown.pnl, null);
+  assert.match(String(knownShown.sleeve), new RegExp(known.sleeve, "i"));
+  assert.match(String(unknownShown.sleeve), new RegExp(unknown.sleeve, "i"));
+
+  const fidRows = tableRowsHtml(allHtml, known.symbol).map(tdTexts);
+  const fidKnown = fidRows.find(function (c) { return c[1] === ctx.tidySleeveLabel(known.sleeve); });
+  const fidUnknown = fidRows.find(function (c) { return c[1] === ctx.tidySleeveLabel(unknown.sleeve); });
+  assert.ok(fidKnown && fidUnknown);
+  assert.equal(fidKnown[9], ctx.money(knownShown.pnl) + " " + ctx.pnlPctHtml(knownShown.pnl_pct));
+  assert.equal(fidUnknown[9], "\u2014");
+
+  ctx.tab = "combined";
+  const bookHtml = ctx.tableHtml(fid.names.concat(voya.names), true, true);
+  const bookRows = tableRowsHtml(bookHtml, known.symbol).map(tdTexts);
+  assert.equal(bookRows.length, 2);
+  const bookKnown = bookRows.find(function (c) { return c[1] === ctx.tidySleeveLabel(known.sleeve); });
+  const bookUnknown = bookRows.find(function (c) { return c[1] === ctx.tidySleeveLabel(unknown.sleeve); });
+  assert.ok(bookKnown && bookUnknown);
+  assert.match(bookKnown[6], /\$/);
+  assert.notEqual(bookKnown[6], "\u2014");
+  assert.equal(bookUnknown[6], "\u2014");
+
+  const houseNames = fid.names.concat(voya.names);
+  const houseStats = ctx.nameStats(houseNames);
+  const excluded = houseNames.filter(costIsMissing);
+  assert.ok(excluded.length > 2);
+  assert.equal(houseStats.excl, "excl. " + excluded.length + " names");
+  const houseHtml = ctx.stateHtml({ names: houseNames, cash: 0, buying_power: 0, invested_pct: 0, equity: 0 }, "House");
+  assert.equal(kpiValue(houseHtml, "P&L"), ctx.pnlKpiText(houseStats));
+  assert.match(kpiValue(houseHtml, "P&L"), /\$/);
+
+  const zeroRow = ctx.collapseHouseNames([{ symbol: "ZZ", name: "Zero", kind: "equity", qty: 1, value: 4, cost: 0 }])[0];
+  const zeroHtml = ctx.custodialTableHtml([zeroRow], 4);
+  const zeroCells = tdTexts(tableRowHtml(zeroHtml, "ZZ"));
+  assert.equal(zeroCells[8], ctx.money(0));
+  assert.equal(zeroCells[9], ctx.money(zeroRow.pnl) + " \u2014");
 });
