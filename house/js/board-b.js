@@ -85,7 +85,7 @@ function finiteBasis(v) {
   var n = Number(v);
   return isFinite(n) ? n : null;
 }
-/* Numeric cost, else avg × qty. Missing basis stays null — never an invented 0. */
+/* Numeric cost, else full-precision avg × qty. Missing basis stays null — never an invented 0. */
 function knownRowCost(n) {
   if (!n) return null;
   var direct = finiteBasis(n.cost);
@@ -94,6 +94,23 @@ function knownRowCost(n) {
   var avg = finiteBasis(n.avg != null ? n.avg : n.avg_cost);
   if (avg != null && isFinite(qty) && qty) return avg * qty;
   return null;
+}
+/* Printed unrealized, else value − cost, else value − qty × full-precision avg. Never qty × a rounded avg. */
+function lotPnl(n) {
+  if (!n) return { pnl: null, pct: null, cost: null };
+  var cost = knownRowCost(n);
+  if (cost == null) return { pnl: null, pct: null, cost: null };
+  var printed = finiteBasis(n.unrealized_pnl);
+  var printedPct = finiteBasis(n.unrealized_pnl_pct);
+  var value = finiteBasis(n.value);
+  var pnl = printed;
+  if (pnl == null && value != null) pnl = value - cost;
+  var pctV = null;
+  if (cost !== 0) {
+    if (printedPct != null) pctV = printedPct;
+    else if (pnl != null) pctV = (pnl / cost) * 100;
+  }
+  return { pnl: pnl, pct: pctV, cost: cost };
 }
 function collapseHouseNames(list) {
   /* Merge same ticker across books/sleeves into one Book row. */
@@ -112,6 +129,7 @@ function collapseHouseNames(list) {
     ta.forEach(function (t) { if (tb.indexOf(t) >= 0) n += 1; });
     return n > 0 && n / Math.min(ta.length, tb.length) >= 0.5;
   }
+  function srcAvg(n) { return finiteBasis(n.avg != null ? n.avg : n.avg_cost); }
   var groups = [];
   (list || []).forEach(function (n) {
     if (!n) return;
@@ -120,7 +138,8 @@ function collapseHouseNames(list) {
     var kind = normKind(n.kind);
     var qty = Number(n.qty) || 0;
     var value = Number(n.value) || 0;
-    var cost = knownRowCost(n);
+    var lot = lotPnl(n);
+    var cost = lot.cost;
     var costKnown = cost != null;
     var hit = null;
     for (var i = 0; i < groups.length; i++) {
@@ -138,10 +157,12 @@ function collapseHouseNames(list) {
         value: value,
         cost: costKnown ? cost : 0,
         costKnown: costKnown,
+        srcCount: 1,
+        pnlSum: costKnown ? lot.pnl : null,
+        printedPct: costKnown ? finiteBasis(n.unrealized_pnl_pct) : null,
+        printedAvg: srcAvg(n),
         last: n.last != null ? Number(n.last) : null,
         day_pct: n.day_pct != null ? Number(n.day_pct) : null,
-        unrealized_pnl: n.unrealized_pnl != null && isFinite(Number(n.unrealized_pnl)) ? Number(n.unrealized_pnl) : null,
-        unrealized_pnl_pct: n.unrealized_pnl_pct != null && isFinite(Number(n.unrealized_pnl_pct)) ? Number(n.unrealized_pnl_pct) : null,
         last_fill: n.last_fill || n.first_fill || "",
         first_fill: n.first_fill || "",
         next_stall: n.next_stall || "",
@@ -153,10 +174,14 @@ function collapseHouseNames(list) {
     }
     hit.qty += qty;
     hit.value += value;
+    hit.srcCount += 1;
+    hit.printedPct = null;
+    hit.printedAvg = null;
     if (!costKnown) hit.costKnown = false;
-    else if (hit.costKnown) hit.cost += cost;
-    if (n.unrealized_pnl != null && isFinite(Number(n.unrealized_pnl))) {
-      hit.unrealized_pnl = (hit.unrealized_pnl == null ? 0 : hit.unrealized_pnl) + Number(n.unrealized_pnl);
+    else if (hit.costKnown) {
+      hit.cost += cost;
+      if (hit.pnlSum == null || lot.pnl == null) hit.pnlSum = null;
+      else hit.pnlSum += lot.pnl;
     }
     if (hit.last == null && n.last != null) hit.last = Number(n.last);
     if (hit.day_pct == null && n.day_pct != null) hit.day_pct = Number(n.day_pct);
@@ -167,9 +192,7 @@ function collapseHouseNames(list) {
     if (n.sleeve && hit.sleeves.indexOf(String(n.sleeve)) < 0) hit.sleeves.push(String(n.sleeve));
     if ((n.name || "").length > (hit.name || "").length) hit.name = n.name;
   });
-  var _rnd = (typeof rnd === "function") ? rnd : function (x) { return Math.round(Number(x) * 100) / 100; };
   return groups.map(function (g) {
-    g.value = _rnd(g.value);
     if (!g.costKnown) {
       g.avg = null;
       g.cost = null;
@@ -178,21 +201,16 @@ function collapseHouseNames(list) {
       g.unrealized_pnl = null;
       g.unrealized_pnl_pct = null;
     } else {
-      g.avg = g.qty ? _rnd(g.cost / g.qty) : null;
-      g.cost = _rnd(g.cost);
-      g.pnl = _rnd(g.value - g.cost);
-      g.pnl_pct = g.cost ? _rnd((g.pnl / g.cost) * 100) : null;
-      if (g.unrealized_pnl == null && g.value != null && g.qty != null && g.avg != null) {
-        g.unrealized_pnl = _rnd(g.value - (g.qty * g.avg));
-      } else if (g.unrealized_pnl != null) {
-        g.unrealized_pnl = _rnd(g.unrealized_pnl);
+      g.avg = (g.srcCount === 1 && g.printedAvg != null) ? g.printedAvg : (g.qty ? g.cost / g.qty : null);
+      g.pnl = g.pnlSum;
+      g.unrealized_pnl = g.pnlSum;
+      var pctV = null;
+      if (g.cost !== 0) {
+        if (g.srcCount === 1 && g.printedPct != null) pctV = g.printedPct;
+        else if (g.pnl != null) pctV = (g.pnl / g.cost) * 100;
       }
-      if (!g.cost) g.unrealized_pnl_pct = null;
-      else if (g.unrealized_pnl_pct == null && g.unrealized_pnl != null) {
-        g.unrealized_pnl_pct = _rnd((g.unrealized_pnl / g.cost) * 100);
-      } else if (g.unrealized_pnl_pct != null) {
-        g.unrealized_pnl_pct = _rnd(g.unrealized_pnl_pct);
-      }
+      g.pnl_pct = pctV;
+      g.unrealized_pnl_pct = pctV;
     }
     if (g.sleeves.length) g.sleeve = g.sleeves.join(" \u00b7 ");
     return g;
@@ -201,22 +219,8 @@ function collapseHouseNames(list) {
 
 
   function nameUnrealized(n) {
-    if (!n) return { pnl: null, pct: null };
-    if (typeof knownRowCost === "function" && knownRowCost(n) == null) return { pnl: null, pct: null };
-    var pnl = n.unrealized_pnl != null && isFinite(Number(n.unrealized_pnl)) ? Number(n.unrealized_pnl) : null;
-    var pctV = n.unrealized_pnl_pct != null && isFinite(Number(n.unrealized_pnl_pct)) ? Number(n.unrealized_pnl_pct) : null;
-    var qty = n.qty != null ? Number(n.qty) : null;
-    var avg = n.avg != null ? Number(n.avg) : (n.avg_cost != null ? Number(n.avg_cost) : null);
-    var value = n.value != null ? Number(n.value) : null;
-    if (pnl == null && value != null && qty != null && avg != null && isFinite(value) && isFinite(qty) && isFinite(avg)) {
-      pnl = value - (qty * avg);
-    }
-    if (pctV == null && pnl != null && qty != null && avg != null && isFinite(qty * avg) && Math.abs(qty * avg) > 0.0005) {
-      pctV = (pnl / (qty * avg)) * 100;
-    }
-    if (pctV == null && n.pnl_pct != null && isFinite(Number(n.pnl_pct))) pctV = Number(n.pnl_pct);
-    if (pnl == null && n.pnl != null && isFinite(Number(n.pnl))) pnl = Number(n.pnl);
-    return { pnl: pnl, pct: pctV };
+    var lot = (typeof lotPnl === "function") ? lotPnl(n) : { pnl: null, pct: null };
+    return { pnl: lot.pnl, pct: lot.pct };
   }
   function moneyOrDash(n) {
     return (n == null || !isFinite(Number(n))) ? "\u2014" : money(n);
@@ -1004,7 +1008,7 @@ function collapseHouseNames(list) {
 
   /* tip bx — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904cd).
+     Defaults come from same-origin retirement.json (?v=20260904ce).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. Once that file has
      loaded, a missing or invalid federal block does not project without the
@@ -1471,7 +1475,7 @@ function collapseHouseNames(list) {
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904cd";
+    return (housePath ? name : "house/" + name) + "?v=20260904ce";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");
