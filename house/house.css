@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904ce");
-@import url("house-b.css?v=20260904ce");
-@import url("mix.css?v=20260904ce");
+@import url("house-a.css?v=20260904cf");
+@import url("house-b.css?v=20260904cf");
+@import url("mix.css?v=20260904cf");
 
 header .brand-block {
   min-width: 0;
@@ -172,6 +172,14 @@ header .header-end { grid-area: end; margin-left: 0; }
   table.book.custodial td:nth-child(6),
   table.book.custodial th:nth-child(9),
   table.book.custodial td:nth-child(9) { display: none; }
+  table.book td.book-src { max-width: 7.5rem; }
+  table.book td.book-src .book-src-lab {
+    display: block;
+    max-width: 7.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 .tape-card.tape-open { cursor: pointer; }
 .split-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
