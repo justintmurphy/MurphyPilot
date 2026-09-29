@@ -709,11 +709,12 @@ function nameStats(names) {
   var value = 0, cost = 0, pnl = 0, saw = false, excluded = [], n = names || [];
   n.forEach(function (row) {
     value += Number(row.value) || 0;
-    var c = typeof knownRowCost === "function" ? knownRowCost(row) : null;
+    var lot = (typeof lotPnl === "function") ? lotPnl(row) : null;
+    var c = lot ? lot.cost : (typeof knownRowCost === "function" ? knownRowCost(row) : null);
     if (c == null) { excluded.push(row); return; }
     saw = true;
     cost += c;
-    var rowPnl = (row.pnl != null && isFinite(Number(row.pnl))) ? Number(row.pnl) : ((Number(row.value) || 0) - c);
+    var rowPnl = (lot && lot.pnl != null) ? lot.pnl : ((Number(row.value) || 0) - c);
     pnl += rowPnl;
   });
   /* No costed row: dash. Some costed rows: P&L covers only those, and names the rest. */
@@ -743,9 +744,9 @@ function pnlPctHtml(pctN) {
   return pct(pctN);
 }
 function rowPnlHtml(n) {
-  if (typeof knownRowCost === "function" && knownRowCost(n) == null) return "\u2014";
-  if (!n || n.pnl == null || !isFinite(Number(n.pnl))) return "\u2014";
-  return money(n.pnl) + " " + pnlPctHtml(n.pnl_pct);
+  var lot = (typeof lotPnl === "function") ? lotPnl(n) : null;
+  if (!lot || lot.pnl == null || !isFinite(Number(lot.pnl))) return "\u2014";
+  return money(lot.pnl) + " " + pnlPctHtml(lot.pct);
 }
 function custodialFigures(b) {
   var held = null;

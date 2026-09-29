@@ -705,3 +705,75 @@ test("partial cost labels the excluded rows, keeps mixed sleeves apart, and dash
   assert.equal(zeroCells[8], ctx.money(0));
   assert.equal(zeroCells[9], ctx.money(zeroRow.pnl) + " \u2014");
 });
+
+function housePrint() {
+  return JSON.parse(fs.readFileSync(path.join(root, "house/house-snapshot.json"), "utf8"));
+}
+
+test("printed unrealized matches across combined, Robinhood, Individual, and the brokerage sleeve", function () {
+  const ctx = boot();
+  vm.runInContext(fs.readFileSync(path.join(root, "house/js/board-d.js"), "utf8"), ctx, { filename: "board-d.js" });
+  const house = housePrint();
+  const print = fidelityPrint();
+  const xrp = (house.accounts.individual.names || []).find(function (n) {
+    return String(n.symbol || "").toUpperCase() === "XRP";
+  });
+  assert.ok(xrp);
+  assert.equal(Number.isFinite(Number(xrp.unrealized_pnl)), true);
+  assert.equal(Number.isFinite(Number(xrp.unrealized_pnl_pct)), true);
+  const expected = ctx.money(xrp.unrealized_pnl) + " " + ctx.pct(xrp.unrealized_pnl_pct);
+  const roundedAvg = ctx.rnd(Number(xrp.avg));
+  const badPnl = Number(xrp.value) - Number(xrp.qty) * roundedAvg;
+  const bad = ctx.money(badPnl) + " " + ctx.pct((badPnl / (Number(xrp.qty) * roundedAvg)) * 100);
+  assert.notEqual(expected, bad);
+
+  const snap = ctx.merge(house, null, print);
+  ctx.snap = snap;
+  ctx.tab = "combined";
+  const combinedCell = tdTexts(tableRowHtml(ctx.tableHtml(snap.combined.names, true), "XRP"))[6];
+  ctx.tab = "robinhood";
+  const rhCell = tdTexts(tableRowHtml(ctx.tableHtml(snap.robinhood.names, true), "XRP"))[6];
+  ctx.tab = "individual";
+  const indCell = tdTexts(tableRowHtml(ctx.tableHtml(snap.accounts.individual.names, false), "XRP"))[5];
+  assert.equal(combinedCell, expected);
+  assert.equal(rhCell, expected);
+  assert.equal(indCell, expected);
+
+  const collapsed = snap.combined.names.find(function (n) { return n.symbol === "XRP"; });
+  assert.ok(collapsed);
+  assert.equal(collapsed.unrealized_pnl, Number(xrp.unrealized_pnl));
+  assert.equal(collapsed.unrealized_pnl_pct, Number(xrp.unrealized_pnl_pct));
+  assert.equal(collapsed.avg, Number(xrp.avg));
+
+  const fid = print.accounts.fidelity;
+  const bySym = {};
+  fid.names.forEach(function (n) {
+    const sym = String(n.symbol || "").toUpperCase();
+    (bySym[sym] = bySym[sym] || []).push(n);
+  });
+  const pair = Object.keys(bySym).map(function (sym) { return bySym[sym]; }).find(function (rows) {
+    return rows.some(costIsMissing) && rows.some(function (n) { return !costIsMissing(n); });
+  });
+  assert.ok(pair);
+  const known = pair.find(function (n) { return !costIsMissing(n); });
+  const sleeve = (snap.accounts.fidelity.sleeves || []).find(function (s) {
+    return (s.names || []).some(function (n) {
+      return String(n.symbol || "").toUpperCase() === String(known.symbol).toUpperCase() && !costIsMissing(n);
+    });
+  });
+  assert.ok(sleeve);
+  ctx.tab = "fid-" + sleeve.id;
+  const sleeveCell = tdTexts(tableRowHtml(ctx.fidelitySleeveDeskHtml(), known.symbol))[9];
+  ctx.tab = "combined";
+  const bookKnown = tableRowsHtml(ctx.tableHtml(snap.combined.names, true), known.symbol).map(tdTexts).find(function (c) {
+    return c[1] === ctx.tidySleeveLabel(known.sleeve);
+  });
+  assert.ok(bookKnown);
+  assert.equal(bookKnown[6], sleeveCell);
+  ctx.tab = "fidelity";
+  const allKnown = tableRowsHtml(ctx.fidelityDeskHtml(), known.symbol).map(tdTexts).find(function (c) {
+    return c[1] === ctx.tidySleeveLabel(known.sleeve);
+  });
+  assert.ok(allKnown);
+  assert.equal(allKnown[9], sleeveCell);
+});
