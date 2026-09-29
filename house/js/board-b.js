@@ -47,6 +47,21 @@ function bookDisplayLabel(id, book) {
   return base;
 }
 
+function finiteBasis(v) {
+  if (v == null || v === "") return null;
+  var n = Number(v);
+  return isFinite(n) ? n : null;
+}
+/* Numeric cost, else avg × qty. Missing basis stays null — never an invented 0. */
+function knownRowCost(n) {
+  if (!n) return null;
+  var direct = finiteBasis(n.cost);
+  if (direct != null) return direct;
+  var qty = Number(n.qty);
+  var avg = finiteBasis(n.avg != null ? n.avg : n.avg_cost);
+  if (avg != null && isFinite(qty) && qty) return avg * qty;
+  return null;
+}
 function collapseHouseNames(list) {
   /* Merge same ticker across books/sleeves into one Book row. */
   function normSym(s) { return String(s || "").trim().toUpperCase(); }
@@ -77,8 +92,8 @@ function collapseHouseNames(list) {
     }
     var qty = Number(n.qty) || 0;
     var value = Number(n.value) || 0;
-    var cost = n.cost != null ? Number(n.cost) : ((n.avg != null && qty) ? Number(n.avg) * qty : 0);
-    if (!isFinite(cost)) cost = 0;
+    var cost = knownRowCost(n);
+    var costKnown = cost != null;
     if (!hit) {
       groups.push({
         symbol: sym,
@@ -87,7 +102,8 @@ function collapseHouseNames(list) {
         asset_class: n.asset_class || kind,
         qty: qty,
         value: value,
-        cost: cost,
+        cost: costKnown ? cost : 0,
+        costKnown: costKnown,
         last: n.last != null ? Number(n.last) : null,
         day_pct: n.day_pct != null ? Number(n.day_pct) : null,
         unrealized_pnl: n.unrealized_pnl != null && isFinite(Number(n.unrealized_pnl)) ? Number(n.unrealized_pnl) : null,
@@ -103,7 +119,8 @@ function collapseHouseNames(list) {
     }
     hit.qty += qty;
     hit.value += value;
-    hit.cost += cost;
+    if (!costKnown) hit.costKnown = false;
+    else if (hit.costKnown) hit.cost += cost;
     if (n.unrealized_pnl != null && isFinite(Number(n.unrealized_pnl))) {
       hit.unrealized_pnl = (hit.unrealized_pnl == null ? 0 : hit.unrealized_pnl) + Number(n.unrealized_pnl);
     }
@@ -118,20 +135,29 @@ function collapseHouseNames(list) {
   });
   var _rnd = (typeof rnd === "function") ? rnd : function (x) { return Math.round(Number(x) * 100) / 100; };
   return groups.map(function (g) {
-    g.avg = g.qty ? _rnd(g.cost / g.qty) : null;
     g.value = _rnd(g.value);
-    g.cost = _rnd(g.cost);
-    g.pnl = _rnd(g.value - g.cost);
-    g.pnl_pct = g.cost ? _rnd((g.pnl / g.cost) * 100) : null;
-    if (g.unrealized_pnl == null && g.value != null && g.qty != null && g.avg != null) {
-      g.unrealized_pnl = _rnd(g.value - (g.qty * g.avg));
-    } else if (g.unrealized_pnl != null) {
-      g.unrealized_pnl = _rnd(g.unrealized_pnl);
-    }
-    if (g.unrealized_pnl_pct == null && g.unrealized_pnl != null && g.cost) {
-      g.unrealized_pnl_pct = _rnd((g.unrealized_pnl / g.cost) * 100);
-    } else if (g.unrealized_pnl_pct != null) {
-      g.unrealized_pnl_pct = _rnd(g.unrealized_pnl_pct);
+    if (!g.costKnown) {
+      g.avg = null;
+      g.cost = null;
+      g.pnl = null;
+      g.pnl_pct = null;
+      g.unrealized_pnl = null;
+      g.unrealized_pnl_pct = null;
+    } else {
+      g.avg = g.qty ? _rnd(g.cost / g.qty) : null;
+      g.cost = _rnd(g.cost);
+      g.pnl = _rnd(g.value - g.cost);
+      g.pnl_pct = g.cost ? _rnd((g.pnl / g.cost) * 100) : null;
+      if (g.unrealized_pnl == null && g.value != null && g.qty != null && g.avg != null) {
+        g.unrealized_pnl = _rnd(g.value - (g.qty * g.avg));
+      } else if (g.unrealized_pnl != null) {
+        g.unrealized_pnl = _rnd(g.unrealized_pnl);
+      }
+      if (g.unrealized_pnl_pct == null && g.unrealized_pnl != null && g.cost) {
+        g.unrealized_pnl_pct = _rnd((g.unrealized_pnl / g.cost) * 100);
+      } else if (g.unrealized_pnl_pct != null) {
+        g.unrealized_pnl_pct = _rnd(g.unrealized_pnl_pct);
+      }
     }
     if (g.sleeves.length) g.sleeve = g.sleeves.join(" \u00b7 ");
     return g;
@@ -141,6 +167,7 @@ function collapseHouseNames(list) {
 
   function nameUnrealized(n) {
     if (!n) return { pnl: null, pct: null };
+    if (typeof knownRowCost === "function" && knownRowCost(n) == null) return { pnl: null, pct: null };
     var pnl = n.unrealized_pnl != null && isFinite(Number(n.unrealized_pnl)) ? Number(n.unrealized_pnl) : null;
     var pctV = n.unrealized_pnl_pct != null && isFinite(Number(n.unrealized_pnl_pct)) ? Number(n.unrealized_pnl_pct) : null;
     var qty = n.qty != null ? Number(n.qty) : null;
@@ -771,7 +798,7 @@ function collapseHouseNames(list) {
       var uHtml = (u.pnl == null && u.pct == null) ? "\u2014" : (moneyOrDash(u.pnl) + " " + pct(u.pct));
       return "<tr><td class=\"name-cell tone-" + nameTone + "\">" + nameSiteLink(n, inner) + "</td>" +
         (showBook ? "<td>" + esc(books) + "</td>" : "") +
-        '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (n.avg == null ? "\u2014" : money(n.avg)) + "</td>" +
+        '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (n.avg == null || !isFinite(Number(n.avg)) ? "\u2014" : money(n.avg)) + "</td>" +
         '<td class="num">' + (n.last == null ? "\u2014" : money(n.last)) + "</td>" +
         '<td class="num">' + moneyOrDash(n.value) + '</td><td class="num tone-' + tone(u.pnl) + '">' + uHtml + "</td></tr>";
     }).join("");
@@ -937,7 +964,7 @@ function collapseHouseNames(list) {
 
   /* tip bx — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904cb).
+     Defaults come from same-origin retirement.json (?v=20260904cc).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. Once that file has
      loaded, a missing or invalid federal block does not project without the
@@ -1404,7 +1431,7 @@ function collapseHouseNames(list) {
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904cb";
+    return (housePath ? name : "house/" + name) + "?v=20260904cc";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");
