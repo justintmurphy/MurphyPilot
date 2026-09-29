@@ -113,8 +113,8 @@
       else if (assetClass === "crypto" || /^(BTC|ETH|DOGE|XRP|SOL|ADA|AVAX|LINK|MATIC|SHIB|DOT)$/i.test(String(n.symbol || ""))) assetClass = "crypto";
       else if (assetClass !== "crypto" && assetClass !== "option") assetClass = "equity";
       var row = { symbol: n.symbol, name: n.name || n.symbol, kind: assetClass === "option" ? "option" : assetClass, asset_class: assetClass, qty: q, avg: avg, last: last, value: value, cost: cost, pnl: pnl, pnl_pct: pnl_pct, first_fill: n.first_fill || "", last_fill: n.last_fill || LAST_FILL["agentic|" + n.symbol] || n.first_fill || "", next_stall: n.next_stall || "", account: "agentic", accounts: ["agentic"] };
-      if (uPnl != null && isFinite(uPnl)) row.unrealized_pnl = rnd(uPnl);
-      if (uPct != null && isFinite(uPct)) row.unrealized_pnl_pct = rnd(uPct);
+      if (uPnl != null && isFinite(uPnl)) row.unrealized_pnl = uPnl;
+      if (uPct != null && isFinite(uPct)) row.unrealized_pnl_pct = uPct;
       return row;
     });
     var out = {

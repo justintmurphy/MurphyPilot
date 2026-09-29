@@ -112,6 +112,52 @@ function lotPnl(n) {
   }
   return { pnl: pnl, pct: pctV, cost: cost };
 }
+/* Printed avg, else cost ÷ qty. Missing stays null so the cell can dash. */
+function displayAvg(n) {
+  if (!n) return null;
+  var printed = finiteBasis(n.avg != null ? n.avg : n.avg_cost);
+  if (printed != null) return printed;
+  var cost = finiteBasis(n.cost);
+  var qty = Number(n.qty);
+  if (cost != null && isFinite(qty) && qty) return cost / qty;
+  return null;
+}
+function cleanBookName(id) {
+  var book = (typeof snap !== "undefined" && snap && snap.accounts && snap.accounts[id]) || {};
+  var base = (book && book.label) || (typeof LABEL !== "undefined" && LABEL[id]) || id || "";
+  base = String(base).replace(/\s*···\d+$/, "");
+  if (id === "voya" || book.id === "voya" || base === "Voya" || base === "Voya 401(k)") {
+    base = tidySleeveLabel((book && book.sleeve) || "401(k)");
+    if (base === "Voya" || base === "Voya 401(k)") base = "401(k)";
+  }
+  if (id === "auto_grok" || base === "Auto-Grok" || base === "Auto Grok" || base === "Auto") base = "Grok";
+  if (id === "joint" || base === "Joint") base = "Deep Seek";
+  if (id === "agentic" || base === "Agentic" || base === "Claude") base = "AI WWIII";
+  if (id === "individual" || base === "Individual") base = "Individual";
+  if (id === "robinhood") base = "Robinhood";
+  if (id === "fidelity") base = "Fidelity";
+  return base;
+}
+function formatSourceLabels(labels) {
+  var uniq = [];
+  (labels || []).forEach(function (s) {
+    s = String(s || "").trim();
+    if (!s || s === "\u2014" || s === "—" || uniq.indexOf(s) >= 0) return;
+    uniq.push(s);
+  });
+  if (uniq.length <= 2) return uniq.join(" \u00b7 ");
+  return uniq[0] + " \u00b7 " + uniq[1] + " +" + (uniq.length - 2);
+}
+function mergedBookLabel(g) {
+  var books = (g.bookIds || []).map(cleanBookName).filter(Boolean);
+  var all = (g.sleeveLabs || []).concat(books);
+  if (all.length === 1 && !(g.sleeveLabs || []).length && (g.bookIds || []).length === 1 && typeof bookDisplayLabel === "function") {
+    var id = g.bookIds[0];
+    var book = (typeof snap !== "undefined" && snap && snap.accounts && snap.accounts[id]) || {};
+    return bookDisplayLabel(id, book);
+  }
+  return formatSourceLabels(all);
+}
 function collapseHouseNames(list) {
   /* Merge same ticker across books/sleeves into one Book row. */
   function normSym(s) { return String(s || "").trim().toUpperCase(); }
@@ -130,6 +176,28 @@ function collapseHouseNames(list) {
     return n > 0 && n / Math.min(ta.length, tb.length) >= 0.5;
   }
   function srcAvg(n) { return finiteBasis(n.avg != null ? n.avg : n.avg_cost); }
+  function pushUnique(arr, v) {
+    if (v == null || v === "") return;
+    var s = String(v);
+    if (arr.indexOf(s) < 0) arr.push(s);
+  }
+  function absorbLotSources(g, n) {
+    if (n && (n.sleeveLabs || n.bookIds)) {
+      (n.sleeveLabs || []).forEach(function (lab) { pushUnique(g.sleeveLabs, lab); });
+      (n.bookIds || []).forEach(function (id) { pushUnique(g.bookIds, id); });
+      return;
+    }
+    var sleeveRaw = n && n.sleeve ? String(n.sleeve) : "";
+    if (sleeveRaw) {
+      sleeveRaw.split(/\s*·\s*/).forEach(function (part) {
+        var lab = tidySleeveLabel(part);
+        if (lab && lab !== "\u2014" && lab !== "—") pushUnique(g.sleeveLabs, lab);
+      });
+      return;
+    }
+    var ids = (n && n.accounts && n.accounts.length) ? n.accounts : (n && n.account ? [n.account] : []);
+    ids.forEach(function (id) { pushUnique(g.bookIds, id); });
+  }
   var groups = [];
   (list || []).forEach(function (n) {
     if (!n) return;
@@ -168,13 +236,17 @@ function collapseHouseNames(list) {
         next_stall: n.next_stall || "",
         accounts: (n.accounts || [n.account]).filter(Boolean),
         sleeves: n.sleeve ? [String(n.sleeve)] : [],
+        sleeveLabs: [],
+        bookIds: [],
         account: n.account
       });
+      absorbLotSources(groups[groups.length - 1], n);
       return;
     }
     hit.qty += qty;
     hit.value += value;
     hit.srcCount += 1;
+    absorbLotSources(hit, n);
     hit.printedPct = null;
     hit.printedAvg = null;
     if (!costKnown) hit.costKnown = false;
@@ -213,6 +285,7 @@ function collapseHouseNames(list) {
       g.unrealized_pnl_pct = pctV;
     }
     if (g.sleeves.length) g.sleeve = g.sleeves.join(" \u00b7 ");
+    g.bookLabel = mergedBookLabel(g);
     return g;
   });
 }
@@ -829,7 +902,7 @@ function collapseHouseNames(list) {
       '<th class="num">Value</th><th class="num">Unrealized</th></tr>';
     var rows = names.map(function (n) {
       var sleeveLab = n.sleeve ? sleeveBitsLabel(n.sleeve) : "";
-      var books = sleeveLab || (n.accounts || []).map(function (a) {
+      var books = n.bookLabel || sleeveLab || (n.accounts || []).map(function (a) {
         return (typeof bookDisplayLabel === "function") ? bookDisplayLabel(a, (snap.accounts && snap.accounts[a]) || {}) : (LABEL[a] || a);
       }).join(" \u00b7 ") || ((typeof bookDisplayLabel === "function" && n.account) ? bookDisplayLabel(n.account, (snap.accounts && snap.accounts[n.account]) || {}) : (LABEL[n.account] || ""));
       var u = nameUnrealized(n);
@@ -841,8 +914,8 @@ function collapseHouseNames(list) {
       var inner = "<span class=\"sym\">" + esc(n.symbol) + '</span><span class="sub">' + sub + "</span>";
       var uHtml = (u.pnl == null && u.pct == null) ? "\u2014" : (moneyOrDash(u.pnl) + " " + (u.pct == null || !isFinite(Number(u.pct)) ? "\u2014" : pct(u.pct)));
       return "<tr><td class=\"name-cell tone-" + nameTone + "\">" + nameSiteLink(n, inner) + "</td>" +
-        (showBook ? "<td>" + esc(books) + "</td>" : "") +
-        '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (n.avg == null || !isFinite(Number(n.avg)) ? "\u2014" : money(n.avg)) + "</td>" +
+        (showBook ? "<td class=\"book-src\"><span class=\"book-src-lab\">" + esc(books) + "</span></td>" : "") +
+        '<td class="num">' + qty(n.qty) + '</td><td class="num">' + (function () { var a = (typeof displayAvg === "function") ? displayAvg(n) : n.avg; return (a == null || !isFinite(Number(a)) ? "\u2014" : money(a)); })() + "</td>" +
         '<td class="num">' + (n.last == null ? "\u2014" : money(n.last)) + "</td>" +
         '<td class="num">' + moneyOrDash(n.value) + '</td><td class="num tone-' + tone(u.pnl) + '">' + uHtml + "</td></tr>";
     }).join("");
@@ -1008,7 +1081,7 @@ function collapseHouseNames(list) {
 
   /* tip bx — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904ce).
+     Defaults come from same-origin retirement.json (?v=20260904cf).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. Once that file has
      loaded, a missing or invalid federal block does not project without the
@@ -1475,7 +1548,7 @@ function collapseHouseNames(list) {
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904ce";
+    return (housePath ? name : "house/" + name) + "?v=20260904cf";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");

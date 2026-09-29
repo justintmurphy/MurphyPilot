@@ -777,3 +777,100 @@ test("printed unrealized matches across combined, Robinhood, Individual, and the
   assert.ok(allKnown);
   assert.equal(allKnown[9], sleeveCell);
 });
+
+test("merged rows keep full-precision agentic P&L, every source, and one average", function () {
+  const ctx = boot();
+  vm.runInContext(fs.readFileSync(path.join(root, "house/js/board-d.js"), "utf8"), ctx, { filename: "board-d.js" });
+  const house = housePrint();
+  const print = fidelityPrint();
+  const snap = ctx.merge(house, null, print);
+  ctx.snap = snap;
+  ctx.tab = "combined";
+  const bookHtml = ctx.tableHtml(snap.combined.names, true);
+
+  function bookCell(symbol) {
+    return tableRowsHtml(bookHtml, symbol).map(tdTexts).map(function (c) { return c[1]; });
+  }
+  function unrealizedCell(symbol) {
+    const rows = tableRowsHtml(bookHtml, symbol).map(tdTexts);
+    assert.equal(rows.length, 1);
+    return rows[0][6];
+  }
+  function contributors(symbol) {
+    const rows = [];
+    ["agentic", "individual", "auto_grok", "joint"].forEach(function (id) {
+      (((house.accounts || {})[id] || {}).names || []).forEach(function (n) {
+        if (String(n.symbol || "").toUpperCase() === symbol) rows.push(Object.assign({ account: id }, n));
+      });
+    });
+    ((((print.accounts || {}).fidelity || {}).names) || []).forEach(function (n) {
+      if (String(n.symbol || "").toUpperCase() === symbol) rows.push(Object.assign({ account: "fidelity" }, n));
+    });
+    return rows.filter(function (n) { return ctx.knownRowCost(n) != null; });
+  }
+  function summed(rows, roundAgentic) {
+    let pnl = 0;
+    let cost = 0;
+    rows.forEach(function (n) {
+      const copy = Object.assign({}, n);
+      if (roundAgentic && n.account === "agentic" && copy.unrealized_pnl != null) copy.unrealized_pnl = ctx.rnd(copy.unrealized_pnl);
+      const lot = ctx.lotPnl(copy);
+      pnl += lot.pnl;
+      cost += lot.cost;
+    });
+    return ctx.money(pnl) + " " + ctx.pct((pnl / cost) * 100);
+  }
+
+  ["LMT", "MP"].forEach(function (symbol) {
+    const rows = contributors(symbol);
+    assert.ok(rows.some(function (n) { return n.account === "agentic"; }));
+    const full = summed(rows, false);
+    const rounded = summed(rows, true);
+    assert.notEqual(full, rounded);
+    assert.equal(unrealizedCell(symbol), full);
+  });
+
+  assert.deepEqual(bookCell("TSLA"), ["Brokerage · Individual"]);
+  assert.deepEqual(bookCell("LMT"), ["Brokerage · AI WWIII"]);
+  assert.deepEqual(bookCell("NVDA"), ["Brokerage · Individual +2"]);
+  assert.deepEqual(bookCell("NRG"), ["Personal · Grok +1"]);
+  assert.deepEqual(bookCell("VST"), ["Personal · Grok +1"]);
+  assert.deepEqual(bookCell("MP"), ["AI WWIII · Grok +1"]);
+  bookCell("NVDA").concat(bookCell("NRG"), bookCell("MP")).forEach(function (label) {
+    assert.equal(label.indexOf("···"), -1);
+  });
+
+  const houseSyms = {};
+  ["agentic", "individual", "auto_grok", "joint"].forEach(function (id) {
+    (((house.accounts || {})[id] || {}).names || []).forEach(function (n) {
+      houseSyms[String(n.symbol || "").toUpperCase()] = true;
+    });
+  });
+  const alone = (print.accounts.fidelity.names || []).find(function (n) {
+    return !houseSyms[String(n.symbol || "").toUpperCase()] && n.sleeve && ctx.knownRowCost(n) != null;
+  });
+  assert.ok(alone);
+  const aloneLabel = bookCell(String(alone.symbol).toUpperCase());
+  assert.deepEqual(aloneLabel, [ctx.tidySleeveLabel(alone.sleeve)]);
+  assert.equal(aloneLabel[0].indexOf("·"), -1);
+
+  const spcx = (house.accounts.individual.names || []).find(function (n) {
+    return String(n.symbol || "").toUpperCase() === "SPCX";
+  });
+  assert.ok(spcx);
+  assert.equal(spcx.avg == null, true);
+  assert.equal(Number.isFinite(Number(spcx.avg_cost)), true);
+  const expectedAvg = ctx.money(ctx.displayAvg(spcx));
+  assert.notEqual(expectedAvg, "\u2014");
+  ctx.tab = "individual";
+  const indAvg = tdTexts(tableRowHtml(ctx.tableHtml(snap.accounts.individual.names, false), "SPCX"))[2];
+  ctx.tab = "robinhood";
+  const rhAvg = tdTexts(tableRowHtml(ctx.tableHtml(snap.robinhood.names, true), "SPCX"))[3];
+  const combinedSpcx = tableRowsHtml(bookHtml, "SPCX").map(tdTexts).find(function (c) {
+    return c[1] !== ctx.tidySleeveLabel("BNY");
+  });
+  assert.ok(combinedSpcx);
+  assert.equal(indAvg, expectedAvg);
+  assert.equal(rhAvg, expectedAvg);
+  assert.equal(combinedSpcx[3], expectedAvg);
+});
