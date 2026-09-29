@@ -21,15 +21,15 @@ function collapseHouseNames(list) {
     var sym = normSym(n.symbol);
     if (!sym) return;
     var kind = normKind(n.kind);
-    var hit = null;
-    for (var i = 0; i < groups.length; i++) {
-      var g = groups[i];
-      if (g.symbol === sym && g.kind === kind && sameName(g.name, n.name || sym)) { hit = g; break; }
-    }
     var qty = Number(n.qty) || 0;
     var value = Number(n.value) || 0;
     var cost = (typeof knownRowCost === "function") ? knownRowCost(n) : null;
     var costKnown = cost != null;
+    var hit = null;
+    for (var i = 0; i < groups.length; i++) {
+      var g = groups[i];
+      if (g.symbol === sym && g.kind === kind && g.costKnown === costKnown && sameName(g.name, n.name || sym)) { hit = g; break; }
+    }
     if (!hit) {
       groups.push({
         symbol: sym,
