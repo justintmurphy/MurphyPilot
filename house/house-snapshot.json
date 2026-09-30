@@ -1,7 +1,7 @@
 {
   "asof": "2026-09-30T15:07:05-04:00",
   "tip": "ba+bb+bc+be+bg+bh+bi+bj",
-  "note": "Wed 15:02 Site data House/pilot weekday refresh. live RH portfolios+positions+realized+quotes+crypto; Yahoo indexes (RH get_index_quotes arg reject; Wed 15:02). KEEP cashflow_30d. Truthifi untouched. Quiet Justin. | cashflow_30d KEPT from Tue Fid-only Close 2026-09-29 (2026-08-30\u21922026-09-28; asof 2026-09-29T16:25:00-04:00).",
+  "note": "Wed 15:02 Site data House/pilot weekday refresh. live RH portfolios+positions+realized+quotes+crypto; Yahoo indexes (RH get_index_quotes arg reject; Wed 15:02). KEEP cashflow_30d. Truthifi untouched. Quiet Justin. | cashflow_30d KEPT from Tue Fid-only Close 2026-09-29 (2026-08-30\u21922026-09-28; asof 2026-09-29T16:25:00-04:00). | Forge Close Fid+Voya cashflow_30d recompute 2026-09-30 after tip dd6544f. Window 2026-08-31\u21922026-09-29. Voya by_source refreshed.",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -834,11 +834,11 @@
     },
     "invested_pct": 99.17,
     "cashflow_30d": {
-      "asof": "2026-09-29T16:25:00-04:00",
-      "from": "2026-08-30",
-      "to": "2026-09-28",
+      "asof": "2026-09-30T16:21:01-04:00",
+      "from": "2026-08-31",
+      "to": "2026-09-29",
       "owner_deposits": 1121.91,
-      "market_earnings": -808.05,
+      "market_earnings": -1347.1,
       "market_earnings_basis": "rh_realized+truthifi_totalPnL",
       "window_days": 30,
       "dividends": 0.85,
@@ -850,13 +850,13 @@
         },
         "fidelity": {
           "owner_deposits": 217.97,
-          "market_earnings": -142.12,
+          "market_earnings": -146.73,
           "dividends": 0.85,
           "reinvested": 0.84
         },
         "voya": {
           "owner_deposits": 653.94,
-          "market_earnings": -614.03
+          "market_earnings": -1148.47
         }
       }
     }
