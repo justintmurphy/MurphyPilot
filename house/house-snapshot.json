@@ -1,7 +1,7 @@
 {
   "asof": "2026-10-01T15:08:43-04:00",
   "tip": "ba+bb+bc+be+bg+bh+bi+bj",
-  "note": "Thu 15:02 Site data House/pilot weekday refresh. live RH portfolios+positions+realized+quotes+crypto; Yahoo indexes (RH get_index_quotes arg reject; Thu 15:02). KEEP cashflow_30d. Truthifi untouched. Quiet Justin. | cashflow_30d KEPT from Wed Close Fid+Voya 2026-09-30 (2026-08-31\u21922026-09-29; asof 2026-09-30T16:21:01-04:00).",
+  "note": "Thu Fid-only Close cashflow_30d recompute 2026-10-01 after tip 3cff393. RH books KEPT (AI WWIII). Window 2026-09-01\u21922026-09-30. Voya by_source KEPT.",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -834,25 +834,25 @@
     },
     "invested_pct": 99.16,
     "cashflow_30d": {
-      "asof": "2026-09-30T16:21:01-04:00",
-      "from": "2026-08-31",
-      "to": "2026-09-29",
+      "asof": "2026-10-01T16:23:00-04:00",
+      "from": "2026-09-01",
+      "to": "2026-09-30",
       "owner_deposits": 1121.91,
-      "market_earnings": -1347.1,
+      "market_earnings": -1346.9,
       "market_earnings_basis": "rh_realized+truthifi_totalPnL",
       "window_days": 30,
-      "dividends": 0.85,
-      "reinvested": 0.84,
+      "dividends": 0.96,
+      "reinvested": 0.85,
       "by_source": {
         "robinhood": {
           "owner_deposits": 250.0,
-          "market_earnings": -51.9
+          "market_earnings": -49.68
         },
         "fidelity": {
           "owner_deposits": 217.97,
-          "market_earnings": -146.73,
-          "dividends": 0.85,
-          "reinvested": 0.84
+          "market_earnings": -148.75,
+          "dividends": 0.96,
+          "reinvested": 0.85
         },
         "voya": {
           "owner_deposits": 653.94,
