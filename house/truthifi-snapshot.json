@@ -1,16 +1,16 @@
 {
   "asof": "2026-09-30",
   "source": "Truthifi",
-  "note": "Holdings EOD 2026-09-30. Fid-only scan 6abe95f8c66970d88097a635 complete 2026-10-01 13:19 ET. Voya untouched (not scanned). Cash sweeps counted as cash. ESPP empty. RSU 2 BNY. names[] full Truthifi securityName; Fid accounts[]+suffix last-4+equity.",
-  "scanned_at": "2026-10-01 13:19 ET",
+  "note": "Holdings EOD Fid 2026-09-30 / Voya 2026-09-29 KEPT untouched. Fidelity-only Close scan 6abec07df067cc966cba824e 2026-10-01 16:22 ET. Voya not scanned (Thu Fid-only). Cash sweeps counted as cash. ESPP empty. RSU 2 BNY. names[] full Truthifi securityName; Fid accounts[]+suffix last-4+equity.",
+  "scanned_at": "2026-10-01 16:22 ET",
   "holdings_asof": "2026-09-30",
   "overall": {
-    "equity": 67881.969,
-    "live_equity": 3319.88,
+    "equity": 67861.899,
+    "live_equity": 3299.81,
     "custodial_equity": 64562.089,
-    "asof": "2026-10-01T13:19:00-04:00",
+    "asof": "2026-10-01T16:22:00-04:00",
     "holdings_asof": "2026-09-30",
-    "live_asof": "2026-09-30T15:07:05-04:00"
+    "live_asof": "2026-10-01T15:08:43-04:00"
   },
   "accounts": {
     "fidelity": {
@@ -155,7 +155,7 @@
         {
           "symbol": "FDFIX",
           "name": "Fidelity Concord Street Trust - Fidelity Flex 500 Index Fund USD",
-          "kind": "equity",
+          "kind": "fund",
           "qty": 5.375,
           "last": 32.61,
           "value": 175.279,
@@ -169,7 +169,7 @@
         {
           "symbol": "FIBUX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex U.S. Bond Index Fund USD MNT",
-          "kind": "equity",
+          "kind": "fund",
           "qty": 5.331,
           "last": 8.71,
           "value": 46.433,
@@ -183,7 +183,7 @@
         {
           "symbol": "FLXSX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex Small Cap Index Fund USD",
-          "kind": "equity",
+          "kind": "fund",
           "qty": 0.357,
           "last": 20.34,
           "value": 7.261,
@@ -197,7 +197,7 @@
         {
           "symbol": "FITFX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex International Index Fund USD",
-          "kind": "equity",
+          "kind": "fund",
           "qty": 4.173,
           "last": 19.22,
           "value": 80.205,
@@ -211,7 +211,7 @@
         {
           "symbol": "FLAPX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex Mid Cap Index Fund USD",
-          "kind": "equity",
+          "kind": "fund",
           "qty": 0.454,
           "last": 24.49,
           "value": 11.118,
@@ -365,7 +365,7 @@
         {
           "symbol": "FDFIX",
           "name": "Fidelity Concord Street Trust - Fidelity Flex 500 Index Fund USD",
-          "kind": "equity",
+          "kind": "fund",
           "qty": 1.746,
           "last": 32.61,
           "value": 56.937,
@@ -379,7 +379,7 @@
         {
           "symbol": "FIBUX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex U.S. Bond Index Fund USD MNT",
-          "kind": "equity",
+          "kind": "fund",
           "qty": 1.731,
           "last": 8.71,
           "value": 15.077,
@@ -393,7 +393,7 @@
         {
           "symbol": "FLXSX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex Small Cap Index Fund USD",
-          "kind": "equity",
+          "kind": "fund",
           "qty": 0.116,
           "last": 20.34,
           "value": 2.359,
@@ -407,7 +407,7 @@
         {
           "symbol": "FLAPX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex Mid Cap Index Fund USD",
-          "kind": "equity",
+          "kind": "fund",
           "qty": 0.147,
           "last": 24.49,
           "value": 3.6,
@@ -421,7 +421,7 @@
         {
           "symbol": "FITFX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex International Index Fund USD",
-          "kind": "equity",
+          "kind": "fund",
           "qty": 1.356,
           "last": 19.22,
           "value": 26.062,
