@@ -1,16 +1,16 @@
 {
   "asof": "2026-10-01",
   "source": "Truthifi",
-  "note": "Holdings EOD Fid 2026-10-01 / Voya 2026-09-29 KEPT untouched. Fidelity-only on-demand scan 6abfe697d9e75ae17b9d3705 2026-10-02 13:15 ET (link 6a97271f6f50340ade6d97f5). Voya not scanned. Cash sweeps counted as cash. ESPP empty. RSU 2 BNY (cost basis null from Truthifi). names[] full Truthifi securityName; Fid accounts[]+suffix last-4+equity.",
-  "scanned_at": "2026-10-02 13:15 ET",
+  "note": "Both links complete. Fidelity scan 6ac010730ec77d10c7007409 and Voya scan 6ac01074d9e75ae17b9d384b finished 2026-10-02 ~16:14 ET. Holdings date range tops at 2026-10-01 (today ET not in range). Cash sweeps counted as cash. ESPP empty. RSU 2 BNY (cost basis null from Truthifi). names[] full Truthifi securityName; Fid accounts[]+suffix last-4. No FAULT.",
+  "scanned_at": "2026-10-02 16:14 ET",
   "holdings_asof": "2026-10-01",
   "overall": {
-    "equity": 67847.634,
-    "live_equity": 3299.81,
-    "custodial_equity": 64547.824,
-    "asof": "2026-10-02T13:15:11-04:00",
+    "equity": 68293.792,
+    "live_equity": 3318.36,
+    "custodial_equity": 64975.432,
+    "asof": "2026-10-02T16:00:00-04:00",
     "holdings_asof": "2026-10-01",
-    "live_asof": "2026-10-01T15:08:43-04:00"
+    "live_asof": "2026-10-02T15:08:21-04:00"
   },
   "accounts": {
     "fidelity": {
@@ -471,8 +471,8 @@
           "accountId": "15838900",
           "type": "Retirement",
           "subType": "roth_ira",
-          "endingBalance": 322.187,
-          "equity": 322.187,
+          "endingBalance": 322.186,
+          "equity": 322.186,
           "suffix": "5550"
         },
         {
@@ -480,8 +480,8 @@
           "accountId": "15838899",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 1996.084,
-          "equity": 1996.084,
+          "endingBalance": 1996.085,
+          "equity": 1996.085,
           "suffix": "9084"
         },
         {
@@ -508,9 +508,9 @@
       "id": "voya",
       "label": "Voya",
       "source": "Truthifi",
-      "asof": "2026-09-29",
-      "equity": 61654.0,
-      "equity_value": 61654.0,
+      "asof": "2026-10-01",
+      "equity": 62081.608,
+      "equity_value": 62081.608,
       "cash": 0.0,
       "buying_power": 0.0,
       "pending_deposits": 0,
@@ -521,9 +521,9 @@
           "symbol": "Intl ACWI Ex-U.S. Index",
           "name": "BNY 401(k) Plan Intl ACWI Ex-U.S. Index Fund",
           "kind": "equity",
-          "qty": 35.716,
-          "last": 494.14,
-          "value": 17648.704,
+          "qty": 36.072,
+          "last": 489.69,
+          "value": 17664.294,
           "cost": null,
           "sleeve": "401k",
           "account": "voya",
@@ -535,9 +535,9 @@
           "symbol": "Large Cap Value Equity",
           "name": "BNY 401(k) Plan Large Cap Value Equity Fund",
           "kind": "equity",
-          "qty": 31.664,
-          "last": 100.988,
-          "value": 3197.675,
+          "qty": 31.965,
+          "last": 100.427,
+          "value": 3210.114,
           "cost": null,
           "sleeve": "401k",
           "account": "voya",
@@ -549,9 +549,9 @@
           "symbol": "Aggregate Bond Index",
           "name": "BNY 401(k) Plan Aggregate Bond Index Fund",
           "kind": "equity",
-          "qty": 21.453,
-          "last": 265.97,
-          "value": 5705.934,
+          "qty": 21.658,
+          "last": 266.35,
+          "value": 5768.688,
           "cost": null,
           "sleeve": "401k",
           "account": "voya",
@@ -563,9 +563,9 @@
           "symbol": "Small-Mid Cap Stock Index",
           "name": "BNY 401(k) Plan Small-Mid Cap Stock Index Fund",
           "kind": "equity",
-          "qty": 8.516,
-          "last": 977.7,
-          "value": 8325.898,
+          "qty": 8.603,
+          "last": 978.56,
+          "value": 8418.356,
           "cost": null,
           "sleeve": "401k",
           "account": "voya",
@@ -577,9 +577,9 @@
           "symbol": "Core Plus Bond",
           "name": "BNY 401(k) Plan Core Plus Bond Fund",
           "kind": "equity",
-          "qty": 244.272,
-          "last": 18.15,
-          "value": 4433.473,
+          "qty": 246.605,
+          "last": 18.159,
+          "value": 4478.085,
           "cost": null,
           "sleeve": "401k",
           "account": "voya",
@@ -591,9 +591,9 @@
           "symbol": "Large Cap Stock Index",
           "name": "BNY 401(k) Plan Large Cap Stock Index Fund",
           "kind": "equity",
-          "qty": 8.6,
-          "last": 2498.88,
-          "value": 21491.617,
+          "qty": 8.683,
+          "last": 2497.73,
+          "value": 21687.29,
           "cost": null,
           "sleeve": "401k",
           "account": "voya",
@@ -605,9 +605,9 @@
           "symbol": "International Growth Equity",
           "name": "BNY 401(k) Plan International Growth Equity Fund",
           "kind": "equity",
-          "qty": 16.632,
-          "last": 51.149,
-          "value": 850.698,
+          "qty": 16.87,
+          "last": 50.67,
+          "value": 854.781,
           "cost": null,
           "sleeve": "401k",
           "account": "voya",
@@ -622,8 +622,8 @@
           "accountId": "15838945",
           "type": "Retirement",
           "subType": "401k",
-          "endingBalance": 61654.0,
-          "equity": 61654.0
+          "endingBalance": 62081.608,
+          "equity": 62081.608
         }
       ]
     }
@@ -647,14 +647,14 @@
       "id": "fidelity_roth",
       "label": "Roth",
       "asof": "2026-10-01",
-      "equity": 322.187,
+      "equity": 322.186,
       "cash": 1.71
     },
     "fidelity_bny": {
       "id": "fidelity_bny",
       "label": "BNY",
       "asof": "2026-10-01",
-      "equity": 1996.084,
+      "equity": 1996.085,
       "cash": 0.1
     },
     "fidelity_espp": {
@@ -674,8 +674,8 @@
     "voya_401k": {
       "id": "voya_401k",
       "label": "401k",
-      "asof": "2026-09-29",
-      "equity": 61654.0,
+      "asof": "2026-10-01",
+      "equity": 62081.608,
       "cash": 0.0
     }
   },
@@ -834,6 +834,13 @@
         "equity": 67881.969,
         "live": 3319.88,
         "custodial": 64562.089
+      },
+      {
+        "t": "2026-10-02T16:00:00-04:00",
+        "dtg": "021600R OCT 26",
+        "equity": 68293.792,
+        "live": 3318.36,
+        "custodial": 64975.432
       }
     ]
   }
