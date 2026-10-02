@@ -1059,6 +1059,125 @@ test("mix center sums full-precision parts and matches the book equity", functio
   assert.match(sleeveHtml, moneyPattern(ctx, ctx.rnd(1.004)));
 });
 
+test("mix center uses book equity when the parts are a cent off", function () {
+  const ctx = boot();
+  vm.runInContext(fs.readFileSync(path.join(root, "house/js/board-d.js"), "utf8"), ctx, { filename: "board-d.js" });
+  assert.equal(ctx.mixCenterLabel({ equity: 730.93 }, 730.94), ctx.money(730.93));
+  assert.equal(ctx.mixCenterLabel({ equity: 323.43 }, 323.424), ctx.money(323.43));
+  assert.equal(ctx.mixCenterLabel({}, 2.008), ctx.money(2.008));
+  assert.equal(ctx.mixCenterLabel({ equity: null }, 0), "\u2014");
+  assert.doesNotMatch(ctx.mixCenterLabel({}, 0), /\$0/);
+
+  function bookFields(extra) {
+    return Object.assign({
+      cash: 0,
+      buying_power: 0,
+      invested_pct: 50,
+      pending_deposits: 0,
+      names: []
+    }, extra);
+  }
+
+  ctx.snap = {
+    asof: "2026-06-01T15:00:00-04:00",
+    tape: {},
+    truthifi: { holdings_asof: "2026-06-01", asof: "2026-06-01", source: "Truthifi" },
+    combined: bookFields({ equity: 100 }),
+    robinhood: bookFields({
+      equity: 20,
+      books: [
+        { id: "agentic", label: "AI WWIII", equity: 10.01 },
+        { id: "individual", label: "Individual", equity: 10 }
+      ]
+    }),
+    accounts: {
+      individual: bookFields({
+        id: "individual",
+        equity: 730.93,
+        asset_mix: { equity: 521.62, crypto: 209.18, cash: 0.14 }
+      }),
+      agentic: bookFields({
+        id: "agentic",
+        label: "Agentic",
+        equity: 323.43,
+        names: [
+          { symbol: "AA", name: "A", value: 200.212, qty: 1 },
+          { symbol: "BB", name: "B", value: 123.212, qty: 1 }
+        ]
+      }),
+      fidelity: bookFields({
+        id: "fidelity",
+        equity: 10,
+        sleeves: [
+          { id: "a", label: "Brokerage", equity: 6.01, names: [{ symbol: "AA", name: "A", value: 6.01, qty: 1 }] },
+          { id: "b", label: "Roth", equity: 4, names: [{ symbol: "BB", name: "B", value: 4, qty: 1 }] }
+        ]
+      }),
+      voya: bookFields({
+        id: "voya",
+        equity: 50,
+        names: [
+          { symbol: "CC", name: "C", value: 30.01, qty: 1 },
+          { symbol: "DD", name: "D", value: 20, qty: 1 }
+        ]
+      })
+    }
+  };
+
+  function assertEquityCenter(html, equity, partsTotal) {
+    const center = mixCenter(html);
+    assert.equal(center, ctx.money(equity));
+    assert.equal(center, kpiValue(html, "Equity"));
+    assert.notEqual(center, ctx.money(partsTotal));
+  }
+
+  ctx.tab = "individual";
+  const high = ctx.snap.accounts.individual;
+  assertEquityCenter(ctx.stateHtml(high, "Individual") + ctx.mixHtml(high, "individual"), 730.93, 730.94);
+  assert.match(ctx.mixHtml(high, "individual"), moneyPattern(ctx, 521.62));
+
+  ctx.tab = "agentic";
+  const low = ctx.snap.accounts.agentic;
+  assertEquityCenter(ctx.agenticOnlyHtml(), 323.43, 323.424);
+
+  ctx.tab = "robinhood";
+  assertEquityCenter(ctx.stateHtml(ctx.snap.robinhood, "Robinhood") + ctx.mixHtml(ctx.snap.robinhood, "combined"), 20, 20.01);
+
+  ctx.tab = "combined";
+  ctx.snap.robinhood = bookFields({ equity: 60.01 });
+  ctx.snap.accounts.fidelity.equity = 30;
+  ctx.snap.accounts.voya.equity = 10;
+  ctx.snap.combined.equity = 100;
+  const house = ctx.mixHtml(ctx.snap.combined, "combined");
+  assert.equal(mixCenter(house), ctx.money(100));
+  assert.notEqual(mixCenter(house), ctx.money(100.01));
+
+  ctx.tab = "fidelity";
+  ctx.snap.accounts.fidelity.equity = 10;
+  const fidHtml = ctx.fidelityDeskHtml();
+  assertEquityCenter(fidHtml, 10, 10.01);
+
+  ctx.tab = "fid-a";
+  const sleeve = ctx.snap.accounts.fidelity.sleeves[0];
+  sleeve.equity = 6;
+  sleeve.names = [
+    { symbol: "AA", name: "A", value: 3.51, qty: 1 },
+    { symbol: "BB", name: "B", value: 2.5, qty: 1 }
+  ];
+  assertEquityCenter(ctx.fidelitySleeveDeskHtml(), 6, 6.01);
+
+  ctx.tab = "voya";
+  ctx.snap.accounts.voya.equity = 50;
+  assertEquityCenter(ctx.voyaDeskHtml(), 50, 50.01);
+
+  const bare = bookFields({ asset_mix: { equity: 1.1, crypto: 2.2 } });
+  delete bare.equity;
+  ctx.tab = "individual";
+  const fallback = ctx.mixHtml(bare, "individual");
+  assert.equal(mixCenter(fallback), ctx.money(3.3));
+  assert.doesNotMatch(mixCenter(fallback), /\$0/);
+});
+
 test("live mix centers match each book equity to the cent", function () {
   const ctx = boot();
   vm.runInContext(fs.readFileSync(path.join(root, "house/js/board-d.js"), "utf8"), ctx, { filename: "board-d.js" });
