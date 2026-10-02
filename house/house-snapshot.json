@@ -1,7 +1,7 @@
 {
   "asof": "2026-10-02T15:08:21-04:00",
   "tip": "ba+bb+bc+be+bg+bh+bi+bj",
-  "note": "Fri 15:02 Site data House/pilot weekday refresh. live RH portfolios+positions+realized+quotes+crypto; Yahoo indexes (RH get_index_quotes arg reject; Fri RTH ~15:02). KEEP cashflow_30d. Truthifi untouched. Quiet Justin. | cashflow_30d KEPT from Thu Fid-only Close 2026-10-01 (2026-09-01\u21922026-09-30; asof 2026-10-01T16:23:00-04:00).",
+  "note": "Fri Close Fid+Voya cashflow_30d recompute 2026-10-02 after tip (Fid skip <90m; Voya 6ac0131827299a590586945a). RH books KEPT (AI WWIII). Window 2026-09-02→2026-10-01. Voya by_source refreshed. Quiet Justin. | Fri 15:02 Site data House/pilot weekday refresh. live RH portfolios+positions+realized+quotes+crypto; Yahoo indexes (RH get_index_quotes arg reject; Fri RTH ~15:02). KEEP cashflow_30d. Truthifi untouched. Quiet Justin. | cashflow_30d KEPT from Thu Fid-only Close 2026-10-01 (2026-09-01→2026-09-30; asof 2026-10-01T16:23:00-04:00).",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -810,29 +810,29 @@
     },
     "invested_pct": 99.44,
     "cashflow_30d": {
-      "asof": "2026-10-01T16:23:00-04:00",
-      "from": "2026-09-01",
-      "to": "2026-09-30",
+      "asof": "2026-10-02T16:29:22-04:00",
+      "from": "2026-09-02",
+      "to": "2026-10-01",
       "owner_deposits": 1121.91,
-      "market_earnings": -1346.9,
+      "market_earnings": -1540.42,
       "market_earnings_basis": "rh_realized+truthifi_totalPnL",
       "window_days": 30,
-      "dividends": 0.96,
+      "dividends": 1.02,
       "reinvested": 0.85,
       "by_source": {
         "robinhood": {
           "owner_deposits": 250.0,
-          "market_earnings": -49.68
+          "market_earnings": -73.75
         },
         "fidelity": {
           "owner_deposits": 217.97,
-          "market_earnings": -148.75,
-          "dividends": 0.96,
+          "market_earnings": -180.17,
+          "dividends": 1.02,
           "reinvested": 0.85
         },
         "voya": {
           "owner_deposits": 653.94,
-          "market_earnings": -1148.47
+          "market_earnings": -1286.5
         }
       }
     }
