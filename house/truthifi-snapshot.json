@@ -1,8 +1,8 @@
 {
   "asof": "2026-10-01",
   "source": "Truthifi",
-  "note": "Both links complete. Fidelity scan 6ac010730ec77d10c7007409 and Voya scan 6ac01074d9e75ae17b9d384b finished 2026-10-02 ~16:14 ET. Holdings date range tops at 2026-10-01 (today ET not in range). Cash sweeps counted as cash. ESPP empty. RSU 2 BNY (cost basis null from Truthifi). names[] full Truthifi securityName; Fid accounts[]+suffix last-4. No FAULT.",
-  "scanned_at": "2026-10-02 16:14 ET",
+  "note": "Forge Close Fid+Voya 2026-10-02. Fid scan skipped (<90m; prior tip scanned_at 2026-10-02 16:14 ET names=30). Voya scan 6ac0131827299a590586945a complete ~16:25 ET. Holdings date range tops at 2026-10-01. Cash sweeps counted as cash. ESPP empty. RSU 2 BNY (cost basis null from Truthifi). names[] full Truthifi securityName; Fid accounts[]+suffix last-4. No FAULT.",
+  "scanned_at": "2026-10-02 16:29 ET",
   "holdings_asof": "2026-10-01",
   "overall": {
     "equity": 68293.792,
