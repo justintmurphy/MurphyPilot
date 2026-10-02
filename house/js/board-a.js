@@ -350,28 +350,32 @@
     if (!book) return [];
     var mix = book.asset_mix;
     var rows = [];
-    function push(key, label, value, color) {
+    function push(key, label, value, color, exact) {
       value = Number(value);
       if (!isFinite(value) || value <= 0.004) return;
-      rows.push({ key: key, label: label, value: value, color: color });
+      var row = { key: key, label: label, value: value, color: color };
+      if (exact != null && isFinite(Number(exact))) row.exact = Number(exact);
+      rows.push(row);
     }
     if (mix && typeof mix === "object") {
-      push("equity", "Equity", mix.equity, "var(--mix-equity, var(--mix-a))");
-      push("crypto", "Crypto", mix.crypto, "var(--mix-crypto, var(--mix-c))");
-      push("options", "Options", mix.options, "var(--mix-options, var(--mix-d))");
-      push("cash", "Cash", mix.cash != null ? mix.cash : book.cash, "var(--mix-cash)");
+      push("equity", "Equity", mix.equity, "var(--mix-equity, var(--mix-a))", mix.equityExact);
+      push("crypto", "Crypto", mix.crypto, "var(--mix-crypto, var(--mix-c))", mix.cryptoExact);
+      push("options", "Options", mix.options, "var(--mix-options, var(--mix-d))", mix.optionsExact);
+      push("cash", "Cash", mix.cash != null ? mix.cash : book.cash, "var(--mix-cash)", mix.cashExact != null ? mix.cashExact : book.cashExact);
       return rows;
     }
     /* KEEP fallbacks only — never invent options */
-    push("equity", "Equity", book.equity_value, "var(--mix-equity, var(--mix-a))");
-    push("crypto", "Crypto", book.crypto_value, "var(--mix-crypto, var(--mix-c))");
-    push("cash", "Cash", book.cash, "var(--mix-cash)");
+    push("equity", "Equity", book.equity_value, "var(--mix-equity, var(--mix-a))", book.heldExact);
+    push("crypto", "Crypto", book.crypto_value, "var(--mix-crypto, var(--mix-c))", book.cryptoExact);
+    push("cash", "Cash", book.cash, "var(--mix-cash)", book.cashExact);
     return rows;
   }
   function mixSlices(book, t) {
     if (t === "combined" && book.books && book.books.length) {
       return book.books.map(function (b, i) {
-        return { key: b.id, label: b.label, value: Number(b.equity) || 0, color: MIX[i % MIX.length] };
+        var shown = Number(b.equity) || 0;
+        var exact = b.equityExact != null && isFinite(Number(b.equityExact)) ? Number(b.equityExact) : shown;
+        return { key: b.id, label: b.label, value: shown, exact: exact, color: MIX[i % MIX.length] };
       }).filter(function (s) { return s.value > 0.004; });
     }
     var classMix = assetMixSlices(book);
