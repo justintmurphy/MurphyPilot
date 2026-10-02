@@ -14,6 +14,15 @@ function mixSum(parts) {
   });
   return units / 1e8;
 }
+/* Book equity, formatted like the Equity KPI. Parts sum only when that equity is missing. Never invent $0. */
+function mixCenterLabel(bookObj, partsSum) {
+  var raw = bookObj && bookObj.equity;
+  if (raw != null && raw !== "" && isFinite(Number(raw))) {
+    return (typeof moneyOrDash === "function") ? moneyOrDash(raw) : money(raw);
+  }
+  if (isFinite(Number(partsSum)) && Number(partsSum) !== 0) return money(partsSum);
+  return "\u2014";
+}
 
 function mixGrowthCell(d) {
   if (!d) return '<td class="num mix-growth tone-flat">—</td>';
@@ -121,10 +130,10 @@ mixHtml = function (bookObj, t) {
     slices = mixSlices(bookObj, t);
   }
   slices = (slices || []).filter(function (s) { return !s.detailOnly; });
-  /* Percents and slice labels stay on the rounded slice values. The center sums full-precision parts. */
+  /* Wedge sizes stay on the slice values. The center is the book equity, via the same helper as the Equity KPI. */
   var labelTotal = slices.reduce(function (s, x) { return s + (Number(x.value) || 0); }, 0) || 1;
-  var centerTotal = mixSum(slices.map(mixPart));
-  if (!(centerTotal > 0)) centerTotal = labelTotal;
+  var partsSum = mixSum(slices.map(mixPart));
+  var centerLabel = mixCenterLabel(bookObj, partsSum);
   var gap = 0.04;
   var a = -Math.PI / 2;
   var paths = slices.map(function (s) {
@@ -138,7 +147,7 @@ mixHtml = function (bookObj, t) {
   var top = paths.slice().sort(function (x, y) { return y.value - x.value; })[0];
   var svg = '<div class="mix-ring"><svg class="mix-svg" viewBox="0 0 140 140" aria-hidden="true">' +
     paths.map(function (p) { return '<path d="' + p.d + '" fill="' + p.color + '" data-mix-key="' + esc(p.key) + '"></path>'; }).join("") +
-    '</svg><div class="mix-center"><b>' + money(centerTotal) + '</b><span>' + esc(top.label) + " " + top.pct.toFixed(0) + "%</span></div></div>";
+    '</svg><div class="mix-center"><b>' + centerLabel + '</b><span>' + esc(top.label) + " " + top.pct.toFixed(0) + "%</span></div></div>";
   var legend = paths.map(function (p) {
     return '<button type="button" class="mix-leg" data-mix-key="' + esc(p.key) + '">' +
       '<i style="background:' + p.color + '"></i>' +

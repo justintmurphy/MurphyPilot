@@ -889,7 +889,7 @@ function fidelityDeskHtml() {
   var fid = snap.accounts.fidelity || { names: [], equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, open_orders: 0, invested_pct: 0 };
   if (!fid.sleeves) fid.sleeves = buildFidelitySleeves(fid, snap.truthifi);
   var sleeves = fid.sleeves || [];
-  var mixBook = { books: sleeves, names: fid.names || [], cash: fid.cash || 0 };
+  var mixBook = { books: sleeves, names: fid.names || [], cash: fid.cash || 0, equity: fid.equity };
   /* Match Robinhood page order: Books → Book state → Tape → Where it sits → Book */
   var html = nav || "";
   html += fidelityBooksHtml(fid);
