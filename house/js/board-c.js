@@ -306,10 +306,13 @@ function fidelityAccountCard(a, i, sleeveTotals) {
     key: a.sleeve || a.key || tokenKey || label,
     suffix: a.suffix || "",
     equity: equity == null ? null : rnd(equity),
+    equityExact: equity,
     cash: cash == null ? null : rnd(cash),
+    cashExact: cash,
     buying_power: a.buying_power != null && a.buying_power !== "" ? rnd(a.buying_power) : (cash == null ? null : rnd(cash)),
     pending_deposits: Number(a.pending_deposits) || 0,
     equity_value: equityValue == null ? null : rnd(equityValue),
+    heldExact: equityValue,
     invested_pct: equity && names.length ? Math.min(100, (held / equity) * 100) : (names.length ? 0 : null),
     open_orders: Number(a.open_orders) || 0,
     names: names,
@@ -355,7 +358,7 @@ function buildFidelitySleeves(fid, outside) {
     var equity = isFinite(fromTot) ? fromTot : (names.length ? held + (Number(fidResolvedCash(totals, s, names)) || 0) : null);
     var cash = fidResolvedCash(totals, s, names);
     if (cash != null && !isFinite(cash)) cash = null;
-    return registerFidSleeveLabel({ id: s.id, label: s.label, key: s.key, equity: equity == null ? null : rnd(equity), cash: cash == null ? null : rnd(cash), buying_power: cash == null ? null : rnd(cash), pending_deposits: 0, equity_value: names.length ? rnd(held) : null, invested_pct: equity && names.length ? Math.min(100, (held / equity) * 100) : (names.length ? 0 : null), open_orders: 0, names: names, namesUnavailable: !names.length });
+    return registerFidSleeveLabel({ id: s.id, label: s.label, key: s.key, equity: equity == null ? null : rnd(equity), equityExact: equity, cash: cash == null ? null : rnd(cash), cashExact: cash, buying_power: cash == null ? null : rnd(cash), pending_deposits: 0, equity_value: names.length ? rnd(held) : null, heldExact: names.length ? held : null, invested_pct: equity && names.length ? Math.min(100, (held / equity) * 100) : (names.length ? 0 : null), open_orders: 0, names: names, namesUnavailable: !names.length });
   }).filter(function (s) {
     /* Keep known empty sleeves for Truthifi fallback; drop empty UNKNOWN */
     if (String(s.key).toUpperCase() === "UNKNOWN" && !(s.names || []).length && !(s.equity > 0.004)) return false;

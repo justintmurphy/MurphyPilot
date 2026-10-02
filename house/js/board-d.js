@@ -1,5 +1,20 @@
 /* collapseHouseNames lives in board-b.js. Do not redefine it here — a second copy rounded avg and dropped printed unrealized. */
 
+/* Sum slice parts in 1e-8 units so binary dust does not move a cent, then money() rounds once. */
+function mixPart(s) {
+  var n = s && s.exact != null && isFinite(Number(s.exact)) ? Number(s.exact) : Number(s && s.value);
+  return isFinite(n) ? n : 0;
+}
+function mixSum(parts) {
+  var units = 0;
+  (parts || []).forEach(function (n) {
+    n = Number(n);
+    if (!isFinite(n)) return;
+    units += Math.round(n * 1e8);
+  });
+  return units / 1e8;
+}
+
 function mixGrowthCell(d) {
   if (!d) return '<td class="num mix-growth tone-flat">—</td>';
   var amt = (d.delta > 0 ? "+" : "") + money(d.delta);
@@ -19,11 +34,18 @@ function mixTopSlices() {
       rhEq += Number((snap.accounts && snap.accounts[id] || {}).equity) || 0;
     });
   }
-  if (rhEq > 0.004) rows.push({ key: "robinhood", label: "Robinhood", value: rhEq, color: mix[0] });
+  if (rhEq > 0.004) {
+    var rhExact = 0;
+    (typeof RH_IDS !== "undefined" ? RH_IDS : []).forEach(function (id) {
+      rhExact += Number((snap.accounts && snap.accounts[id] || {}).equity) || 0;
+    });
+    if (!(rhExact > 0)) rhExact = rhEq;
+    rows.push({ key: "robinhood", label: "Robinhood", value: rhEq, exact: rhExact, color: mix[0] });
+  }
   var fid = (snap.accounts && snap.accounts.fidelity) || {};
-  if ((Number(fid.equity) || 0) > 0.004) rows.push({ key: "fidelity", label: "Fidelity", value: Number(fid.equity) || 0, color: mix[1] });
+  if ((Number(fid.equity) || 0) > 0.004) rows.push({ key: "fidelity", label: "Fidelity", value: Number(fid.equity) || 0, exact: Number(fid.equity) || 0, color: mix[1] });
   var voya = (snap.accounts && snap.accounts.voya) || {};
-  if ((Number(voya.equity) || 0) > 0.004) rows.push({ key: "voya", label: "Voya", value: Number(voya.equity) || 0, color: mix[2] });
+  if ((Number(voya.equity) || 0) > 0.004) rows.push({ key: "voya", label: "Voya", value: Number(voya.equity) || 0, exact: Number(voya.equity) || 0, color: mix[2] });
   return rows;
 }
 
@@ -91,27 +113,32 @@ mixHtml = function (bookObj, t) {
     var mixC = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
     slices = (bookObj.books || []).map(function (b, i) {
       var key = (typeof fidTabId === "function") ? fidTabId(b.id) : ("fid-" + b.id);
-      return { key: key, label: "Fid · " + (b.label || b.id), value: Number(b.equity) || 0, color: mixC[i % mixC.length], tapeKey: null, noGrowth: true };
+      var shown = Number(b.equity) || 0;
+      var exact = b.equityExact != null && isFinite(Number(b.equityExact)) ? Number(b.equityExact) : shown;
+      return { key: key, label: "Fid · " + (b.label || b.id), value: shown, exact: exact, color: mixC[i % mixC.length], tapeKey: null, noGrowth: true };
     }).filter(function (s) { return s.value > 0.004; });
   } else {
     slices = mixSlices(bookObj, t);
   }
   slices = (slices || []).filter(function (s) { return !s.detailOnly; });
-  var total = slices.reduce(function (s, x) { return s + x.value; }, 0) || 1;
+  /* Percents and slice labels stay on the rounded slice values. The center sums full-precision parts. */
+  var labelTotal = slices.reduce(function (s, x) { return s + (Number(x.value) || 0); }, 0) || 1;
+  var centerTotal = mixSum(slices.map(mixPart));
+  if (!(centerTotal > 0)) centerTotal = labelTotal;
   var gap = 0.04;
   var a = -Math.PI / 2;
   var paths = slices.map(function (s) {
-    var da = (s.value / total) * Math.PI * 2;
+    var da = (s.value / labelTotal) * Math.PI * 2;
     var span = Math.max(da - gap, 0.02);
     var d = donutPath(70, 70, 38, 64, a + gap / 2, a + gap / 2 + span);
     a += da;
-    return { key: s.key, label: s.label, color: s.color, d: d, pct: (s.value / total) * 100, value: s.value };
+    return { key: s.key, label: s.label, color: s.color, d: d, pct: (s.value / labelTotal) * 100, value: s.value };
   });
   if (!paths.length) return '<div class="card mix-card"><p class="hint" style="margin:0">No mix yet.</p></div>';
   var top = paths.slice().sort(function (x, y) { return y.value - x.value; })[0];
   var svg = '<div class="mix-ring"><svg class="mix-svg" viewBox="0 0 140 140" aria-hidden="true">' +
     paths.map(function (p) { return '<path d="' + p.d + '" fill="' + p.color + '" data-mix-key="' + esc(p.key) + '"></path>'; }).join("") +
-    '</svg><div class="mix-center"><b>' + money(total) + '</b><span>' + esc(top.label) + " " + top.pct.toFixed(0) + "%</span></div></div>";
+    '</svg><div class="mix-center"><b>' + money(centerTotal) + '</b><span>' + esc(top.label) + " " + top.pct.toFixed(0) + "%</span></div></div>";
   var legend = paths.map(function (p) {
     return '<button type="button" class="mix-leg" data-mix-key="' + esc(p.key) + '">' +
       '<i style="background:' + p.color + '"></i>' +
@@ -137,7 +164,7 @@ mixHtml = function (bookObj, t) {
       };
     });
     if (fidSleeveMix) {
-      var pieTotal = slices.reduce(function (sum, s) { return sum + (Number(s.value) || 0); }, 0);
+      var pieTotal = mixSum(slices.map(mixPart));
       if (pieTotal > 0.004) {
         var mixC2 = (typeof MIX !== "undefined" && MIX) ? MIX : ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)"];
         detailSrc.push({
