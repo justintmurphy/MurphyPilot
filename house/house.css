@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904ch");
-@import url("house-b.css?v=20260904ch");
-@import url("mix.css?v=20260904ch");
+@import url("house-a.css?v=20260904ci");
+@import url("house-b.css?v=20260904ci");
+@import url("mix.css?v=20260904ci");
 
 header .brand-block {
   min-width: 0;
@@ -508,6 +508,33 @@ button.acct-mini .fresh-chip.fresh-flag {
 }
 .card .fresh-chips { margin: 8px 0 0; }
 .claude-asof-chips { margin: 8px 0 0; }
+/* tip ci — cadence sits under the chip row, outside sticky .book-nav */
+.truthifi-cadence {
+  margin: -4px 0 8px;
+  padding: 0;
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--ink-soft);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+/* tip ci — House source asof; hidden above the phone breakpoint */
+.src-asof { display: none; }
+@media (max-width: 720px) {
+  .src-asof {
+    display: block;
+    margin-top: 3px;
+    max-width: 100%;
+    font-size: 9px;
+    line-height: 1.25;
+    color: var(--ink-soft);
+    font-weight: 600;
+    letter-spacing: 0.1px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
 
 /* tip bl — Claude Asset mix denseness: details on ≤720px when holdings exist */
 details.mix-more { margin: 0; }

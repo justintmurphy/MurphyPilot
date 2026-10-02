@@ -680,30 +680,38 @@ function collapseHouseNames(list) {
     var b = sleeve || fid;
     return !!(fid.live || fid.source === "snaptrade" || (b && (b.live || b.source === "snaptrade")));
   }
-  function sourceFreshnessChipsHtml() {
-    if (!snap) return "";
-    var chips = [];
+  /* tip ci — one schedule string. A later cadence edit is this line only. */
+  var TRUTHIFI_CADENCE = "Fid weekday \u00b7 Voya Mon/Wed/Fri";
+  function pushFreshRow(rows, id, key, text, stale, flag) {
+    if (!text) return;
+    rows.push({ id: id || "", key: key || "", text: text, stale: !!stale, flag: !!flag });
+  }
+  /* Same rows feed the freshness chips and the House src-asof micro-line. */
+  function sourceFreshnessRows() {
+    if (!snap) return [];
+    var rows = [];
     if (snap.asof) {
       var rhInfo = asofAgeInfo(snap.asof);
-      chips.push(freshChipHtml("RH", livePrintChipText(rhInfo), asofClockStale(rhInfo)));
+      pushFreshRow(rows, "robinhood", "RH", livePrintChipText(rhInfo), asofClockStale(rhInfo), false);
     }
     /* tip bm — a failed Truthifi print must not look like "no accounts" */
     var tfFail = snap.truthifiFail || "";
+    var shortFail = "";
     if (tfFail) {
       var phrase = (typeof truthifiFailPhrase === "function")
         ? truthifiFailPhrase(tfFail)
         : (tfFail === "unavailable" ? "Truthifi unavailable" : "Truthifi print broken");
-      var shortFail = (typeof truthifiFailShort === "function")
+      shortFail = (typeof truthifiFailShort === "function")
         ? truthifiFailShort(tfFail)
         : (tfFail === "unavailable" ? "unavailable" : "print broken");
-      chips.push(freshChipHtml("", phrase, true, true));
-      if (snap.truthifiHeld) chips.push(freshChipHtml("", "last good print", true, true));
+      pushFreshRow(rows, "", "", phrase, true, true);
+      if (snap.truthifiHeld) pushFreshRow(rows, "", "", "last good print", true, true);
     }
     var t = snap.truthifi || {};
     var fid = (snap.accounts && snap.accounts.fidelity) || {};
     var fidT = (t.accounts && t.accounts.fidelity) || {};
     if (tfFail && !fidLiveOverlay()) {
-      chips.push(freshChipHtml("Fid", shortFail, true, true));
+      pushFreshRow(rows, "fidelity", "Fid", shortFail, true, true);
     } else if (fidLiveOverlay()) {
       var sleeveAsOf = "";
       if (typeof isFidSleeveTab === "function" && isFidSleeveTab(tab) && typeof fidSleeveFromTab === "function") {
@@ -713,28 +721,79 @@ function collapseHouseNames(list) {
       var liveRaw = fid.asof || sleeveAsOf || snap.asof || "";
       if (liveRaw) {
         var liveInfo = asofAgeInfo(liveRaw);
-        chips.push(freshChipHtml("Fid", livePrintChipText(liveInfo), asofClockStale(liveInfo)));
+        pushFreshRow(rows, "fidelity", "Fid", livePrintChipText(liveInfo), asofClockStale(liveInfo), false);
       }
     } else {
       var fidHold = fidT.asof || t.holdings_asof || fid.asof || t.asof || "";
       if (fidHold) {
         var fidInfo = asofAgeInfo(fidHold);
-        chips.push(freshChipHtml("Fid", holdingsChipText(fidHold, t.scanned_at), asofHoldingsStale(fidInfo)));
+        pushFreshRow(rows, "fidelity", "Fid", holdingsChipText(fidHold, t.scanned_at), asofHoldingsStale(fidInfo), false);
       }
     }
     if (tfFail) {
-      chips.push(freshChipHtml("Voya", shortFail, true, true));
+      pushFreshRow(rows, "voya", "Voya", shortFail, true, true);
     } else {
       var voya = (snap.accounts && snap.accounts.voya) || {};
       var voyaT = (t.accounts && t.accounts.voya) || {};
       var voyaHold = voyaT.asof || voya.asof || "";
       if (voyaHold) {
         var voyaInfo = asofAgeInfo(voyaHold);
-        chips.push(freshChipHtml("Voya", holdingsChipText(voyaHold), asofHoldingsStale(voyaInfo)));
+        pushFreshRow(rows, "voya", "Voya", holdingsChipText(voyaHold), asofHoldingsStale(voyaInfo), false);
       }
     }
-    if (!chips.length) return "";
-    return '<div class="fresh-chips" aria-label="Source freshness">' + chips.join("") + "</div>";
+    return rows;
+  }
+  /* A clock only when the print already carries a next-print time. scanned_at is not one. */
+  function truthifiNextPrintClock() {
+    var t = (snap && snap.truthifi) || {};
+    var bags = [t, t.overall || {}, (t.accounts && t.accounts.fidelity) || {}, (t.accounts && t.accounts.voya) || {}];
+    var names = ["next_print", "next_print_at", "nextPrint"];
+    for (var i = 0; i < bags.length; i++) {
+      var bag = bags[i];
+      if (!bag || typeof bag !== "object") continue;
+      for (var j = 0; j < names.length; j++) {
+        if (!Object.prototype.hasOwnProperty.call(bag, names[j])) continue;
+        var raw = bag[names[j]];
+        if (raw == null || String(raw).trim() === "") continue;
+        var info = asofAgeInfo(raw);
+        if (info && info.clockLabel) return info.clockLabel;
+      }
+    }
+    return "";
+  }
+  function truthifiCadenceHtml(rows) {
+    var stale = false;
+    (rows || []).forEach(function (r) {
+      if (r && (r.key === "Fid" || r.key === "Voya") && r.stale) stale = true;
+    });
+    if (!stale) return "";
+    var text = TRUTHIFI_CADENCE;
+    var clock = truthifiNextPrintClock();
+    if (clock) text = text + " \u00b7 " + clock;
+    return '<p class="truthifi-cadence">' + esc(text) + "</p>";
+  }
+  function sourceFreshnessChipsHtml() {
+    var rows = sourceFreshnessRows();
+    if (!rows.length) return "";
+    var chips = rows.map(function (r) { return freshChipHtml(r.key, r.text, r.stale, r.flag); }).join("");
+    return '<div class="fresh-chips" aria-label="Source freshness">' + chips + "</div>" + truthifiCadenceHtml(rows);
+  }
+  function sourceAsofText(id) {
+    var key = id === "robinhood" ? "RH" : (id === "fidelity" ? "Fid" : (id === "voya" ? "Voya" : ""));
+    if (!key) return "";
+    var rows = sourceFreshnessRows();
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].key === key) return rows[i].text || "";
+    }
+    return "";
+  }
+  function sourceAsofMicroHtml(id) {
+    var text = sourceAsofText(id);
+    if (!text) return "";
+    return '<span class="src-asof">' + esc(text) + "</span>";
+  }
+  function rhBookAsof(book) {
+    return (book && book.asof) || (snap && snap.asof) || "";
   }
   function claudeAsofChipHtml(asof) {
     if (!asof) return "";
@@ -859,10 +918,13 @@ function collapseHouseNames(list) {
       var ns = nameStats(b.names);
       cells.push("<div><span>P&L</span><b class=\"tone-" + tone(ns.pnl) + "\">" + pnlKpiText(ns) + "</b></div>");
     }
+    var digChip = "";
+    if (tab === "individual" || tab === "auto_grok" || tab === "joint") digChip = claudeAsofChipHtml(rhBookAsof(b));
     return "<h2>Book state \u00b7 " + esc(title) + "</h2>" +
       (tab === "combined" ? sourceFreshnessChipsHtml() : "") +
       "<div class=\"card span\"><div class=\"kpi\">" +
       cells.join("") + "</div>" +
+      digChip +
       '<p class="hint">pending already in ' + moneyOrDash(b.pending_deposits) +
       (b.asof || (snap && snap.asof) ? " \u00b7 asof " + esc(String(b.asof || snap.asof)) : "") + "</p></div>";
   }
@@ -1071,7 +1133,7 @@ function collapseHouseNames(list) {
 
   function agenticOnlyHtml() {
     var ag = snap.accounts.agentic || {};
-    var asof = ag.asof || (snap && snap.asof) || "";
+    var asof = rhBookAsof(ag);
     var html = "<h2>AI WWIII</h2><div class=\"card span\"><div class=\"kpi\">" +
       "<div><span>Equity</span><b>" + moneyOrDash(ag.equity) + "</b></div>" +
       "<div><span>Cash</span><b>" + moneyOrDash(ag.cash) + "</b></div>" +
@@ -1103,7 +1165,7 @@ function collapseHouseNames(list) {
 
   /* tip bx — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904ch).
+     Defaults come from same-origin retirement.json (?v=20260904ci).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. Once that file has
      loaded, a missing or invalid federal block does not project without the
@@ -1570,7 +1632,7 @@ function collapseHouseNames(list) {
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904ch";
+    return (housePath ? name : "house/" + name) + "?v=20260904ci";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");

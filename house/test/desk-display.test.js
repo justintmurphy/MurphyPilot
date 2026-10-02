@@ -1093,3 +1093,192 @@ test("live mix centers match each book equity to the cent", function () {
     expectCenter(ctx.fidelitySleeveDeskHtml(), s.equity);
   });
 });
+
+function pinnedFreshSnap(ctx) {
+  const today = ctx.nyYmdNow();
+  const iso = today + "T15:00:00-04:00";
+  return {
+    asof: iso,
+    truthifiFail: "",
+    truthifiHeld: false,
+    combined: { equity: 30, cash: 3, buying_power: 3, invested_pct: 80, pending_deposits: 0, names: [] },
+    robinhood: { equity: 12, cash: 2, buying_power: 2, invested_pct: 70, pending_deposits: 0, names: [], asof: iso },
+    tape: {},
+    truthifi: {
+      holdings_asof: today,
+      asof: today,
+      scanned_at: today + "T16:22:00-04:00",
+      source: "Truthifi",
+      note: "Custodial EOD.",
+      accounts: {
+        fidelity: { asof: today },
+        voya: { asof: today }
+      }
+    },
+    accounts: {
+      fidelity: {
+        id: "fidelity",
+        asof: today,
+        equity: 10,
+        cash: 1,
+        invested_pct: 50,
+        names: [{ symbol: "AA", value: 9, qty: 1, cost: 8 }]
+      },
+      voya: {
+        id: "voya",
+        asof: today,
+        equity: 8,
+        cash: 1,
+        invested_pct: 40,
+        names: [{ symbol: "BB", value: 7, qty: 1 }]
+      },
+      agentic: { id: "agentic", label: "Agentic", asof: "2026-06-01T15:01:00-04:00", equity: 4, cash: 1, buying_power: 1, invested_pct: 50, pending_deposits: 0, names: [] },
+      individual: { id: "individual", label: "Individual", asof: "2026-06-02T15:02:00-04:00", equity: 4, cash: 1, buying_power: 1, invested_pct: 50, pending_deposits: 0, names: [] },
+      auto_grok: { id: "auto_grok", label: "Grok", asof: "2026-06-03T15:03:00-04:00", equity: 4, cash: 1, buying_power: 1, invested_pct: 50, pending_deposits: 0, names: [] },
+      joint: { id: "joint", label: "Deep Seek", asof: "2026-06-04T15:04:00-04:00", equity: 4, cash: 1, buying_power: 1, invested_pct: 50, pending_deposits: 0, names: [] }
+    }
+  };
+}
+
+function cadenceText(html) {
+  const m = String(html || "").match(/<p class="truthifi-cadence">([^<]*)<\/p>/);
+  return m ? m[1] : "";
+}
+
+function chipBody(html, key) {
+  const m = String(html || "").match(new RegExp('class="fresh-chip[^"]*">' + key + " · ([^<]*)"));
+  return m ? m[1] : "";
+}
+
+function srcAsofText(html, id) {
+  const m = String(html || "").match(new RegExp('data-tab="' + id + '"[\\s\\S]*?<span class="src-asof">([^<]*)</span>'));
+  return m ? m[1] : "";
+}
+
+function rhDigHtml(ctx, id) {
+  ctx.tab = id;
+  if (id === "agentic") return ctx.agenticOnlyHtml();
+  const book = ctx.snap.accounts[id];
+  const title = { individual: "Individual", auto_grok: "Grok", joint: "Deep Seek" }[id];
+  return ctx.stateHtml(book, title);
+}
+
+test("Truthifi cadence line is hidden when both chips are fresh and shown when either is stale", function () {
+  const ctx = boot();
+  const src = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
+  assert.equal((src.match(/Fid weekday/g) || []).length, 1);
+  assert.equal(ctx.TRUTHIFI_CADENCE, "Fid weekday \u00b7 Voya Mon/Wed/Fri");
+
+  ctx.tab = "combined";
+  ctx.snap = pinnedFreshSnap(ctx);
+  const fresh = ctx.sourceFreshnessChipsHtml();
+  assert.match(fresh, /fresh-chip/);
+  assert.match(fresh, />Fid · /);
+  assert.match(fresh, />Voya · /);
+  assert.equal(cadenceText(fresh), "");
+  assert.doesNotMatch(fresh, /truthifi-cadence/);
+  assert.doesNotMatch(fresh, /Fid weekday/);
+
+  ctx.snap.accounts.voya.asof = "2020-01-01";
+  ctx.snap.truthifi.accounts.voya.asof = "2020-01-01";
+  const voyaStale = ctx.sourceFreshnessChipsHtml();
+  assert.equal(cadenceText(voyaStale), ctx.TRUTHIFI_CADENCE);
+  assert.doesNotMatch(cadenceText(voyaStale), /\d{1,2}:\d{2}/);
+
+  ctx.snap = pinnedFreshSnap(ctx);
+  ctx.snap.accounts.fidelity.asof = "2020-01-01";
+  ctx.snap.truthifi.accounts.fidelity.asof = "2020-01-01";
+  ctx.snap.truthifi.holdings_asof = "2020-01-01";
+  ctx.snap.truthifi.asof = "2020-01-01";
+  const fidStale = ctx.sourceFreshnessChipsHtml();
+  assert.equal(cadenceText(fidStale), ctx.TRUTHIFI_CADENCE);
+  assert.match(fidStale, /scanned /);
+  assert.doesNotMatch(cadenceText(fidStale), /\d{1,2}:\d{2}/);
+
+  ctx.tab = "fidelity";
+  const desk = ctx.fidelityDeskHtml();
+  const nav = desk.slice(desk.indexOf('<nav class="book-nav"'), desk.indexOf("</nav>") + 6);
+  assert.match(nav, /book-nav/);
+  assert.doesNotMatch(nav, /truthifi-cadence/);
+  assert.doesNotMatch(nav, /Fid weekday/);
+  assert.ok(desk.indexOf("truthifi-cadence") > desk.indexOf("</nav>"));
+  assert.equal(cadenceText(desk), ctx.TRUTHIFI_CADENCE);
+
+  const clockIso = "2026-10-02T10:00:00-04:00";
+  ctx.snap.truthifi.next_print = clockIso;
+  const withClock = cadenceText(ctx.sourceFreshnessChipsHtml());
+  const clock = ctx.asofAgeInfo(clockIso).clockLabel;
+  assert.ok(clock);
+  assert.equal(withClock, ctx.TRUTHIFI_CADENCE + " \u00b7 " + clock);
+});
+
+test("asof chip is on all four Robinhood dig-ins and hidden when asof is missing", function () {
+  const ctx = boot();
+  ctx.snap = pinnedFreshSnap(ctx);
+  const ids = ["agentic", "individual", "auto_grok", "joint"];
+  ids.forEach(function (id) {
+    const html = rhDigHtml(ctx, id);
+    const clock = ctx.asofAgeInfo(ctx.snap.accounts[id].asof).clockLabel;
+    assert.ok(clock);
+    assert.match(html, /<div class="fresh-chips claude-asof-chips">[\s\S]*?<\/div><p class="hint">/);
+    assert.match(html, new RegExp("asof · " + clock.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.doesNotMatch(html, /Claude/);
+  });
+  assert.match(rhDigHtml(ctx, "agentic"), /AI WWIII/);
+
+  ctx.tab = "robinhood";
+  assert.doesNotMatch(ctx.stateHtml(ctx.snap.robinhood, "Robinhood"), /claude-asof-chips/);
+
+  ctx.snap.asof = "";
+  ids.forEach(function (id) { ctx.snap.accounts[id].asof = ""; });
+  ids.forEach(function (id) {
+    const html = rhDigHtml(ctx, id);
+    assert.doesNotMatch(html, /claude-asof-chips/);
+    assert.doesNotMatch(html, />asof · /);
+  });
+});
+
+test("src-asof matches each freshness chip and stays off Fidelity sleeve cards", function () {
+  const ctx = boot();
+  ctx.tab = "combined";
+  ctx.snap = pinnedFreshSnap(ctx);
+  const chips = ctx.sourceFreshnessChipsHtml();
+  const cards = ctx.cardsHtml();
+  [["robinhood", "RH"], ["fidelity", "Fid"], ["voya", "Voya"]].forEach(function (pair) {
+    const fromChip = chipBody(chips, pair[1]);
+    const fromCard = srcAsofText(cards, pair[0]);
+    assert.ok(fromChip);
+    assert.equal(fromCard, fromChip);
+  });
+
+  ctx.snap.accounts.voya.asof = "";
+  ctx.snap.truthifi.accounts.voya.asof = "";
+  const chipsGone = ctx.sourceFreshnessChipsHtml();
+  const cardsGone = ctx.cardsHtml();
+  assert.equal(chipBody(chipsGone, "Voya"), "");
+  assert.equal(srcAsofText(cardsGone, "voya"), "");
+  assert.doesNotMatch(cardsGone.split('data-tab="voya"')[1].split("</button>")[0], /src-asof/);
+  assert.equal(srcAsofText(cardsGone, "fidelity"), chipBody(chipsGone, "Fid"));
+
+  ctx.tab = "robinhood";
+  assert.doesNotMatch(ctx.cardsHtml(), /src-asof/);
+
+  ctx.snap = pinnedFreshSnap(ctx);
+  ctx.snap.accounts.fidelity.sleeves = [{
+    id: "bny",
+    label: "Brokerage",
+    equity: 10,
+    cash: 1,
+    invested_pct: 90,
+    names: [{ symbol: "AA", value: 9, qty: 1, cost: 8 }]
+  }];
+  ctx.tab = "fidelity";
+  assert.doesNotMatch(ctx.fidelityDeskHtml(), /src-asof/);
+  assert.doesNotMatch(ctx.fidelityBooksHtml(ctx.snap.accounts.fidelity), /src-asof/);
+  ctx.tab = "fid-bny";
+  assert.doesNotMatch(ctx.fidelitySleeveDeskHtml(), /src-asof/);
+
+  const css = fs.readFileSync(path.join(root, "house/house.css"), "utf8");
+  assert.match(css, /\.src-asof \{ display: none; \}/);
+  assert.match(css, /@media \(max-width: 720px\) \{[\s\S]*?\.src-asof \{[^}]*display: block;/);
+});

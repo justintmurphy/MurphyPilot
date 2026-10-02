@@ -677,10 +677,15 @@ cardsHtml = function () {
   var rh = snap.robinhood || {};
   var fid = snap.accounts.fidelity || {};
   var voya = snap.accounts.voya || {};
+  function houseSourceCard(id, html) {
+    var line = (typeof sourceAsofMicroHtml === "function") ? sourceAsofMicroHtml(id) : "";
+    if (!line) return html;
+    return html.replace(/<\/button>$/, line + "</button>");
+  }
   return "<h2>Books</h2><div class=\"acct-grid\">" +
-    bookCardHtml("robinhood", "Robinhood", rh.equity != null ? rh.equity : 0, "live", "robinhood") +
-    custodialBookCard("fidelity", "Fidelity", fid, fid.live ? "live" : "EOD", "fidelity") +
-    custodialBookCard("voya", "Voya", voya, "EOD", "voya") +
+    houseSourceCard("robinhood", bookCardHtml("robinhood", "Robinhood", rh.equity != null ? rh.equity : 0, "live", "robinhood")) +
+    houseSourceCard("fidelity", custodialBookCard("fidelity", "Fidelity", fid, fid.live ? "live" : "EOD", "fidelity")) +
+    houseSourceCard("voya", custodialBookCard("voya", "Voya", voya, "EOD", "voya")) +
     "</div>";
 };
 function custodialBookCard(id, label, book, tag, tapeKey) {
