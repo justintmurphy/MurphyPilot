@@ -1,15 +1,15 @@
 {
-  "asof": "2026-10-02",
+  "asof": "2026-10-03",
   "source": "Truthifi",
-  "note": "Fid-only scan 6ac137daec7e062501843971 complete 2026-10-03 13:14 ET. Voya untouched (prior scan 6ac0131827299a590586945a). Holdings date range tops at 2026-10-02. Cash sweeps counted as cash. ESPP empty. RSU 2 BNY (cost basis null from Truthifi). names[] full Truthifi securityName; Fid accounts[]+suffix last-4. No FAULT.",
-  "scanned_at": "2026-10-03 13:14 ET",
-  "holdings_asof": "2026-10-02",
+  "note": "Fid-only scan 6ac28940ec7e0625018451be complete 2026-10-04 13:13 ET. Voya untouched (prior scan 6ac0131827299a590586945a). Holdings date 2026-10-03 (priceAsOf 2026-10-03). Cash sweeps counted as cash. ESPP empty. RSU 2 BNY (cost basis null from Truthifi). names[] full Truthifi securityName; Fid accounts[]+suffix last-4. No FAULT. Positions unchanged vs prior 2026-10-02 snapshot.",
+  "scanned_at": "2026-10-04 13:13 ET",
+  "holdings_asof": "2026-10-03",
   "overall": {
     "equity": 65029.631,
     "live_equity": 3318.36,
     "custodial_equity": 65029.631,
-    "asof": "2026-10-03T13:14:00-04:00",
-    "holdings_asof": "2026-10-02",
+    "asof": "2026-10-04T13:13:51-04:00",
+    "holdings_asof": "2026-10-03",
     "live_asof": "2026-10-02T15:08:21-04:00"
   },
   "accounts": {
@@ -17,7 +17,7 @@
       "id": "fidelity",
       "label": "Fidelity",
       "source": "Truthifi",
-      "asof": "2026-10-02",
+      "asof": "2026-10-03",
       "equity": 2948.023,
       "equity_value": 2945.453,
       "cash": 2.57,
@@ -632,42 +632,42 @@
     "fidelity_trad": {
       "id": "fidelity_trad",
       "label": "Trad",
-      "asof": "2026-10-02",
+      "asof": "2026-10-03",
       "equity": 105.398,
       "cash": 0.59
     },
     "fidelity_per": {
       "id": "fidelity_per",
       "label": "PER",
-      "asof": "2026-10-02",
+      "asof": "2026-10-03",
       "equity": 181.738,
       "cash": 0.17
     },
     "fidelity_roth": {
       "id": "fidelity_roth",
       "label": "Roth",
-      "asof": "2026-10-02",
+      "asof": "2026-10-03",
       "equity": 324.34,
       "cash": 1.71
     },
     "fidelity_bny": {
       "id": "fidelity_bny",
       "label": "BNY",
-      "asof": "2026-10-02",
+      "asof": "2026-10-03",
       "equity": 2045.747,
       "cash": 0.1
     },
     "fidelity_espp": {
       "id": "fidelity_espp",
       "label": "ESPP",
-      "asof": "2026-10-02",
+      "asof": "2026-10-03",
       "equity": 0.0,
       "cash": 0.0
     },
     "fidelity_rsu": {
       "id": "fidelity_rsu",
       "label": "RSU",
-      "asof": "2026-10-02",
+      "asof": "2026-10-03",
       "equity": 290.8,
       "cash": 0.0
     },
