@@ -308,7 +308,7 @@ test("a transaction row shows a category chip and a blank category becomes Other
   assert.match(html, /Main Street Cafe|Sample[\s\S]*?\u2014/);
   assert.doesNotMatch(html, /<select/);
   assert.doesNotMatch(html, /data-bank-tx/);
-  const edits = ctx.bankPageHtml(fx, { tab: "edits", now: "2026-10-05T18:00:00-04:00" });
+  const edits = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Transfer", now: "2026-10-05T18:00:00-04:00" });
   const rowAt = edits.indexOf('data-bank-tx="2026-10-04|acct-check||Sample"');
   assert.ok(rowAt >= 0);
   const row = edits.slice(rowAt, edits.indexOf("</li>", rowAt));
@@ -345,7 +345,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip cy", function () {
+test("desk links Banking and banking assets are cache-busted at tip cz", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -355,8 +355,8 @@ test("desk links Banking and banking assets are cache-busted at tip cy", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cy/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904cy/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cz/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904cz/);
   assert.match(page, /\/house\/house\.css\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cp/);
@@ -373,6 +373,9 @@ test("desk links Banking and banking assets are cache-busted at tip cy", functio
   assert.doesNotMatch(page, /banking\.js\?v=20260904cv/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cw/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cx/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904cx/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904cy/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904cy/);
   assert.doesNotMatch(page, /href="\.\.\//);
   assert.doesNotMatch(page, /src="\.\.\//);
   assert.match(page, /id="bankDesk"/);
@@ -774,7 +777,7 @@ test("a failed due-day edit leaves the bill and does not use localStorage", asyn
 test("edits lists edits_tx across months and bills prefer typical_amount", function () {
   const ctx = boot();
   const fx = loadFixture();
-  assert.equal(ctx.bankEditRows(fx).length, fx.current.edits_tx.length);
+  assert.equal(ctx.bankEditRows(fx).length, fx.current.edits_tx.length + 1);
   assert.ok(fx.current.edits_tx.length > fx.current.recent_tx.length);
   const current = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
   assert.match(current, /Corner Market/);
@@ -830,7 +833,8 @@ test("edits lists edits_tx across months and bills prefer typical_amount", funct
     });
   }
   assert.equal(ctx.bankRecent(long).length, 40);
-  assert.equal(ctx.bankEditRows(long).length, 45);
+  assert.equal(ctx.bankEditRows(long).length, 46);
+  assert.equal(ctx.bankEditRows(long).filter(function (r) { return r.desc === "Day Program"; }).length, 1);
   const longEdits = ctx.bankPageHtml(long, { tab: "edits", editCat: "Groceries" });
   assert.equal((longEdits.match(/data-bank-tx=/g) || []).length, 45);
   const longCurrent = ctx.bankPageHtml(long, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
@@ -874,16 +878,20 @@ test("edits lists edits_tx across months and bills prefer typical_amount", funct
     date: "2026-05-22", id: "acct-check", desc: "Edit Only", amount: 12.34, flow: "outflow", category: "Groceries", tx_key: "kept-key"
   }];
   const prefRows = ctx.bankEditRows(prefer);
-  assert.equal(prefRows.length, 1);
-  assert.equal(prefRows[0].desc, "Edit Only");
-  assert.equal(prefRows[0].key, "kept-key");
+  assert.equal(prefRows.length, 2);
+  assert.equal(prefRows.filter(function (r) { return r.desc === "Edit Only"; }).length, 1);
+  assert.equal(prefRows.filter(function (r) { return r.desc === "Edit Only"; })[0].key, "kept-key");
+  assert.equal(prefRows.filter(function (r) { return r.desc === "Day Program"; }).length, 1);
+  assert.equal(prefRows.some(function (r) { return r.desc === "Tape Only"; }), false);
   const prefCurrent = ctx.bankPageHtml(prefer, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
   assert.match(prefCurrent, /Tape Only/);
   assert.doesNotMatch(prefCurrent, /Edit Only/);
+  assert.doesNotMatch(prefCurrent, /Day Program/);
 
   const blank = JSON.parse(JSON.stringify(fx));
   blank.current.edits_tx = [];
   blank.current.recent_tx = [];
+  blank.current.history_tx = [];
   const blankHtml = ctx.bankPageHtml(blank, { tab: "edits" });
   assert.match(blankHtml, /No transactions in this print/);
   assert.doesNotMatch(blankHtml, /No recent/);
@@ -911,6 +919,60 @@ test("edits lists edits_tx across months and bills prefer typical_amount", funct
   assert.equal(filled[0].amount, 12.34);
   assert.equal(filled[0].typical_amount, 15);
   assert.equal(ctx.bankBillShownAmount(filled[0]), 15);
+});
+
+test("edits dig-in lists a history-only merchant in a planned category", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const careKey = "2026-03-14|acct-check|12.34|Day Program";
+  assert.equal(fx.current.edits_tx.some(function (r) { return r.desc === "Day Program" || r.category === "Childcare"; }), false);
+  assert.equal(fx.budget.planned_by_category.Childcare, 12.34);
+  assert.equal(fx.budget.planned_by_category.Tuition, 12.34);
+  const lists = ctx.bankEditSourceLists(fx);
+  assert.equal(lists[0], fx.current.edits_tx);
+  assert.ok(lists.indexOf(fx.current.history_tx) >= 0);
+  assert.equal(lists.indexOf(fx.current.recent_tx), -1);
+  const same = JSON.parse(JSON.stringify(fx));
+  same.current.history_tx = same.current.edits_tx;
+  const once = ctx.bankEditSourceLists(same);
+  assert.equal(once.filter(function (list) { return list === same.current.edits_tx; }).length, 1);
+  const missing = JSON.parse(JSON.stringify(fx));
+  delete missing.current.edits_tx;
+  const fallback = ctx.bankEditSourceLists(missing);
+  assert.equal(fallback[0], missing.current.recent_tx);
+  assert.ok(fallback.indexOf(missing.current.history_tx) >= 0);
+
+  const care = ctx.bankEditRows(fx).filter(function (r) { return r.desc === "Day Program"; });
+  assert.equal(care.length, 1);
+  assert.equal(care[0].category, "Childcare");
+  assert.equal(care[0].key, careKey);
+  const known = ctx.bankKnownCategories(fx);
+  assert.ok(known.indexOf("Childcare") >= 0);
+  assert.ok(known.indexOf("Tuition") >= 0);
+  const dig = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Childcare" });
+  assert.match(dig, /Day Program<\/span><span class="bank-edit-meta">2026-03-14/);
+  assert.doesNotMatch(dig, /No items in this category/);
+  const pick = dig.match(/<select data-bank-cat[\s\S]*?<\/select>/);
+  const chip = dig.match(/<select class="bank-chip" data-bank-tx="[\s\S]*?<\/select>/);
+  assert.ok(pick && chip);
+  assert.match(pick[0], /value="Childcare"/);
+  assert.match(pick[0], /value="Tuition"/);
+  assert.match(chip[0], /value="Childcare" selected/);
+  assert.match(chip[0], /value="Tuition"/);
+  assert.deepEqual(bankAssignOptionValues(chip[0], ctx.BANK_ROW_ADD), bankOptionValues(pick[0]));
+
+  const groceries = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Groceries" });
+  assert.match(groceries, /Corner Market/);
+  assert.doesNotMatch(groceries, /Day Program/);
+  const emptyPlanned = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Tuition" });
+  assert.match(emptyPlanned, /No items in this category/);
+  assert.doesNotMatch(emptyPlanned, /Day Program/);
+  assert.doesNotMatch(emptyPlanned, /data-bank-tx/);
+  const current = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
+  assert.match(current, /Corner Market/);
+  assert.doesNotMatch(current, /Day Program/);
+  const budget = ctx.bankPageHtml(fx, { tab: "budget" });
+  assert.match(budget, /data-bar="Childcare"[\s\S]*target \$12\.34/);
 });
 
 test("known categories include custom labels and keep Other last", function () {
@@ -2044,7 +2106,7 @@ test("reassigning the last in-window merchant keeps a history-only override", as
   await el._bank.prune;
   assert.equal(calls.length, 0);
   assert.match(el.innerHTML, /Window Shop/);
-  assert.doesNotMatch(el.innerHTML, /Ancient Shop/);
+  assert.match(el.innerHTML, /Ancient Shop/);
   assertCategoryEverywhere(el.innerHTML, "HistOnly", true);
   await el.listeners.change({
     target: {
@@ -2189,6 +2251,7 @@ test("failed categories read keeps an unused snap custom, and an empty list does
   fx.custom_categories = ["Pets"];
   fx.current.recent_tx = [];
   fx.current.edits_tx = [];
+  delete fx.current.history_tx;
   fx.category_overrides = {};
   fx.history.months.forEach(function (month) {
     delete month.tx;

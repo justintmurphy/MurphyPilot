@@ -41,6 +41,9 @@
       {"date": "2026-04-11", "id": "acct-check", "desc": "Household Supply", "amount": 12.34, "flow": "outflow", "category": "Household", "tx_id": "tx-0411", "tx_key": "2026-04-11|acct-check|12.34|Household Supply"},
       {"date": "2026-04-12", "id": "acct-check", "desc": "Gift Shop", "amount": 12.34, "flow": "outflow", "category": "Gifts", "tx_id": "tx-0412", "tx_key": "2026-04-12|acct-check|12.34|Gift Shop"}
     ],
+    "history_tx": [
+      {"date": "2026-03-14", "id": "acct-check", "desc": "Day Program", "amount": 12.34, "flow": "outflow", "category": "Childcare", "tx_id": "tx-0314", "tx_key": "2026-03-14|acct-check|12.34|Day Program"}
+    ],
     "last_closed_month_categories": [
       {"name": "Groceries", "amount": 12.34},
       {"name": "Paycheck/Salary/Wages", "amount": 12.34},
@@ -139,7 +142,7 @@
         "message": "Health is within the recent average"
       }
     ],
-    "planned_by_category": {"Groceries": 12.34, "Shopping": 24, "Health": null},
+    "planned_by_category": {"Groceries": 12.34, "Shopping": 24, "Health": null, "Childcare": 12.34, "Tuition": 12.34},
     "mtd_actual_by_category": {"Groceries": 30, "Shopping": 12.34},
     "income_total": 12.34,
     "bills_total": 12.34

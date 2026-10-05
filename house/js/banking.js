@@ -1,4 +1,4 @@
-/* tip cy — House Banking.
+/* tip cz — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
@@ -12,7 +12,9 @@
    Feed categories stay when they were never in custom_categories.
    A merchant row add posts the category, then that row's override. The assign is not skipped when the feed body is stale.
    Due days POST to /data/banking/dueday-overrides.json.
-   Edits lists current.edits_tx (the long window). The Current tape stays on recent_tx.
+   Edits lists current.edits_tx (the long window) plus history tx arrays.
+   A present edits_tx does not hide a merchant that lives only on history.
+   The Current tape stays on recent_tx. A known category with no rows still reads "No items in this category."
    A transaction key prefers tx_key, otherwise date|id|amount|desc.
    Due-day precedence: user KV, then snapshot manual, then a feed day, then a generic filler only when the feed day is null.
    Custom categories and both edits sync across seats. A null balance stays blank.
@@ -443,15 +445,23 @@ function bankHistoryTxLists(snap) {
   return out;
 }
 
-/* edits_tx when the feed sent it. Otherwise the full recent list plus any history tx arrays.
-   The edits window stays on that list. Usage counts look further (bankCategorySourceLists). */
+/* edits_tx plus the history lists bankHistoryTxLists collects, when the feed sent edits_tx.
+   Missing or empty edits_tx falls back to recent_tx plus those same history lists.
+   Lists are deduped by identity. bankEditRows dedupes rows by tx key.
+   Recent tape rows stay off this list while edits_tx is present. */
 function bankEditSourceLists(snap) {
   var cur = snap && snap.current;
   var edits = bankTxList(cur && cur.edits_tx);
-  if (edits) return [edits];
   var out = [];
-  bankPushTxList(out, cur && cur.recent_tx);
-  bankHistoryTxLists(snap).forEach(function (list) { out.push(list); });
+  var seen = [];
+  function push(list) {
+    if (!list || seen.indexOf(list) >= 0) return;
+    seen.push(list);
+    out.push(list);
+  }
+  if (edits) push(edits);
+  else push(bankTxList(cur && cur.recent_tx));
+  bankHistoryTxLists(snap).forEach(push);
   return out;
 }
 
