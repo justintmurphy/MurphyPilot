@@ -464,6 +464,59 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   assert.doesNotMatch(current, /This month/);
 });
 
+test("short-month due days clamp onto the last day of that month", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  fx.budget.bills = [
+    { name: "Rent", amount: 12.34, typical_day: 31, cadence: "monthly" },
+    { name: "Water", amount: 12.34, typical_day: 15, cadence: "monthly" },
+    { name: "Insurance", amount: 12.34, typical_day: 30, cadence: "monthly" }
+  ];
+  fx.budget.bills_monthly = [];
+  fx.budget.income_monthly = [{ label: "Paycheck", amount: 12.34, typical_day: 31 }];
+  fx.budget.calendar = [{ day: 29, items: ["Sample item"] }];
+
+  function budget(asof) {
+    fx.asof = asof;
+    return ctx.bankPageHtml(fx, { tab: "budget" });
+  }
+
+  const feb = budget("2026-02-10T12:00:00-05:00");
+  assert.match(feb, /aria-label="February 2026"/);
+  assert.match(feb, /<b>28<\/b><em class="pay">Paycheck \(31st\)<\/em><span>Insurance \(30th\)<\/span><span>Rent \(31st\)<\/span><span>Sample item \(29th\)<\/span>/);
+  assert.match(feb, /<b>15<\/b><span>Water<\/span>/);
+  assert.doesNotMatch(feb, /Water \(/);
+  assert.doesNotMatch(feb, /<b>29<\/b>/);
+  assert.doesNotMatch(feb, /<b>30<\/b>/);
+  assert.doesNotMatch(feb, /<b>31<\/b>/);
+  assert.match(feb, /<span>Rent<\/span><b[^>]*>[^<]*<\/b><i>day 31<\/i>/);
+  assert.match(feb, /This check \(Paycheck, day 31\)/);
+
+  const apr = budget("2026-04-10T12:00:00-04:00");
+  assert.match(apr, /aria-label="April 2026"/);
+  assert.match(apr, /<b>30<\/b><em class="pay">Paycheck \(31st\)<\/em><span>Insurance<\/span><span>Rent \(31st\)<\/span>/);
+  assert.match(apr, /<b>29<\/b><span>Sample item<\/span>/);
+  assert.doesNotMatch(apr, /Insurance \(/);
+  assert.doesNotMatch(apr, /Sample item \(/);
+  assert.doesNotMatch(apr, /<b>31<\/b>/);
+  assert.match(apr, /<span>Rent<\/span><b[^>]*>[^<]*<\/b><i>day 31<\/i>/);
+
+  const oct = budget("2026-10-05T12:00:00-04:00");
+  assert.match(oct, /aria-label="October 2026"/);
+  assert.match(oct, /<b>31<\/b><em class="pay">Paycheck<\/em><span>Rent<\/span>/);
+  assert.match(oct, /<b>30<\/b><span>Insurance<\/span>/);
+  assert.match(oct, /<b>29<\/b><span>Sample item<\/span>/);
+  assert.match(oct, /<b>15<\/b><span>Water<\/span>/);
+  assert.doesNotMatch(oct, /\(31st\)|\(30th\)|\(29th\)/);
+
+  const leap = budget("2028-02-10T12:00:00-05:00");
+  assert.match(leap, /aria-label="February 2028"/);
+  assert.match(leap, /<b>29<\/b><em class="pay">Paycheck \(31st\)<\/em><span>Insurance \(30th\)<\/span><span>Rent \(31st\)<\/span><span>Sample item<\/span>/);
+  assert.doesNotMatch(leap, /Sample item \(/);
+  assert.doesNotMatch(leap, /<b>28<\/b><em class="pay">/);
+  assert.doesNotMatch(leap, /<b>30<\/b>/);
+});
+
 test("a transaction row shows a category chip and a blank category becomes Other", function () {
   const ctx = boot();
   const fx = loadFixture();
@@ -517,7 +570,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip db", function () {
+test("desk links Banking and banking assets are cache-busted at tip dc", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -527,8 +580,9 @@ test("desk links Banking and banking assets are cache-busted at tip db", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904db/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dc/);
   assert.match(page, /\/house\/banking\.css\?v=20260904db/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904db/);
   assert.match(page, /\/house\/house\.css\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cp/);
