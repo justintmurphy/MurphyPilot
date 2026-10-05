@@ -74,6 +74,7 @@ test("null money stays blank and a real zero is zero", function () {
 test("null balances are not shown as $0 and an empty tape stays hidden", function () {
   const ctx = boot();
   const fx = loadFixture();
+  fx.current.recent_tx = [];
   const html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
   assert.match(html, /data-panel="current"/);
   assert.match(html, /data-bank-tab="current"[^>]*aria-selected="true"/);
@@ -168,12 +169,12 @@ test("bills_monthly maps label and due day, and a paycheck groups the calendar",
   const ctx = boot();
   const bills = ctx.bankNormalizeBills({
     bills: [{ name: "Rent", amount: 12.34, typical_day: null, cadence: "monthly" }],
-    bills_monthly: [{ label: "Rent", due_day: 3, amount: 99 }, { label: "Power", due_day: 18, amount: 12.34, category: "Utilities/Bills" }]
+    bills_monthly: [{ label: "Rent", due_day: 3, amount: 99 }, { label: "Water", due_day: 18, amount: 12.34, category: "Utilities/Bills" }]
   });
   assert.equal(bills[0].name, "Rent");
   assert.equal(bills[0].typical_day, 3);
   assert.equal(bills[0].amount, 12.34);
-  assert.equal(bills[1].name, "Power");
+  assert.equal(bills[1].name, "Water");
   assert.equal(bills[1].typical_day, 18);
   const aliasOnly = ctx.bankNormalizeBills({
     bills_monthly: [{ label: "Insurance", due_day: 12, amount: 12.34 }]
@@ -192,6 +193,71 @@ test("bills_monthly maps label and due day, and a paycheck groups the calendar",
   assert.match(html, /Phone/);
 });
 
+test("known bills keep a fixed due day unless a manual override says otherwise", function () {
+  const ctx = boot();
+  function dayOf(raw, extra) {
+    const budget = Object.assign({ bills: [raw] }, extra || {});
+    return ctx.bankNormalizeBills(budget)[0];
+  }
+  [
+    ["Mortgage", 1],
+    ["mortgage payment", 1],
+    ["T-Mobile", 28],
+    ["t-mobile", 28],
+    ["Car payment", 15],
+    ["Auto Loan", 15],
+    ["Auto Pay", 15],
+    ["Auto Payment", 15],
+    ["Vehicle Loan", 15],
+    ["Electric", 15],
+    ["Power", 15],
+    ["Duquesne Light", 15],
+    ["Utility Electric", 15],
+    ["Gas Bill", 15],
+    ["Natural Gas", 15],
+    ["Columbia Gas", 15]
+  ].forEach(function (pair) {
+    const row = dayOf({ name: pair[0], amount: 12.34, typical_day: null });
+    assert.equal(row.typical_day, pair[1], pair[0]);
+    assert.equal(row.due_day, pair[1], pair[0]);
+  });
+  assert.equal(dayOf({ name: "Cargo", amount: 12.34, typical_day: null }).typical_day, null);
+  assert.equal(dayOf({ name: "Gasoline", amount: 12.34, typical_day: null }).typical_day, null);
+  assert.equal(dayOf({ name: "City Fuel", amount: 12.34, typical_day: null }).typical_day, null);
+  assert.equal(dayOf({ name: "Electric", amount: 12.34, typical_day: 20, source: "detected" }).typical_day, 15);
+  const manual = dayOf({ name: "Mortgage", amount: 12.34, typical_day: 5, source: "manual" });
+  assert.equal(manual.typical_day, 5);
+  assert.equal(manual.due_day, 5);
+  assert.equal(manual.source, "manual");
+  const pinned = dayOf(
+    { name: "T-Mobile", amount: 12.34, typical_day: null },
+    { overrides: [{ match: "T-Mobile", field: "due_day", value: 9, by: "fixture", at: "2026-10-05", source: "manual" }] }
+  );
+  assert.equal(pinned.typical_day, 9);
+  assert.equal(pinned.due_day, 9);
+  assert.equal(pinned.source, "manual");
+  const monthly = ctx.bankNormalizeBills({
+    bills_monthly: [{ label: "Mortgage", due_day: null, amount: 12.34 }]
+  });
+  assert.equal(monthly[0].typical_day, 1);
+
+  const fx = loadFixture();
+  fx.budget.bills = [
+    { name: "Mortgage", amount: 12.34, typical_day: null, cadence: "monthly" },
+    { name: "T-Mobile", amount: 12.34, typical_day: null, cadence: "monthly" },
+    { name: "Car payment", amount: 12.34, typical_day: null, cadence: "monthly" },
+    { name: "Electric", amount: 12.34, typical_day: null, cadence: "monthly" },
+    { name: "Columbia Gas", amount: 12.34, typical_day: null, cadence: "monthly" }
+  ];
+  fx.budget.bills_monthly = [];
+  fx.budget.income_monthly[0].typical_day = null;
+  const html = ctx.bankPageHtml(fx, { tab: "budget" });
+  assert.match(html, /<div class="bank-day has"><b>1<\/b><span>Mortgage<\/span>/);
+  assert.match(html, /<div class="bank-day has"><b>28<\/b><span>T-Mobile<\/span>/);
+  assert.match(html, /<div class="bank-day has"><b>15<\/b><span>Car payment<\/span><span>Electric<\/span><span>Columbia Gas<\/span>/);
+  assert.doesNotMatch(html, /Due days need more history/);
+});
+
 test("a transaction row shows a category chip and a blank category becomes Other", function () {
   const ctx = boot();
   const fx = loadFixture();
@@ -201,9 +267,13 @@ test("a transaction row shows a category chip and a blank category becomes Other
   ];
   const html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
   assert.match(html, /bank-tape/);
-  assert.match(html, /bank-chip">Other</);
-  assert.match(html, /bank-chip">Transfer<\/span><\/td><td>\u2014/);
-  assert.doesNotMatch(html, /Transfer<\/span><\/td><td>\$0/);
+  assert.match(html, /class="bank-merchant">Sample</);
+  assert.match(html, /value="Other" selected/);
+  const transfer = html.match(/data-bank-tx="2026-10-04\|acct-check\|\|Sample"[\s\S]*?<\/select>/);
+  assert.ok(transfer);
+  assert.match(transfer[0], /value="Transfer" selected/);
+  assert.match(html, /data-bank-tx="2026-10-04\|acct-check\|\|Sample"[\s\S]*?<td>\u2014<\/td>/);
+  assert.doesNotMatch(html, /data-bank-tx="2026-10-04\|acct-check\|\|Sample"[\s\S]*?<td>\$0/);
 });
 
 test("fetch failure paints a gate and does not invent balances", async function () {
@@ -229,11 +299,12 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(el.innerHTML, /\$0/);
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   assert.match(src, /\/data\/banking\.json/);
-  assert.match(src, /credentials:\s*"same-origin"/);
+  assert.match(src, /credentials:\s*"include"/);
+  assert.match(src, /Accept:\s*"application\/json"/);
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and the page is cache-busted at tip cn", function () {
+test("desk links Banking and banking assets are cache-busted at tip co", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -243,9 +314,10 @@ test("desk links Banking and the page is cache-busted at tip cn", function () {
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cn/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904cn/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904co/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904co/);
   assert.match(page, /\/house\/house\.css\?v=20260904cn/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
   assert.doesNotMatch(page, /href="\.\.\//);
   assert.doesNotMatch(page, /src="\.\.\//);
   assert.match(page, /id="bankDesk"/);
@@ -276,4 +348,195 @@ test("one-category pie renders without throwing", function () {
   const html = ctx.bankPieHtml([{ name: "Groceries", amount: 12.34 }]);
   assert.match(html, /<path /);
   assert.match(html, /Groceries/);
+});
+
+test("merchant is the tape label and an empty desc falls back to the category", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
+  assert.match(html, /class="bank-merchant">Corner Market<\/span><select class="bank-chip"/);
+  assert.match(html, /class="bank-merchant">City Fuel<\/span><select class="bank-chip"/);
+  assert.match(html, /class="bank-merchant">Shopping<\/span><select class="bank-chip"/);
+  assert.doesNotMatch(html, /class="bank-merchant"><\/span>/);
+  assert.doesNotMatch(html, /class="bank-desc"/);
+  const fuel = html.match(/data-bank-tx="2026-10-04\|acct-check\|12\.34\|City Fuel"[\s\S]*?<\/select>/);
+  assert.ok(fuel);
+  assert.match(fuel[0], /value="Transport" selected/);
+  assert.match(html, /Main Street Cafe[\s\S]*?<td>\u2014<\/td>/);
+  assert.match(html, /Category edits sync across your seats/);
+  assert.doesNotMatch(html, /this device/);
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  assert.match(css, /\.bank-merchant\s*\{[^}]*font-weight:\s*600/);
+  assert.match(css, /\.bank-chip\s*\{[^}]*font-size:\s*11px/);
+  const rank = html.match(/<ol class="bank-rank">[\s\S]*?<\/ol>/);
+  assert.ok(rank);
+  assert.match(rank[0], /Groceries/);
+  assert.doesNotMatch(rank[0], /Transport/);
+});
+
+test("tape stays hidden when recent_tx is empty", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  fx.current.recent_tx = [];
+  const html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
+  assert.doesNotMatch(html, /bank-tape/);
+  assert.doesNotMatch(html, /bank-merchant/);
+  assert.doesNotMatch(html, /bank-sync/);
+});
+
+test("category override posts to the feed and repaints without localStorage", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const writes = [];
+  ctx.localStorage.setItem = function (k, v) { writes.push(k + "=" + v); };
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    calls.push({ url: String(url), init: init });
+    const body = JSON.parse(init.body);
+    const overrides = Object.assign({}, fx.category_overrides || {});
+    overrides[body.key] = body.category;
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () {
+        return Promise.resolve({
+          schema: "banking-category-overrides/v1",
+          updated_at: "2026-10-05T18:00:00-04:00",
+          overrides: overrides
+        });
+      }
+    });
+  };
+  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { now: "2026-10-05T18:00:00-04:00" });
+  const key = "2026-10-05|acct-check|12.34|Corner Market";
+  assert.ok(el.innerHTML.indexOf('data-bank-tx="' + key + '"') >= 0);
+  const sel = {
+    value: "Food/Drink",
+    getAttribute: function (name) { return name === "data-bank-tx" ? key : null; },
+    hasAttribute: function () { return false; }
+  };
+  await el.listeners.change({ target: sel });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/data/banking/overrides.json");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  assert.equal(calls[0].init.headers.Accept, "application/json");
+  assert.equal(calls[0].init.headers["Content-Type"], "application/json");
+  assert.equal(calls[0].init.redirect, "manual");
+  const posted = JSON.parse(calls[0].init.body);
+  assert.equal(posted.key, key);
+  assert.equal(posted.category, "Food/Drink");
+  const chipAt = el.innerHTML.indexOf('data-bank-tx="' + key + '"');
+  const chip = el.innerHTML.slice(chipAt, el.innerHTML.indexOf("</select>", chipAt));
+  assert.match(chip, /value="Food\/Drink" selected/);
+  assert.match(el.innerHTML, /class="bank-merchant">Corner Market</);
+  assert.match(el.innerHTML, /Category edits sync across your seats/);
+  assert.equal(writes.length, 0);
+  const rank = el.innerHTML.match(/<ol class="bank-rank">[\s\S]*?<\/ol>/);
+  assert.ok(rank);
+  assert.match(rank[0], /<span>Groceries<\/span><b>\$12\.34<\/b>/);
+  assert.doesNotMatch(rank[0], /Food\/Drink/);
+});
+
+test("a failed override leaves the chip and does not use localStorage", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const writes = [];
+  ctx.localStorage.setItem = function (k, v) { writes.push(k + "=" + v); };
+  for (const status of [404, 405]) {
+    ctx.fetch = function () {
+      return Promise.resolve({ ok: false, status: status, type: "basic" });
+    };
+    const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { now: "2026-10-05T18:00:00-04:00" });
+    const key = "2026-10-05|acct-check|12.34|Corner Market";
+    const sel = {
+      value: "Health",
+      getAttribute: function (name) { return name === "data-bank-tx" ? key : null; },
+      hasAttribute: function () { return false; }
+    };
+    await el.listeners.change({ target: sel });
+    const chipAt = el.innerHTML.indexOf('data-bank-tx="' + key + '"');
+    assert.ok(chipAt >= 0);
+    const chip = el.innerHTML.slice(chipAt, el.innerHTML.indexOf("</select>", chipAt));
+    assert.match(chip, /value="Groceries" selected/);
+    assert.doesNotMatch(chip, /value="Health" selected/);
+    assert.match(el.innerHTML, /not on the feed yet/);
+    assert.match(el.innerHTML, /Nothing was saved/);
+  }
+  assert.equal(writes.length, 0);
+});
+
+test("override post refetches banking.json when the body has no map", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const copy = JSON.parse(JSON.stringify(fx));
+  const urls = [];
+  let n = 0;
+  ctx.fetch = function (url) {
+    n += 1;
+    urls.push(String(url));
+    if (n === 1) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () { return Promise.resolve({ ok: true }); }
+      });
+    }
+    copy.category_overrides = Object.assign({}, copy.category_overrides, {
+      "2026-10-05|acct-check|12.34|Corner Market": "Health"
+    });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () { return Promise.resolve(copy); }
+    });
+  };
+  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { now: "2026-10-05T18:00:00-04:00" });
+  const key = "2026-10-05|acct-check|12.34|Corner Market";
+  await el.listeners.change({
+    target: {
+      value: "Health",
+      getAttribute: function (name) { return name === "data-bank-tx" ? key : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.deepEqual(urls, ["/data/banking/overrides.json", "/data/banking.json"]);
+  const chipAt = el.innerHTML.indexOf('data-bank-tx="' + key + '"');
+  assert.ok(chipAt >= 0);
+  const chip = el.innerHTML.slice(chipAt, el.innerHTML.indexOf("</select>", chipAt));
+  assert.match(chip, /value="Health" selected/);
+});
+
+test("banking fetch asks for JSON and a login redirect counts as locked", async function () {
+  const ctx = boot();
+  const init = ctx.bankFetchInit();
+  assert.equal(init.headers.Accept, "application/json");
+  assert.equal(init.credentials, "include");
+  assert.equal(init.redirect, "manual");
+  assert.equal(init.cache, "no-store");
+  const posted = ctx.bankFetchInit({
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}"
+  });
+  assert.equal(posted.headers.Accept, "application/json");
+  assert.equal(posted.headers["Content-Type"], "application/json");
+  assert.equal(posted.method, "POST");
+  const el = { innerHTML: "" };
+  await ctx.bankLoad(el, function () {
+    return Promise.resolve({ ok: false, status: 0, type: "opaqueredirect" });
+  });
+  assert.match(el.innerHTML, /data-bank-gate="gate"/);
+  assert.match(el.innerHTML, /Banking is locked/);
+  assert.equal(ctx.bankTxKey({
+    date: "2026-10-05",
+    id: "acct-check",
+    amount: 12.34,
+    desc: "Corner Market"
+  }), "2026-10-05|acct-check|12.34|Corner Market");
+  assert.equal(ctx.bankTxKey({ date: "2026-10-02", id: "acct-share", amount: null, desc: "Main Street Cafe" }),
+    "2026-10-02|acct-share||Main Street Cafe");
 });

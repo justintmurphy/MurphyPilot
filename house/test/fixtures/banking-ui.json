@@ -17,7 +17,12 @@
       {"id": "acct-od", "balance": 0, "asof_date": "2026-10-05"}
     ],
     "total_cash": null,
-    "recent_tx": [],
+    "recent_tx": [
+      {"date": "2026-10-05", "id": "acct-check", "desc": "Corner Market", "amount": 12.34, "flow": "outflow", "category": "Groceries"},
+      {"date": "2026-10-04", "id": "acct-check", "desc": "City Fuel", "amount": 12.34, "flow": "outflow", "category": "Gas"},
+      {"date": "2026-10-03", "id": "acct-debit", "desc": "", "amount": 12.34, "flow": "outflow", "category": "Shopping"},
+      {"date": "2026-10-02", "id": "acct-share", "desc": "Main Street Cafe", "amount": null, "flow": "outflow", "category": "Food/Drink"}
+    ],
     "last_closed_month_categories": [
       {"name": "Groceries", "amount": 12.34},
       {"name": "Paycheck/Salary/Wages", "amount": 12.34},
@@ -70,6 +75,9 @@
         "closed": false
       }
     ]
+  },
+  "category_overrides": {
+    "2026-10-04|acct-check|12.34|City Fuel": "Transport"
   },
   "budget": {
     "income_monthly": [

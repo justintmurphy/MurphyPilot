@@ -1,4 +1,4 @@
-/* tip cn — Banking page. Charcoal + teal desk, dense at ≤720. */
+/* tip co — Banking page. Charcoal + teal desk, dense at ≤720. */
 
 body.bank-page > header {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -501,7 +501,14 @@ body.bank-page > header .clock {
 .bank-tape td {
   padding: 4px 6px;
   border-bottom: 1px solid var(--rule);
-  vertical-align: baseline;
+  vertical-align: middle;
+}
+
+.bank-tape td:first-child {
+  white-space: nowrap;
+  color: var(--ink-soft);
+  font-size: 12px;
+  width: 1%;
 }
 
 .bank-tape td:last-child {
@@ -509,21 +516,47 @@ body.bank-page > header .clock {
   white-space: nowrap;
 }
 
+.bank-tx-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.bank-merchant {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .bank-chip {
   display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
+  margin: 0;
+  padding: 2px 8px;
+  min-height: 32px;
+  max-width: 11rem;
   border-radius: 999px;
   border: 1px solid var(--rule);
   background: var(--row);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.bank-flow {
+  color: var(--ink-soft);
   font-size: 11px;
 }
 
-.bank-flow,
-.bank-desc {
+.bank-sync {
+  margin: 0 0 6px;
+}
+
+.bank-override-err {
+  margin: 0 0 6px;
   color: var(--ink-soft);
-  font-size: 11px;
-  margin-right: 4px;
+  font-size: 12px;
 }
 
 .bank-gate {
@@ -651,5 +684,8 @@ body.bank-page > header .clock {
   }
   .bank-tile {
     padding: 6px 8px;
+  }
+  .bank-chip {
+    max-width: 100%;
   }
 }
