@@ -1,4 +1,4 @@
-/* tip cr — House Banking.
+/* tip cs — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
@@ -1266,31 +1266,17 @@ function bankResolveEditCat(inUse, known, requested) {
   return "";
 }
 
-function bankEditCategoryChoices(inUse, current, extra) {
-  var out = (inUse || []).slice();
-  (extra || []).forEach(function (name) {
-    if (name && out.indexOf(name) < 0) out.push(name);
-  });
-  if (current && out.indexOf(current) < 0) out.unshift(current);
-  var otherAt = out.indexOf("Other");
-  if (otherAt >= 0 && otherAt !== out.length - 1) {
-    out.splice(otherAt, 1);
-    out.push("Other");
-  }
-  return out;
-}
-
 function bankAddCategoryHtml() {
   return '<div class="bank-add-cat"><label>Add category <input type="text" maxlength="' + BANK_CAT_MAX +
     '" autocomplete="off" data-bank-new-cat aria-label="New category"></label>' +
     '<button type="button" data-bank-add-cat>Add</button></div>';
 }
 
-function bankEditTxHtml(rows, known, inUse, picked, extra) {
+function bankEditTxHtml(rows, known, picked) {
   if (!rows || !rows.length) return '<p class="bank-empty">No transactions in this print.</p>';
-  var choices = bankEditCategoryChoices(inUse, picked, extra);
+  var assignCats = known || [];
   var picker = '<label class="bank-cat-pick">Category <select data-bank-cat aria-label="Category">' +
-    bankChipOptions(choices, picked) + "</select></label>";
+    bankChipOptions(assignCats, picked) + "</select></label>";
   var mine = rows.filter(function (r) { return r.category === picked; });
   if (!mine.length) return picker + '<p class="bank-empty">No items in this category.</p>';
   return picker + '<ul class="bank-edit-list">' + mine.map(function (r) {
@@ -1300,7 +1286,7 @@ function bankEditTxHtml(rows, known, inUse, picked, extra) {
       '</span><span class="bank-edit-meta">' + bankEsc(date) +
       '</span></span><span class="bank-edit-side"><select class="bank-chip" data-bank-tx="' +
       bankEsc(r.key) + '" aria-label="Category for ' + bankEsc(label) + '">' +
-      bankChipOptions(known, r.category) +
+      bankChipOptions(assignCats, r.category) +
       "</select><b>" + bankMoney(r.amount) + "</b></span></li>";
   }).join("") + "</ul>";
 }
@@ -1325,7 +1311,6 @@ function bankEditsPanelHtml(snap, opts) {
   var rows = bankEditRows(snap);
   var known = bankKnownCategories(snap);
   var inUse = bankCategoriesInUse(rows, known);
-  var customs = bankCustomCategories(snap);
   var picked = bankResolveEditCat(inUse, known, opts.editCat);
   var catNote = bankHasOverrides(snap) ? '<p class="hint bank-sync">Category edits sync across your seats</p>' : "";
   var catSync = '<p class="hint bank-sync">Categories sync across your seats</p>';
@@ -1335,7 +1320,7 @@ function bankEditsPanelHtml(snap, opts) {
   var dueErr = opts.dueError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.dueError) + "</p>" : "";
   return '<section class="bank-edit-block"><h3>Transactions</h3>' + catNote + catErr + catSync + addErr +
     bankAddCategoryHtml() +
-    bankEditTxHtml(rows, known, inUse, picked, customs) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
+    bankEditTxHtml(rows, known, picked) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
     dueNote + dueErr + bankEditBillHtml(bills) + "</section>";
 }
 
