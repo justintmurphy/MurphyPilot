@@ -1,4 +1,4 @@
-/* tip dd — House Banking.
+/* tip de — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
@@ -1384,11 +1384,11 @@ function bankHistHtml(snap, opts) {
   return controls + body;
 }
 
+/* America/New_York year, month, and day from bankEtYmd, then days in that month. */
 function bankMtdCaption(asof) {
-  var m = String(asof || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return "Month to date";
-  var dim = new Date(Date.UTC(Number(m[1]), Number(m[2]), 0)).getUTCDate();
-  return "Month to date \u00b7 day " + Number(m[3]) + " of " + dim;
+  var et = bankEtYmd(asof);
+  if (!et || !(et.day >= 1)) return "Month to date";
+  return "Month to date \u00b7 day " + et.day + " of " + bankMonthDim(et.year, et.month);
 }
 
 function bankBarsHtml(rows) {
