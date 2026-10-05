@@ -1,4 +1,4 @@
-/* tip dk — House Banking.
+/* tip dm — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
@@ -17,7 +17,7 @@
    An unmarked name is Bill when it is a normalized bill or it has a due day.
    Any other unmarked spend category is Optional. An override always wins.
    Budget and Edits show a display name. Keys stay on the raw category or bill name.
-   A bill or budget category that contains the word mobile displays as Phone. Matching keys stay on the raw name, the same way a leading provider is stripped only on screen.
+   A bill or budget category that contains the word mobile displays as Phone, except when another word begins with home, deposit, bank, or transfer. Matching keys stay on the raw name, the same way a leading provider is stripped only on screen.
    Edits lists current.edits_tx (the long window) plus history tx arrays.
    A present edits_tx does not hide a merchant that lives only on history.
    The Current tape stays on recent_tx. The merchant line and the category chip stay the feed strings. A known category with no rows still reads "No items in this category."
@@ -41,7 +41,7 @@ var BANK_DUEDAY_URL = "/data/banking/dueday-overrides.json";
 var BANK_MUSTPAY_URL = "/data/banking/mustpay-overrides.json";
 var BANK_CATEGORIES_URL = "/data/banking/categories.json";
 /* Generic bill tails only. A leading provider is hidden at display time (Acme Mortgage shows as Mortgage).
-   The word mobile is not a tail. bankBillDisplayName shows that word as Phone on bill and budget category labels. */
+   The word mobile is not a tail. bankBillDisplayName shows that word as Phone on bill and budget category labels, except a home, deposit, bank, or transfer name. */
 var BANK_DISPLAY_TAILS = [
   "gas (utility)",
   "natural gas",
@@ -118,7 +118,7 @@ function bankCatName(name) {
 }
 
 /* Display only. Matching keys (overrides, mustpay, dueday, categories, dig-in, POST bodies) stay on the raw name.
-   A leading provider is hidden. Bill and budget labels use bankBillDisplayName when the word mobile should read as Phone. */
+   A leading provider is hidden. Bill and budget labels use bankBillDisplayName when the word mobile should read as Phone. A home, deposit, bank, or transfer name stays the display name. */
 function bankDisplayName(name) {
   var raw = String(name == null ? "" : name).trim().replace(/\s+/g, " ");
   if (!raw) return "";
@@ -139,11 +139,12 @@ function bankDisplayName(name) {
   return raw.slice(raw.length - best.length);
 }
 
-/* Bill and budget category labels. The word mobile displays as Phone. The Current tape does not use this. */
+/* Bill and budget category labels. The word mobile displays as Phone unless another word
+   begins with home, deposit, bank, or transfer. The Current tape does not use this. */
 function bankBillDisplayName(name) {
   var raw = String(name == null ? "" : name).trim().replace(/\s+/g, " ");
   if (!raw) return "";
-  if (/\bmobile\b/i.test(raw)) return "Phone";
+  if (/\bmobile\b/i.test(raw) && !/\b(?:home|deposit|bank|transfer)/i.test(raw)) return "Phone";
   return bankDisplayName(raw);
 }
 
