@@ -1,4 +1,4 @@
-/* tip cp — Banking page. Charcoal + teal desk, dense at ≤720. */
+/* tip df — Banking page. Charcoal + teal desk, dense at ≤720. */
 
 body.bank-page > header {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -932,6 +932,9 @@ span.bank-chip {
   .bank-tile b {
     font-size: 16px;
   }
+  .bank-mtd-fig b {
+    font-size: 22px;
+  }
   .bank-cal-dow,
   .bank-cal-week {
     gap: 2px;
@@ -978,6 +981,57 @@ span.bank-chip {
   margin: -4px 0 8px;
   color: var(--ink-soft);
   font-size: 12px;
+}
+
+.bank-mtd-figs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0 0 10px;
+}
+
+.bank-mtd-fig {
+  min-width: 0;
+}
+
+.bank-mtd-fig span {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 12px;
+  letter-spacing: 0.3px;
+}
+
+.bank-mtd-fig b {
+  display: block;
+  margin-top: 2px;
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.bank-mtd-of {
+  margin: 0 0 6px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-mtd-track {
+  height: 12px;
+  background: var(--row);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bank-mtd-track .fill {
+  display: block;
+  height: 100%;
+  background: var(--brand-fg);
+}
+
+.bank-mtd-track.over .fill {
+  background: var(--stop);
 }
 
 .bank-kind-pies {

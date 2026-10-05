@@ -309,7 +309,7 @@ test("a detected due day beats the filler and a null day still gets one", functi
   assert.doesNotMatch(html, /Due days need more history/);
 });
 
-test("bill calendar is a month grid and the budget pie splits MTD spend from income", function () {
+test("bill calendar is a month grid and month-to-date shows spent and income with a bar", function () {
   const ctx = boot();
   const fx = loadFixture();
   fx.budget.income_monthly[0].typical_day = null;
@@ -350,14 +350,18 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   );
   html = ctx.bankPageHtml(fx, { tab: "budget" });
   let block = mtdBlock(html);
-  assert.match(block, /class="bank-pie"/);
-  assert.equal((block.match(/<path /g) || []).length, 2);
-  assert.match(block, /of income/);
-  assert.match(block, />43%</);
+  assert.match(block, /class="bank-mtd-meter"/);
+  assert.match(block, /class="bank-mtd-track"/);
+  assert.match(block, /style="width:43%"/);
+  assert.match(block, /43% of income/);
+  assert.doesNotMatch(block, /class="bank-pie"/);
+  assert.doesNotMatch(block, /<path /);
+  assert.doesNotMatch(block, /<svg /);
   assert.match(block, /Spent so far<\/span><b>\$30\.00<\/b>/);
   assert.match(block, /Income received<\/span><b>\$70\.00<\/b>/);
   assert.doesNotMatch(block, /\$500/);
   assert.doesNotMatch(block, /\$400/);
+  assert.doesNotMatch(block, /NaN|Infinity/);
 
   fx.current.edits_tx = [
     { date: "2026-10-02", id: "acct-check", desc: "Pay", amount: -40, flow: "inflow", category: "Cash Inflows", tx_key: "cash-oct" }
@@ -370,8 +374,10 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   block = mtdBlock(html);
   assert.match(block, /Income received<\/span><b>\$40\.00<\/b>/);
   assert.match(block, /Spent so far<\/span><b>\$60\.00<\/b>/);
-  assert.match(block, />150%</);
-  assert.match(block, /of income/);
+  assert.match(block, /150% of income/);
+  assert.match(block, /class="bank-mtd-track over"/);
+  assert.match(block, /style="width:100%"/);
+  assert.doesNotMatch(block, /class="bank-pie"/);
 
   fx.current.edits_tx = [];
   fx.current.recent_tx = [];
@@ -386,7 +392,8 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   block = mtdBlock(html);
   assert.match(block, /Income received<\/span><b>\$15\.00<\/b>/);
   assert.match(block, /Spent so far<\/span><b>\$75\.00<\/b>/);
-  assert.match(block, />500%</);
+  assert.match(block, /500% of income/);
+  assert.match(block, /style="width:100%"/);
   assert.doesNotMatch(block, /\$999/);
   assert.doesNotMatch(block, /\$80/);
 
@@ -396,9 +403,11 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   fx.budget.mtd_actual_by_category = { Groceries: 50 };
   html = ctx.bankPageHtml(fx, { tab: "budget" });
   block = mtdBlock(html);
-  assert.equal((block.match(/<path /g) || []).length, 2);
+  assert.doesNotMatch(block, /<path /);
+  assert.doesNotMatch(block, /class="bank-mtd-track over"/);
   assert.match(block, /Income received<\/span><b>\$50\.00<\/b>/);
-  assert.match(block, />100%</);
+  assert.match(block, /100% of income/);
+  assert.match(block, /style="width:100%"/);
 
   oct.closed = true;
   oct.income_total = 80;
@@ -407,6 +416,8 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   html = ctx.bankPageHtml(fx, { tab: "budget" });
   block = mtdBlock(html);
   assert.doesNotMatch(block, /class="bank-pie"/);
+  assert.doesNotMatch(block, /class="bank-mtd-meter"/);
+  assert.doesNotMatch(block, /NaN|Infinity/);
   assert.match(block, /Income for this month is not in the print/);
   assert.match(block, /Spent so far \$20\.00/);
 
@@ -416,6 +427,8 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   html = ctx.bankPageHtml(fx, { tab: "budget" });
   block = mtdBlock(html);
   assert.doesNotMatch(block, /<path /);
+  assert.doesNotMatch(block, /class="bank-mtd-meter"/);
+  assert.doesNotMatch(block, /NaN|Infinity/);
   assert.match(block, /Income received \$33\.00/);
   assert.match(block, /No month-to-date spend in this print/);
 
@@ -425,6 +438,8 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   block = mtdBlock(html);
   assert.match(block, /No month-to-date spend or income in this print/);
   assert.doesNotMatch(block, /<path /);
+  assert.doesNotMatch(block, /class="bank-mtd-meter"/);
+  assert.doesNotMatch(block, /NaN|Infinity/);
   assert.doesNotMatch(block, /\$0/);
 
   oct.income_total = 0;
@@ -432,6 +447,8 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   html = ctx.bankPageHtml(fx, { tab: "budget" });
   block = mtdBlock(html);
   assert.doesNotMatch(block, /<path /);
+  assert.doesNotMatch(block, /class="bank-mtd-meter"/);
+  assert.doesNotMatch(block, /NaN|Infinity/);
   assert.match(block, /Income received this month is zero/);
   assert.match(block, /Spent so far \$10\.00/);
 
@@ -614,7 +631,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip de", function () {
+test("desk links Banking and banking assets are cache-busted at tip df", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -624,8 +641,10 @@ test("desk links Banking and banking assets are cache-busted at tip de", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904de/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904de/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904df/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904df/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904de/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904de/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dd/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dd/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dc/);
@@ -660,6 +679,8 @@ test("desk links Banking and banking assets are cache-busted at tip de", functio
   assert.match(page, /id="bankDesk"/);
   assert.match(page, /href="\/house\/banking\/"/);
   assert.match(houseCss, /@media \(max-width: 720px\) \{\s*header \.section-nav \{ display: none; \}/);
+  assert.match(bankCss, /\.bank-mtd-fig b\s*\{[^}]*font-size:\s*28px/);
+  assert.match(bankCss, /\.bank-mtd-track\s*\{/);
   assert.match(bankCss, /\.bank-cal \{\s*min-width: 0;\s*\}/);
   assert.match(bankCss, /\.bank-cal-week \{[^}]*repeat\(7, minmax\(0, 1fr\)\)/);
   assert.doesNotMatch(bankCss, /\.bank-days/);
@@ -2857,9 +2878,23 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
   assert.match(edits, /class="bank-merchant">House Note</);
   assert.doesNotMatch(edits, /Elective|Other spending/);
   assert.doesNotMatch(budget, /data-bank-kind/);
-  assert.match(ctx.bankMtdSplitHtml(5000, 1), /999%\+/);
-  assert.match(ctx.bankMtdSplitHtml(60, 40), />150%</);
-  assert.match(ctx.bankMtdSplitHtml(60, 40), /of income/);
+  const capped = ctx.bankMtdSplitHtml(5000, 1);
+  assert.match(capped, /999%\+ of income/);
+  assert.match(capped, /style="width:100%"/);
+  assert.match(capped, /class="bank-mtd-meter"/);
+  assert.doesNotMatch(capped, /class="bank-pie"/);
+  assert.doesNotMatch(capped, /NaN|Infinity/);
+  assert.equal(ctx.bankMtdOfIncomeText(9.99, 1), "999%");
+  assert.equal(ctx.bankMtdOfIncomeText(10, 1), "999%+");
+  assert.equal(ctx.bankMtdOfIncomeText(10, 0), "0%");
+  assert.equal(ctx.bankMtdOfIncomeText(10, null), "0%");
+  const over = ctx.bankMtdSplitHtml(60, 40);
+  assert.match(over, /150% of income/);
+  assert.match(over, /class="bank-mtd-track over"/);
+  assert.match(over, /Spent so far<\/span><b>\$60\.00<\/b>/);
+  assert.match(over, /Income received<\/span><b>\$40\.00<\/b>/);
+  assert.doesNotMatch(ctx.bankMtdSplitHtml(10, 0), /bank-mtd-meter|NaN|Infinity/);
+  assert.doesNotMatch(ctx.bankMtdSplitHtml(10, null), /bank-mtd-meter|NaN|Infinity/);
   assert.match(ctx.bankMtdBlock(shown), /Month to date · day 5 of 31/);
 
   const writes = [];
