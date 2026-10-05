@@ -1,4 +1,4 @@
-/* tip dt — House Banking.
+/* tip du — House Banking.
    The main tabs run Budget, Current, Historical. An empty or unknown hash still opens Current.
    Current is the live print. Budget is the plan, the due map, and progress against limits.
    Month-end balances stay off Current. The month-end spark helpers are gone.
@@ -39,6 +39,11 @@
    budget.exclusions entries, matched by label without case, are not Bills. A health-insurance name displays as Health Insurance and is treated the same way when it shows up as a bill. Neither becomes Bill or Optional from the must-pay default.
    A bill may carry prev_key or alias. Due-day and must-pay lookups also read that older key. Saves stay on the raw name.
    income_monthly rows show on Budget. A row with editable true can take an amount and a day in Edits. A blank stays blank. An amount below zero is saved as 0. An amount above 10000000 is saved as 10000000. Text that is not a number is ignored.
+   Amount on an income row is one deposit. A monthly plan prefers monthly_amount, then amount_monthly. Otherwise it is amount times times_per_month. budget.income_total and each history income_total are already monthly and are never multiplied again.
+   Cadence twice_monthly, biweekly, semi_monthly, or 2x, or times_per_month 2, is two deposits a month. A Payroll or paycheck label, and a fostering or per diem stipend label, are two deposits a month even when cadence is null.
+   Those two labels use fixed pay days. Payroll is the 15th and the last day of the Budget month on screen (28, 29, 30, or 31). Fostering per diem stipend is the 10th and the 25th. A print typical_day or typical_days list does not move them. An Edits day replaces the first of those days. The other day stays. There is no +14 guess.
+   Any other twice-monthly row uses only the days the print lists (typical_days, typical_day, typical_day_2). A missing day stays off the calendar. The income list still shows the 2× plan.
+   Edits keeps one day field. The hint says which second day stays.
    Edits lists current.edits_tx (the long window) plus history tx arrays.
    A present edits_tx does not hide a merchant that lives only on history.
    The Current tape stays on recent_tx. The merchant line and the category chip stay the feed strings. A known category with no rows still reads "No items in this category."
@@ -1110,18 +1115,128 @@ function bankNormalizeBills(budget, dueMap) {
   });
 }
 
+/* Payroll / paycheck and fostering / per diem stipend. No employer or bank name is part of the match. */
+function bankIsPayrollIncome(label) {
+  var s = bankFoldName(label);
+  return s.indexOf("payroll") >= 0 || s.indexOf("paycheck") >= 0;
+}
+
+function bankIsFosteringIncome(label) {
+  var s = bankFoldName(label);
+  return s.indexOf("fostering") >= 0 || s.indexOf("per diem stipend") >= 0;
+}
+
+function bankIsJustinTwiceIncome(label) {
+  return bankIsPayrollIncome(label) || bankIsFosteringIncome(label);
+}
+
+/* Print cadence or times_per_month. Null when the row does not say. */
+function bankPrintTimes(raw) {
+  var explicit = bankNum(raw && raw.times_per_month);
+  if (explicit != null && explicit >= 1) return explicit;
+  var cad = String((raw && raw.cadence) || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (cad === "twice_monthly" || cad === "biweekly" || cad === "bi_weekly" || cad === "semi_monthly" || cad === "semimonthly" || cad === "2x" || cad === "2×") return 2;
+  return null;
+}
+
+/* Justin Payroll and Fostering rows are 2× even when cadence is null. Other rows follow the print. */
+function bankIncomeTimes(raw, label) {
+  if (bankIsJustinTwiceIncome(label)) return 2;
+  var printed = bankPrintTimes(raw);
+  return printed == null ? 1 : printed;
+}
+
+function bankUniqueDays(list) {
+  var out = [];
+  (list || []).forEach(function (v) {
+    var d = bankDay(v);
+    if (d == null || out.indexOf(d) < 0) out.push(d);
+  });
+  out.sort(function (a, b) { return a - b; });
+  return out;
+}
+
+function bankFeedPayDays(raw) {
+  var days = [];
+  if (raw && Array.isArray(raw.typical_days)) days = days.concat(raw.typical_days);
+  if (raw && raw.typical_day != null) days.push(raw.typical_day);
+  if (raw && raw.typical_day_2 != null) days.push(raw.typical_day_2);
+  if (raw && raw.day2 != null) days.push(raw.day2);
+  return bankUniqueDays(days);
+}
+
+/* budget.income_total and history income_total are already monthly. Do not multiply by times_per_month. */
+function bankMonthlyIncomeTotal(total) {
+  return bankNum(total);
+}
+
+/* Monthly plan dollars. Prefer monthly_amount, then amount_monthly, else amount × times. */
+function bankIncomeMonthAmount(inc) {
+  if (!inc) return null;
+  var monthly = bankNum(inc.monthly_amount);
+  if (monthly != null) return monthly;
+  var amount = bankNum(inc.amount);
+  var times = bankNum(inc.times_per_month);
+  if (amount == null || times == null || !(times > 0)) return null;
+  return amount * times;
+}
+
+/* Fixed pair for the two Justin rows. Payroll's second day is the real last day of ym. */
+function bankJustinPayDays(label, ym) {
+  if (bankIsPayrollIncome(label)) {
+    var last = 31;
+    if (ym && ym.year && ym.month) last = bankMonthDim(ym.year, ym.month);
+    return [15, last];
+  }
+  if (bankIsFosteringIncome(label)) return [10, 25];
+  return null;
+}
+
+/* Calendar days. Justin fixed days win over a single observed print day. A user day replaces the first fixed day only. */
+function bankIncomePayDays(inc, ym) {
+  if (!inc) return [];
+  var fixed = bankJustinPayDays(inc.label, ym);
+  if (fixed) {
+    var days = fixed.slice();
+    var edited = inc.day_edited ? bankDay(inc.typical_day) : null;
+    if (edited != null && days.indexOf(edited) < 0) days[0] = edited;
+    return bankUniqueDays(days);
+  }
+  var listed = (inc.feed_days || []).slice();
+  if (inc.day_edited && bankDay(inc.typical_day) != null) {
+    var chosen = bankDay(inc.typical_day);
+    listed = [chosen].concat(listed.filter(function (d) { return d !== chosen; }));
+  }
+  return bankUniqueDays(listed);
+}
+
+function bankAttachIncomePlan(incomes, ym) {
+  (incomes || []).forEach(function (inc) {
+    inc.pay_days = bankIncomePayDays(inc, ym);
+  });
+  return incomes;
+}
+
 function bankNormalizeIncome(budget) {
   var list = budget && budget.income_monthly;
   if (!Array.isArray(list)) return [];
   return list.map(function (raw) {
     raw = raw || {};
+    var label = String(raw.label || raw.name || "Paycheck");
+    var monthly = bankNum(raw.monthly_amount);
+    if (monthly == null) monthly = bankNum(raw.amount_monthly);
     return {
-      label: String(raw.label || raw.name || "Paycheck"),
+      label: label,
       amount: bankNum(raw.amount),
+      monthly_amount: monthly,
+      amount_basis: raw.amount_basis || null,
       cadence: raw.cadence || null,
+      times_per_month: bankIncomeTimes(raw, label),
       typical_day: bankDay(raw.typical_day),
+      feed_days: bankFeedPayDays(raw),
       source: raw.source || "",
-      editable: raw.editable === true
+      editable: raw.editable === true,
+      day_edited: false
     };
   });
 }
@@ -1150,12 +1265,18 @@ function bankApplyIncomeEdits(incomes, edits) {
     if (raw == null) return;
     if (typeof raw === "number") {
       var dayOnly = bankDay(raw);
-      if (dayOnly != null) inc.typical_day = dayOnly;
+      if (dayOnly != null) {
+        inc.typical_day = dayOnly;
+        inc.day_edited = true;
+      }
       return;
     }
     if (typeof raw !== "object" || Array.isArray(raw)) return;
     if (Object.prototype.hasOwnProperty.call(raw, "amount")) inc.amount = bankNum(raw.amount);
-    if (Object.prototype.hasOwnProperty.call(raw, "typical_day")) inc.typical_day = bankDay(raw.typical_day);
+    if (Object.prototype.hasOwnProperty.call(raw, "typical_day")) {
+      inc.typical_day = bankDay(raw.typical_day);
+      inc.day_edited = inc.typical_day != null;
+    }
   });
   return incomes;
 }
@@ -1171,7 +1292,10 @@ function bankApplyEdits(bills, incomes, edits) {
   });
   incomes.forEach(function (inc) {
     if (!Object.prototype.hasOwnProperty.call(incEd, inc.label)) return;
-    inc.typical_day = bankDay(incEd[inc.label]);
+    var raw = incEd[inc.label];
+    var day = typeof raw === "object" && raw ? bankDay(raw.typical_day) : bankDay(raw);
+    inc.typical_day = day;
+    inc.day_edited = day != null;
     inc.source = "manual";
   });
 }
@@ -1226,14 +1350,21 @@ function bankBudgetBars(budget) {
   });
 }
 
+function bankIncomeMarkDays(inc) {
+  if (inc && Array.isArray(inc.pay_days)) return inc.pay_days;
+  return bankIncomePayDays(inc, null);
+}
+
 function bankCheckGroups(bills, incomes) {
   var days = [];
   var labels = {};
   (incomes || []).forEach(function (inc) {
-    var d = bankDay(inc.typical_day);
-    if (d == null) return;
-    if (days.indexOf(d) < 0) days.push(d);
-    labels[d] = inc.label || "Paycheck";
+    bankIncomeMarkDays(inc).forEach(function (d) {
+      d = bankDay(d);
+      if (d == null) return;
+      if (days.indexOf(d) < 0) days.push(d);
+      if (!labels[d]) labels[d] = inc.label || "Paycheck";
+    });
   });
   days.sort(function (a, b) { return a - b; });
   if (!days.length) return [];
@@ -1269,9 +1400,11 @@ function bankDayCells(bills, incomes, calendar) {
   var d;
   for (d = 1; d <= 31; d++) days.push({ day: d, pays: [], bills: [], items: [] });
   (incomes || []).forEach(function (inc) {
-    var day = bankDay(inc.typical_day);
-    if (day == null) return;
-    days[day - 1].pays.push(inc.label || "Paycheck");
+    bankIncomeMarkDays(inc).forEach(function (day) {
+      day = bankDay(day);
+      if (day == null) return;
+      days[day - 1].pays.push(inc.label || "Paycheck");
+    });
   });
   (bills || []).forEach(function (b) {
     var day = bankDay(b.typical_day);
@@ -1399,7 +1532,7 @@ function bankYearSvg(months) {
   var rows = (months || []).map(function (m) {
     return {
       label: bankMonthLabel(m.month),
-      income: bankNum(m.income_total),
+      income: bankMonthlyIncomeTotal(m.income_total),
       spend: bankNum(m.spend_total),
       net: bankNum(m.net),
       open: bankOpenMonth(m)
@@ -1946,7 +2079,7 @@ function bankMonthHeader(month, accounts) {
   return '<div class="bank-month-head"><h3>' + bankEsc(month.month) +
     (open ? ' <i class="bank-open">in progress</i>' : "") + "</h3>" +
     '<div class="bank-kpi">' +
-    bankKpi("income", "Income", bankMoney(month.income_total), bankNum(month.income_total) == null, false) +
+    bankKpi("income", "Income", bankMoney(bankMonthlyIncomeTotal(month.income_total)), bankMonthlyIncomeTotal(month.income_total) == null, false) +
     bankKpi("spend", "Spend", bankMoney(month.spend_total), bankNum(month.spend_total) == null, false) +
     bankKpi("net", "Net", bankMoney(month.net), bankNum(month.net) == null, false) +
     bankKpi("tx", "Transactions", bankCount(month.tx_count), bankNum(month.tx_count) == null, false) +
@@ -1954,7 +2087,7 @@ function bankMonthHeader(month, accounts) {
 }
 
 function bankYearHeader(months, accounts) {
-  var income = bankSumField(months, "income_total");
+  var income = bankSumField(months, "income_total"); /* already monthly; bankSumField does not scale */
   var spend = bankSumField(months, "spend_total");
   var net = bankSumField(months, "net");
   var tx = bankSumField(months, "tx_count");
@@ -1973,7 +2106,7 @@ function bankYearTable(months) {
   return '<table class="bank-table"><thead><tr><th>Month</th><th>Income</th><th>Spend</th><th>Net</th><th>Tx</th></tr></thead><tbody>' +
     months.map(function (m) {
       return "<tr><td>" + bankEsc(m.month) + (bankOpenMonth(m) ? " · in progress" : "") + "</td><td>" +
-        bankMoney(m.income_total) + "</td><td>" + bankMoney(m.spend_total) + "</td><td>" + bankMoney(m.net) +
+        bankMoney(bankMonthlyIncomeTotal(m.income_total)) + "</td><td>" + bankMoney(m.spend_total) + "</td><td>" + bankMoney(m.net) +
         "</td><td>" + bankCount(m.tx_count) + "</td></tr>";
     }).join("") + "</tbody></table>";
 }
@@ -2279,7 +2412,7 @@ function bankMtdIncome(snap, ym) {
   for (var i = 0; i < months.length; i++) {
     var m = months[i];
     if (String(m.month) !== ym || !bankOpenMonth(m)) continue;
-    var total = bankNum(m.income_total);
+    var total = bankMonthlyIncomeTotal(m.income_total);
     if (total != null) return Math.abs(total);
   }
   return null;
@@ -2404,14 +2537,46 @@ function bankBillListHtml(bills) {
   }).join("") + "</ul></section>";
 }
 
+function bankIncomeDayPhrase(days) {
+  if (!days || !days.length) return "";
+  if (days.length === 1) return "day " + days[0];
+  if (days.length === 2) return "days " + days[0] + " and " + days[1];
+  return "days " + days.join(", ");
+}
+
+/* Bold figure is one deposit. The softer line carries 2× / month and the monthly estimate. */
+function bankIncomeMeta(inc) {
+  var times = bankNum(inc && inc.times_per_month);
+  var days = (inc && inc.pay_days) || [];
+  var dayBit = bankIncomeDayPhrase(days);
+  if (!(times >= 2)) {
+    if (dayBit) return dayBit;
+    var one = inc && inc.typical_day != null ? String(inc.typical_day) : "\u2014";
+    return "day " + one;
+  }
+  var bits = ["per deposit", times === 2 ? "2\u00d7 / month" : (String(times) + "\u00d7 / month")];
+  var monthly = bankIncomeMonthAmount(inc);
+  if (monthly != null) bits.push(bankMoney(monthly) + " / month");
+  if (dayBit) bits.push(dayBit);
+  return bits.join(" \u00b7 ");
+}
+
+function bankIncomeEditNote(inc) {
+  if (!inc || !inc.editable) return "";
+  if (bankIsFosteringIncome(inc.label)) return "Days 10 and 25. A day here replaces the 10th. The 25th stays.";
+  if (bankIsPayrollIncome(inc.label)) return "Days 15 and the last day of the month. A day here replaces the 15th. The last day stays.";
+  return "";
+}
+
 function bankIncomeListHtml(incomes) {
   if (!incomes || !incomes.length) return "";
   return '<section class="bank-income"><h3>Expected income \u00b7 plan</h3><ul class="bank-income-list">' + incomes.map(function (inc) {
     var shown = bankNum(inc.amount);
     var pending = shown == null;
-    var day = inc.typical_day == null ? "\u2014" : String(inc.typical_day);
-    return "<li><span>" + bankEsc(inc.label || "Income") + "</span><b" + (pending ? ' class="bank-pending"' : "") + ">" +
-      bankEsc(bankBillAmount(shown)) + "</b><i>day " + day + "</i></li>";
+    var twice = bankNum(inc.times_per_month) >= 2;
+    return "<li" + (twice ? ' class="bank-income-twice"' : "") + "><span>" + bankEsc(inc.label || "Income") + "</span><b" +
+      (pending ? ' class="bank-pending"' : "") + ">" + bankEsc(bankBillAmount(shown)) + "</b><i>" +
+      bankEsc(bankIncomeMeta(inc)) + "</i></li>";
   }).join("") + "</ul></section>";
 }
 
@@ -2424,16 +2589,21 @@ function bankEditIncomeHtml(incomes) {
     if (!inc.editable) {
       return "<li><span class=\"bank-merchant\">" + bankEsc(label) + '</span><span class="bank-edit-side"><b' +
         (pending ? ' class="bank-pending"' : "") + ">" + bankEsc(bankBillAmount(shown)) +
-        "</b><i>day " + (inc.typical_day == null ? "\u2014" : String(inc.typical_day)) + "</i></span></li>";
+        "</b><i>" + bankEsc(bankIncomeMeta(inc)) + "</i></span></li>";
     }
     var amtVal = shown == null ? "" : String(shown);
-    return "<li><span class=\"bank-merchant\">" + bankEsc(label) + '</span><span class="bank-edit-side">' +
+    var dayShown = inc.day_edited ? inc.typical_day : null;
+    var note = bankIncomeEditNote(inc);
+    return "<li><span class=\"bank-merchant\">" + bankEsc(label) + '</span><span class="bank-edit-side' +
+      (note ? " bank-edit-side-note" : "") + '">' +
       '<input class="bank-income-amt" type="text" inputmode="decimal" autocomplete="off" data-bank-income="' +
       bankEsc(label) + '" data-bank-income-field="amount" aria-label="Amount for ' + bankEsc(label) +
       '" value="' + bankEsc(amtVal) + '">' +
       '<select class="bank-chip" data-bank-income="' + bankEsc(label) +
       '" data-bank-income-field="day" aria-label="Day for ' + bankEsc(label) + '">' +
-      bankDayOptions(inc.typical_day, "Day") + "</select></span></li>";
+      bankDayOptions(dayShown, "Day") + "</select>" +
+      (note ? '<i class="bank-income-fixed">' + bankEsc(note) + "</i>" : "") +
+      "</span></li>";
   }).join("") + "</ul>";
 }
 
@@ -2441,8 +2611,9 @@ function bankBudgetHtml(snap, opts) {
   opts = opts || {};
   var budget = (snap && snap.budget) || {};
   var dueArg = bankHasDueMap(snap) ? bankDueMap(snap) : undefined;
+  var ym = bankCalendarMonth(snap);
   var bills = bankSurfaceBills(bankNormalizeBills(budget, dueArg), budget);
-  var incomes = bankApplyIncomeEdits(bankNormalizeIncome(budget), opts.edits);
+  var incomes = bankAttachIncomePlan(bankApplyIncomeEdits(bankNormalizeIncome(budget), opts.edits), ym);
   var insights = bankNormalizeInsights(budget);
   var cells = bankDayCells(bills, incomes, bankCalendarForBills(Array.isArray(budget.calendar) ? budget.calendar : [], budget));
   var hasDays = bankHasDueDays(cells);
@@ -2453,7 +2624,6 @@ function bankBudgetHtml(snap, opts) {
     }).join("") + "</ul>"
     : '<p class="bank-empty">No insights in this print.</p>';
   var bars = bankBudgetBars(budget);
-  var ym = bankCalendarMonth(snap);
   return '<div class="bank-budget-top"><section class="bank-cal"><h3>Due calendar \u00b7 plan</h3>' +
     bankCalendarHtml(cells, hasDays, ym) + bankCoversHtml(bankCheckGroups(bills, incomes)) +
     '</section><section class="bank-insight-block"><h3>Insights</h3>' + insightHtml + "</section></div>" +
@@ -2563,7 +2733,7 @@ function bankEditsPanelHtml(snap, opts) {
   var budget = (snap && snap.budget) || {};
   var dueArg = bankHasDueMap(snap) ? bankDueMap(snap) : undefined;
   var bills = bankSurfaceBills(bankNormalizeBills(budget, dueArg), budget);
-  var incomes = bankApplyIncomeEdits(bankNormalizeIncome(budget), opts.edits);
+  var incomes = bankAttachIncomePlan(bankApplyIncomeEdits(bankNormalizeIncome(budget), opts.edits), bankCalendarMonth(snap));
   var rows = bankEditRows(snap);
   var known = bankKnownCategories(snap);
   var inUse = bankCategoriesInUse(rows, known);
@@ -2579,7 +2749,7 @@ function bankEditsPanelHtml(snap, opts) {
     bankAddCategoryHtml() +
     bankEditTxHtml(rows, known, picked, opts.rowAdd) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
     dueNote + dueErr + bankEditBillHtml(bills) + '</section><section class="bank-edit-block"><h3>Income</h3>' +
-    '<p class="hint">Enter an amount and a day when the print left them blank. A blank stays blank.</p>' +
+    '<p class="hint">Enter an amount and a day when the print left them blank. A blank stays blank. Payroll is the 15th and the last day of the month. Fostering per diem stipend is the 10th and the 25th. A day you set replaces the first of those. The other day stays.</p>' +
     bankEditIncomeHtml(incomes) + '</section><section class="bank-edit-block"><h3>Bill or Optional</h3>' +
     '<p class="hint">Bills and anything with a due day start as Bill. Everything else starts as Optional. A choice here is saved.</p>' +
     kindNote + kindErr + bankKindEditHtml(snap) + "</section>";
