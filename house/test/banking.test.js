@@ -531,7 +531,7 @@ test("short-month due days clamp onto the last day of that month", function () {
   fx.budget.bills = [
     { name: "Rent", amount: 12.34, typical_day: 31, cadence: "monthly" },
     { name: "Water", amount: 12.34, typical_day: 15, cadence: "monthly" },
-    { name: "Insurance", amount: 12.34, typical_day: 30, cadence: "monthly" }
+    { name: "Internet", amount: 12.34, typical_day: 30, cadence: "monthly" }
   ];
   fx.budget.bills_monthly = [];
   fx.budget.income_monthly = [{ label: "Paycheck", amount: 12.34, typical_day: 31 }];
@@ -544,7 +544,7 @@ test("short-month due days clamp onto the last day of that month", function () {
 
   const feb = budget("2026-02-10T12:00:00-05:00");
   assert.match(feb, /aria-label="February 2026"/);
-  assert.match(feb, /<b>28<\/b><em class="pay">Paycheck \(31st\)<\/em><span>Insurance \(30th\)<\/span><span>Rent \(31st\)<\/span><span>Sample item \(29th\)<\/span>/);
+  assert.match(feb, /<b>28<\/b><em class="pay">Paycheck \(31st\)<\/em><span>Internet \(30th\)<\/span><span>Rent \(31st\)<\/span><span>Sample item \(29th\)<\/span>/);
   assert.match(feb, /<b>15<\/b><span>Water<\/span>/);
   assert.doesNotMatch(feb, /Water \(/);
   assert.doesNotMatch(feb, /<b>29<\/b>/);
@@ -555,9 +555,9 @@ test("short-month due days clamp onto the last day of that month", function () {
 
   const apr = budget("2026-04-10T12:00:00-04:00");
   assert.match(apr, /aria-label="April 2026"/);
-  assert.match(apr, /<b>30<\/b><em class="pay">Paycheck \(31st\)<\/em><span>Insurance<\/span><span>Rent \(31st\)<\/span>/);
+  assert.match(apr, /<b>30<\/b><em class="pay">Paycheck \(31st\)<\/em><span>Internet<\/span><span>Rent \(31st\)<\/span>/);
   assert.match(apr, /<b>29<\/b><span>Sample item<\/span>/);
-  assert.doesNotMatch(apr, /Insurance \(/);
+  assert.doesNotMatch(apr, /Internet \(/);
   assert.doesNotMatch(apr, /Sample item \(/);
   assert.doesNotMatch(apr, /<b>31<\/b>/);
   assert.match(apr, /<span>Rent<\/span><b[^>]*>[^<]*<\/b><i>day 31<\/i>/);
@@ -565,14 +565,14 @@ test("short-month due days clamp onto the last day of that month", function () {
   const oct = budget("2026-10-05T12:00:00-04:00");
   assert.match(oct, /aria-label="October 2026"/);
   assert.match(oct, /<b>31<\/b><em class="pay">Paycheck<\/em><span>Rent<\/span>/);
-  assert.match(oct, /<b>30<\/b><span>Insurance<\/span>/);
+  assert.match(oct, /<b>30<\/b><span>Internet<\/span>/);
   assert.match(oct, /<b>29<\/b><span>Sample item<\/span>/);
   assert.match(oct, /<b>15<\/b><span>Water<\/span>/);
   assert.doesNotMatch(oct, /\(31st\)|\(30th\)|\(29th\)/);
 
   const leap = budget("2028-02-10T12:00:00-05:00");
   assert.match(leap, /aria-label="February 2028"/);
-  assert.match(leap, /<b>29<\/b><em class="pay">Paycheck \(31st\)<\/em><span>Insurance \(30th\)<\/span><span>Rent \(31st\)<\/span><span>Sample item<\/span>/);
+  assert.match(leap, /<b>29<\/b><em class="pay">Paycheck \(31st\)<\/em><span>Internet \(30th\)<\/span><span>Rent \(31st\)<\/span><span>Sample item<\/span>/);
   assert.doesNotMatch(leap, /Sample item \(/);
   assert.doesNotMatch(leap, /<b>28<\/b><em class="pay">/);
   assert.doesNotMatch(leap, /<b>30<\/b>/);
@@ -631,7 +631,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip dm", function () {
+test("desk links Banking and banking assets are cache-busted at tip dn", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -641,8 +641,12 @@ test("desk links Banking and banking assets are cache-busted at tip dm", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dm/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904dm/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dn/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dn/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dm/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dm/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dl/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dl/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dk/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dk/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904di/);
@@ -3394,4 +3398,214 @@ test("a mobile name displays as Phone and matching stays on the raw name", async
   assert.equal(el._bank.data.budget.mtd_actual_by_category["Acme Mobile"], 15);
   assert.equal(el._bank.data.budget.mtd_actual_by_category["X Mobile plan"], 4);
   assert.equal(el._bank.data.budget.mtd_actual_by_category.Phone, undefined);
+});
+
+test("car policy displays as Car insurance, bare Insurance and exclusions stay off bill surfaces, and fostering stipend is editable income", async function () {
+  const ctx = boot();
+  assert.equal(ctx.bankBillDisplayName("Car insurance"), "Car insurance");
+  assert.equal(ctx.bankBillDisplayName("car insurance"), "Car insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Car Insurance"), "Car insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Auto Insurance"), "Car insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Vehicle Insurance"), "Car insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Insurance"), "Car insurance");
+  assert.equal(ctx.bankBillDisplayName("Insurance"), "Insurance");
+  assert.equal(ctx.bankBillDisplayName("insurance"), "insurance");
+  assert.equal(ctx.bankBillDisplayName("Health insurance"), "Health insurance");
+  assert.notEqual(ctx.bankBillDisplayName("Home insurance"), "Car insurance");
+  assert.notEqual(ctx.bankBillDisplayName("Renters insurance"), "Car insurance");
+  assert.equal(ctx.bankDisplayName("Acme Mobile"), "Acme Mobile");
+
+  const kept = ctx.bankNormalizeBills({
+    bills: [{ name: "Insurance", amount: 1, typical_day: 9 }],
+    bills_monthly: []
+  });
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].name, "Insurance");
+  assert.equal(ctx.bankSurfaceBills(kept, {}).length, 0);
+  const healthOnly = ctx.bankNormalizeBills({
+    bills: [{ name: "Health insurance", amount: 1, typical_day: 3 }]
+  });
+  assert.equal(healthOnly.length, 1);
+  assert.equal(ctx.bankSurfaceBills(healthOnly, {}).length, 0);
+
+  const fx = loadFixture();
+  const snap = JSON.parse(JSON.stringify(fx));
+  snap.budget.bills_monthly = [];
+  snap.budget.bills = [
+    { name: "Car insurance", amount: 20, typical_day: 11, cadence: "monthly" },
+    { name: "Acme Insurance", amount: 8, typical_day: null, cadence: "monthly", prev_key: "prior policy" },
+    { name: "Insurance", amount: 3, typical_day: 9, cadence: "monthly" },
+    { name: "Health insurance", amount: 4, typical_day: 6, cadence: "monthly" },
+    { name: "Clinic Plan", amount: 5, typical_day: 7, cadence: "monthly" },
+    { name: "Fostering Per Diem Stipend", amount: 1, typical_day: 4, cadence: "monthly" }
+  ];
+  snap.budget.exclusions = [
+    { label: "Health insurance", reason: "paycheck_deduction" },
+    { label: "CLINIC PLAN", reason: "paycheck_deduction" }
+  ];
+  snap.budget.income_monthly = [
+    { label: "Paycheck", amount: 12.34, cadence: "biweekly", typical_day: 1, source: "detected" },
+    { label: "Fostering Per Diem Stipend", editable: true, amount: null, typical_day: null }
+  ];
+  snap.budget.calendar = [
+    { day: 2, items: ["Sample item"] },
+    { day: 6, items: ["Health insurance"] },
+    { day: 7, items: [{ name: "Clinic Plan" }] }
+  ];
+  snap.budget.planned_by_category = { Insurance: 10, Groceries: 4 };
+  snap.budget.mtd_actual_by_category = { Insurance: 6, Groceries: 3, "Health insurance": 20 };
+  snap.custom_categories = (snap.custom_categories || []).concat(["Insurance"]);
+  snap.mustpay_overrides = { "prior policy": "elective", "Health insurance": "must_pay" };
+  snap.dueday_overrides = { "prior policy": 14 };
+  snap.current.recent_tx = [{
+    date: "2026-10-05", id: "acct-check", desc: "Acme Insurance", amount: 8,
+    flow: "outflow", category: "Insurance", tx_key: "ins-1"
+  }];
+  snap.current.edits_tx = snap.current.recent_tx.slice();
+
+  const rawWins = ctx.bankNormalizeBills(snap.budget, { "acme insurance": 4, "prior policy": 14 });
+  const acmeRaw = rawWins.filter(function (b) { return b.name === "Acme Insurance"; })[0];
+  assert.equal(acmeRaw.name, "Acme Insurance");
+  assert.equal(acmeRaw.typical_day, 4);
+  const viaAlias = ctx.bankNormalizeBills(snap.budget, { "prior policy": 14 });
+  assert.equal(viaAlias.filter(function (b) { return b.name === "Acme Insurance"; })[0].typical_day, 14);
+  assert.equal(viaAlias.filter(function (b) { return b.name === "Car insurance"; })[0].typical_day, 11);
+  assert.equal(ctx.bankResolveKind("Acme Insurance", snap), "elective");
+  assert.equal(ctx.bankResolveKind("Car insurance", snap), "must_pay");
+  assert.equal(ctx.bankResolveKind("Health insurance", snap), "elective");
+  assert.equal(ctx.bankResolveKind("Clinic Plan", snap), "elective");
+  assert.equal(ctx.bankResolveKind("Fostering Per Diem Stipend", snap), "elective");
+  assert.equal(ctx.bankResolveKind("Insurance", snap), "must_pay");
+  snap.mustpay_overrides["Acme Insurance"] = "must_pay";
+  assert.equal(ctx.bankResolveKind("Acme Insurance", snap), "must_pay");
+  delete snap.mustpay_overrides["Acme Insurance"];
+  assert.equal(ctx.bankResolveKind("Acme Insurance", snap), "elective");
+
+  const before = JSON.stringify(snap.budget.bills);
+  const budget = ctx.bankPageHtml(snap, { tab: "budget" });
+  assert.equal(JSON.stringify(snap.budget.bills), before);
+  const listAt = budget.indexOf('class="bank-bill-list"');
+  assert.ok(listAt >= 0);
+  const list = budget.slice(listAt, budget.indexOf("</ul>", listAt));
+  assert.match(list, />Car insurance</);
+  assert.match(list, /\$20\.00/);
+  assert.match(list, /\$8\.00/);
+  assert.doesNotMatch(list, />Insurance</);
+  assert.doesNotMatch(list, /Health insurance|Clinic Plan|Fostering Per Diem Stipend/);
+  const incomeAt = budget.indexOf('class="bank-income"');
+  assert.ok(incomeAt >= 0);
+  const income = budget.slice(incomeAt, budget.indexOf('class="bank-bill-list"'));
+  assert.match(income, />Paycheck</);
+  assert.match(income, /\$12\.34/);
+  assert.match(income, />Fostering Per Diem Stipend</);
+  assert.match(income, /amount pending/);
+  assert.doesNotMatch(income, /\$0/);
+  assert.match(budget, /<b>11<\/b><span>Car insurance<\/span>/);
+  assert.match(budget, /<b>14<\/b><span>Car insurance<\/span>/);
+  assert.match(budget, /<b>1<\/b><em class="pay">Paycheck<\/em>/);
+  assert.match(budget, /<b>2<\/b><span>Sample item<\/span>/);
+  assert.doesNotMatch(budget, /<b>9<\/b><span>Insurance<\/span>/);
+  assert.doesNotMatch(budget, /<b>6<\/b><span>Health insurance/);
+  assert.doesNotMatch(budget, /<b>7<\/b><span>Clinic Plan/);
+  assert.doesNotMatch(budget, /<b>4<\/b><span>/);
+  assert.doesNotMatch(budget, /Health insurance|Clinic Plan/);
+  const covers = budget.match(/<ul class="bank-covers">[\s\S]*?<\/ul>/);
+  assert.ok(covers);
+  assert.match(covers[0], /Car insurance/);
+  assert.doesNotMatch(covers[0], /\bInsurance\b|Health insurance|Clinic Plan|Fostering/);
+  assert.match(pieBlock(budget, "bills"), /Insurance<\/span><b>\$6\.00<\/b>/);
+  assert.doesNotMatch(pieBlock(budget, "bills"), /Health insurance/);
+  assert.doesNotMatch(pieBlock(budget, "optional"), /Health insurance/);
+  assert.match(pieBlock(budget, "optional"), /Groceries<\/span><b>\$3\.00<\/b>/);
+
+  const current = ctx.bankPageHtml(snap, { tab: "current" });
+  const tape = current.match(/<table class="bank-tape">[\s\S]*?<\/table>/);
+  assert.ok(tape);
+  assert.match(tape[0], /class="bank-merchant">Acme Insurance<\/span><span class="bank-chip">Insurance<\/span>/);
+  assert.doesNotMatch(tape[0], /Car insurance/);
+
+  const edits = ctx.bankPageHtml(snap, { tab: "edits", editCat: "Insurance" });
+  assert.match(edits, /<option value="Insurance"(?: selected)?>Insurance<\/option>/);
+  assert.doesNotMatch(edits, /data-bank-due="insurance"/);
+  assert.doesNotMatch(edits, /data-bank-due="health insurance"/);
+  assert.doesNotMatch(edits, /data-bank-due="clinic plan"/);
+  assert.doesNotMatch(edits, /data-bank-due="fostering per diem stipend"/);
+  assert.match(edits, /data-bank-due="car insurance"/);
+  assert.match(edits, /data-bank-due="acme insurance"/);
+  const dueAt = edits.indexOf('data-bank-due="acme insurance"');
+  const dueRow = edits.slice(edits.lastIndexOf("<li>", dueAt), edits.indexOf("</li>", dueAt));
+  assert.match(dueRow, /class="bank-merchant">Car insurance</);
+  assert.match(dueRow, /aria-label="Due day for Car insurance"/);
+  assert.doesNotMatch(dueRow.replace(/data-bank-due="[^"]*"/, ""), /Acme Insurance/i);
+  assert.match(edits, /data-bank-kind="Insurance"/);
+  assert.match(edits, /data-bank-kind="Acme Insurance"[\s\S]*?value="elective" selected/);
+  assert.match(edits, /aria-label="Bill or Optional for Car insurance"/);
+  assert.doesNotMatch(edits, /data-bank-kind="Health insurance"/);
+  assert.doesNotMatch(edits, /data-bank-kind="Clinic Plan"/);
+  assert.doesNotMatch(edits, /data-bank-kind="prior policy"/);
+  assert.doesNotMatch(edits, /data-bank-kind="Fostering Per Diem Stipend"/);
+  assert.match(edits, /data-bank-income="Fostering Per Diem Stipend"/);
+  assert.match(edits, /aria-label="Amount for Fostering Per Diem Stipend"/);
+  assert.match(edits, /aria-label="Day for Fostering Per Diem Stipend"/);
+  assert.match(edits, /data-bank-income-field="amount"[^>]*value=""/);
+  assert.doesNotMatch(edits, /data-bank-income="Paycheck"/);
+  assert.match(edits, /class="bank-merchant">Paycheck</);
+  const stipendAt = edits.indexOf("Fostering Per Diem Stipend");
+  const stipendRow = edits.slice(edits.lastIndexOf("<li>", stipendAt), edits.indexOf("</li>", stipendAt));
+  assert.doesNotMatch(stipendRow, /\$0/);
+
+  const entered = ctx.bankPageHtml(snap, {
+    tab: "budget",
+    edits: { bills: {}, income: { "Fostering Per Diem Stipend": { amount: 40, typical_day: 15 } } }
+  });
+  const enteredIncome = entered.slice(entered.indexOf('class="bank-income"'), entered.indexOf('class="bank-bill-list"'));
+  assert.match(enteredIncome, />Fostering Per Diem Stipend<\/span><b>\$40\.00<\/b><i>day 15<\/i>/);
+  assert.match(entered, /<b>15<\/b><em class="pay">Fostering Per Diem Stipend<\/em>/);
+  assert.doesNotMatch(enteredIncome, /amount pending/);
+
+  const el = mount(ctx, JSON.parse(JSON.stringify(snap)), { tab: "edits", editCat: "Insurance" });
+  await el._bank.prune;
+  function fire(field, value) {
+    return el.listeners.change({
+      target: {
+        value: value,
+        getAttribute: function (name) {
+          if (name === "data-bank-income") return "Fostering Per Diem Stipend";
+          if (name === "data-bank-income-field") return field;
+          return null;
+        },
+        hasAttribute: function () { return false; }
+      }
+    });
+  }
+  fire("amount", "40");
+  assert.match(el.innerHTML, /data-bank-income-field="amount"[^>]*value="40"/);
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, 40);
+  fire("day", "15");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].typical_day, 15);
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, 40);
+  ctx.bankActivate(el, "budget");
+  assert.match(el.innerHTML, />Fostering Per Diem Stipend<\/span><b>\$40\.00<\/b><i>day 15<\/i>/);
+  assert.match(el.innerHTML, /<b>15<\/b><em class="pay">Fostering Per Diem Stipend<\/em>/);
+  ctx.bankActivate(el, "edits");
+  fire("amount", "");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, undefined);
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].typical_day, 15);
+  ctx.bankActivate(el, "budget");
+  const cleared = el.innerHTML.slice(el.innerHTML.indexOf('class="bank-income"'), el.innerHTML.indexOf('class="bank-bill-list"'));
+  assert.match(cleared, /amount pending/);
+  assert.doesNotMatch(cleared, /\$0|\$40/);
+  fire("amount", "nope");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].typical_day, 15);
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, undefined);
+
+  const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  assert.doesNotMatch(src, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.doesNotMatch(css, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.match(src, /prev_key/);
+  assert.match(src, /exclusions/);
+  assert.match(page, /banking\.js\?v=20260904dn/);
 });

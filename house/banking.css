@@ -90,6 +90,7 @@ body.bank-page > header .clock {
 .bank-insight-block,
 .bank-cal,
 .bank-bars,
+.bank-income,
 .bank-month-head {
   margin: 12px 0;
 }
@@ -100,6 +101,7 @@ body.bank-page > header .clock {
 .bank-insight-block h3,
 .bank-cal h3,
 .bank-bars h3,
+.bank-income h3,
 .bank-month-head h3 {
   margin: 0 0 8px;
   font-family: Georgia, "Times New Roman", Times, serif;
@@ -197,6 +199,7 @@ body.bank-page > header .clock {
 
 .bank-rank i,
 .bank-bill-list i,
+.bank-income-list i,
 .bank-kpi i.partial {
   color: var(--ink-soft);
   font-style: normal;
@@ -470,7 +473,8 @@ body.bank-page > header .clock {
 }
 
 .bank-covers,
-.bank-bill-list {
+.bank-bill-list,
+.bank-income-list {
   list-style: none;
   margin: 8px 0 0;
   padding: 0;
@@ -478,16 +482,29 @@ body.bank-page > header .clock {
 }
 
 .bank-covers li,
-.bank-bill-list li {
+.bank-bill-list li,
+.bank-income-list li {
   padding: 4px 0;
   border-bottom: 1px solid var(--rule);
 }
 
-.bank-bill-list li {
+.bank-bill-list li,
+.bank-income-list li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 4px 8px;
   align-items: center;
+}
+
+.bank-income-amt {
+  width: 6.5rem;
+  min-height: 36px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
 }
 
 .bank-bill-list li.on {
