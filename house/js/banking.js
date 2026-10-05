@@ -1284,6 +1284,41 @@ function bankMonthDim(year, month) {
   return new Date(year, month, 0).getDate();
 }
 
+function bankOrdinal(n) {
+  var mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return n + "th";
+  var mod10 = n % 10;
+  if (mod10 === 1) return n + "st";
+  if (mod10 === 2) return n + "nd";
+  if (mod10 === 3) return n + "rd";
+  return n + "th";
+}
+
+/* A 31st (or 29th/30th) has no cell in a shorter month. Park it on the last day and mark the real due day. */
+function bankClampDayLabel(name, due, dim) {
+  if (due > dim) return String(name) + " (" + bankOrdinal(due) + ")";
+  return name;
+}
+
+function bankCalendarByDay(cells, dim) {
+  var byDay = {};
+  function slot(day) {
+    if (!byDay[day]) byDay[day] = { day: day, pays: [], bills: [], items: [] };
+    return byDay[day];
+  }
+  (cells || []).forEach(function (c) {
+    if (!c || !c.day) return;
+    var due = c.day;
+    var place = due > dim ? dim : due;
+    if (place < 1) return;
+    var dest = slot(place);
+    (c.pays || []).forEach(function (name) { dest.pays.push(bankClampDayLabel(name, due, dim)); });
+    (c.bills || []).forEach(function (name) { dest.bills.push(bankClampDayLabel(name, due, dim)); });
+    (c.items || []).forEach(function (name) { dest.items.push(bankClampDayLabel(name, due, dim)); });
+  });
+  return byDay;
+}
+
 function bankDayCellHtml(c) {
   var bits = [];
   (c.pays || []).forEach(function (name) { bits.push('<em class="pay">' + bankEsc(name) + "</em>"); });
@@ -1307,8 +1342,7 @@ function bankCalendarHtml(cells, hasDays, ym) {
   }
   var dim = bankMonthDim(year, month);
   var start = new Date(year, month - 1, 1).getDay();
-  var byDay = {};
-  (cells || []).forEach(function (c) { if (c && c.day) byDay[c.day] = c; });
+  var byDay = bankCalendarByDay(cells, dim);
   var heads = BANK_DOW.map(function (name) {
     return '<span role="columnheader">' + name + "</span>";
   }).join("");
