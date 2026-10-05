@@ -1,14 +1,15 @@
-/* tip cx — House Banking.
+/* tip cy — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
    Mount and Edits also GET categories.json and merge that list into the dropdowns.
-   A just-added custom stays in every Edits dropdown while it is still empty.
-   An empty custom list does not wipe names already loaded.
-   Empty customs are removed only after the user moves the last merchant off that custom.
-   Opening or refreshing Edits does not remove them.
+   A failed categories read keeps names already on the banking snap and does not post a removal.
+   An empty categories list does not wipe a custom that any override still names.
+   A just-added custom stays in every Edits dropdown while it is still empty (draft or keptEmpty).
+   Entering or refreshing Edits drops a custom with no merchants and no override, then posts that removal.
+   The last-merchant reassign path still posts a removal when that custom is unused everywhere.
    A custom that is any category_overrides value stays, including history_tx outside the edits window.
-   Feed categories stay when the edits window has no rows in them.
+   Feed categories stay when they were never in custom_categories.
    A merchant row add posts the category, then that row's override. The assign is not skipped when the feed body is stale.
    Due days POST to /data/banking/dueday-overrides.json.
    Edits lists current.edits_tx (the long window). The Current tape stays on recent_tx.
@@ -1770,7 +1771,8 @@ function bankDraftKeep(st) {
   return keep;
 }
 
-/* Local dropdown filter only. Opening Edits does not call this, and it does not post. */
+/* Local dropdown filter. Drops customs with count 0, no override, and no draft or keptEmpty hold.
+   Feed categories are not in this list. This does not post; the caller posts. */
 function bankTakeEmptyCustoms(st) {
   if (!st || !st.data) return [];
   var keep = bankDraftKeep(st);
@@ -1881,7 +1883,17 @@ function bankPruneCustomIfEmpty(root, name) {
   return bankPostCategoryRemoval(root, [name]);
 }
 
-/* GET categories.json and merge categories[] into the open snap. An empty or failed read does not clear names. */
+/* Names the seat already holds that any override or loaded row still uses.
+   An empty or partial categories.json must not drop these. */
+function bankRetainOccupiedCustoms(snap, prior) {
+  if (!snap) return;
+  (prior || []).forEach(function (n) {
+    if (bankOverrideHasCategory(snap, n) || bankCategoryCount(snap, n) > 0) bankRememberCategory(snap, n);
+  });
+}
+
+/* GET categories.json and merge categories[] into the open snap.
+   A failed read leaves the snap list alone. An empty list does not clear occupied names. */
 function bankRehydrateCategories(root, opts) {
   opts = opts || {};
   if (!root || !root._bank) return Promise.resolve(false);
@@ -1897,7 +1909,9 @@ function bankRehydrateCategories(root, opts) {
       var st = root._bank;
       if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
       var before = bankCustomCategories(st.data).join("\n");
+      var prior = bankCustomCategories(st.data);
       bankMergeCustomCategories(st.data, payload.categories);
+      bankRetainOccupiedCustoms(st.data, prior);
       if (!root._bank || root._bank.catGen !== gen) return false;
       var after = bankCustomCategories(st.data).join("\n");
       if (!opts.silent && before !== after) bankPaint(root);
@@ -1906,12 +1920,24 @@ function bankRehydrateCategories(root, opts) {
   }).catch(function () { return false; });
 }
 
-/* Entering or refreshing Edits paints the lists, then reloads categories.json. It does not post a removal. */
+/* Entering or refreshing Edits paints, reloads categories.json, then drops unused empty customs.
+   A failed categories read keeps the snap names and does not post. Draft and keptEmpty names stay. */
 function bankRefreshEmptyCustoms(root) {
   var st = root && root._bank;
   if (!st || st.tab !== "edits") return Promise.resolve();
   bankPaint(root);
-  return bankRehydrateCategories(root);
+  var seen = st.catGen || 0;
+  var job = bankRehydrateCategories(root).then(function (ok) {
+    if (!root._bank || root._bank.tab !== "edits") return;
+    if ((root._bank.catGen || 0) !== seen + 1) return;
+    if (!ok) return;
+    var removed = bankTakeEmptyCustoms(root._bank);
+    if (!removed.length) return;
+    bankPaint(root);
+    return bankPostCategoryRemoval(root, removed);
+  });
+  st.prune = job;
+  return job;
 }
 
 function bankTakeCategoryResponse(root, payload, name, hold) {
@@ -1924,10 +1950,9 @@ function bankTakeCategoryResponse(root, payload, name, hold) {
     if (next) bankRememberCategory(st.data, next);
     st.categoryError = "";
     st.newCatDraft = "";
-    if (!hold && next) {
-      st.editCat = next;
-      st.keptEmpty = next;
-    }
+    /* Row add uses hold so the picker does not jump, but the new name is still empty until the assign lands. */
+    if (next) st.keptEmpty = next;
+    if (!hold && next) st.editCat = next;
     st.tab = "edits";
   }
   function finish() {
@@ -1956,14 +1981,20 @@ function bankAddCategory(root, name, hold) {
   if (!root || !root._bank) return Promise.resolve(false);
   var next = bankClipCategory(name);
   if (!next) return Promise.resolve(false);
+  var prevKept = root._bank.keptEmpty || "";
+  root._bank.keptEmpty = next;
   root._bank.categoryError = "";
   root._bank.tab = "edits";
+  function restoreKept() {
+    if (root._bank && root._bank.keptEmpty === next) root._bank.keptEmpty = prevKept;
+  }
   return fetch(BANK_CATEGORIES_URL, bankFetchInit({
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ category: next })
   })).then(function (res) {
     if (!res || res.ok !== true || res.type === "opaqueredirect") {
+      restoreKept();
       root._bank.categoryError = bankCategoryErrorText(res);
       root._bank.newCatDraft = "";
       bankPaint(root);
@@ -1973,6 +2004,7 @@ function bankAddCategory(root, name, hold) {
       return bankTakeCategoryResponse(root, payload, next, hold).then(function () { return true; });
     });
   }).catch(function () {
+    restoreKept();
     root._bank.categoryError = "Category did not save. Nothing was changed.";
     root._bank.newCatDraft = "";
     bankPaint(root);
