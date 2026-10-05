@@ -737,7 +737,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip dj", function () {
+test("desk links Banking and banking assets are cache-busted at tip do", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -747,8 +747,10 @@ test("desk links Banking and banking assets are cache-busted at tip dj", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dj/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904dj/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904do/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904do/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dj/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dj/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dn/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dm/);
@@ -3063,6 +3065,10 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
   assert.equal(ctx.bankBillDisplayName("Mobile Home"), "Mobile Home");
   assert.equal(ctx.bankBillDisplayName("Mobile Banking"), "Mobile Banking");
   assert.equal(ctx.bankBillDisplayName("Mobile Transfer"), "Mobile Transfer");
+  assert.equal(ctx.bankBillDisplayName("Mobile AL Water"), "Mobile AL Water");
+  assert.equal(ctx.bankBillDisplayName("Mobile Bay Electric"), "Mobile Bay Electric");
+  assert.equal(ctx.bankBillDisplayName("Mobile Check"), "Mobile Check");
+  assert.equal(ctx.bankBillDisplayName("T Mobile"), "Phone");
   assert.equal(ctx.bankBillDisplayName("Exxon Mobil"), "Exxon Mobil");
   assert.equal(ctx.bankBillDisplayName("Acme Mortgage"), "Mortgage");
   assert.equal(ctx.bankDisplayName("Gasoline"), "Gasoline");
@@ -3249,6 +3255,30 @@ test("a mobile name displays as Phone and matching stays on the raw name", async
   assert.equal(ctx.bankBillDisplayName("mobile banking"), "mobile banking");
   assert.equal(ctx.bankBillDisplayName("Mobile Transfer"), "Mobile Transfer");
   assert.equal(ctx.bankBillDisplayName("Home Mobile"), "Home Mobile");
+  assert.equal(ctx.bankBillDisplayName("T Mobile"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("t mobile"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("Mobile AL Water"), "Mobile AL Water");
+  assert.equal(ctx.bankBillDisplayName("mobile al water"), "mobile al water");
+  assert.equal(ctx.bankBillDisplayName("MOBILE AL WATER"), "MOBILE AL WATER");
+  assert.equal(ctx.bankBillDisplayName("  Mobile AL Water  "), "Mobile AL Water");
+  assert.equal(ctx.bankBillDisplayName("Mobile Alabama Water"), "Mobile Alabama Water");
+  assert.equal(ctx.bankBillDisplayName("Mobile Bay Electric"), "Mobile Bay Electric");
+  assert.equal(ctx.bankBillDisplayName("mobile bay electric"), "mobile bay electric");
+  assert.equal(ctx.bankBillDisplayName("Mobile Check"), "Mobile Check");
+  assert.equal(ctx.bankBillDisplayName("mobile check"), "mobile check");
+  assert.equal(ctx.bankBillDisplayName("Mobile Checking"), "Mobile Checking");
+  assert.equal(ctx.bankBillDisplayName("Mobile Gas"), "Mobile Gas");
+  assert.equal(ctx.bankBillDisplayName("Mobile Power"), "Mobile Power");
+  assert.equal(ctx.bankBillDisplayName("Mobile Utility"), "Mobile Utility");
+  assert.equal(ctx.bankBillDisplayName("Mobile Utilities"), "Mobile Utilities");
+  assert.notEqual(ctx.bankBillDisplayName("Mobile AL Water"), "Water");
+  assert.notEqual(ctx.bankBillDisplayName("Mobile AL Water"), "Phone");
+  assert.notEqual(ctx.bankBillDisplayName("Mobile Bay Electric"), "Electric");
+  assert.notEqual(ctx.bankBillDisplayName("Mobile Gas"), "Gas");
+  assert.equal(ctx.bankBillKey("Mobile AL Water"), "mobile al water");
+  assert.equal(ctx.bankBillKey("Mobile Bay Electric"), "mobile bay electric");
+  assert.equal(ctx.bankBillKey("Mobile Check"), "mobile check");
+  assert.equal(ctx.bankBillKey("T Mobile"), "t mobile");
   assert.equal(ctx.bankBillKey("Mobile Home Park"), "mobile home park");
   assert.equal(ctx.bankBillKey("Mobile Deposits"), "mobile deposits");
   assert.equal(ctx.bankBillKey("Mobile Banking"), "mobile banking");
@@ -3511,20 +3541,166 @@ test("a mobile name displays as Phone and matching stays on the raw name", async
   assert.equal(el._bank.data.budget.mtd_actual_by_category.Phone, undefined);
 });
 
-test("car policy displays as Car insurance, bare Insurance and exclusions stay off bill surfaces, and fostering stipend is editable income", async function () {
+test("city and utility mobile names stay raw while a phone bill still displays as Phone", function () {
   const ctx = boot();
-  assert.equal(ctx.bankBillDisplayName("Car insurance"), "Car insurance");
-  assert.equal(ctx.bankBillDisplayName("car insurance"), "Car insurance");
-  assert.equal(ctx.bankBillDisplayName("Acme Car Insurance"), "Car insurance");
-  assert.equal(ctx.bankBillDisplayName("Acme Auto Insurance"), "Car insurance");
-  assert.equal(ctx.bankBillDisplayName("Acme Vehicle Insurance"), "Car insurance");
-  assert.equal(ctx.bankBillDisplayName("Acme Insurance"), "Car insurance");
+  const fx = loadFixture();
+  const snap = JSON.parse(JSON.stringify(fx));
+  snap.budget.bills_monthly = [];
+  snap.budget.calendar = [];
+  snap.budget.bills = [
+    { name: "Phone", amount: 1, typical_day: 2, cadence: "monthly" },
+    { name: "T Mobile", amount: 3, typical_day: 24, cadence: "monthly" },
+    { name: "Mobile plan", amount: 4, typical_day: 8, cadence: "monthly" },
+    { name: "Acme Mobile", amount: 15, typical_day: 12, cadence: "monthly" },
+    { name: "Mobile AL Water", amount: 6, typical_day: 21, cadence: "monthly" },
+    { name: "Mobile Bay Electric", amount: 5, typical_day: 22, cadence: "monthly" },
+    { name: "Mobile Check", amount: 4.5, typical_day: 23, cadence: "monthly" }
+  ];
+  snap.budget.mtd_actual_by_category = {
+    Phone: 1,
+    "T Mobile": 3,
+    "Mobile plan": 4,
+    "Acme Mobile": 15,
+    "Mobile AL Water": 6,
+    "Mobile Bay Electric": 5,
+    "Mobile Check": 4.5
+  };
+  snap.mustpay_overrides = { Phone: "elective" };
+  snap.current.recent_tx = [
+    { date: "2026-10-05", id: "acct-check", desc: "Mobile AL Water", amount: 6, flow: "outflow", category: "Mobile AL Water", tx_key: "city-1" },
+    { date: "2026-10-04", id: "acct-check", desc: "Handset", amount: 3, flow: "outflow", category: "T Mobile", tx_key: "city-2" }
+  ];
+  snap.current.edits_tx = snap.current.recent_tx.slice();
+  assert.equal(ctx.bankResolveKind("Phone", snap), "elective");
+  assert.equal(ctx.bankResolveKind("T Mobile", snap), "must_pay");
+  assert.equal(ctx.bankResolveKind("Mobile AL Water", snap), "must_pay");
+  assert.equal(ctx.bankResolveKind("Mobile Check", snap), "must_pay");
+  const budget = ctx.bankPageHtml(snap, { tab: "budget" });
+  const listAt = budget.indexOf('class="bank-bill-list"');
+  const list = budget.slice(listAt, budget.indexOf("</ul>", listAt));
+  assert.match(list, />Phone</);
+  assert.match(list, />Mobile AL Water</);
+  assert.match(list, />Mobile Bay Electric</);
+  assert.match(list, />Mobile Check</);
+  assert.doesNotMatch(list, />Water<|>Electric</);
+  assert.match(budget, /<b>21<\/b><span>Mobile AL Water<\/span>/);
+  assert.match(budget, /<b>22<\/b><span>Mobile Bay Electric<\/span>/);
+  assert.match(budget, /<b>23<\/b><span>Mobile Check<\/span>/);
+  assert.match(budget, /<b>24<\/b><span>Phone<\/span>/);
+  const waterAt = budget.indexOf('data-bar="Mobile AL Water"');
+  const waterBar = budget.slice(waterAt, budget.indexOf("</div></div>", waterAt));
+  assert.match(waterBar, /<span>Mobile AL Water<\/span>/);
+  assert.doesNotMatch(waterBar, />Phone</);
+  const current = ctx.bankPageHtml(snap, { tab: "current" });
+  const tape = current.match(/<table class="bank-tape">[\s\S]*?<\/table>/);
+  assert.ok(tape);
+  assert.match(tape[0], /class="bank-merchant">Mobile AL Water<\/span><span class="bank-chip">Mobile AL Water<\/span>/);
+  assert.match(tape[0], /class="bank-merchant">Handset<\/span><span class="bank-chip">T Mobile<\/span>/);
+  assert.doesNotMatch(tape[0], />Phone</);
+  const edits = ctx.bankPageHtml(snap, { tab: "edits", editCat: "Mobile AL Water" });
+  assert.match(edits, /<option value="Mobile AL Water"(?: selected)?>Mobile AL Water<\/option>/);
+  assert.match(edits, /<option value="T Mobile">Phone<\/option>/);
+  assert.match(edits, /data-bank-due="mobile al water"/);
+  assert.match(edits, /data-bank-due="mobile bay electric"/);
+  assert.match(edits, /data-bank-due="mobile check"/);
+  assert.match(edits, /data-bank-due="t mobile"/);
+  assert.match(edits, /data-bank-due="phone"/);
+  assert.match(edits, /data-bank-kind="Phone"/);
+  assert.match(edits, /data-bank-kind="T Mobile"/);
+  assert.match(edits, /data-bank-kind="Mobile AL Water"/);
+  const cityKindAt = edits.indexOf('data-bank-kind="Mobile AL Water"');
+  const cityKind = edits.slice(edits.lastIndexOf("<li>", cityKindAt), edits.indexOf("</li>", cityKindAt));
+  assert.match(cityKind, /class="bank-kind-name">Mobile AL Water</);
+  assert.doesNotMatch(cityKind, />Phone</);
+  const phoneKindAt = edits.indexOf('data-bank-kind="Phone"');
+  const phoneKind = edits.slice(edits.lastIndexOf("<li>", phoneKindAt), edits.indexOf("</li>", phoneKindAt));
+  assert.match(phoneKind, /class="bank-kind-name">Phone</);
+  assert.match(phoneKind, /value="elective" selected/);
+  const dig = ctx.bankPageHtml(snap, { tab: "edits", editCat: "T Mobile" });
+  const txAt = dig.indexOf('data-bank-tx="city-2"');
+  assert.ok(txAt >= 0);
+  const txRow = dig.slice(dig.lastIndexOf("<li>", txAt), dig.indexOf("</li>", txAt));
+  assert.match(txRow, /class="bank-merchant">Handset</);
+  assert.doesNotMatch(txRow.slice(0, txRow.indexOf("bank-edit-side")), />Phone</);
+});
+
+test("car policy displays as Car Insurance, bare Insurance and exclusions stay off bill surfaces, and fostering stipend is editable income", async function () {
+  const ctx = boot();
+  assert.equal(ctx.bankBillDisplayName("Car insurance"), "Car Insurance");
+  assert.equal(ctx.bankBillDisplayName("car insurance"), "Car Insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Car Insurance"), "Car Insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Auto Insurance"), "Car Insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Vehicle Insurance"), "Car Insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Insurance"), "Car Insurance");
   assert.equal(ctx.bankBillDisplayName("Insurance"), "Insurance");
   assert.equal(ctx.bankBillDisplayName("insurance"), "insurance");
-  assert.equal(ctx.bankBillDisplayName("Health insurance"), "Health insurance");
-  assert.notEqual(ctx.bankBillDisplayName("Home insurance"), "Car insurance");
-  assert.notEqual(ctx.bankBillDisplayName("Renters insurance"), "Car insurance");
+  assert.equal(ctx.bankBillDisplayName("Health insurance"), "Health Insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Health Insurance"), "Health Insurance");
+  assert.equal(ctx.bankBillDisplayName("Home insurance"), "Home Insurance");
+  assert.equal(ctx.bankBillDisplayName("home insurance"), "Home Insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Home Insurance"), "Home Insurance");
+  assert.equal(ctx.bankBillDisplayName("Life insurance"), "Life Insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Life Insurance"), "Life Insurance");
+  assert.equal(ctx.bankBillDisplayName("Renters insurance"), "Renters Insurance");
+  assert.equal(ctx.bankBillDisplayName("renters insurance"), "Renters Insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Renters Insurance"), "Renters Insurance");
+  assert.equal(ctx.bankBillDisplayName("Renter insurance"), "Renters Insurance");
+  assert.equal(ctx.bankBillDisplayName("Pet insurance"), "Pet Insurance");
+  assert.equal(ctx.bankBillDisplayName("Acme Pet Insurance"), "Pet Insurance");
+  assert.notEqual(ctx.bankBillDisplayName("Home insurance"), "Car Insurance");
+  assert.notEqual(ctx.bankBillDisplayName("Home insurance"), "insurance");
+  assert.notEqual(ctx.bankBillDisplayName("Renters insurance"), "Car Insurance");
+  assert.equal(ctx.bankBillKey("Acme Home Insurance"), "acme home insurance");
+  assert.equal(ctx.bankBillKey("Car insurance"), "car insurance");
+  assert.equal(ctx.bankBillKey("Health insurance"), "health insurance");
   assert.equal(ctx.bankDisplayName("Acme Mobile"), "Acme Mobile");
+
+  const typedFx = loadFixture();
+  const typed = JSON.parse(JSON.stringify(typedFx));
+  typed.budget.bills_monthly = [];
+  typed.budget.calendar = [];
+  typed.budget.bills = [
+    { name: "Acme Home Insurance", amount: 11, typical_day: 16, cadence: "monthly" },
+    { name: "Acme Life Insurance", amount: 12, typical_day: 17, cadence: "monthly" },
+    { name: "Acme Renters Insurance", amount: 13, typical_day: 18, cadence: "monthly" },
+    { name: "Acme Pet Insurance", amount: 14, typical_day: 19, cadence: "monthly" },
+    { name: "Insurance", amount: 3, typical_day: 9, cadence: "monthly" },
+    { name: "Health insurance", amount: 4, typical_day: 6, cadence: "monthly" }
+  ];
+  typed.budget.exclusions = [{ label: "Health insurance", reason: "paycheck_deduction" }];
+  typed.budget.mtd_actual_by_category = {};
+  typed.budget.income_monthly = [{ label: "Paycheck", amount: 10, cadence: "monthly", typical_day: 1, source: "detected" }];
+  const typedHtml = ctx.bankPageHtml(typed, { tab: "budget" });
+  const typedAt = typedHtml.indexOf('class="bank-bill-list"');
+  assert.ok(typedAt >= 0);
+  const typedList = typedHtml.slice(typedAt, typedHtml.indexOf("</ul>", typedAt));
+  assert.match(typedList, />Home Insurance</);
+  assert.match(typedList, />Life Insurance</);
+  assert.match(typedList, />Renters Insurance</);
+  assert.match(typedList, />Pet Insurance</);
+  assert.doesNotMatch(typedList, />insurance</);
+  assert.doesNotMatch(typedList, />Insurance</);
+  assert.doesNotMatch(typedList, /Health Insurance|Health insurance/);
+  assert.match(typedHtml, /<b>16<\/b><span>Home Insurance<\/span>/);
+  assert.match(typedHtml, /<b>19<\/b><span>Pet Insurance<\/span>/);
+  assert.doesNotMatch(typedHtml, /<b>9<\/b><span>Insurance<\/span>/);
+  assert.doesNotMatch(typedHtml, /<b>6<\/b><span>Health Insurance/);
+  const typedEdits = ctx.bankPageHtml(typed, { tab: "edits" });
+  assert.match(typedEdits, /data-bank-due="acme home insurance"/);
+  assert.match(typedEdits, /data-bank-due="acme life insurance"/);
+  assert.match(typedEdits, /data-bank-due="acme renters insurance"/);
+  assert.match(typedEdits, /data-bank-due="acme pet insurance"/);
+  assert.doesNotMatch(typedEdits, /data-bank-due="insurance"/);
+  assert.doesNotMatch(typedEdits, /data-bank-due="health insurance"/);
+  const homeDueAt = typedEdits.indexOf('data-bank-due="acme home insurance"');
+  const homeDue = typedEdits.slice(typedEdits.lastIndexOf("<li>", homeDueAt), typedEdits.indexOf("</li>", homeDueAt));
+  assert.match(homeDue, /class="bank-merchant">Home Insurance</);
+  assert.match(homeDue, /aria-label="Due day for Home Insurance"/);
+  assert.match(homeDue, /data-bank-due="acme home insurance"/);
+  assert.doesNotMatch(homeDue.replace(/data-bank-due="[^"]*"/, ""), /Acme Home Insurance/);
+  assert.match(typedEdits, /data-bank-kind="Acme Home Insurance"/);
+  assert.match(typedEdits, /aria-label="Bill or Optional for Home Insurance"/);
+  assert.doesNotMatch(typedEdits, /data-bank-kind="Health insurance"/);
 
   const kept = ctx.bankNormalizeBills({
     bills: [{ name: "Insurance", amount: 1, typical_day: 9 }],
@@ -3598,11 +3774,11 @@ test("car policy displays as Car insurance, bare Insurance and exclusions stay o
   const listAt = budget.indexOf('class="bank-bill-list"');
   assert.ok(listAt >= 0);
   const list = budget.slice(listAt, budget.indexOf("</ul>", listAt));
-  assert.match(list, />Car insurance</);
+  assert.match(list, />Car Insurance</);
   assert.match(list, /\$20\.00/);
   assert.match(list, /\$8\.00/);
   assert.doesNotMatch(list, />Insurance</);
-  assert.doesNotMatch(list, /Health insurance|Clinic Plan|Fostering Per Diem Stipend/);
+  assert.doesNotMatch(list, /Health Insurance|Health insurance|Clinic Plan|Fostering Per Diem Stipend/);
   const incomeAt = budget.indexOf('class="bank-income"');
   assert.ok(incomeAt >= 0);
   const income = budget.slice(incomeAt, budget.indexOf('class="bank-bill-list"'));
@@ -3611,29 +3787,29 @@ test("car policy displays as Car insurance, bare Insurance and exclusions stay o
   assert.match(income, />Fostering Per Diem Stipend</);
   assert.match(income, /amount pending/);
   assert.doesNotMatch(income, /\$0/);
-  assert.match(budget, /<b>11<\/b><span>Car insurance<\/span>/);
-  assert.match(budget, /<b>14<\/b><span>Car insurance<\/span>/);
+  assert.match(budget, /<b>11<\/b><span>Car Insurance<\/span>/);
+  assert.match(budget, /<b>14<\/b><span>Car Insurance<\/span>/);
   assert.match(budget, /<b>1<\/b><em class="pay">Paycheck<\/em>/);
   assert.match(budget, /<b>2<\/b><span>Sample item<\/span>/);
   assert.doesNotMatch(budget, /<b>9<\/b><span>Insurance<\/span>/);
-  assert.doesNotMatch(budget, /<b>6<\/b><span>Health insurance/);
+  assert.doesNotMatch(budget, /<b>6<\/b><span>Health Insurance/);
   assert.doesNotMatch(budget, /<b>7<\/b><span>Clinic Plan/);
   assert.doesNotMatch(budget, /<b>4<\/b><span>/);
-  assert.doesNotMatch(budget, /Health insurance|Clinic Plan/);
+  assert.doesNotMatch(budget, /Health Insurance|Health insurance|Clinic Plan/);
   const covers = budget.match(/<ul class="bank-covers">[\s\S]*?<\/ul>/);
   assert.ok(covers);
-  assert.match(covers[0], /Car insurance/);
-  assert.doesNotMatch(covers[0], /\bInsurance\b|Health insurance|Clinic Plan|Fostering/);
+  assert.match(covers[0], /Car Insurance/);
+  assert.doesNotMatch(covers[0].replace(/Car Insurance/g, ""), /\bInsurance\b|Health Insurance|Clinic Plan|Fostering/);
   assert.match(pieBlock(budget, "bills"), /Insurance<\/span><b>\$6\.00<\/b>/);
-  assert.doesNotMatch(pieBlock(budget, "bills"), /Health insurance/);
-  assert.doesNotMatch(pieBlock(budget, "optional"), /Health insurance/);
+  assert.doesNotMatch(pieBlock(budget, "bills"), /Health Insurance|Health insurance/);
+  assert.doesNotMatch(pieBlock(budget, "optional"), /Health Insurance|Health insurance/);
   assert.match(pieBlock(budget, "optional"), /Groceries<\/span><b>\$3\.00<\/b>/);
 
   const current = ctx.bankPageHtml(snap, { tab: "current" });
   const tape = current.match(/<table class="bank-tape">[\s\S]*?<\/table>/);
   assert.ok(tape);
   assert.match(tape[0], /class="bank-merchant">Acme Insurance<\/span><span class="bank-chip">Insurance<\/span>/);
-  assert.doesNotMatch(tape[0], /Car insurance/);
+  assert.doesNotMatch(tape[0], /Car Insurance/i);
 
   const edits = ctx.bankPageHtml(snap, { tab: "edits", editCat: "Insurance" });
   assert.match(edits, /<option value="Insurance"(?: selected)?>Insurance<\/option>/);
@@ -3645,12 +3821,12 @@ test("car policy displays as Car insurance, bare Insurance and exclusions stay o
   assert.match(edits, /data-bank-due="acme insurance"/);
   const dueAt = edits.indexOf('data-bank-due="acme insurance"');
   const dueRow = edits.slice(edits.lastIndexOf("<li>", dueAt), edits.indexOf("</li>", dueAt));
-  assert.match(dueRow, /class="bank-merchant">Car insurance</);
-  assert.match(dueRow, /aria-label="Due day for Car insurance"/);
+  assert.match(dueRow, /class="bank-merchant">Car Insurance</);
+  assert.match(dueRow, /aria-label="Due day for Car Insurance"/);
   assert.doesNotMatch(dueRow.replace(/data-bank-due="[^"]*"/, ""), /Acme Insurance/i);
   assert.match(edits, /data-bank-kind="Insurance"/);
   assert.match(edits, /data-bank-kind="Acme Insurance"[\s\S]*?value="elective" selected/);
-  assert.match(edits, /aria-label="Bill or Optional for Car insurance"/);
+  assert.match(edits, /aria-label="Bill or Optional for Car Insurance"/);
   assert.doesNotMatch(edits, /data-bank-kind="Health insurance"/);
   assert.doesNotMatch(edits, /data-bank-kind="Clinic Plan"/);
   assert.doesNotMatch(edits, /data-bank-kind="prior policy"/);
@@ -3709,6 +3885,33 @@ test("car policy displays as Car insurance, bare Insurance and exclusions stay o
   fire("amount", "nope");
   assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].typical_day, 15);
   assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, undefined);
+  fire("amount", "-25");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, 0);
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].typical_day, 15);
+  assert.match(el.innerHTML, />Fostering Per Diem Stipend<\/span><b>\$0\.00<\/b><i>day 15<\/i>/);
+  assert.doesNotMatch(el.innerHTML, /-\$/);
+  ctx.bankActivate(el, "edits");
+  assert.match(el.innerHTML, /data-bank-income-field="amount"[^>]*value="0"/);
+  fire("amount", " -0.01 ");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, 0);
+  fire("amount", "100000000");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, 10000000);
+  assert.match(el.innerHTML, /data-bank-income-field="amount"[^>]*value="10000000"/);
+  fire("amount", "1e7");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, 10000000);
+  fire("amount", "10000000.5");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, 10000000);
+  fire("amount", "12.5");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, 12.5);
+  fire("amount", "nope");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, 12.5);
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].typical_day, 15);
+  fire("amount", "");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, undefined);
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].typical_day, 15);
+  assert.match(el.innerHTML, /data-bank-income-field="amount"[^>]*value=""/);
+  fire("amount", "0");
+  assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, 0);
 
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
@@ -3718,5 +3921,5 @@ test("car policy displays as Car insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20260904dj/);
+  assert.match(page, /banking\.js\?v=20260904do/);
 });
