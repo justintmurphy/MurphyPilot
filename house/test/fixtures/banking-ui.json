@@ -1,0 +1,115 @@
+{
+  "_fixture": "synthetic UI fixture — placeholder amounts only, not a live print",
+  "schema": "banking-snapshot/v1",
+  "source": "fixture",
+  "asof": "2026-10-05T12:00:00-04:00",
+  "accounts": [
+    {"id": "acct-check", "suffix": "0000", "name": "Check Account", "subType": "checking"},
+    {"id": "acct-debit", "suffix": "0000", "name": "Debit Account", "subType": "checking"},
+    {"id": "acct-share", "suffix": "0000", "name": "Share Savings", "subType": "savings"},
+    {"id": "acct-od", "suffix": "0000", "name": "Overdraft", "subType": "savings"}
+  ],
+  "current": {
+    "balances": [
+      {"id": "acct-check", "balance": 12.34, "asof_date": "2026-10-05"},
+      {"id": "acct-debit", "balance": null, "asof_date": "2026-10-05"},
+      {"id": "acct-share", "balance": 12.34, "asof_date": "2026-10-05"},
+      {"id": "acct-od", "balance": 0, "asof_date": "2026-10-05"}
+    ],
+    "total_cash": null,
+    "recent_tx": [],
+    "last_closed_month_categories": [
+      {"name": "Groceries", "amount": 12.34},
+      {"name": "Paycheck/Salary/Wages", "amount": 12.34},
+      {"name": "", "amount": 12.34}
+    ]
+  },
+  "history": {
+    "months": [
+      {
+        "month": "2026-08",
+        "income_total": 12.34,
+        "spend_total": 12.34,
+        "net": 12.34,
+        "tx_count": 4,
+        "income": {"Paycheck/Salary/Wages": 12.34},
+        "categories": [
+          {"name": "Paycheck/Salary/Wages", "amount": 12.34},
+          {"name": "Groceries", "amount": 12.34},
+          {"name": "Utilities/Bills", "amount": 12.34}
+        ],
+        "end_balances": {
+          "acct-check": 12.34,
+          "acct-debit": 12.34,
+          "acct-share": null,
+          "acct-od": 12.34
+        },
+        "closed": true
+      },
+      {
+        "month": "2026-09",
+        "income_total": null,
+        "spend_total": 12.34,
+        "net": null,
+        "tx_count": null,
+        "categories": [
+          {"name": "Groceries", "amount": 12.34},
+          {"name": "Food/Drink", "amount": 12.34}
+        ],
+        "end_balances": {"acct-check": 12.34, "acct-debit": null},
+        "closed": true
+      },
+      {
+        "month": "2026-10",
+        "income_total": null,
+        "spend_total": null,
+        "net": null,
+        "tx_count": 1,
+        "categories": [{"name": "Shopping", "amount": 12.34}],
+        "end_balances": {},
+        "closed": false
+      }
+    ]
+  },
+  "budget": {
+    "income_monthly": [
+      {"label": "Paycheck", "amount": 12.34, "cadence": "biweekly", "typical_day": null, "source": "detected"}
+    ],
+    "bills_monthly": [
+      {"label": "Phone", "category": "Utilities/Bills", "amount": 12.34, "due_day": null, "cadence": "monthly"}
+    ],
+    "bills": [
+      {"name": "Phone", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"}
+    ],
+    "calendar": [],
+    "insights": [
+      {
+        "kind": "overspend",
+        "category": "Groceries",
+        "delta_vs_3mo_avg": 12.34,
+        "amount": 12.34,
+        "typical_day": null,
+        "severity": "red",
+        "message": "Groceries +$12.34 vs 3-mo avg"
+      },
+      {
+        "kind": "bill_upcoming",
+        "name": "Phone",
+        "delta": null,
+        "typical_day": null,
+        "severity": "amber",
+        "message": "Phone running hot; next day unknown"
+      },
+      {
+        "kind": "note",
+        "name": "Health",
+        "severity": "ok",
+        "message": "Health is within the recent average"
+      }
+    ],
+    "planned_by_category": {"Groceries": 12.34, "Shopping": 24, "Health": null},
+    "mtd_actual_by_category": {"Groceries": 30, "Shopping": 12.34},
+    "income_total": 12.34,
+    "bills_total": 12.34
+  }
+}
