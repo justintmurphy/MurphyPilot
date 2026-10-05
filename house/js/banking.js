@@ -1,9 +1,11 @@
-/* tip co — House Banking.
+/* tip cp — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Due days POST to /data/banking/dueday-overrides.json.
+   Edits: pick a category, then recategorize the merchants in that list.
+   Due-day precedence: user KV, then snapshot manual, then a feed day, then a generic filler only when the feed day is null.
    Both sync across seats. A null balance stays blank. A bill with no amount reads "amount pending".
-   This file does not embed balances or last-4s. */
+   This file does not embed balances, last-4s, or named utilities. */
 
 var BANK_STALE_MS = 36 * 60 * 60 * 1000;
 var BANK_STORE = "murphyHouseBanking";
@@ -370,15 +372,15 @@ function bankRecent(snap) {
   }).slice(0, 40);
 }
 
-/* Bills only. Do not run this on transaction merchants (gasoline, City Fuel). */
+/* Bills only. Generic fillers when the feed day is null. Do not match merchants (gasoline, City Fuel). */
 function bankFixedBillDay(name) {
   var s = String(name || "");
   if (/mortgage/i.test(s)) return 1;
-  if (/t[-\s]?mobile/i.test(s)) return 28;
+  if (/\bmobile\b/i.test(s)) return 28;
   if (/\bcar[-\s]?payment\b/i.test(s) || /\bauto[-\s]?loan\b/i.test(s) ||
       /\bauto[-\s]?pay(?:ment)?\b/i.test(s) || /\bvehicle[-\s]?loan\b/i.test(s)) return 15;
-  if (/electric/i.test(s) || /\bpower\b/i.test(s) || /duquesne\s+light/i.test(s)) return 15;
-  if (/gas\s+bills?\b/i.test(s) || /natural\s+gas/i.test(s) || /columbia\s+gas/i.test(s) || /gas\s*\(\s*utility\s*\)/i.test(s)) return 15;
+  if (/electric/i.test(s) || /\bpower\b/i.test(s)) return 15;
+  if (/gas\s+bills?\b/i.test(s) || /natural\s+gas/i.test(s) || /gas\s+utility/i.test(s) || /gas\s*\(\s*utility\s*\)/i.test(s)) return 15;
   return null;
 }
 
@@ -493,13 +495,14 @@ function bankNormalizeBills(budget, dueMap) {
     } else if (Object.prototype.hasOwnProperty.call(manualDays, name)) {
       baseDay = manualDays[name];
       baseSource = "manual";
+    } else if (feedDay != null && feedSource !== "user") {
+      baseDay = feedDay;
+      baseSource = feedSource || "bills";
     } else {
       var fixed = bankFixedBillDay(row.name);
       if (fixed != null) {
         baseDay = fixed;
         baseSource = "bills";
-      } else if (feedSource !== "user") {
-        baseDay = feedDay;
       }
     }
     function put(day, source) {
@@ -916,11 +919,16 @@ function bankChipOptions(categories, current) {
   }).join("");
 }
 
+function bankItemLabel(desc) {
+  var s = desc == null ? "" : String(desc).trim();
+  return s || "No description";
+}
+
 function bankTapeHtml(rows) {
   if (!rows || !rows.length) return "";
   return '<section class="bank-tape-block"><h3>Recent</h3><table class="bank-tape"><tbody>' +
     rows.map(function (r) {
-      var label = r.desc ? r.desc : (r.category || "Other");
+      var label = bankItemLabel(r.desc);
       var flow = r.flow ? '<i class="bank-flow">' + bankEsc(r.flow) + "</i>" : "";
       return "<tr><td>" + bankEsc(r.date) + '</td><td><div class="bank-tx-main"><span class="bank-merchant">' +
         bankEsc(label) + '</span><span class="bank-chip">' + bankEsc(r.category) + "</span>" + flow +
@@ -1080,7 +1088,7 @@ function bankBillAmount(v) {
 }
 
 function bankDayOptions(current) {
-  var html = '<option value=""' + (current == null ? " selected" : "") + ">Clear</option>";
+  var html = '<option value=""' + (current == null ? " selected" : "") + ">Default</option>";
   var d;
   for (d = 1; d <= 31; d++) {
     html += '<option value="' + d + '"' + (current === d ? " selected" : "") + ">" + d + "</option>";
@@ -1127,12 +1135,50 @@ function bankHasDueNote(snap) {
   return Object.keys(map).some(function (k) { return bankDay(map[k]) != null; });
 }
 
-function bankEditTxHtml(rows, categories) {
+function bankCategoriesInUse(rows, known) {
+  var have = {};
+  (rows || []).forEach(function (r) {
+    if (r && r.category) have[r.category] = true;
+  });
+  var out = [];
+  (known || []).forEach(function (name) {
+    if (have[name]) out.push(name);
+  });
+  Object.keys(have).forEach(function (name) {
+    if (out.indexOf(name) < 0) out.push(name);
+  });
+  return out;
+}
+
+function bankResolveEditCat(inUse, known, requested) {
+  var req = requested == null ? "" : String(requested);
+  if (req && ((inUse && inUse.indexOf(req) >= 0) || (known && known.indexOf(req) >= 0))) return req;
+  if (inUse && inUse.length) return inUse[0];
+  if (known && known.length) return known[0];
+  return "";
+}
+
+function bankEditCategoryChoices(inUse, current) {
+  var out = (inUse || []).slice();
+  if (current && out.indexOf(current) < 0) out.unshift(current);
+  return out;
+}
+
+function bankEditTxHtml(rows, known, inUse, picked) {
   if (!rows || !rows.length) return '<p class="bank-empty">No recent transactions.</p>';
-  return '<ul class="bank-edit-list">' + rows.map(function (r) {
-    var label = r.desc ? r.desc : (r.category || "Other");
-    return "<li><span class=\"bank-merchant\">" + bankEsc(label) + '</span><span class="bank-edit-side"><select class="bank-chip" data-bank-tx="' +
-      bankEsc(r.key) + '" aria-label="Category for ' + bankEsc(label) + '">' + bankChipOptions(categories, r.category) +
+  var choices = bankEditCategoryChoices(inUse, picked);
+  var picker = '<label class="bank-cat-pick">Category <select data-bank-cat aria-label="Category">' +
+    bankChipOptions(choices, picked) + "</select></label>";
+  var mine = rows.filter(function (r) { return r.category === picked; });
+  if (!mine.length) return picker + '<p class="bank-empty">No recent items in this category.</p>';
+  return picker + '<ul class="bank-edit-list">' + mine.map(function (r) {
+    var label = bankItemLabel(r.desc);
+    var date = r.date ? String(r.date) : "\u2014";
+    return "<li><span class=\"bank-edit-id\"><span class=\"bank-merchant\">" + bankEsc(label) +
+      '</span><span class="bank-edit-meta">' + bankEsc(date) +
+      '</span></span><span class="bank-edit-side"><select class="bank-chip" data-bank-tx="' +
+      bankEsc(r.key) + '" aria-label="Category for ' + bankEsc(label) + '">' +
+      bankChipOptions(known, r.category) +
       "</select><b>" + bankMoney(r.amount) + "</b></span></li>";
   }).join("") + "</ul>";
 }
@@ -1154,12 +1200,15 @@ function bankEditsPanelHtml(snap, opts) {
   var dueArg = bankHasDueMap(snap) ? bankDueMap(snap) : undefined;
   var bills = bankNormalizeBills(budget, dueArg);
   var rows = bankRecent(snap);
+  var known = bankKnownCategories(snap);
+  var inUse = bankCategoriesInUse(rows, known);
+  var picked = bankResolveEditCat(inUse, known, opts.editCat);
   var catNote = bankHasOverrides(snap) ? '<p class="hint bank-sync">Category edits sync across your seats</p>' : "";
   var dueNote = bankHasDueNote(snap) ? '<p class="hint bank-sync">Due day edits sync across your seats</p>' : "";
   var catErr = opts.overrideError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.overrideError) + "</p>" : "";
   var dueErr = opts.dueError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.dueError) + "</p>" : "";
   return '<section class="bank-edit-block"><h3>Transactions</h3>' + catNote + catErr +
-    bankEditTxHtml(rows, bankKnownCategories(snap)) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
+    bankEditTxHtml(rows, known, inUse, picked) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
     dueNote + dueErr + bankEditBillHtml(bills) + "</section>";
 }
 
@@ -1200,6 +1249,10 @@ function bankPaint(root) {
   var sel = bankHistSelection(bankMonths(st.data), st.year, st.month);
   st.year = sel.year;
   st.month = sel.month;
+  if (st.tab === "edits") {
+    var known = bankKnownCategories(st.data);
+    st.editCat = bankResolveEditCat(bankCategoriesInUse(bankRecent(st.data), known), known, st.editCat);
+  }
   root.innerHTML = bankPageHtml(st.data, {
     tab: st.tab,
     year: st.year,
@@ -1209,7 +1262,8 @@ function bankPaint(root) {
     editsOpen: !!st.editsOpen,
     overrideError: st.overrideError || "",
     dueError: st.dueError || "",
-    billKey: st.billKey || ""
+    billKey: st.billKey || "",
+    editCat: st.editCat || ""
   });
 }
 
@@ -1436,7 +1490,8 @@ function bankMount(root, data, opts) {
     editsOpen: !!opts.editsOpen,
     overrideError: opts.overrideError || "",
     dueError: opts.dueError || "",
-    billKey: opts.billKey || ""
+    billKey: opts.billKey || "",
+    editCat: opts.editCat || ""
   };
   bankPaint(root);
   if (root._bankBound || !root.addEventListener) return;
@@ -1460,6 +1515,13 @@ function bankMount(root, data, opts) {
       var dueDay = rawDay === "" || rawDay == null ? null : bankDay(rawDay);
       if (rawDay !== "" && rawDay != null && dueDay == null) return;
       return bankSaveDueDay(root, el.getAttribute("data-bank-due"), dueDay);
+    }
+    if (el.hasAttribute && el.hasAttribute("data-bank-cat")) {
+      if (!root._bank) return;
+      root._bank.editCat = el.value == null ? "" : String(el.value);
+      root._bank.tab = "edits";
+      bankPaint(root);
+      return;
     }
     if (el.getAttribute("data-bank-tx")) {
       return bankSaveCategory(root, el.getAttribute("data-bank-tx"), el.value);

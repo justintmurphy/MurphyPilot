@@ -88,8 +88,8 @@
     ],
     "bills": [
       {"name": "Phone", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"},
-      {"name": "M&T Mortgage", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Rent/Mortgage"},
-      {"name": "T-Mobile", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"},
+      {"name": "Mortgage", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Rent/Mortgage"},
+      {"name": "Mobile plan", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"},
       {"name": "Car payment", "amount": null, "typical_day": null, "cadence": "monthly", "category": "Auto"},
       {"name": "Electric", "amount": null, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"},
       {"name": "Gas (Utility)", "amount": null, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"}
