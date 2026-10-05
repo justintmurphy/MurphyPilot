@@ -1,4 +1,4 @@
-/* tip df — House Banking.
+/* tip dg — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
@@ -26,6 +26,9 @@
    A bill prefers typical_amount, then amount, and reads "amount pending" when both are blank.
    The bill calendar is a Sun–Sat month grid for the as-of date in ET.
    The Budget month-to-date block shows spent so far and income received, with a bar for spend as a share of income. It does not invent income from income_monthly.
+   Budget pies, the ranked lists under those pies, and month-to-date category bars list a category only when its month-to-date spend is positive.
+   A plan, a missing amount, or a zero or non-positive amount does not keep that category on those surfaces, and it does not invent spend.
+   Edits still lists those empty categories so Bill versus Optional can be tagged.
    This file does not embed balances, last-4s, or named utilities. */
 
 var BANK_STALE_MS = 36 * 60 * 60 * 1000;
@@ -679,14 +682,22 @@ function bankResolveKind(name, snap, ctx) {
   return "elective";
 }
 
+/* Positive month-to-date spend. Missing, blank, zero, and non-positive amounts are empty. A fraction of a cent is empty too. */
+function bankMtdAmount(v) {
+  var n = bankNum(v);
+  if (n == null || !(n > 0)) return null;
+  if (Math.round(n * 100) <= 0) return null;
+  return n;
+}
+
 function bankMtdSpendRows(budget) {
   var mtd = budget && budget.mtd_actual_by_category;
   if (!mtd || typeof mtd !== "object" || Array.isArray(mtd)) return [];
   var list = [];
   Object.keys(mtd).forEach(function (name) {
-    var n = bankNum(mtd[name]);
+    var n = bankMtdAmount(mtd[name]);
     if (n == null) return;
-    list.push({ name: name, amount: Math.abs(n) });
+    list.push({ name: name, amount: n });
   });
   return bankSpendRows(list, null);
 }
@@ -724,6 +735,8 @@ function bankKindTargets(snap) {
   var ctx = bankKindContext(snap);
   ctx.bills.forEach(function (b) { add(b.name); });
   bankMtdSpendRows((snap && snap.budget) || {}).forEach(function (r) { add(r.name); });
+  var mtd = (snap && snap.budget && snap.budget.mtd_actual_by_category) || {};
+  if (mtd && typeof mtd === "object" && !Array.isArray(mtd)) Object.keys(mtd).forEach(add);
   var planned = (snap && snap.budget && snap.budget.planned_by_category) || {};
   Object.keys(planned).forEach(add);
   ctx.cells.forEach(function (c) {
@@ -918,29 +931,22 @@ function bankInsightText(row) {
 
 function bankBudgetBars(budget) {
   var planned = (budget && budget.planned_by_category) || {};
-  var mtd = (budget && budget.mtd_actual_by_category) || {};
-  var names = [];
-  function pushName(k) { if (names.indexOf(k) < 0) names.push(k); }
-  Object.keys(planned).forEach(pushName);
-  Object.keys(mtd).forEach(pushName);
-  var rows = [];
-  names.forEach(function (name) {
-    var target = Object.prototype.hasOwnProperty.call(planned, name) ? bankNum(planned[name]) : null;
-    var actual = Object.prototype.hasOwnProperty.call(mtd, name) ? bankNum(mtd[name]) : null;
-    if (target == null && actual == null) return;
-    rows.push({
-      name: bankCatName(name),
-      target: target,
-      actual: actual,
-      over: target != null && actual != null && actual > target
+  var targets = {};
+  if (planned && typeof planned === "object" && !Array.isArray(planned)) {
+    Object.keys(planned).forEach(function (name) {
+      targets[bankCatName(name)] = bankNum(planned[name]);
     });
+  }
+  return bankMtdSpendRows(budget).map(function (r) {
+    var has = Object.prototype.hasOwnProperty.call(targets, r.name);
+    var target = has ? targets[r.name] : null;
+    return {
+      name: r.name,
+      target: target,
+      actual: r.amount,
+      over: target != null && r.amount > target
+    };
   });
-  rows.sort(function (a, b) {
-    var av = a.actual == null ? -1 : a.actual;
-    var bv = b.actual == null ? -1 : b.actual;
-    return bv - av;
-  });
-  return rows;
 }
 
 function bankCheckGroups(bills, incomes) {
@@ -1392,7 +1398,7 @@ function bankMtdCaption(asof) {
 }
 
 function bankBarsHtml(rows) {
-  if (!rows.length) return '<p class="bank-empty">No category plan in this print.</p>';
+  if (!rows.length) return '<p class="bank-empty">No month-to-date category spend in this print.</p>';
   var max = 0;
   rows.forEach(function (r) {
     if (r.target != null) max = Math.max(max, r.target);
