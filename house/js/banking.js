@@ -1,6 +1,8 @@
-/* tip dp — House Banking.
+/* tip dq — House Banking.
    Edits is not a main tab. A gear menu beside Historical, Current, and Budget opens it.
    #edits still resolves through bankResolveTab and bankActivate.
+   A tab click writes that hash with pushState so back and forward can return to it.
+   hashchange and popstate read the hash and call bankActivate with fromHistory set.
    Budget stacks the bill calendar above Insights. Covers stay under the calendar.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
@@ -2353,17 +2355,58 @@ function bankFocusOverflowItem(root) {
   }
 }
 
-function bankActivate(root, tab) {
-  if (!root || !root._bank) return;
-  var prevTab = root._bank.tab;
-  root._bank.tab = bankResolveTab(tab);
-  root._bank.rowAdd = null;
+var bankNavRoot = null;
+var bankNavBound = false;
+var bankNavLock = false;
+
+function bankWriteTabHistory(tab) {
+  if (bankNavLock) return;
   try {
-    if (typeof history !== "undefined" && history.replaceState && typeof location !== "undefined") {
-      var h = root._bank.tab === "current" ? "" : "#" + root._bank.tab;
-      history.replaceState(null, "", (location.pathname || "") + (location.search || "") + h);
+    if (typeof history === "undefined" || typeof location === "undefined") return;
+    var h = tab === "current" ? "" : "#" + tab;
+    var url = (location.pathname || "") + (location.search || "") + h;
+    var now = (location.pathname || "") + (location.search || "") + (location.hash || "");
+    if (url === now) return;
+    bankNavLock = true;
+    try {
+      if (history.pushState) history.pushState({ bankTab: tab }, "", url);
+      else if (history.replaceState) history.replaceState({ bankTab: tab }, "", url);
+    } finally {
+      bankNavLock = false;
     }
-  } catch (e) {}
+  } catch (e) {
+    bankNavLock = false;
+  }
+}
+
+/* Back, forward, and a hash edit already updated location. Activating again must not push. */
+function bankActivateFromHistory() {
+  if (bankNavLock) return;
+  var root = bankNavRoot;
+  if (!root || !root._bank) return;
+  var tab = bankResolveTab(typeof location !== "undefined" ? location.hash : "");
+  if (root._bank.tab === tab) return;
+  bankActivate(root, tab, { fromHistory: true });
+}
+
+function bankBindHistory(root) {
+  if (root) bankNavRoot = root;
+  if (bankNavBound) return;
+  var target = typeof window !== "undefined" ? window : null;
+  if (!target || !target.addEventListener) return;
+  bankNavBound = true;
+  target.addEventListener("hashchange", bankActivateFromHistory);
+  target.addEventListener("popstate", bankActivateFromHistory);
+}
+
+function bankActivate(root, tab, opts) {
+  if (!root || !root._bank) return;
+  opts = opts || {};
+  var prevTab = root._bank.tab;
+  var next = bankResolveTab(tab);
+  root._bank.tab = next;
+  root._bank.rowAdd = null;
+  if (!opts.fromHistory) bankWriteTabHistory(next);
   if (root._bank.tab === "edits" && prevTab !== "edits") return bankRefreshEmptyCustoms(root);
   bankPaint(root);
 }
@@ -3224,6 +3267,7 @@ function bankMount(root, data, opts) {
     bankPaint(root);
     root._bank.prune = bankRehydrateCategories(root);
   }
+  bankBindHistory(root);
   if (root._bankBound || !root.addEventListener) return;
   root._bankBound = true;
   if (!root._bankDocBound && typeof document !== "undefined" && document.addEventListener) {
@@ -3448,6 +3492,7 @@ function bankBoot() {
   var root = null;
   try { root = document.getElementById("bankDesk"); } catch (e) { return; }
   if (!root) return;
+  bankBindHistory(root);
   try {
     document.addEventListener("click", function (e) {
       var b = e.target && e.target.closest && e.target.closest("[data-theme-choice]");
