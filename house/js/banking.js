@@ -1,4 +1,4 @@
-/* tip dj — House Banking.
+/* tip do — House Banking.
    Edits is not a main tab. A gear menu beside Historical, Current, and Budget opens it.
    #edits still resolves through bankResolveTab and bankActivate.
    Budget stacks the bill calendar above Insights. Covers stay under the calendar.
@@ -20,11 +20,11 @@
    An unmarked name is Bill when it is a normalized bill or it has a due day.
    Any other unmarked spend category is Optional. An override always wins.
    Budget and Edits show a display name. Keys stay on the raw category or bill name.
-   A bill or budget category that contains the word mobile displays as Phone, except when another word begins with home, deposit, bank, or transfer. Matching keys stay on the raw name, the same way a leading provider is stripped only on screen.
-   A car policy displays as Car insurance. The bare bill name Insurance is a category-average filler and stays off the bill list, calendar, covers, and Edits due-day list. The Insurance spend category stays in the Edits category list.
-   budget.exclusions entries, matched by label without case, are not Bills. A health-insurance name is treated the same way when it shows up as a bill. Neither becomes Bill or Optional from the must-pay default.
+   A bill or budget category that contains the word mobile displays as Phone, except when another word begins with home, deposit, bank, transfer, al, bay, water, electric, gas, power, utility (including utilities), or check. A skipped mobile name stays the full label, including when it ends in a generic tail. Matching keys stay on the raw name, the same way a leading provider is stripped only on screen.
+   A car policy displays as Car Insurance. A home, life, renters, or pet policy displays as Home Insurance, Life Insurance, Renters Insurance, or Pet Insurance. The bare bill name Insurance is a category-average filler and stays off the bill list, calendar, covers, and Edits due-day list. The Insurance spend category stays in the Edits category list.
+   budget.exclusions entries, matched by label without case, are not Bills. A health-insurance name displays as Health Insurance and is treated the same way when it shows up as a bill. Neither becomes Bill or Optional from the must-pay default.
    A bill may carry prev_key or alias. Due-day and must-pay lookups also read that older key. Saves stay on the raw name.
-   income_monthly rows show on Budget. A row with editable true can take an amount and a day in Edits. A blank stays blank.
+   income_monthly rows show on Budget. A row with editable true can take an amount and a day in Edits. A blank stays blank. An amount below zero is saved as 0. An amount above 10000000 is saved as 10000000. Text that is not a number is ignored.
    Edits lists current.edits_tx (the long window) plus history tx arrays.
    A present edits_tx does not hide a merchant that lives only on history.
    The Current tape stays on recent_tx. The merchant line and the category chip stay the feed strings. A known category with no rows still reads "No items in this category."
@@ -48,7 +48,7 @@ var BANK_DUEDAY_URL = "/data/banking/dueday-overrides.json";
 var BANK_MUSTPAY_URL = "/data/banking/mustpay-overrides.json";
 var BANK_CATEGORIES_URL = "/data/banking/categories.json";
 /* Generic bill tails only. A leading provider is hidden at display time (Acme Mortgage shows as Mortgage).
-   The word mobile is not a tail. bankBillDisplayName shows that word as Phone on bill and budget category labels, except a home, deposit, bank, or transfer name. */
+   The word mobile is not a tail. bankBillDisplayName shows that word as Phone on bill and budget category labels, except a home, deposit, bank, transfer, al, bay, water, electric, gas, power, utility, or check name. The utility prefix also covers utilities. */
 var BANK_DISPLAY_TAILS = [
   "gas (utility)",
   "natural gas",
@@ -78,6 +78,10 @@ var BANK_DISPLAY_TAILS = [
   "bills"
 ];
 var BANK_CAT_MAX = 64;
+var BANK_INCOME_MAX = 1e7;
+/* A mobile name stays off the Phone label when another word begins with one of these.
+   utilit covers both utility and utilities. */
+var BANK_PHONE_SKIP = /\b(?:home|deposit|bank|transfer|al|bay|water|electric|gas|power|utilit|check)/i;
 var BANK_ROW_ADD = "__add_category__";
 var BANK_COLORS = ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
 var BANK_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -125,7 +129,7 @@ function bankCatName(name) {
 }
 
 /* Display only. Matching keys (overrides, mustpay, dueday, categories, dig-in, POST bodies) stay on the raw name.
-   A leading provider is hidden. Bill and budget labels use bankBillDisplayName when the word mobile should read as Phone. A home, deposit, bank, or transfer name stays the display name. */
+   A leading provider is hidden. Bill and budget labels use bankBillDisplayName when the word mobile should read as Phone. A skipped mobile name stays the full label. */
 function bankDisplayName(name) {
   var raw = String(name == null ? "" : name).trim().replace(/\s+/g, " ");
   if (!raw) return "";
@@ -147,14 +151,17 @@ function bankDisplayName(name) {
 }
 
 /* Bill and budget category labels. The word mobile displays as Phone unless another word
-   begins with home, deposit, bank, or transfer. A car policy displays as Car insurance.
-   The Current tape does not use this. */
+   begins with home, deposit, bank, transfer, al, bay, water, electric, gas, power, utility, or check.
+   The utility prefix is spelled utilit so utilities matches too.
+   Those skipped names stay raw, so a utility tail is not stripped. A car policy displays as Car Insurance.
+   Home, life, renters, and pet policies keep that type. The Current tape does not use this. */
 function bankBillDisplayName(name) {
   var raw = String(name == null ? "" : name).trim().replace(/\s+/g, " ");
   if (!raw) return "";
-  if (/\bmobile\b/i.test(raw) && !/\b(?:home|deposit|bank|transfer)/i.test(raw)) return "Phone";
-  if (bankIsHealthInsuranceName(raw)) return "Health insurance";
-  if (bankIsCarPolicyName(raw)) return "Car insurance";
+  if (/\bmobile\b/i.test(raw) && !BANK_PHONE_SKIP.test(raw)) return "Phone";
+  var policy = bankInsuranceDisplayLabel(raw);
+  if (policy) return policy;
+  if (/\bmobile\b/i.test(raw)) return raw;
   return bankDisplayName(raw);
 }
 
@@ -172,12 +179,29 @@ function bankIsHealthInsuranceName(name) {
   return /\bhealth\b/.test(s) && /\binsurance\b/.test(s);
 }
 
-/* Provider plus insurance, or car / auto / vehicle plus insurance. Not health, home, life, or a bare Insurance filler. */
+/* Provider plus insurance, or car / auto / vehicle plus insurance. Not health, home, life, renters, pet, or a bare Insurance filler. */
 function bankIsCarPolicyName(name) {
   var s = bankFoldName(name);
   if (!s || !/\binsurance\b/.test(s) || s === "insurance") return false;
   if (/\b(health|home|life|renters|renter|pet|dental|vision|medical)\b/.test(s)) return false;
   return true;
+}
+
+/* Title-case policy labels. The bare Insurance filler is not one of these. */
+function bankTypedInsuranceLabel(name) {
+  var s = bankFoldName(name);
+  if (!s || s === "insurance" || !/\binsurance\b/.test(s)) return "";
+  if (/\bhome\b/.test(s)) return "Home Insurance";
+  if (/\blife\b/.test(s)) return "Life Insurance";
+  if (/\b(?:renters|renter)\b/.test(s)) return "Renters Insurance";
+  if (/\bpet\b/.test(s)) return "Pet Insurance";
+  return "";
+}
+
+function bankInsuranceDisplayLabel(name) {
+  if (bankIsHealthInsuranceName(name)) return "Health Insurance";
+  if (bankIsCarPolicyName(name)) return "Car Insurance";
+  return bankTypedInsuranceLabel(name);
 }
 
 function bankExclusionLabels(budget) {
@@ -2343,6 +2367,8 @@ function bankSaveIncomeEdit(root, label, field, value) {
     else {
       var n = bankNum(value);
       if (n == null) return;
+      if (n < 0) n = 0;
+      if (n > BANK_INCOME_MAX) n = BANK_INCOME_MAX;
       next.amount = n;
     }
   } else if (field === "day") {
