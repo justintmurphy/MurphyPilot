@@ -195,6 +195,10 @@ test("edits opens from the gear menu and stays off the main tablist", function (
   assert.match(tabs, /Historical/);
   assert.match(tabs, /Current/);
   assert.match(tabs, /Budget/);
+  const budgetAt = tabs.indexOf('data-bank-tab="budget"');
+  const currentAt = tabs.indexOf('data-bank-tab="current"');
+  const histAt = tabs.indexOf('data-bank-tab="historical"');
+  assert.ok(budgetAt >= 0 && currentAt > budgetAt && histAt > currentAt);
   assert.doesNotMatch(tabs, /Edits/);
   assert.doesNotMatch(tabs, /data-bank-tab="edits"/);
   assert.equal((tabs.match(/role="tab"/g) || []).length, 3);
@@ -866,7 +870,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip dr", function () {
+test("desk links Banking and banking assets are cache-busted at tip ds", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -876,8 +880,10 @@ test("desk links Banking and banking assets are cache-busted at tip dr", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dr/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904dr/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904ds/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904ds/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dr/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dr/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dq/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dp/);
@@ -4073,7 +4079,8 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20260904dr/);
+  assert.match(page, /banking\.js\?v=20260904ds/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dr/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dp/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904do/);

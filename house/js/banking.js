@@ -1,4 +1,5 @@
-/* tip dr — House Banking.
+/* tip ds — House Banking.
+   The main tabs run Budget, Current, Historical. An empty or unknown hash still opens Current.
    Current is the live print. Budget is the plan, the due map, and progress against limits.
    Month-end balances stay off Current.
    The recent tape keeps its print window and scrolls inside a pane about ten rows tall.
@@ -7,7 +8,7 @@
    The in/out bar sums this month's inflows and outflows and leaves out transfers between linked accounts.
    A move is internal when the print flags it, when both account ids are on the user's accounts, or when the flow or category is a transfer on a linked account and no outside account is named.
    The live spent-versus-income block sits on Current. Historical keeps its own labels.
-   Edits is not a main tab. A gear menu beside Historical, Current, and Budget opens it.
+   Edits is not a main tab. A gear menu beside Budget, Current, and Historical opens it.
    #edits still resolves through bankResolveTab and bankActivate.
    A tab click writes that hash with pushState so back and forward can return to it.
    hashchange and popstate read the hash and call bankActivate with fromHistory set.
@@ -1550,7 +1551,7 @@ function bankGearSvg() {
 }
 
 function bankTabsHtml(tab) {
-  var items = [["historical", "Historical"], ["current", "Current"], ["budget", "Budget"]];
+  var items = [["budget", "Budget"], ["current", "Current"], ["historical", "Historical"]];
   return '<div class="bank-tabs" role="tablist" aria-label="Banking">' + items.map(function (it) {
     var on = it[0] === tab;
     return '<button type="button" role="tab" data-bank-tab="' + it[0] + '" class="' + (on ? "on" : "") + '" aria-selected="' +
