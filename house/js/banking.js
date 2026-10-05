@@ -1,4 +1,4 @@
-/* tip de — House Banking.
+/* tip df — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
@@ -25,7 +25,7 @@
    Custom categories and both edits sync across seats. A null balance stays blank.
    A bill prefers typical_amount, then amount, and reads "amount pending" when both are blank.
    The bill calendar is a Sun–Sat month grid for the as-of date in ET.
-   The Budget month-to-date pie is spend divided by income received. It does not invent income from income_monthly.
+   The Budget month-to-date block shows spent so far and income received, with a bar for spend as a share of income. It does not invent income from income_monthly.
    This file does not embed balances, last-4s, or named utilities. */
 
 var BANK_STALE_MS = 36 * 60 * 60 * 1000;
@@ -1638,24 +1638,37 @@ function bankMtdEmptyHtml(spend, income) {
   return '<p class="bank-empty">No month-to-date spend or income in this print.</p>';
 }
 
-function bankMtdOfIncomeText(spend, income) {
+function bankMtdOfIncomePct(spend, income) {
   var pct = Math.round((spend / income) * 100);
-  if (!isFinite(pct) || pct < 0) pct = 0;
+  if (!isFinite(pct) || pct < 0) return 0;
+  return pct;
+}
+
+/* Real percent through 999, then 999%+. Zero or missing income stays finite. */
+function bankMtdOfIncomeText(spend, income) {
+  var pct = bankMtdOfIncomePct(spend, income);
   if (pct > 999) return "999%+";
   return pct + "%";
 }
 
+function bankMtdMeterHtml(spend, income) {
+  var label = bankMtdOfIncomeText(spend, income) + " of income";
+  var pct = bankMtdOfIncomePct(spend, income);
+  var fill = pct > 100 ? 100 : pct;
+  return '<div class="bank-mtd-meter">' +
+    '<div class="bank-mtd-figs">' +
+    '<div class="bank-mtd-fig"><span>Spent so far</span><b>' + bankMoney(spend) + "</b></div>" +
+    '<div class="bank-mtd-fig"><span>Income received</span><b>' + bankMoney(income) + "</b></div>" +
+    "</div>" +
+    '<p class="bank-mtd-of">' + bankEsc(label) + "</p>" +
+    '<div class="bank-mtd-track' + (pct > 100 ? " over" : "") + '" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
+    fill + '" aria-valuetext="' + bankEsc(label) + '" aria-label="' + bankEsc(label) + '">' +
+    '<span class="fill" style="width:' + fill + '%"></span></div></div>';
+}
+
 function bankMtdSplitHtml(spend, income) {
   if (!(spend > 0) || !(income > 0)) return bankMtdEmptyHtml(spend, income);
-  var rows = [
-    { name: "Spent so far", amount: spend },
-    { name: "Income received", amount: income }
-  ];
-  return '<div class="bank-split">' + bankPieHtml(rows, {
-    midText: bankMtdOfIncomeText(spend, income),
-    midLabel: "of income",
-    aria: "Spent so far versus income received"
-  }) + bankRankHtml(rows) + "</div>";
+  return bankMtdMeterHtml(spend, income);
 }
 
 function bankMtdBlock(snap) {
