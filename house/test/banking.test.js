@@ -114,8 +114,12 @@ test("null balances are not shown as $0 and an empty tape stays hidden", functio
   assert.match(debit[0], /data-balance="missing"/);
   assert.doesNotMatch(debit[0], /\$0/);
   assert.match(debit[0], /\u2014/);
-  const total = html.match(/data-total="missing"[\s\S]*?<\/article>/);
+  const total = html.match(/<article class="bank-tile bank-total"[\s\S]*?<\/article>/);
   assert.ok(total);
+  assert.match(total[0], /data-total="partial"/);
+  assert.match(total[0], /data-pending="1"/);
+  assert.match(total[0], /\$24\.68/);
+  assert.match(total[0], /\(1 account pending\)/);
   assert.doesNotMatch(total[0], /\$0/);
   assert.match(html, /data-acct="Overdraft"[^>]*data-balance="0"/);
   assert.match(html, /data-acct="Check Account"[\s\S]*?\$12\.34/);
@@ -128,7 +132,7 @@ test("null balances are not shown as $0 and an empty tape stays hidden", functio
   assert.doesNotMatch(html, /Paycheck\/Salary\/Wages<\/span>/);
 });
 
-test("stale badge appears only after 36h and a share series skips null points", function () {
+test("stale badge appears only after 36h", function () {
   const ctx = boot();
   const fx = loadFixture();
   const fresh = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-06T12:00:00-04:00" });
@@ -136,12 +140,6 @@ test("stale badge appears only after 36h and a share series skips null points", 
   const stale = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-07T12:00:00-04:00" });
   assert.match(stale, /bank-stale/);
   assert.match(stale, /36h/);
-  const series = ctx.bankSparkSeries(fx);
-  const check = series.filter(function (s) { return s.id === "acct-check"; })[0];
-  const share = series.filter(function (s) { return s.id === "acct-share"; });
-  assert.ok(check && check.points.length >= 2);
-  assert.equal(share.length, 0);
-  check.points.forEach(function (p) { assert.notEqual(p.value, 0); });
 });
 
 test("tabs switch through the click path and historical labels an open month", function () {
@@ -870,7 +868,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip ds", function () {
+test("desk links Banking and banking assets are cache-busted at tip dt", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -880,8 +878,10 @@ test("desk links Banking and banking assets are cache-busted at tip ds", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904ds/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904ds/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dt/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dt/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904ds/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904ds/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dr/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dr/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dq/);
@@ -4079,7 +4079,8 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20260904ds/);
+  assert.match(page, /banking\.js\?v=20260904dt/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904ds/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dr/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dp/);
@@ -4185,8 +4186,8 @@ test("tip dr current shows live meters and an in-out bar without linked transfer
   flowSnap.current.recent_tx = [];
   flowSnap.current.edits_tx = [
     { date: "2026-10-02", id: "acct-check", amount: 100, flow: "inflow", category: "Paycheck/Salary/Wages", tx_key: "pay", desc: "Pay" },
-    { date: "2026-10-03", id: "acct-check", amount: 40, flow: "outflow", category: "Transfer", tx_key: "leg-out", desc: "Move out" },
-    { date: "2026-10-03", id: "acct-share", amount: 40, flow: "inflow", category: "Transfer", tx_key: "leg-in", desc: "Move in" },
+    { date: "2026-10-03", id: "acct-check", amount: 40, flow: "outflow", category: "Transfer", counterparty_id: "acct-share", tx_key: "leg-out", desc: "Move out" },
+    { date: "2026-10-03", id: "acct-share", amount: 40, flow: "inflow", category: "Transfer", counterparty_id: "acct-check", tx_key: "leg-in", desc: "Move in" },
     { date: "2026-10-04", id: "acct-check", amount: 10, flow: "outflow", category: "Groceries", tx_key: "groc", desc: "Market" },
     { date: "2026-10-04", id: "acct-check", amount: 15, flow: "outflow", category: "Credit Card Payment", tx_key: "card", desc: "Card" },
     { date: "2026-10-05", id: "acct-check", amount: 7, flow: "outflow", category: "Transfer", external: true, tx_key: "wire", desc: "Outside" },
@@ -4223,4 +4224,144 @@ test("tip dr current shows live meters and an in-out bar without linked transfer
   const pendingHtml = ctx.bankPageHtml(pending, { tab: "current" });
   assert.match(pendingHtml, /data-cap="savings"[\s\S]*?Actual \$5\.00[\s\S]*?Limit pending/);
   assert.doesNotMatch(pendingHtml, /data-cap="savings"[\s\S]{0,400}role="meter"/);
+});
+
+test("tip dt counts an unflagged person payment, a partial cash total, and a focusable tape", function () {
+  const ctx = boot();
+  const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
+  assert.match(page, /banking\.js\?v=20260904dt/);
+  assert.match(page, /banking\.css\?v=20260904dt/);
+  const internalFn = src.slice(src.indexOf("function bankIsInternalTransfer"), src.indexOf("function bankFlowSide"));
+  assert.doesNotMatch(internalFn, /\\btransfers\?/);
+  assert.doesNotMatch(internalFn, /NFCU|Progressive|UPMC|T-Mobile/i);
+  assert.match(src, /hashchange/);
+  assert.match(src, /Budget", "Current", "Historical"|\["budget", "Budget"\], \["current", "Current"\], \["historical", "Historical"\]/);
+
+  function flowOf(rows) {
+    const snap = JSON.parse(JSON.stringify(loadFixture()));
+    snap.current.recent_tx = [];
+    snap.current.edits_tx = rows;
+    return ctx.bankMonthFlow(snap);
+  }
+  const person = flowOf([
+    { date: "2026-10-04", id: "acct-check", amount: 21, flow: "outflow", category: "Transfer", tx_key: "p2p", desc: "Person" },
+    { date: "2026-10-04", id: "acct-check", amount: 2, flow: "outflow", category: "Transfers", tx_key: "plural", desc: "Also a person" },
+    { date: "2026-10-04", id: "acct-check", amount: 4, flow: "inflow", category: "Gifts", tx_key: "gift", desc: "Gift" },
+    { date: "2026-10-04", id: "acct-check", amount: 5, flow: "outflow", category: "Transfer", counterparty_id: "acct-share", tx_key: "own", desc: "Own" },
+    { date: "2026-10-04", id: "acct-check", amount: 6, flow: "outflow", category: "Shopping", internal: true, tx_key: "flag", desc: "Flag" },
+    { date: "2026-10-04", id: "acct-check", amount: 7, flow: "outflow", category: "Shopping", transfer: true, tx_key: "xfer", desc: "Xfer" },
+    { date: "2026-10-04", id: "acct-check", amount: 11, flow: "outflow", category: "Shopping", transfer_kind: "internal", tx_key: "kind", desc: "Kind" },
+    { date: "2026-10-04", id: "acct-check", amount: 8, flow: "outflow", category: "Transfer", external: true, tx_key: "ext", desc: "Ext" },
+    { date: "2026-10-04", id: "acct-check", amount: 9, flow: "outflow", category: "Transfer", counterparty_id: "acct-outside", tx_key: "out", desc: "Outside" }
+  ]);
+  assert.equal(person.inSum, 4);
+  assert.equal(person.outSum, 40);
+  const quiet = flowOf([
+    { date: "2026-10-04", id: "acct-check", amount: 50, flow: "transfer", category: "Transfer", tx_key: "bare", desc: "No side" }
+  ]);
+  assert.equal(quiet.any, false);
+
+  const fx = loadFixture();
+  const current = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
+  assert.match(current, /Out counts tape flows this month\. Spent so far counts category month-to-date\./);
+  assert.match(current, /data-total="partial"/);
+  assert.match(current, /\$24\.68/);
+  assert.match(current, /\(1 account pending\)/);
+  assert.match(current, /class="bank-tape-scroll" tabindex="0" role="region" aria-label="Recent activity"/);
+  const tabs = mainTablist(current);
+  assert.ok(tabs.indexOf('data-bank-tab="budget"') < tabs.indexOf('data-bank-tab="current"'));
+  assert.ok(tabs.indexOf('data-bank-tab="current"') < tabs.indexOf('data-bank-tab="historical"'));
+  assert.match(current, /data-cap="bill"/);
+  assert.match(current, /data-cap="optional"/);
+  assert.match(current, /data-cap="savings"/);
+
+  const stated = JSON.parse(JSON.stringify(fx));
+  stated.current.total_cash = 100;
+  const statedHtml = ctx.bankPageHtml(stated, { tab: "current" });
+  assert.match(statedHtml, /data-total="set"/);
+  assert.match(statedHtml, /Total cash<\/span><b>\$100\.00<\/b>/);
+  assert.doesNotMatch(statedHtml, /account pending/);
+
+  const two = JSON.parse(JSON.stringify(fx));
+  two.current.total_cash = null;
+  two.current.balances[2].balance = null;
+  const twoHtml = ctx.bankPageHtml(two, { tab: "current" });
+  assert.match(twoHtml, /data-total="partial" data-pending="2"><span class="k">Total cash<\/span><b>\$12\.34<\/b><i class="bank-total-pending">\(2 accounts pending\)<\/i>/);
+
+  const none = JSON.parse(JSON.stringify(fx));
+  none.current.total_cash = null;
+  none.current.balances.forEach(function (row) { row.balance = null; });
+  const noneHtml = ctx.bankPageHtml(none, { tab: "current" });
+  assert.match(noneHtml, /data-total="missing"/);
+  assert.match(noneHtml, /data-pending="4"/);
+  assert.match(noneHtml, /<b>\u2014<\/b><i class="bank-total-pending">\(4 accounts pending\)<\/i>/);
+
+  assert.equal(typeof ctx.bankSparkHtml, "undefined");
+  assert.equal(typeof ctx.bankSparkSeries, "undefined");
+  assert.doesNotMatch(src, /function bankSparkHtml/);
+  assert.doesNotMatch(src, /function bankSparkSeries/);
+  assert.doesNotMatch(src, /bank-spark/);
+  assert.doesNotMatch(css, /\.bank-spark/);
+  assert.doesNotMatch(current, /class="bank-spark"/);
+  assert.doesNotMatch(current, /Month-end balances/);
+});
+
+test("explicit savings limit of zero shows the meter and a caption", function () {
+  const ctx = boot();
+  const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
+  assert.doesNotMatch(src, /NFCU|Progressive|UPMC|T-Mobile/i);
+
+  function savingsBlock(html) {
+    const i = html.indexOf('data-cap="savings"');
+    assert.ok(i >= 0);
+    const start = html.lastIndexOf("<div", i);
+    return html.slice(start, i + 700);
+  }
+
+  const fx = JSON.parse(JSON.stringify(loadFixture()));
+  fx.budget.savings_limit = 0;
+  fx.budget.savings_gap = -12.34;
+  const rows = ctx.bankCapRows(fx);
+  assert.equal(rows[2].label, "Savings");
+  assert.equal(rows[2].limit, 0);
+  assert.equal(rows[2].actual, 0);
+  let html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
+  let block = savingsBlock(html);
+  assert.match(block, /class="bank-cap under"/);
+  assert.match(block, /role="meter"/);
+  assert.match(block, /Limit \$0\.00/);
+  assert.match(block, /Actual \$0\.00/);
+  assert.match(block, /class="bank-cap-zero">No room to save this month\. Planned spend is \$12\.34 above income\./);
+  assert.doesNotMatch(block, /Limit pending/);
+  assert.doesNotMatch(block, /bank-cap pending/);
+  assert.equal((html.match(/data-cap="/g) || []).length, 3);
+
+  fx.budget.savings_limit = "0.00";
+  delete fx.budget.savings_gap;
+  fx.budget.meters_basis = { savings_gap: -4 };
+  html = ctx.bankPageHtml(fx, { tab: "current" });
+  block = savingsBlock(html);
+  assert.match(block, /role="meter"/);
+  assert.match(block, /Limit \$0\.00/);
+  assert.match(block, /Planned spend is \$4\.00 above income/);
+  assert.doesNotMatch(block, /Limit pending/);
+
+  delete fx.budget.meters_basis;
+  html = ctx.bankPageHtml(fx, { tab: "current" });
+  block = savingsBlock(html);
+  assert.match(block, /role="meter"/);
+  assert.match(block, /Limit is \$0 because planned spend is above income/);
+  assert.doesNotMatch(block, /Limit pending/);
+  assert.doesNotMatch(block, /bank-cap pending/);
+
+  delete fx.budget.savings_limit;
+  html = ctx.bankPageHtml(fx, { tab: "current" });
+  block = savingsBlock(html);
+  assert.match(block, /class="bank-cap pending"/);
+  assert.match(block, /Limit pending/);
+  assert.doesNotMatch(block, /role="meter"/);
+  assert.doesNotMatch(block, /No room to save/);
 });

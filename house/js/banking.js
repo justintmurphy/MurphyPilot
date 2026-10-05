@@ -1,12 +1,15 @@
-/* tip ds — House Banking.
+/* tip dt — House Banking.
    The main tabs run Budget, Current, Historical. An empty or unknown hash still opens Current.
    Current is the live print. Budget is the plan, the due map, and progress against limits.
-   Month-end balances stay off Current.
+   Month-end balances stay off Current. The month-end spark helpers are gone.
    The recent tape keeps its print window and scrolls inside a pane about ten rows tall.
+   That scroll region is a keyboard stop: tabindex 0, role region, label Recent activity.
    Bill, Optional, and Savings meters compare month-to-date print spend with a limit from the print.
-   A missing Savings limit stays pending. This tip does not draw a meter per category.
-   The in/out bar sums this month's inflows and outflows and leaves out transfers between linked accounts.
-   A move is internal when the print flags it, when both account ids are on the user's accounts, or when the flow or category is a transfer on a linked account and no outside account is named.
+   A missing Savings limit stays pending. An explicit Savings limit of 0 still draws the meter, with a short line that there is no room to save this month. This tip does not draw a meter per category.
+   The in/out bar sums this month's inflows and outflows and leaves out a move only when both ends are linked accounts, or the print sets an internal or transfer flag.
+   A category name is not a flag. An external mark keeps the row in the bar.
+   Out counts tape flows. Spent so far counts category month-to-date. One line says so. The two figures are not forced to match.
+   When some account balances are missing and total_cash is blank, Total cash is the sum of the known balances plus how many accounts are still pending.
    The live spent-versus-income block sits on Current. Historical keeps its own labels.
    Edits is not a main tab. A gear menu beside Budget, Current, and Historical opens it.
    #edits still resolves through bankResolveTab and bankActivate.
@@ -517,16 +520,26 @@ function bankPairBalances(accounts, balances) {
   });
 }
 
+/* A stated total_cash wins. Otherwise sum the balances on hand.
+   pending is how many tiles have no balance. value is null when none are known. */
 function bankTotalCash(current, tiles) {
   var stated = current && bankNum(current.total_cash);
-  if (stated != null) return stated;
-  if (!tiles.length) return null;
+  var pending = 0;
+  var known = 0;
   var sum = 0;
-  for (var i = 0; i < tiles.length; i++) {
-    if (tiles[i].balance == null) return null;
+  var i;
+  tiles = tiles || [];
+  for (i = 0; i < tiles.length; i++) {
+    if (!tiles[i] || tiles[i].balance == null) {
+      pending++;
+      continue;
+    }
+    known++;
     sum += tiles[i].balance;
   }
-  return sum;
+  if (stated != null) return { value: stated, pending: 0 };
+  if (!known) return { value: null, pending: pending };
+  return { value: sum, pending: pending };
 }
 
 function bankSpendRows(list, incomeObj) {
@@ -566,28 +579,6 @@ function bankClosedCats(snap) {
     if (list.length) return bankSpendRows(list, months[i].income);
   }
   return [];
-}
-
-function bankSparkSeries(snap) {
-  var accounts = bankAccounts(snap);
-  var months = bankMonths(snap);
-  var seen = {};
-  var out = [];
-  accounts.forEach(function (acct) {
-    if (acct.id && seen[acct.id]) return;
-    if (acct.id) seen[acct.id] = true;
-    var pts = [];
-    months.forEach(function (m) {
-      var eb = m.end_balances || {};
-      if (!acct.id || !Object.prototype.hasOwnProperty.call(eb, acct.id)) return;
-      var v = bankNum(eb[acct.id]);
-      if (v == null) return;
-      pts.push({ month: m.month, value: v });
-    });
-    if (!pts.length) return;
-    out.push({ id: acct.id || "", name: acct.name || "Account", mask: bankMask(acct.suffix), points: pts });
-  });
-  return out;
 }
 
 /* txKey is date|id|amount|desc. Null and undefined become empty strings. */
@@ -1404,62 +1395,6 @@ function bankPieBlock(rows, heading) {
     bankPieHtml(rows) + bankRankHtml(rows) + "</div></section>";
 }
 
-function bankSparkHtml(series) {
-  if (!series || !series.length) return "";
-  var months = [];
-  series.forEach(function (s) {
-    s.points.forEach(function (p) {
-      if (months.indexOf(p.month) < 0) months.push(p.month);
-    });
-  });
-  months.sort();
-  var vals = [];
-  series.forEach(function (s) { s.points.forEach(function (p) { vals.push(p.value); }); });
-  var min = Math.min.apply(null, vals);
-  var max = Math.max.apply(null, vals);
-  if (max === min) {
-    var padY = Math.max(Math.abs(max) * 0.02, 0.5);
-    min -= padY;
-    max += padY;
-  }
-  var w = 640, h = 112, pL = 8, pR = 8, pT = 10, pB = 8;
-  function xOf(month) {
-    var i = months.indexOf(month);
-    return pL + (months.length === 1 ? (w - pL - pR) / 2 : i * (w - pL - pR) / (months.length - 1));
-  }
-  function yOf(v) {
-    return pT + (h - pT - pB) * (1 - (v - min) / (max - min || 1));
-  }
-  var marks = series.map(function (s, si) {
-    var color = BANK_COLORS[si % BANK_COLORS.length];
-    var runs = [];
-    var run = [];
-    var prev = -1;
-    s.points.forEach(function (p) {
-      var i = months.indexOf(p.month);
-      if (prev >= 0 && i > prev + 1 && run.length) {
-        runs.push(run);
-        run = [];
-      }
-      run.push(p);
-      prev = i;
-    });
-    if (run.length) runs.push(run);
-    return runs.map(function (pts) {
-      if (pts.length === 1) {
-        return '<circle cx="' + xOf(pts[0].month).toFixed(1) + '" cy="' + yOf(pts[0].value).toFixed(1) + '" r="3.5" fill="' + color + '"></circle>';
-      }
-      var flat = pts.map(function (p) { return xOf(p.month).toFixed(1) + "," + yOf(p.value).toFixed(1); }).join(" ");
-      return '<polyline fill="none" stroke="' + color + '" stroke-width="2" points="' + flat + '"></polyline>';
-    }).join("");
-  }).join("");
-  var legend = '<ul class="bank-legend">' + series.map(function (s, si) {
-    return '<li><i style="background:' + BANK_COLORS[si % BANK_COLORS.length] + '"></i>' + bankEsc(s.name) + "</li>";
-  }).join("") + "</ul>";
-  return '<section class="bank-spark-block"><h3>Month-end balances</h3><svg class="bank-spark" viewBox="0 0 ' + w + " " + h +
-    '" role="img" aria-label="Month-end balances">' + marks + "</svg>" + legend + "</section>";
-}
-
 function bankYearSvg(months) {
   var rows = (months || []).map(function (m) {
     return {
@@ -1608,7 +1543,7 @@ function bankTapeHtml(rows) {
   if (!rows || !rows.length) {
     return '<section class="bank-tape-block"><h3>Recent \u00b7 actual</h3><p class="bank-empty">No recent activity in this print.</p></section>';
   }
-  return '<section class="bank-tape-block"><h3>Recent \u00b7 actual</h3><div class="bank-tape-scroll"><table class="bank-tape"><tbody>' +
+  return '<section class="bank-tape-block"><h3>Recent \u00b7 actual</h3><div class="bank-tape-scroll" tabindex="0" role="region" aria-label="Recent activity"><table class="bank-tape"><tbody>' +
     rows.map(function (r) {
       var label = bankItemLabel(r.desc);
       var flow = r.flow ? '<i class="bank-flow">' + bankEsc(r.flow) + "</i>" : "";
@@ -1671,12 +1606,15 @@ function bankIsExternalTransfer(raw) {
   return kind === "external" || kind === "outside";
 }
 
-/* Linked-account moves only. A transfer category or flow on one of the user's accounts counts
-   unless the print names an account that is not linked, or marks the row external. */
-function bankIsInternalTransfer(raw, accountSet, category) {
+/* In the bar unless both ends are linked accounts, or an internal/transfer flag is set.
+   Category and description text are not read. An external mark stays in the bar. */
+function bankIsInternalTransfer(raw, accountSet) {
   raw = raw || {};
   if (bankIsExternalTransfer(raw)) return false;
-  var flags = ["internal", "internal_transfer", "is_internal", "linked_transfer", "own_account", "own_accounts", "between_accounts"];
+  var flags = [
+    "internal", "internal_transfer", "is_internal", "linked_transfer",
+    "own_account", "own_accounts", "between_accounts", "transfer", "is_transfer"
+  ];
   var i;
   for (i = 0; i < flags.length; i++) {
     if (bankTruthyFlag(raw[flags[i]])) return true;
@@ -1687,12 +1625,6 @@ function bankIsInternalTransfer(raw, accountSet, category) {
   var id = bankTxAccountId(raw);
   var other = bankCounterpartyId(raw);
   if (id && other && accountSet[id] && accountSet[other] && id !== other) return true;
-  if (other && !accountSet[other]) return false;
-  var flow = String(raw.flow || "").trim().toLowerCase();
-  var transferFlow = flow === "transfer" || flow === "xfer";
-  var transferCat = /\btransfers?\b/i.test(String(category == null ? "" : category));
-  var onBook = !id || !!accountSet[id];
-  if ((transferFlow || transferCat) && onBook) return true;
   return false;
 }
 
@@ -1708,7 +1640,6 @@ function bankMonthFlow(snap) {
   var ym = bankCalendarMonth(snap);
   var key = bankYm(ym.year, ym.month);
   var accounts = bankAccountIdSet(snap);
-  var overrides = bankOverrideMap(snap);
   var seen = {};
   var inSum = 0;
   var outSum = 0;
@@ -1720,8 +1651,7 @@ function bankMonthFlow(snap) {
       var txKey = bankTxKey(raw);
       if (seen[txKey]) return;
       seen[txKey] = true;
-      var cat = bankTxCategory(raw, overrides);
-      if (bankIsInternalTransfer(raw, accounts, cat)) return;
+      if (bankIsInternalTransfer(raw, accounts)) return;
       var side = bankFlowSide(raw);
       if (!side) return;
       var n = bankNum(raw.amount);
@@ -1735,8 +1665,12 @@ function bankMonthFlow(snap) {
   return { inSum: any ? inSum : null, outSum: any ? outSum : null, any: any };
 }
 
+function bankIoNote() {
+  return '<p class="bank-io-note">Out counts tape flows this month. Spent so far counts category month-to-date.</p>';
+}
+
 function bankIoHtml(flow) {
-  var head = "<h3>In / out \u00b7 this month</h3>";
+  var head = "<h3>In / out \u00b7 this month</h3>" + bankIoNote();
   if (!flow || !flow.any) {
     return '<section class="bank-io">' + head + '<p class="bank-empty">No incoming or outgoing in this print.</p></section>';
   }
@@ -1842,6 +1776,29 @@ function bankSavingsExplicit(budget) {
   return { limit: limit, actual: actual };
 }
 
+function bankSavingsGap(budget) {
+  if (!budget || typeof budget !== "object") return null;
+  var n = bankNum(budget.savings_gap);
+  if (n != null) return n;
+  var basis = budget.meters_basis;
+  if (basis && typeof basis === "object" && !Array.isArray(basis)) {
+    n = bankNum(basis.savings_gap);
+    if (n != null) return n;
+    n = bankNum(basis.gap);
+    if (n != null) return n;
+  }
+  return null;
+}
+
+/* Explicit $0 is a real limit. A negative savings_gap names how far planned spend sits above income. */
+function bankSavingsZeroNote(budget) {
+  var gap = bankSavingsGap(budget);
+  if (gap != null && gap < 0) {
+    return "No room to save this month. Planned spend is " + bankMoney(Math.abs(gap)) + " above income.";
+  }
+  return "No room to save this month. Limit is $0 because planned spend is above income.";
+}
+
 function bankSumTargets(map, snap, ctx, kind) {
   var any = false;
   var sum = 0;
@@ -1904,15 +1861,17 @@ function bankCapRows(snap) {
     if (!saw[kind] && limits[kind] == null) return null;
     return sums[kind];
   }
+  var savingsNote = limits.savings === 0 ? bankSavingsZeroNote(budget) : "";
   return [
     { key: "bill", label: "Bill", actual: actualFor("bill"), limit: limits.bill },
     { key: "optional", label: "Optional", actual: actualFor("optional"), limit: limits.optional },
-    { key: "savings", label: "Savings", actual: actualFor("savings"), limit: limits.savings }
+    { key: "savings", label: "Savings", actual: actualFor("savings"), limit: limits.savings, note: savingsNote }
   ];
 }
 
 function bankCapMeterHtml(row) {
-  var pending = row.limit == null || row.actual == null;
+  /* A limit of 0 is set, so the meter stays up even when actual is still blank. */
+  var pending = row.limit == null || (row.actual == null && row.limit !== 0);
   var over = !pending && row.actual > row.limit;
   var cls = "bank-cap " + (pending ? "pending" : (over ? "over" : "under"));
   var actualText = "Actual " + (row.actual == null ? "\u2014" : bankMoney(row.actual));
@@ -1931,8 +1890,9 @@ function bankCapMeterHtml(row) {
     track += ' aria-label="' + bankEsc(row.label + " " + actualText + ", " + limitText) + '">';
   }
   track += "</div>";
+  var note = row.note ? '<p class="bank-cap-zero">' + bankEsc(row.note) + "</p>" : "";
   return '<div class="' + cls + '" data-cap="' + row.key + '"><div class="bank-cap-k"><span>' + bankEsc(row.label) +
-    "</span><b>" + bankEsc(actualText) + "</b><i>" + bankEsc(limitText) + "</i></div>" + track + "</div>";
+    "</span><b>" + bankEsc(actualText) + "</b><i>" + bankEsc(limitText) + "</i></div>" + track + note + "</div>";
 }
 
 function bankCapMetersHtml(snap) {
@@ -1942,17 +1902,27 @@ function bankCapMetersHtml(snap) {
     rows.map(bankCapMeterHtml).join("") + "</div></section>";
 }
 
-function bankTilesHtml(tiles, total) {
+function bankTotalPendingHtml(n) {
+  if (!(n > 0)) return "";
+  var word = n === 1 ? "account" : "accounts";
+  return '<i class="bank-total-pending">(' + n + " " + word + " pending)</i>";
+}
+
+function bankTilesHtml(tiles, rollup) {
   if (!tiles.length) return '<p class="bank-empty">No accounts in this print.</p>';
+  rollup = rollup || { value: null, pending: 0 };
   var cards = tiles.map(function (t) {
     return '<article class="bank-tile" data-acct="' + bankEsc(t.name) + '" data-balance="' + (t.missing ? "missing" : String(t.balance)) + '">' +
       '<span class="k">' + bankEsc(t.name) + "</span>" +
       (t.mask ? '<i class="mask">' + bankEsc(t.mask) + "</i>" : "") +
       "<b>" + bankMoney(t.missing ? null : t.balance) + "</b></article>";
   }).join("");
-  var totalMissing = total == null;
-  cards += '<article class="bank-tile bank-total" data-total="' + (totalMissing ? "missing" : "set") + '"><span class="k">Total cash</span><b>' +
-    bankMoney(totalMissing ? null : total) + "</b></article>";
+  var totalMissing = rollup.value == null;
+  var partial = !totalMissing && rollup.pending > 0;
+  var state = totalMissing ? "missing" : (partial ? "partial" : "set");
+  cards += '<article class="bank-tile bank-total" data-total="' + state + '"' +
+    (rollup.pending > 0 ? ' data-pending="' + rollup.pending + '"' : "") + '><span class="k">Total cash</span><b>' +
+    bankMoney(totalMissing ? null : rollup.value) + "</b>" + bankTotalPendingHtml(rollup.pending) + "</article>";
   return '<div class="bank-tiles">' + cards + "</div>";
 }
 

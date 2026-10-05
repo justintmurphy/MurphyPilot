@@ -198,7 +198,16 @@ body.bank-page > header .clock {
   box-shadow: inset 3px 0 0 var(--brand-fg);
 }
 
-.bank-spark-block,
+.bank-total-pending {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+}
+
 .bank-pie-block,
 .bank-tape-block,
 .bank-insight-block,
@@ -218,7 +227,6 @@ body.bank-page > header .clock {
   font-size: 12px;
 }
 
-.bank-spark-block h3,
 .bank-pie-block h3,
 .bank-tape-block h3,
 .bank-insight-block h3,
@@ -246,7 +254,6 @@ body.bank-page > header .clock {
   color: var(--ink-soft);
 }
 
-.bank-spark,
 .bank-year {
   width: 100%;
   height: auto;
@@ -808,6 +815,11 @@ body.bank-page > header .clock {
   scrollbar-gutter: stable;
 }
 
+.bank-tape-scroll:focus-visible {
+  outline: 2px solid var(--brand-fg);
+  outline-offset: 2px;
+}
+
 .bank-tape {
   width: 100%;
   border-collapse: collapse;
@@ -1318,8 +1330,15 @@ span.bank-chip {
   background: var(--stop);
 }
 
-.bank-cap-note {
+.bank-cap-note,
+.bank-io-note {
   margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.bank-cap-zero {
+  margin: 4px 0 0;
   color: var(--ink-soft);
   font-size: 12px;
 }
