@@ -1,4 +1,7 @@
-/* tip dn — House Banking.
+/* tip dj — House Banking.
+   Edits is not a main tab. A gear menu beside Historical, Current, and Budget opens it.
+   #edits still resolves through bankResolveTab and bankActivate.
+   Budget stacks the bill calendar above Insights. Covers stay under the calendar.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
@@ -1503,13 +1506,36 @@ function bankEndHtml(chips, caption) {
   }).join("") + "</div>";
 }
 
+function bankGearSvg() {
+  return '<svg class="bank-gear-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">' +
+    '<path fill="currentColor" d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.49.49 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 15.6 12 3.6 3.6 0 0 1 12 15.6z"/>' +
+    "</svg>";
+}
+
 function bankTabsHtml(tab) {
-  var items = [["historical", "Historical"], ["current", "Current"], ["budget", "Budget"], ["edits", "Edits"]];
+  var items = [["historical", "Historical"], ["current", "Current"], ["budget", "Budget"]];
   return '<div class="bank-tabs" role="tablist" aria-label="Banking">' + items.map(function (it) {
     var on = it[0] === tab;
     return '<button type="button" role="tab" data-bank-tab="' + it[0] + '" class="' + (on ? "on" : "") + '" aria-selected="' +
       (on ? "true" : "false") + '">' + it[1] + "</button>";
   }).join("") + "</div>";
+}
+
+function bankOverflowHtml(tab, menuOpen) {
+  var onEdits = tab === "edits";
+  var open = !!menuOpen;
+  return '<div class="bank-overflow"><button type="button" class="bank-gear' + (onEdits ? " on" : "") +
+    '" data-bank-overflow="1" aria-label="Edits" title="Edits" aria-haspopup="menu" aria-expanded="' +
+    (open ? "true" : "false") + '" aria-controls="bankOverflowMenu"' +
+    (onEdits ? ' aria-current="true"' : "") + ">" + bankGearSvg() +
+    (onEdits ? '<i class="bank-gear-mark" aria-hidden="true"></i>' : "") +
+    '</button><div class="bank-overflow-menu" id="bankOverflowMenu" role="menu" aria-label="More"' +
+    (open ? "" : " hidden") + '><button type="button" role="menuitem" data-bank-tab="edits"' +
+    (onEdits ? ' class="on" aria-current="true"' : "") + ">Edits</button></div></div>";
+}
+
+function bankNavHtml(tab, menuOpen) {
+  return '<div class="bank-nav">' + bankTabsHtml(tab) + bankOverflowHtml(tab, menuOpen) + "</div>";
 }
 
 function bankChipOptions(categories, current) {
@@ -2056,9 +2082,9 @@ function bankBudgetHtml(snap, opts) {
     : '<p class="bank-empty">No insights in this print.</p>';
   var bars = bankBudgetBars(budget);
   var ym = bankCalendarMonth(snap);
-  return '<div class="bank-budget-top"><section class="bank-insight-block"><h3>Insights</h3>' + insightHtml +
-    '</section><section class="bank-cal"><h3>Bill calendar</h3>' + bankCalendarHtml(cells, hasDays, ym) +
-    bankCoversHtml(bankCheckGroups(bills, incomes)) + "</section></div>" +
+  return '<div class="bank-budget-top"><section class="bank-cal"><h3>Bill calendar</h3>' +
+    bankCalendarHtml(cells, hasDays, ym) + bankCoversHtml(bankCheckGroups(bills, incomes)) +
+    '</section><section class="bank-insight-block"><h3>Insights</h3>' + insightHtml + "</section></div>" +
     bankMtdBlock(snap) +
     bankKindBlocks(snap) +
     bankIncomeListHtml(incomes) +
@@ -2197,7 +2223,7 @@ function bankPageHtml(snap, opts) {
   else if (tab === "budget") panel = bankBudgetHtml(snap || {}, opts);
   else if (tab === "edits") panel = bankEditsPanelHtml(snap || {}, opts);
   else panel = bankCurrentHtml(snap || {}, opts);
-  return bankTabsHtml(tab) + '<div class="bank-panel" data-panel="' + tab + '" role="tabpanel">' + panel +
+  return bankNavHtml(tab, opts.menuOpen) + '<div class="bank-panel" data-panel="' + tab + '" role="tabpanel">' + panel +
     '<p class="hint bank-src">From the one-time passcode feed. Blank means the print omitted that figure.</p></div>';
 }
 
@@ -2220,9 +2246,11 @@ function bankWriteStore(store) {
   } catch (e) {}
 }
 
-function bankPaint(root) {
+function bankPaint(root, paintOpts) {
   if (!root || !root._bank) return;
+  paintOpts = paintOpts || {};
   var st = root._bank;
+  if (!paintOpts.keepMenu) st.menuOpen = false;
   var sel = bankHistSelection(bankMonths(st.data), st.year, st.month);
   st.year = sel.year;
   st.month = sel.month;
@@ -2243,8 +2271,23 @@ function bankPaint(root) {
     categoryError: st.categoryError || "",
     billKey: st.billKey || "",
     editCat: st.editCat || "",
-    rowAdd: st.rowAdd || null
+    rowAdd: st.rowAdd || null,
+    menuOpen: !!st.menuOpen
   });
+}
+
+function bankFocusGear(root) {
+  var el = root && root.querySelector && root.querySelector("[data-bank-overflow]");
+  if (el && el.focus) {
+    try { el.focus(); } catch (e) {}
+  }
+}
+
+function bankFocusOverflowItem(root) {
+  var el = root && root.querySelector && root.querySelector("#bankOverflowMenu [data-bank-tab]");
+  if (el && el.focus) {
+    try { el.focus(); } catch (e) {}
+  }
 }
 
 function bankActivate(root, tab) {
@@ -3118,12 +3161,32 @@ function bankMount(root, data, opts) {
   }
   if (root._bankBound || !root.addEventListener) return;
   root._bankBound = true;
+  if (!root._bankDocBound && typeof document !== "undefined" && document.addEventListener) {
+    root._bankDocBound = true;
+    document.addEventListener("click", function (ev) {
+      if (!root._bank || !root._bank.menuOpen) return;
+      var n = ev && ev.target;
+      if (n && n.closest && n.closest(".bank-overflow")) return;
+      if (n && root.contains && root.contains(n)) return;
+      bankPaint(root);
+    });
+  }
   root.addEventListener("click", function (e) {
     var t = e && e.target;
     if (!t || !t.closest) return;
     var tabBtn = t.closest("[data-bank-tab]");
     if (tabBtn && tabBtn.getAttribute) {
+      if (root._bank) root._bank.menuOpen = false;
       bankActivate(root, tabBtn.getAttribute("data-bank-tab"));
+      return;
+    }
+    var gear = t.closest("[data-bank-overflow]");
+    if (gear) {
+      if (e.preventDefault) e.preventDefault();
+      if (!root._bank) return;
+      root._bank.menuOpen = !root._bank.menuOpen;
+      bankPaint(root, { keepMenu: true });
+      if (root._bank.menuOpen) bankFocusOverflowItem(root);
       return;
     }
     var monthBtn = t.closest("[data-bank-month]");
@@ -3147,6 +3210,9 @@ function bankMount(root, data, opts) {
       if (e.preventDefault) e.preventDefault();
       bankCancelRowAdd(root);
       return;
+    }
+    if (root._bank && root._bank.menuOpen && !t.closest(".bank-overflow")) {
+      bankPaint(root);
     }
   });
   root.addEventListener("change", function (e) {
@@ -3207,7 +3273,24 @@ function bankMount(root, data, opts) {
   });
   root.addEventListener("keydown", function (e) {
     var el = e && e.target;
-    if (!el || !el.hasAttribute) return;
+    if (!el) return;
+    if (e.key === "Escape" && root._bank && root._bank.menuOpen && !(el.hasAttribute && el.hasAttribute("data-bank-row-cat"))) {
+      if (e.preventDefault) e.preventDefault();
+      root._bank.menuOpen = false;
+      bankPaint(root);
+      bankFocusGear(root);
+      return;
+    }
+    if ((e.key === "ArrowDown" || e.key === "ArrowUp") && el.closest && el.closest("[data-bank-overflow]")) {
+      if (e.preventDefault) e.preventDefault();
+      if (root._bank && !root._bank.menuOpen) {
+        root._bank.menuOpen = true;
+        bankPaint(root, { keepMenu: true });
+      }
+      bankFocusOverflowItem(root);
+      return;
+    }
+    if (!el.hasAttribute) return;
     if (el.hasAttribute("data-bank-row-cat")) {
       if (e.key !== "Enter" && e.key !== "Escape") return;
       if (e.preventDefault) e.preventDefault();

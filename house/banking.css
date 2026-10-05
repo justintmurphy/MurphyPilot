@@ -1,4 +1,4 @@
-/* tip df — Banking page. Charcoal + teal desk, dense at ≤720. */
+/* tip dj — Banking page. Edits sits in a gear menu. Budget stacks the bill calendar above Insights. */
 
 body.bank-page > header {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -14,10 +14,19 @@ body.bank-page > header .clock {
   margin: 0 auto;
 }
 
+.bank-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
 .bank-tabs {
   display: flex;
   gap: 6px;
-  margin: 4px 0 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
 }
 
 .bank-tabs button {
@@ -33,6 +42,97 @@ body.bank-page > header .clock {
 }
 
 .bank-tabs button.on {
+  background: var(--nav-hover);
+  color: var(--brand-fg);
+}
+
+.bank-overflow {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.bank-gear {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--nav-line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.bank-gear.on,
+.bank-gear[aria-expanded="true"] {
+  background: var(--nav-hover);
+  color: var(--brand-fg);
+}
+
+.bank-gear:focus,
+.bank-overflow-menu button:focus {
+  outline: none;
+}
+
+.bank-gear:focus-visible,
+.bank-overflow-menu button:focus-visible {
+  outline: 2px solid var(--brand-fg);
+  outline-offset: 2px;
+}
+
+.bank-gear-icon {
+  display: block;
+}
+
+.bank-gear-mark {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--brand-fg);
+  pointer-events: none;
+}
+
+.bank-overflow-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  min-width: 9rem;
+  padding: 4px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(74, 44, 56, 0.16);
+}
+
+.bank-overflow-menu button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: 600 13px/1 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.3px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bank-overflow-menu button.on,
+.bank-overflow-menu button[aria-current="true"] {
   background: var(--nav-hover);
   color: var(--brand-fg);
 }
@@ -347,9 +447,14 @@ body.bank-page > header .clock {
 
 .bank-budget-top {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
   align-items: start;
+}
+
+.bank-budget-top > .bank-cal,
+.bank-budget-top > .bank-insight-block {
+  margin: 0;
 }
 
 .bank-insights {
@@ -920,6 +1025,15 @@ span.bank-chip {
     font-size: 12px;
     letter-spacing: 0;
   }
+  .bank-gear {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .bank-overflow-menu button {
+    min-height: 44px;
+  }
   .bank-cat-pick select,
   .bank-edit-list select,
   .bank-add-cat input,
@@ -974,6 +1088,18 @@ span.bank-chip {
 }
 
 @media (max-width: 390px) {
+  .bank-nav {
+    gap: 10px;
+  }
+  .bank-gear {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .bank-budget-top {
+    gap: 14px;
+  }
   .bank-cal-dow,
   .bank-cal-week {
     gap: 1px;
