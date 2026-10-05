@@ -331,7 +331,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip cv", function () {
+test("desk links Banking and banking assets are cache-busted at tip cw", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -341,7 +341,7 @@ test("desk links Banking and banking assets are cache-busted at tip cv", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cv/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cw/);
   assert.match(page, /\/house\/banking\.css\?v=20260904cu/);
   assert.match(page, /\/house\/house\.css\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
@@ -355,6 +355,7 @@ test("desk links Banking and banking assets are cache-busted at tip cv", functio
   assert.doesNotMatch(page, /banking\.js\?v=20260904ct/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904ct/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cu/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904cv/);
   assert.doesNotMatch(page, /href="\.\.\//);
   assert.doesNotMatch(page, /src="\.\.\//);
   assert.match(page, /id="bankDesk"/);
@@ -1658,15 +1659,14 @@ test("a new custom category shows in every edits select while it is still empty"
   const listed = await addPets("list");
   ctx.bankActivate(listed.el, "current");
   await ctx.bankActivate(listed.el, "edits");
-  assertCategoryEverywhere(listed.el.innerHTML, "Pets", false);
+  assertCategoryEverywhere(listed.el.innerHTML, "Pets", true);
   assertCategoryEverywhere(listed.el.innerHTML, "Utilities/Bills", true);
   assertCategoryEverywhere(listed.el.innerHTML, "Paycheck/Salary/Wages", true);
   const removed = listed.calls.filter(function (c) {
     return c.url === "/data/banking/categories.json" && c.init && c.init.body && JSON.parse(c.init.body).remove === true;
   });
-  assert.equal(removed.length, 1);
-  assert.deepEqual(JSON.parse(removed[0].init.body), { category: "Pets", remove: true });
-  assert.equal(listed.el._bank.data.custom_categories.indexOf("Pets"), -1);
+  assert.equal(removed.length, 0);
+  assert.ok(listed.el._bank.data.custom_categories.indexOf("Pets") >= 0);
 
   await addPets("ack");
   await addPets("snapshot");
@@ -1758,52 +1758,264 @@ test("moving the last merchant off a custom category removes it from both select
   });
 });
 
-test("opening edits drops empty customs and keeps feed categories that have no rows", async function () {
+test("opening edits does not remove empty customs or a history-only override", async function () {
   const ctx = boot();
   const fx = loadFixture();
   const calls = [];
+  const ancientKey = "2020-01-02|acct-check|12.34|Ancient Shop";
   ctx.fetch = function (url, init) {
-    calls.push({ url: String(url), body: JSON.parse(init.body) });
-    const body = JSON.parse(init.body);
-    const left = ["Household", "Gifts"].filter(function (name) { return name !== body.category; });
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      type: "basic",
-      json: function () {
-        return Promise.resolve({ schema: "banking-custom-categories/v1", categories: left.concat([body.category]) });
-      }
-    });
+    calls.push({ url: String(url), body: init && init.body ? JSON.parse(init.body) : null });
+    return Promise.resolve({ ok: false, status: 500, type: "basic" });
   };
   const data = JSON.parse(JSON.stringify(fx));
-  data.custom_categories = ["Household", "Gifts", "Linger"];
+  data.custom_categories = ["Household", "Gifts", "Linger", "HistOnly", "Ghost"];
+  data.current.history_tx = [{
+    date: "2020-01-02",
+    id: "acct-check",
+    desc: "Ancient Shop",
+    amount: 12.34,
+    flow: "outflow",
+    category: "Shopping",
+    tx_key: ancientKey
+  }];
+  data.category_overrides = Object.assign({}, data.category_overrides, {
+    [ancientKey]: "HistOnly",
+    "not-in-any-list": "Ghost"
+  });
   const el = mount(ctx, data, { tab: "edits", editCat: "Groceries" });
   await el._bank.prune;
-  assert.deepEqual(calls.map(function (c) { return c.body; }), [{ category: "Linger", remove: true }]);
-  assert.equal(el._bank.data.custom_categories.indexOf("Linger"), -1);
-  assert.ok(el._bank.data.custom_categories.indexOf("Household") >= 0);
-  assert.ok(el._bank.data.custom_categories.indexOf("Gifts") >= 0);
-  assertCategoryEverywhere(el.innerHTML, "Linger", false);
+  assert.equal(calls.length, 0);
+  ["Linger", "HistOnly", "Ghost", "Household", "Gifts"].forEach(function (name) {
+    assert.ok(el._bank.data.custom_categories.indexOf(name) >= 0, name);
+    assertCategoryEverywhere(el.innerHTML, name, true);
+  });
+  assert.doesNotMatch(el.innerHTML, /Ancient Shop/);
   assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
   assertCategoryEverywhere(el.innerHTML, "Paycheck/Salary/Wages", true);
   assert.equal(ctx.bankCategoryCount(el._bank.data, "Utilities/Bills"), 0);
   assert.equal(ctx.bankCategoryCount(el._bank.data, "Paycheck/Salary/Wages"), 0);
+  assert.equal(ctx.bankCategoryCount(el._bank.data, "Linger"), 0);
+  assert.ok(ctx.bankCategoryCount(el._bank.data, "HistOnly") > 0);
+  assert.ok(ctx.bankCategoryCount(el._bank.data, "Ghost") > 0);
   assert.ok(ctx.bankCategoryCount(el._bank.data, "Household") > 0);
+  assert.equal(ctx.bankOverrideHasCategory(el._bank.data, "HistOnly"), true);
 
-  el._bank.data.custom_categories = el._bank.data.custom_categories.concat(["Linger", "Vacant"]);
+  ctx.bankActivate(el, "current");
+  await ctx.bankActivate(el, "edits");
+  await ctx.bankRefreshEmptyCustoms(el);
+  assert.equal(calls.length, 0);
+  assert.ok(el._bank.data.custom_categories.indexOf("HistOnly") >= 0);
+  assert.ok(el._bank.data.custom_categories.indexOf("Linger") >= 0);
+  assertCategoryEverywhere(el.innerHTML, "HistOnly", true);
+  assertCategoryEverywhere(el.innerHTML, "Linger", true);
+
+  el._bank.data.custom_categories = el._bank.data.custom_categories.concat(["Vacant"]);
   el._bank.rowAdd = { key: "2026-10-05|acct-check|12.34|Corner Market", draft: "  Linger  " };
   el._bank.newCatDraft = "Vacant";
   const held = ctx.bankTakeEmptyCustoms(el._bank);
   assert.deepEqual(JSON.parse(JSON.stringify(held)), []);
   assert.ok(el._bank.data.custom_categories.indexOf("Linger") >= 0);
   assert.ok(el._bank.data.custom_categories.indexOf("Vacant") >= 0);
+  assert.ok(el._bank.data.custom_categories.indexOf("HistOnly") >= 0);
   el._bank.rowAdd = null;
   el._bank.newCatDraft = "";
-  await ctx.bankRefreshEmptyCustoms(el);
-  assert.deepEqual(calls.slice(1).map(function (c) { return c.body.category; }).sort(), ["Linger", "Vacant"]);
-  assert.equal(el._bank.data.custom_categories.indexOf("Linger"), -1);
-  assert.equal(el._bank.data.custom_categories.indexOf("Vacant"), -1);
+  const dropped = ctx.bankTakeEmptyCustoms(el._bank);
+  assert.deepEqual(JSON.parse(JSON.stringify(dropped)).sort(), ["Linger", "Vacant"]);
+  assert.ok(el._bank.data.custom_categories.indexOf("HistOnly") >= 0);
+  assert.ok(el._bank.data.custom_categories.indexOf("Ghost") >= 0);
+  assert.equal(calls.length, 0);
   assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
   assert.doesNotMatch(el.innerHTML, /Category did not save/);
   assert.doesNotMatch(el.innerHTML, /Nothing was changed/);
+});
+
+test("reassigning the last in-window merchant keeps a history-only override", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const calls = [];
+  const ancientKey = "2020-01-02|acct-check|12.34|Ancient Shop";
+  const windowKey = "2026-03-01|acct-check|12.34|Window Shop";
+  const data = JSON.parse(JSON.stringify(fx));
+  data.custom_categories = ["Household", "Gifts", "HistOnly"];
+  data.current.history_tx = [{
+    date: "2020-01-02",
+    id: "acct-check",
+    desc: "Ancient Shop",
+    amount: 12.34,
+    flow: "outflow",
+    category: "Shopping",
+    tx_key: ancientKey
+  }];
+  data.current.edits_tx.push({
+    date: "2026-03-01",
+    id: "acct-check",
+    desc: "Window Shop",
+    amount: 12.34,
+    flow: "outflow",
+    category: "Shopping",
+    tx_key: windowKey
+  });
+  data.category_overrides = Object.assign({}, data.category_overrides, {
+    [ancientKey]: "HistOnly",
+    [windowKey]: "HistOnly"
+  });
+  ctx.fetch = function (url, init) {
+    calls.push({ url: String(url), init: init || {} });
+    const body = JSON.parse(init.body);
+    if (String(url) === "/data/banking/categories.json") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () { return Promise.resolve({ ok: true }); }
+      });
+    }
+    const overrides = Object.assign({}, data.category_overrides);
+    overrides[body.key] = body.category;
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () {
+        return Promise.resolve({ schema: "banking-category-overrides/v1", overrides: overrides });
+      }
+    });
+  };
+  const el = mount(ctx, data, { tab: "edits", editCat: "HistOnly" });
+  await el._bank.prune;
+  assert.equal(calls.length, 0);
+  assert.match(el.innerHTML, /Window Shop/);
+  assert.doesNotMatch(el.innerHTML, /Ancient Shop/);
+  assertCategoryEverywhere(el.innerHTML, "HistOnly", true);
+  await el.listeners.change({
+    target: {
+      value: "Groceries",
+      getAttribute: function (name) { return name === "data-bank-tx" ? windowKey : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/data/banking/overrides.json");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { key: windowKey, category: "Groceries" });
+  assert.ok(el._bank.data.custom_categories.indexOf("HistOnly") >= 0);
+  assert.equal(ctx.bankOverrideHasCategory(el._bank.data, "HistOnly"), true);
+  assert.ok(ctx.bankCategoryCount(el._bank.data, "HistOnly") > 0);
+  await el.listeners.change({
+    target: {
+      value: "Groceries",
+      getAttribute: function () { return null; },
+      hasAttribute: function (name) { return name === "data-bank-cat"; }
+    }
+  });
+  assert.equal(calls.length, 1);
+  assertCategoryEverywhere(el.innerHTML, "HistOnly", true);
+  assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
+  const moved = rowSelectHtml(el.innerHTML, windowKey);
+  assert.match(moved, /value="Groceries" selected/);
+  assert.match(moved, /value="HistOnly"/);
+});
+
+test("a failed category removal restores the label and shows an error", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const key = "2026-04-01|acct-check|12.34|Solo Shop";
+  async function failRemove(status) {
+    const calls = [];
+    ctx.fetch = function (url, init) {
+      calls.push({ url: String(url), init: init || {} });
+      const body = JSON.parse(init.body);
+      if (String(url) === "/data/banking/categories.json") {
+        return Promise.resolve({ ok: false, status: status, type: "basic" });
+      }
+      const overrides = Object.assign({}, fx.category_overrides || {});
+      overrides[body.key] = body.category;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () {
+          return Promise.resolve({ schema: "banking-category-overrides/v1", overrides: overrides });
+        }
+      });
+    };
+    const data = JSON.parse(JSON.stringify(fx));
+    data.custom_categories = ["Household", "Gifts", "Solo"];
+    data.category_overrides = Object.assign({}, data.category_overrides, { [key]: "Solo" });
+    data.current.edits_tx.push({
+      date: "2026-04-01",
+      id: "acct-check",
+      desc: "Solo Shop",
+      amount: 12.34,
+      flow: "outflow",
+      category: "Shopping",
+      tx_key: key
+    });
+    const el = mount(ctx, data, { tab: "edits", editCat: "Solo" });
+    await el._bank.prune;
+    assert.equal(calls.length, 0);
+    await el.listeners.change({
+      target: {
+        value: "Groceries",
+        getAttribute: function (name) { return name === "data-bank-tx" ? key : null; },
+        hasAttribute: function () { return false; }
+      }
+    });
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].url, "/data/banking/categories.json");
+    assert.deepEqual(JSON.parse(calls[1].init.body), { category: "Solo", remove: true });
+    assert.ok(el._bank.data.custom_categories.indexOf("Solo") >= 0);
+    assertCategoryEverywhere(el.innerHTML, "Solo", true);
+    assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
+    const moved = rowSelectHtml(el.innerHTML, key);
+    assert.match(moved, /value="Groceries" selected/);
+    if (status === 401 || status === 403 || status === 302) {
+      assert.match(el.innerHTML, /Sign in again to remove a category/);
+    } else if (status === 404 || status === 405) {
+      assert.match(el.innerHTML, /not on the feed yet/);
+      assert.match(el.innerHTML, /Nothing was saved/);
+    } else {
+      assert.match(el.innerHTML, /Category did not save/);
+      assert.match(el.innerHTML, /Nothing was changed/);
+    }
+    assert.doesNotMatch(el.innerHTML, /Sign in again to add a category/);
+  }
+  for (const status of [404, 405, 401, 403, 302, 500]) await failRemove(status);
+  ctx.fetch = function (url, init) {
+    const body = JSON.parse(init.body);
+    if (String(url) === "/data/banking/categories.json") return Promise.reject(new Error("offline"));
+    const overrides = Object.assign({}, fx.category_overrides || {});
+    overrides[body.key] = body.category;
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () {
+        return Promise.resolve({ schema: "banking-category-overrides/v1", overrides: overrides });
+      }
+    });
+  };
+  const data = JSON.parse(JSON.stringify(fx));
+  data.custom_categories = ["Household", "Gifts", "Solo"];
+  data.category_overrides = Object.assign({}, data.category_overrides, { [key]: "Solo" });
+  data.current.edits_tx.push({
+    date: "2026-04-01",
+    id: "acct-check",
+    desc: "Solo Shop",
+    amount: 12.34,
+    flow: "outflow",
+    category: "Shopping",
+    tx_key: key
+  });
+  const el = mount(ctx, data, { tab: "edits", editCat: "Solo" });
+  await el.listeners.change({
+    target: {
+      value: "Groceries",
+      getAttribute: function (name) { return name === "data-bank-tx" ? key : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.match(el.innerHTML, /Category did not save/);
+  assert.match(el.innerHTML, /Nothing was changed/);
+  assert.ok(el._bank.data.custom_categories.indexOf("Solo") >= 0);
+  assertCategoryEverywhere(el.innerHTML, "Solo", true);
 });
