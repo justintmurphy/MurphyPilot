@@ -1401,3 +1401,250 @@ test("src-asof matches each freshness chip and stays off Fidelity sleeve cards",
   assert.match(css, /\.src-asof \{ display: none; \}/);
   assert.match(css, /@media \(max-width: 720px\) \{[\s\S]*?\.src-asof \{[^}]*display: block;/);
 });
+
+function asofMarks(html) {
+  return (String(html || "").match(/asof ·/g) || []).length;
+}
+
+function fillPrint(side, sym, i) {
+  return {
+    symbol: sym,
+    side: side,
+    qty: 1,
+    price: 2,
+    ts: new Date(Date.UTC(2026, 8, 1, 15, 0, 0) - i * 60000).toISOString(),
+    account: "agentic",
+    pnl: side === "sell" ? 1.25 : 99
+  };
+}
+
+function sideSection(html, title) {
+  const m = String(html || "").match(new RegExp('<section class="fills-col"><h3 class="fills-side">' + title + "[\\s\\S]*?</section>"));
+  assert.ok(m, title);
+  return m[0];
+}
+
+test("phone AI WWIII status keeps one asof and a secondary cash row", function () {
+  const ctx = boot();
+  ctx.snap = pinnedFreshSnap(ctx);
+  ctx.tab = "agentic";
+  const ag = ctx.snap.accounts.agentic;
+  ag.realized_pnl = { day: 1.5, week: 2.25, month: 3 };
+  ag.fills = [
+    fillPrint("buy", "AAA", 0),
+    fillPrint("buy", "BBB", 1),
+    fillPrint("buy", "CCC", 2),
+    fillPrint("buy", "DDD", 3),
+    fillPrint("sell", "EEE", 4)
+  ];
+
+  setNarrow(ctx, false);
+  const wide = ctx.agenticOnlyHtml();
+  assert.equal(asofMarks(wide), 1);
+  assert.equal((wide.match(/claude-asof-chips/g) || []).length, 1);
+  assert.doesNotMatch(wide, /src-asof/);
+  assert.doesNotMatch(wide, /status-secondary/);
+  assert.doesNotMatch(wide, /kpi-equity/);
+  assert.doesNotMatch(wide, /pnl-more/);
+  assert.doesNotMatch(wide, /fills-more/);
+  assert.match(wide, /<div class="kpi"><div><span>Equity<\/span><b>[^<]*<\/b><\/div><div><span>Cash<\/span>/);
+  assert.equal(kpiValue(wide, "Equity"), ctx.money(ag.equity));
+  assert.equal(kpiValue(wide, "Cash"), ctx.money(ag.cash));
+  assert.equal(kpiValue(wide, "Buying power"), ctx.money(ag.buying_power));
+  assert.match(wide, /<h2>AI WWIII<\/h2>/);
+  assert.doesNotMatch(wide, /Claude/);
+  const wideChart = ctx.overlayChartCard("agentic", "live");
+  assert.equal(wideChart.match(/<b>([^<]*)<\/b>/)[1], kpiValue(wide, "Equity"));
+
+  setNarrow(ctx, true);
+  const phone = ctx.agenticOnlyHtml();
+  assert.equal(asofMarks(phone), 1);
+  assert.equal((phone.match(/claude-asof-chips/g) || []).length, 1);
+  assert.doesNotMatch(phone, /src-asof/);
+  assert.match(phone, /kpi-equity/);
+  assert.match(phone, /status-secondary/);
+  assert.equal(kpiValue(phone, "Equity"), ctx.money(ag.equity));
+  assert.equal(kpiValue(phone, "Cash"), ctx.money(ag.cash));
+  assert.equal(kpiValue(phone, "Buying power"), ctx.money(ag.buying_power));
+  assert.ok(phone.indexOf("claude-asof-chips") < phone.indexOf("status-secondary"));
+  assert.ok(phone.indexOf("status-secondary") < phone.indexOf('class="hint"'));
+  assert.match(phone, /AI WWIII/);
+  assert.doesNotMatch(phone, /Claude/);
+  assert.match(phone, /pnl-more/);
+  assert.match(phone, /<details class="fills-more" data-fills-side="buy">/);
+  assert.doesNotMatch(phone, /data-fills-side="sell"/);
+  const phoneChart = ctx.overlayChartCard("agentic", "live");
+  assert.equal(phoneChart.match(/<b>([^<]*)<\/b>/)[1], kpiValue(phone, "Equity"));
+
+  ag.cash = null;
+  delete ag.buying_power;
+  const omitted = ctx.agenticOnlyHtml();
+  assert.doesNotMatch(omitted, /status-secondary/);
+  assert.doesNotMatch(omitted, />Cash</);
+  assert.doesNotMatch(omitted, /Buying power/);
+  assert.doesNotMatch(omitted, /\$0/);
+  assert.equal(asofMarks(omitted), 1);
+  assert.equal(kpiValue(omitted, "Equity"), ctx.money(ag.equity));
+
+  setNarrow(ctx, false);
+  const wideOmit = ctx.agenticOnlyHtml();
+  assert.doesNotMatch(wideOmit, /status-secondary/);
+  assert.match(wideOmit, /<span>Cash<\/span><b>\u2014<\/b>/);
+  assert.match(wideOmit, /<span>Buying power<\/span><b>\u2014<\/b>/);
+  assert.doesNotMatch(wideOmit, /\$0/);
+});
+
+test("realized periods collapse on the phone and stay open on the desk", function () {
+  const ctx = boot();
+  const book = { realized_pnl: { day: 1.5, week: 2.25, month: -0.5 } };
+
+  setNarrow(ctx, false);
+  const wide = ctx.realizedStripHtml(book);
+  assert.doesNotMatch(wide, /pnl-more/);
+  assert.doesNotMatch(wide, /fills-more/);
+  assert.match(wide, /Realized Day/);
+  assert.match(wide, /Realized Week/);
+  assert.match(wide, /Realized Month/);
+  assert.match(wide, /Print-only\. Periods hide when the feed omits them\./);
+  assert.ok(wide.indexOf(ctx.money(1.5)) >= 0);
+  assert.ok(wide.indexOf(ctx.money(2.25)) >= 0);
+  assert.ok(wide.indexOf(ctx.money(-0.5)) >= 0);
+
+  setNarrow(ctx, true);
+  const dayOnly = ctx.realizedStripHtml({ realized_pnl: { day: 1.5, week: null } });
+  assert.doesNotMatch(dayOnly, /pnl-more/);
+  assert.match(dayOnly, /Realized Day/);
+  assert.doesNotMatch(dayOnly, /Realized Week/);
+  assert.match(dayOnly, /Print-only\. Periods hide when the feed omits them\./);
+
+  ctx.tab = "agentic";
+  const phone = ctx.realizedStripHtml(book);
+  assert.match(phone, /<details class="pnl-more">/);
+  assert.doesNotMatch(phone, /<details class="pnl-more" open>/);
+  const glance = phone.split("<details")[0];
+  assert.match(glance, /Realized Day/);
+  assert.doesNotMatch(glance, /Realized Week/);
+  assert.doesNotMatch(glance, /Realized Month/);
+  const sum = phone.match(/<summary>[\s\S]*?<\/summary>/)[0];
+  assert.match(sum, /Week · Month/);
+  assert.match(sum, /cf-chev/);
+  assert.match(sum, />Show</);
+  assert.doesNotMatch(sum, /\$/);
+  assert.ok(phone.indexOf("pnl-more") < phone.indexOf("Print-only"));
+  assert.match(phone, /Print-only\. Periods hide when the feed omits them\./);
+  assert.ok(phone.indexOf(ctx.money(2.25)) > phone.indexOf("<details"));
+  assert.ok(phone.indexOf("<h2>Realized P&L</h2>") === 0);
+
+  const noDay = ctx.realizedStripHtml({ realized_pnl: { week: 2, month: 4 } });
+  assert.match(noDay.split("<details")[0], /Realized Week/);
+  assert.match(noDay, /pnl-more/);
+  assert.match(noDay, /Month/);
+
+  ctx.phoneMoreTab = ctx.tab;
+  ctx.pnlMoreOpen = true;
+  const opened = ctx.realizedStripHtml(book);
+  assert.match(opened, /<details class="pnl-more" open>/);
+
+  ["individual", "auto_grok", "joint"].forEach(function (id) {
+    ctx.tab = id;
+    ctx.phoneMoreTab = "";
+    const extras = ctx.bookExtrasHtml({
+      id: id,
+      realized_pnl: { day: 1.5, week: 2.25, month: 3 }
+    }, { required: false });
+    assert.match(extras, /pnl-more/);
+    assert.doesNotMatch(extras, /Recent fills/);
+    assert.ok(extras.indexOf("Realized P&L") < extras.indexOf("pnl-more"));
+    const day = ctx.bookExtrasHtml({ id: id, realized_pnl: { day: 1.5 } }, { required: false });
+    assert.doesNotMatch(day, /pnl-more/);
+    assert.match(day, /Realized Day/);
+  });
+});
+
+test("phone fills cap Buys and Sells separately and the desk stays open", function () {
+  const ctx = boot();
+  const fills = [];
+  for (let i = 0; i < 8; i++) fills.push(fillPrint("buy", "B" + i, i));
+  for (let i = 0; i < 5; i++) fills.push(fillPrint("sell", "S" + i, 20 + i));
+  const book = { fills: fills };
+
+  setNarrow(ctx, false);
+  const wide = ctx.fillsTapeHtml(book, { required: true });
+  assert.doesNotMatch(wide, /fills-more/);
+  assert.doesNotMatch(wide, /pnl-more/);
+  assert.match(wide, /Buys/);
+  assert.match(wide, /Sells/);
+  assert.equal((wide.match(/<tr>/g) || []).length, 2 + 8 + 5);
+  const wideBuys = sideSection(wide, "Buys");
+  assert.doesNotMatch(wideBuys, />P&amp;L<|>P&L</);
+  assert.match(sideSection(wide, "Sells"), /P&amp;L|P&L/);
+
+  setNarrow(ctx, true);
+  ctx.tab = "agentic";
+  const phone = ctx.fillsTapeHtml(book, { required: true });
+  assert.equal((phone.match(/<details class="fills-more"/g) || []).length, 2);
+  assert.doesNotMatch(phone, /fills-more" open/);
+  const buys = sideSection(phone, "Buys");
+  const sells = sideSection(phone, "Sells");
+  assert.match(buys, /data-fills-side="buy"/);
+  assert.match(sells, /data-fills-side="sell"/);
+  assert.doesNotMatch(buys, /data-fills-side="sell"/);
+  assert.doesNotMatch(sells, /data-fills-side="buy"/);
+  const cap = ctx.FILLS_PHONE_CAP;
+  assert.equal((buys.split("<details")[0].match(/<tr>/g) || []).length, 1 + cap);
+  assert.equal((sells.split("<details")[0].match(/<tr>/g) || []).length, 1 + cap);
+  assert.equal((buys.split("</summary>")[1].match(/<tr>/g) || []).length, 1 + (8 - cap));
+  assert.equal((sells.split("</summary>")[1].match(/<tr>/g) || []).length, 1 + (5 - cap));
+  const buySum = buys.match(/<summary>[\s\S]*?<\/summary>/)[0];
+  const sellSum = sells.match(/<summary>[\s\S]*?<\/summary>/)[0];
+  assert.match(buySum, new RegExp((8 - cap) + " more · B" + cap + " buy"));
+  assert.match(sellSum, new RegExp((5 - cap) + " more · S" + cap + " sell"));
+  assert.match(buySum, /cf-chev/);
+  assert.match(buySum, />Show</);
+  assert.doesNotMatch(buySum, /\$/);
+  assert.doesNotMatch(sellSum, /\$/);
+  assert.doesNotMatch(buys, />P&amp;L<|>P&L</);
+  assert.ok(phone.indexOf("Buys") < phone.indexOf("Sells"));
+  assert.match(phone, /Status tape only\. No order ticket\./);
+
+  const short = ctx.fillsTapeHtml({
+    fills: [fillPrint("buy", "AAA", 0), fillPrint("sell", "BBB", 1)]
+  }, { required: true });
+  assert.doesNotMatch(short, /fills-more/);
+  assert.match(short, /Buys/);
+  assert.match(short, /Sells/);
+
+  const buysOnly = ctx.fillsTapeHtml({ fills: [fillPrint("buy", "AAA", 0)] }, { required: true });
+  assert.match(buysOnly, /Buys/);
+  assert.doesNotMatch(buysOnly, /Sells/);
+  assert.doesNotMatch(buysOnly, /No sells/);
+  assert.doesNotMatch(buysOnly, /fills-more/);
+
+  assert.equal(ctx.fillsTapeHtml({ fills: [] }, { required: true }), "");
+  assert.equal(ctx.fillsTapeHtml({}, { required: false }), "");
+  assert.doesNotMatch(ctx.fillsTapeHtml({ fills: [] }, { required: true }), /\$0/);
+
+  setNarrow(ctx, false);
+  const emptyWide = ctx.fillsTapeHtml({ fills: [] }, { required: true });
+  assert.match(emptyWide, /No buys in this print/);
+  assert.match(emptyWide, /No sells in this print/);
+  assert.doesNotMatch(emptyWide, /fills-more/);
+  assert.doesNotMatch(emptyWide, /\$0/);
+
+  setNarrow(ctx, true);
+  ["individual", "auto_grok", "joint"].forEach(function (id) {
+    ctx.tab = id;
+    ctx.phoneMoreTab = "";
+    const html = ctx.bookExtrasHtml({
+      id: id,
+      realized_pnl: { day: 1.5, week: 2 },
+      fills: fills
+    }, { required: false });
+    assert.match(html, /pnl-more/);
+    assert.equal((html.match(/<details class="fills-more"/g) || []).length, 2);
+    assert.ok(html.indexOf("Realized P&L") < html.indexOf("Recent fills"));
+    const day = ctx.bookExtrasHtml({ id: id, realized_pnl: { day: 1.5 }, fills: fills }, { required: false });
+    assert.doesNotMatch(day, /pnl-more/);
+    assert.match(day, /fills-more/);
+  });
+});
