@@ -703,6 +703,17 @@ body.bank-page > header .clock {
   white-space: nowrap;
 }
 
+/* The bold figure stays one deposit. Cadence and the monthly estimate sit on the next line. */
+.bank-income-list li.bank-income-twice {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.bank-income-list li.bank-income-twice i {
+  grid-column: 1 / -1;
+  text-align: left;
+  white-space: normal;
+}
+
 .bank-income-amt {
   width: 6.5rem;
   min-height: 36px;
@@ -1040,6 +1051,20 @@ span.bank-chip {
   align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+
+.bank-edit-side-note {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.bank-income-fixed {
+  flex: 1 0 100%;
+  color: var(--ink-soft);
+  font-style: normal;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .bank-flow {

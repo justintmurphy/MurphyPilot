@@ -106,7 +106,7 @@
   "custom_categories": ["Household", "Gifts"],
   "budget": {
     "income_monthly": [
-      {"label": "Paycheck", "amount": 12.34, "cadence": "biweekly", "typical_day": null, "source": "detected"}
+      {"label": "Paycheck", "amount": 12.34, "cadence": "twice_monthly", "times_per_month": 2, "amount_basis": "per_deposit", "monthly_amount": 24.68, "typical_day": 1, "typical_days": [1], "source": "detected"}
     ],
     "bills_monthly": [
       {"label": "Phone", "category": "Utilities/Bills", "amount": 12.34, "due_day": null, "cadence": "monthly"}
