@@ -1,7 +1,8 @@
-/* tip cs — House Banking.
+/* tip ct — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
+   A merchant row can add a category inline: categories.json, then that row's overrides.json assign.
    Due days POST to /data/banking/dueday-overrides.json.
    Edits lists current.edits_tx (the long window). The Current tape stays on recent_tx.
    A transaction key prefers tx_key, otherwise date|id|amount|desc.
@@ -17,6 +18,7 @@ var BANK_OVERRIDES_URL = "/data/banking/overrides.json";
 var BANK_DUEDAY_URL = "/data/banking/dueday-overrides.json";
 var BANK_CATEGORIES_URL = "/data/banking/categories.json";
 var BANK_CAT_MAX = 64;
+var BANK_ROW_ADD = "__add_category__";
 var BANK_COLORS = ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
 var BANK_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -1020,6 +1022,20 @@ function bankChipOptions(categories, current) {
   }).join("");
 }
 
+function bankRowAddOption() {
+  return '<option value="' + bankEsc(BANK_ROW_ADD) + '">Add category\u2026</option>';
+}
+
+function bankRowAddHtml(row, draft) {
+  var label = bankItemLabel(row.desc);
+  var key = bankEsc(row.key);
+  var value = bankEsc(draft == null ? "" : String(draft));
+  return '<span class="bank-row-add"><input type="text" maxlength="' + BANK_CAT_MAX +
+    '" autocomplete="off" data-bank-row-cat="' + key + '" aria-label="New category for ' + bankEsc(label) +
+    '" value="' + value + '"><button type="button" data-bank-row-ok="' + key +
+    '">Add</button><button type="button" data-bank-row-cancel="' + key + '">Cancel</button></span>';
+}
+
 function bankItemLabel(desc) {
   var s = desc == null ? "" : String(desc).trim();
   return s || "No description";
@@ -1272,9 +1288,10 @@ function bankAddCategoryHtml() {
     '<button type="button" data-bank-add-cat>Add</button></div>';
 }
 
-function bankEditTxHtml(rows, known, picked) {
+function bankEditTxHtml(rows, known, picked, rowAdd) {
   if (!rows || !rows.length) return '<p class="bank-empty">No transactions in this print.</p>';
   var assignCats = known || [];
+  var addingKey = rowAdd && rowAdd.key ? String(rowAdd.key) : "";
   var picker = '<label class="bank-cat-pick">Category <select data-bank-cat aria-label="Category">' +
     bankChipOptions(assignCats, picked) + "</select></label>";
   var mine = rows.filter(function (r) { return r.category === picked; });
@@ -1282,12 +1299,14 @@ function bankEditTxHtml(rows, known, picked) {
   return picker + '<ul class="bank-edit-list">' + mine.map(function (r) {
     var label = bankItemLabel(r.desc);
     var date = r.date ? String(r.date) : "\u2014";
+    var control = addingKey && r.key === addingKey
+      ? bankRowAddHtml(r, rowAdd.draft)
+      : '<select class="bank-chip" data-bank-tx="' + bankEsc(r.key) + '" aria-label="Category for ' + bankEsc(label) + '">' +
+        bankChipOptions(assignCats, r.category) + bankRowAddOption() + "</select>";
     return "<li><span class=\"bank-edit-id\"><span class=\"bank-merchant\">" + bankEsc(label) +
       '</span><span class="bank-edit-meta">' + bankEsc(date) +
-      '</span></span><span class="bank-edit-side"><select class="bank-chip" data-bank-tx="' +
-      bankEsc(r.key) + '" aria-label="Category for ' + bankEsc(label) + '">' +
-      bankChipOptions(assignCats, r.category) +
-      "</select><b>" + bankMoney(r.amount) + "</b></span></li>";
+      '</span></span><span class="bank-edit-side">' + control +
+      "<b>" + bankMoney(r.amount) + "</b></span></li>";
   }).join("") + "</ul>";
 }
 
@@ -1320,7 +1339,7 @@ function bankEditsPanelHtml(snap, opts) {
   var dueErr = opts.dueError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.dueError) + "</p>" : "";
   return '<section class="bank-edit-block"><h3>Transactions</h3>' + catNote + catErr + catSync + addErr +
     bankAddCategoryHtml() +
-    bankEditTxHtml(rows, known, picked) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
+    bankEditTxHtml(rows, known, picked, opts.rowAdd) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
     dueNote + dueErr + bankEditBillHtml(bills) + "</section>";
 }
 
@@ -1376,13 +1395,15 @@ function bankPaint(root) {
     dueError: st.dueError || "",
     categoryError: st.categoryError || "",
     billKey: st.billKey || "",
-    editCat: st.editCat || ""
+    editCat: st.editCat || "",
+    rowAdd: st.rowAdd || null
   });
 }
 
 function bankActivate(root, tab) {
   if (!root || !root._bank) return;
   root._bank.tab = bankResolveTab(tab);
+  root._bank.rowAdd = null;
   try {
     if (typeof history !== "undefined" && history.replaceState && typeof location !== "undefined") {
       var h = root._bank.tab === "current" ? "" : "#" + root._bank.tab;
@@ -1396,6 +1417,7 @@ function bankActivateMonth(root, month) {
   if (!root || !root._bank) return;
   root._bank.tab = "historical";
   root._bank.month = month || "year";
+  root._bank.rowAdd = null;
   bankPaint(root);
 }
 
@@ -1613,9 +1635,13 @@ function bankRememberCategory(snap, name) {
   snap.custom_categories = list;
 }
 
-function bankTakeCategoryResponse(root, payload, name) {
+function bankTakeCategoryResponse(root, payload, name, hold) {
   var st = root._bank;
   var next = bankClipCategory(name);
+  function finish() {
+    if (!hold) bankPaint(root);
+    return Promise.resolve();
+  }
   if (payload && Array.isArray(payload.categories)) {
     if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
     st.data.custom_categories = bankCustomCategories({ custom_categories: payload.categories });
@@ -1623,8 +1649,7 @@ function bankTakeCategoryResponse(root, payload, name) {
     st.newCatDraft = "";
     if (next && st.data.custom_categories.indexOf(next) >= 0) st.editCat = next;
     st.tab = "edits";
-    bankPaint(root);
-    return Promise.resolve();
+    return finish();
   }
   if (payload && payload.current && typeof payload.current === "object" && !Array.isArray(payload.current)) {
     st.data = payload;
@@ -1632,8 +1657,7 @@ function bankTakeCategoryResponse(root, payload, name) {
     st.newCatDraft = "";
     if (next) st.editCat = next;
     st.tab = "edits";
-    bankPaint(root);
-    return Promise.resolve();
+    return finish();
   }
   return bankRefetch(root).then(function () {
     if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
@@ -1642,11 +1666,11 @@ function bankTakeCategoryResponse(root, payload, name) {
     st.newCatDraft = "";
     if (next) st.editCat = next;
     st.tab = "edits";
-    bankPaint(root);
+    return finish();
   });
 }
 
-function bankAddCategory(root, name) {
+function bankAddCategory(root, name, hold) {
   if (!root || !root._bank) return Promise.resolve();
   var next = bankClipCategory(name);
   if (!next) return Promise.resolve();
@@ -1664,12 +1688,69 @@ function bankAddCategory(root, name) {
       return;
     }
     return bankReadJson(res).then(function (payload) {
-      return bankTakeCategoryResponse(root, payload, next);
+      return bankTakeCategoryResponse(root, payload, next, hold);
     });
   }).catch(function () {
     root._bank.categoryError = "Category did not save. Nothing was changed.";
     root._bank.newCatDraft = "";
     bankPaint(root);
+  });
+}
+
+function bankRowAddDraft(root) {
+  if (root && typeof root.querySelector === "function") {
+    var input = root.querySelector("[data-bank-row-cat]");
+    if (input) return input.value == null ? "" : String(input.value);
+  }
+  var add = root && root._bank && root._bank.rowAdd;
+  return add && add.draft != null ? String(add.draft) : "";
+}
+
+function bankFocusRowAdd(root) {
+  if (!root || typeof root.querySelector !== "function") return;
+  var input = root.querySelector("[data-bank-row-cat]");
+  if (input && input.focus) {
+    try { input.focus(); } catch (e) {}
+  }
+}
+
+function bankBeginRowAdd(root, key) {
+  if (!root || !root._bank || !key) return;
+  var found = false;
+  bankEditRows(root._bank.data).forEach(function (r) {
+    if (r.key === key) found = true;
+  });
+  if (!found) return;
+  root._bank.rowAdd = { key: key, draft: "" };
+  root._bank.tab = "edits";
+  root._bank.categoryError = "";
+  bankPaint(root);
+  bankFocusRowAdd(root);
+}
+
+function bankCancelRowAdd(root) {
+  if (!root || !root._bank || !root._bank.rowAdd) return;
+  root._bank.rowAdd = null;
+  bankPaint(root);
+}
+
+function bankConfirmRowAdd(root) {
+  if (!root || !root._bank || !root._bank.rowAdd || !root._bank.rowAdd.key) return Promise.resolve();
+  var key = root._bank.rowAdd.key;
+  var next = bankClipCategory(bankRowAddDraft(root));
+  root._bank.rowAdd = null;
+  if (!next) {
+    bankPaint(root);
+    return Promise.resolve();
+  }
+  return bankAddCategory(root, next, true).then(function () {
+    if (!root._bank || root._bank.categoryError) return;
+    root._bank.editCat = next;
+    root._bank.tab = "edits";
+    root._bank.rowAdd = null;
+    return Promise.resolve(bankSaveCategory(root, key, next)).then(function () {
+      if (root._bank) bankPaint(root);
+    });
   });
 }
 
@@ -1690,7 +1771,8 @@ function bankMount(root, data, opts) {
     categoryError: opts.categoryError || "",
     billKey: opts.billKey || "",
     editCat: opts.editCat || "",
-    newCatDraft: ""
+    newCatDraft: "",
+    rowAdd: null
   };
   bankPaint(root);
   if (root._bankBound || !root.addEventListener) return;
@@ -1713,6 +1795,17 @@ function bankMount(root, data, opts) {
       if (e.preventDefault) e.preventDefault();
       return bankAddCategory(root, bankReadNewCategory(root));
     }
+    var rowOk = t.closest("[data-bank-row-ok]");
+    if (rowOk) {
+      if (e.preventDefault) e.preventDefault();
+      return bankConfirmRowAdd(root);
+    }
+    var rowCancel = t.closest("[data-bank-row-cancel]");
+    if (rowCancel) {
+      if (e.preventDefault) e.preventDefault();
+      bankCancelRowAdd(root);
+      return;
+    }
   });
   root.addEventListener("change", function (e) {
     var el = e && e.target;
@@ -1730,12 +1823,17 @@ function bankMount(root, data, opts) {
     if (el.hasAttribute && el.hasAttribute("data-bank-cat")) {
       if (!root._bank) return;
       root._bank.editCat = el.value == null ? "" : String(el.value);
+      root._bank.rowAdd = null;
       root._bank.tab = "edits";
       bankPaint(root);
       return;
     }
     if (el.getAttribute("data-bank-tx")) {
-      return bankSaveCategory(root, el.getAttribute("data-bank-tx"), el.value);
+      var txKey = el.getAttribute("data-bank-tx");
+      var txVal = el.value == null ? "" : String(el.value);
+      if (txVal === BANK_ROW_ADD) return bankBeginRowAdd(root, txKey);
+      if (root._bank) root._bank.rowAdd = null;
+      return bankSaveCategory(root, txKey, txVal);
     }
     if (el.hasAttribute && el.hasAttribute("data-bank-year")) {
       root._bank.year = el.value;
@@ -1748,13 +1846,26 @@ function bankMount(root, data, opts) {
   });
   root.addEventListener("input", function (e) {
     var el = e && e.target;
-    if (!el || !el.hasAttribute || !el.hasAttribute("data-bank-new-cat")) return;
-    if (!root._bank) return;
-    root._bank.newCatDraft = el.value == null ? "" : String(el.value);
+    if (!el || !el.hasAttribute || !root._bank) return;
+    if (el.hasAttribute("data-bank-new-cat")) {
+      root._bank.newCatDraft = el.value == null ? "" : String(el.value);
+      return;
+    }
+    if (el.hasAttribute("data-bank-row-cat") && root._bank.rowAdd) {
+      root._bank.rowAdd.draft = el.value == null ? "" : String(el.value);
+    }
   });
   root.addEventListener("keydown", function (e) {
     var el = e && e.target;
-    if (!el || !el.hasAttribute || !el.hasAttribute("data-bank-new-cat")) return;
+    if (!el || !el.hasAttribute) return;
+    if (el.hasAttribute("data-bank-row-cat")) {
+      if (e.key !== "Enter" && e.key !== "Escape") return;
+      if (e.preventDefault) e.preventDefault();
+      if (e.key === "Escape") return bankCancelRowAdd(root);
+      if (root._bank && root._bank.rowAdd) root._bank.rowAdd.draft = el.value == null ? "" : String(el.value);
+      return bankConfirmRowAdd(root);
+    }
+    if (!el.hasAttribute("data-bank-new-cat")) return;
     if (e.key !== "Enter") return;
     if (e.preventDefault) e.preventDefault();
     return bankAddCategory(root, el.value);
