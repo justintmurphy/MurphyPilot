@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904cl");
-@import url("house-b.css?v=20260904cl");
-@import url("mix.css?v=20260904cl");
+@import url("house-a.css?v=20260904cn");
+@import url("house-b.css?v=20260904cn");
+@import url("mix.css?v=20260904cn");
 
 header .brand-block {
   min-width: 0;
@@ -1253,7 +1253,8 @@ details.book-more > .card { max-width: 100%; }
   details.book-more > .card { display: block; }
 }
 
-/* tip cl — Banking link in the desk header and the book menu. */
+/* tip cn — Banking link in the desk header and the book menu.
+   At ≤720 the header chip hides; the menu link remains. */
 header .section-nav {
   display: flex;
   gap: 6px;
@@ -1301,9 +1302,5 @@ header .section-nav a:hover {
   background: var(--row);
 }
 @media (max-width: 720px) {
-  header .section-nav a {
-    min-height: 32px;
-    padding: 4px 8px;
-    font-size: 11px;
-  }
+  header .section-nav { display: none; }
 }

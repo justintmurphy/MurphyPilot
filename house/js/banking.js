@@ -1,4 +1,4 @@
-/* tip cl — House Banking.
+/* tip cn — House Banking.
    Live numbers come only from same-origin GET /data/banking.json (OTP cookie).
    A null amount stays blank. This file does not embed balances or last-4s. */
 
@@ -744,14 +744,14 @@ function bankCurrentHtml(snap, opts) {
 
 function bankMonthHeader(month, accounts) {
   var open = bankOpenMonth(month);
-  return '<header class="bank-month-head"><h3>' + bankEsc(month.month) +
+  return '<div class="bank-month-head"><h3>' + bankEsc(month.month) +
     (open ? ' <i class="bank-open">in progress</i>' : "") + "</h3>" +
     '<div class="bank-kpi">' +
     bankKpi("income", "Income", bankMoney(month.income_total), bankNum(month.income_total) == null, false) +
     bankKpi("spend", "Spend", bankMoney(month.spend_total), bankNum(month.spend_total) == null, false) +
     bankKpi("net", "Net", bankMoney(month.net), bankNum(month.net) == null, false) +
     bankKpi("tx", "Transactions", bankCount(month.tx_count), bankNum(month.tx_count) == null, false) +
-    "</div>" + bankEndHtml(bankEndChips(month, accounts), "End balances") + "</header>";
+    "</div>" + bankEndHtml(bankEndChips(month, accounts), "End balances") + "</div>";
 }
 
 function bankYearHeader(months, accounts) {
@@ -761,12 +761,12 @@ function bankYearHeader(months, accounts) {
   var tx = bankSumField(months, "tx_count");
   var ends = bankLatestEnds(months, accounts);
   var cap = ends.month ? "End balances \u00b7 " + ends.month : "End balances";
-  return '<header class="bank-month-head"><h3>Year</h3><div class="bank-kpi">' +
+  return '<div class="bank-month-head"><h3>Year</h3><div class="bank-kpi">' +
     bankKpi("income", "Income", bankMoney(income.value), income.value == null, income.partial) +
     bankKpi("spend", "Spend", bankMoney(spend.value), spend.value == null, spend.partial) +
     bankKpi("net", "Net", bankMoney(net.value), net.value == null, net.partial) +
     bankKpi("tx", "Transactions", tx.value == null ? "\u2014" : bankCount(tx.value), tx.value == null, tx.partial) +
-    "</div>" + bankEndHtml(ends.chips, cap) + "</header>";
+    "</div>" + bankEndHtml(ends.chips, cap) + "</div>";
 }
 
 function bankYearTable(months) {

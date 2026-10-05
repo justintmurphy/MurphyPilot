@@ -128,6 +128,8 @@ test("tabs switch through the click path and historical labels an open month", f
   };
   el.listeners.click({ target: histBtn });
   assert.match(el.innerHTML, /data-panel="historical"/);
+  assert.match(el.innerHTML, /<div class="bank-month-head">/);
+  assert.doesNotMatch(el.innerHTML, /<header class="bank-month-head">/);
   assert.match(el.innerHTML, /in progress/);
   ctx.bankActivateMonth(el, "2026-09");
   assert.match(el.innerHTML, /data-k="income"[^>]*data-missing="1"/);
@@ -231,17 +233,27 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and the page is cache-busted at tip cl", function () {
+test("desk links Banking and the page is cache-busted at tip cn", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
-  assert.match(index, /href="\/house\/banking"/);
-  assert.match(index, /house\.css\?v=20260904cl/);
-  assert.match(nav, /href="\/house\/banking">Banking</);
-  assert.match(page, /banking\.js\?v=20260904cl/);
-  assert.match(page, /banking\.css\?v=20260904cl/);
+  const houseCss = fs.readFileSync(path.join(root, "house/house.css"), "utf8");
+  const bankCss = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  assert.match(index, /href="\/house\/banking\/"/);
+  assert.doesNotMatch(index, /href="\/house\/banking"/);
+  assert.match(index, /house\.css\?v=20260904cn/);
+  assert.match(nav, /href="\/house\/banking\/">Banking</);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cn/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904cn/);
+  assert.match(page, /\/house\/house\.css\?v=20260904cn/);
+  assert.doesNotMatch(page, /href="\.\.\//);
+  assert.doesNotMatch(page, /src="\.\.\//);
   assert.match(page, /id="bankDesk"/);
-  assert.match(page, /href="\/house\/banking"/);
+  assert.match(page, /href="\/house\/banking\/"/);
+  assert.match(houseCss, /@media \(max-width: 720px\) \{\s*header \.section-nav \{ display: none; \}/);
+  assert.match(bankCss, /\.bank-cal \{\s*min-width: 0;\s*\}/);
+  assert.match(bankCss, /\.bank-days \{[^}]*overflow-x: auto;/);
+  assert.match(bankCss, /\.bank-budget-top \{\s*grid-template-columns: minmax\(0, 1fr\);/);
 });
 
 test("a successful feed mounts the current tab", async function () {
