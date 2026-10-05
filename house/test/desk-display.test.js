@@ -1494,6 +1494,62 @@ test("phone AI WWIII status keeps one asof and a secondary cash row", function (
   assert.doesNotMatch(wideOmit, /\$0/);
 });
 
+test("omitted agentic cash and buying power do not render as zero", function () {
+  const ctx = boot();
+  const name = { symbol: "XLE", qty: 1, value: 90 };
+  const house = { accounts: { agentic: { equity: 100, names: [name] } } };
+  const pilot = { equity: 100, names: [name], asof: "2026-09-04T15:00:00-04:00" };
+  const snap = ctx.merge(house, pilot, null);
+  assert.equal(snap.accounts.agentic.cash, null);
+  assert.equal(snap.accounts.agentic.buying_power, null);
+  assert.equal(snap.accounts.agentic.label, "AI WWIII");
+  ctx.snap = snap;
+  ctx.tab = "agentic";
+
+  setNarrow(ctx, true);
+  const phone = ctx.agenticOnlyHtml();
+  assert.doesNotMatch(phone, /status-secondary/);
+  assert.doesNotMatch(phone, />Cash</);
+  assert.doesNotMatch(phone, /Buying power/);
+  assert.doesNotMatch(phone, /\$0\.00/);
+  assert.match(phone, /<h2>AI WWIII<\/h2>/);
+  assert.doesNotMatch(phone, /Claude/);
+
+  setNarrow(ctx, false);
+  const wide = ctx.agenticOnlyHtml();
+  assert.doesNotMatch(wide, /status-secondary/);
+  assert.match(wide, /<span>Cash<\/span><b>\u2014<\/b>/);
+  assert.match(wide, /<span>Buying power<\/span><b>\u2014<\/b>/);
+  assert.doesNotMatch(wide, /\$0\.00/);
+  assert.match(wide, /AI WWIII/);
+  assert.doesNotMatch(wide, /Claude/);
+
+  const held = ctx.merge({
+    accounts: { agentic: { equity: 80, names: [{ symbol: "RTX", qty: 2, value: 80 }] } }
+  }, { names: [] }, null);
+  assert.equal(held.accounts.agentic.cash, null);
+  assert.equal(held.accounts.agentic.buying_power, null);
+  assert.equal(ctx.agenticBook({ equity: 1, cash: "", buying_power: "" }).cash, null);
+  assert.equal(ctx.agenticBook({ equity: 1 }).buying_power, null);
+
+  const zeroPilot = { equity: 100, cash: 0, buying_power: 0, names: [name], asof: pilot.asof };
+  const zero = ctx.merge(house, zeroPilot, null);
+  assert.equal(zero.accounts.agentic.cash, 0);
+  assert.equal(zero.accounts.agentic.buying_power, 0);
+  ctx.snap = zero;
+  setNarrow(ctx, true);
+  const phoneZero = ctx.agenticOnlyHtml();
+  assert.match(phoneZero, /status-secondary/);
+  assert.equal(kpiValue(phoneZero, "Cash"), ctx.money(0));
+  assert.equal(kpiValue(phoneZero, "Buying power"), ctx.money(0));
+  setNarrow(ctx, false);
+  const wideZero = ctx.agenticOnlyHtml();
+  assert.doesNotMatch(wideZero, /status-secondary/);
+  assert.equal(kpiValue(wideZero, "Cash"), ctx.money(0));
+  assert.equal(kpiValue(wideZero, "Buying power"), ctx.money(0));
+  assert.match(wideZero, /\$0\.00/);
+});
+
 test("realized periods collapse on the phone and stay open on the desk", function () {
   const ctx = boot();
   const book = { realized_pnl: { day: 1.5, week: 2.25, month: -0.5 } };

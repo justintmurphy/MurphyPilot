@@ -78,6 +78,12 @@
   function tone(n) { n = Number(n); if (!isFinite(n) || Math.abs(n) < 0.0005) return "flat"; return n > 0 ? "go" : "stop"; }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "\u0026amp;", "<": "\u0026lt;", ">": "\u0026gt;", '"': "\u0026quot;", "'": "\u0026#39;" })[c]; }); }
   function rnd(n) { return Math.round(Number(n) * 100) / 100; }
+  /* tip cm — omitted cash / buying_power stay null. An explicit 0 still prints. */
+  function printedMoney(v) {
+    if (v == null || v === "") return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
 
   function hashTab() {
     var h = (location.hash || "").replace(/^#/, "");
@@ -89,7 +95,7 @@
   }
 
   function agenticBook(p) {
-    if (!p) return { id: "agentic", label: "AI WWIII", equity: 0, cash: 0, buying_power: 0, pending_deposits: 0, invested_pct: 0, open_orders: 0, equity_value: 0, crypto_value: 0, slots: 0, names: [], tape: [] };
+    if (!p) return { id: "agentic", label: "AI WWIII", equity: 0, cash: null, buying_power: null, pending_deposits: 0, invested_pct: 0, open_orders: 0, equity_value: 0, crypto_value: 0, slots: 0, names: [], tape: [] };
     var names = (p.names || []).map(function (n) {
       var last = n.last != null ? Number(n.last) : null;
       var avg = n.avg != null ? Number(n.avg) : (n.avg_cost != null ? Number(n.avg_cost) : null);
@@ -121,7 +127,7 @@
       id: "agentic", label: "AI WWIII",
       equity: Number(p.equity) || 0, equity_value: Number(p.equity_value) || 0,
       crypto_value: p.crypto_value != null ? Number(p.crypto_value) : 0,
-      cash: Number(p.cash) || 0, buying_power: Number(p.buying_power) || 0,
+      cash: printedMoney(p.cash), buying_power: printedMoney(p.buying_power),
       pending_deposits: Number(p.pending_deposits) || 0, invested_pct: Number(p.invested_pct) || 0,
       open_orders: Number(p.open_orders) || 0, slots: p.slots != null ? Number(p.slots) : Math.floor((Number(p.equity) || 0) / 75),
       names: names, tape: p.tape || [], asof: p.asof || ""
