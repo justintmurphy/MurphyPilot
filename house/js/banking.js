@@ -1,4 +1,4 @@
-/* tip dg — House Banking.
+/* tip dh — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
@@ -17,6 +17,7 @@
    An unmarked name is Bill when it is a normalized bill or it has a due day.
    Any other unmarked spend category is Optional. An override always wins.
    Budget and Edits show a display name. Keys stay on the raw category or bill name.
+   A whole-name display alias shows T-Mobile as Phone. Matching keys stay on the raw name, the same way a leading provider is stripped only on screen.
    Edits lists current.edits_tx (the long window) plus history tx arrays.
    A present edits_tx does not hide a merchant that lives only on history.
    The Current tape stays on recent_tx. A known category with no rows still reads "No items in this category."
@@ -24,12 +25,13 @@
    Due-day precedence: user KV, then snapshot manual, then a feed day, then a generic filler only when the feed day is null.
    Custom categories and both edits sync across seats. A null balance stays blank.
    A bill prefers typical_amount, then amount, and reads "amount pending" when both are blank.
+   The Bill list is those budget bills and due-day items from the print. Those names share the spend-category name space when Bill or Optional is tagged. It is not a second category system.
    The bill calendar is a Sun–Sat month grid for the as-of date in ET.
    The Budget month-to-date block shows spent so far and income received, with a bar for spend as a share of income. It does not invent income from income_monthly.
    Budget pies, the ranked lists under those pies, and month-to-date category bars list a category only when its month-to-date spend is positive.
    A plan, a missing amount, or a zero or non-positive amount does not keep that category on those surfaces, and it does not invent spend.
    Edits still lists those empty categories so Bill versus Optional can be tagged.
-   This file does not embed balances, last-4s, or named utilities. */
+   This file does not embed balances, last-4s, or live account snapshots. T-Mobile is a display alias, not a stored balance. */
 
 var BANK_STALE_MS = 36 * 60 * 60 * 1000;
 var BANK_STORE = "murphyHouseBanking";
@@ -69,6 +71,10 @@ var BANK_DISPLAY_TAILS = [
   "hoa",
   "bills"
 ];
+/* Whole-name display aliases. Case and surrounding space do not matter. Not a second category list. */
+var BANK_DISPLAY_ALIASES = {
+  "t-mobile": "Phone"
+};
 var BANK_CAT_MAX = 64;
 var BANK_ROW_ADD = "__add_category__";
 var BANK_COLORS = ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
@@ -116,11 +122,12 @@ function bankCatName(name) {
   return s || "Other";
 }
 
-/* Display only. Matching keys (overrides, mustpay, dueday, categories) stay on the raw name. */
+/* Display only. Matching keys (overrides, mustpay, dueday, categories, dig-in, POST bodies) stay on the raw name. */
 function bankDisplayName(name) {
   var raw = String(name == null ? "" : name).trim().replace(/\s+/g, " ");
   if (!raw) return "";
   var lower = raw.toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(BANK_DISPLAY_ALIASES, lower)) return BANK_DISPLAY_ALIASES[lower];
   var i;
   for (i = 0; i < BANK_DISPLAY_TAILS.length; i++) {
     if (lower === BANK_DISPLAY_TAILS[i]) return raw;
@@ -1735,6 +1742,7 @@ function bankDayOptions(current) {
   return html;
 }
 
+/* Print bills and due-day items. The name is a spend category when Bill or Optional is tagged, not a separate taxonomy. */
 function bankBillListHtml(bills) {
   if (!bills.length) return "";
   return '<ul class="bank-bill-list">' + bills.map(function (b) {

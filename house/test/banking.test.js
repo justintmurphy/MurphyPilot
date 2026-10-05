@@ -631,7 +631,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip dg", function () {
+test("desk links Banking and banking assets are cache-busted at tip dh", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -641,8 +641,10 @@ test("desk links Banking and banking assets are cache-busted at tip dg", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dg/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904dg/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dh/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dh/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dg/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dg/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904df/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904df/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904de/);
@@ -764,7 +766,8 @@ test("merchant is the tape label and an empty desc uses a placeholder", function
   assert.doesNotMatch(rank[0], /Transport/);
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const fixtureSrc = fs.readFileSync(fixturePath, "utf8");
-  assert.doesNotMatch(src, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.doesNotMatch(src, /Duquesne|Columbia Gas|M&T|nfcu/i);
+  assert.match(src, /"t-mobile": "Phone"/);
   assert.doesNotMatch(fixtureSrc, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
 });
 
@@ -2925,6 +2928,9 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
   assert.equal(ctx.bankDisplayName("Rent/Mortgage"), "Rent/Mortgage");
   assert.equal(ctx.bankDisplayName("Groceries"), "Groceries");
   assert.equal(ctx.bankDisplayName("Utilities/Bills"), "Utilities/Bills");
+  assert.equal(ctx.bankDisplayName("T-Mobile"), "Phone");
+  assert.equal(ctx.bankDisplayName("t-mobile"), "Phone");
+  assert.equal(ctx.bankDisplayName("T-MOBILE"), "Phone");
 
   const shown = JSON.parse(JSON.stringify(fx));
   shown.budget.bills = [{ name: "Acme Mortgage", amount: 12.34, typical_day: 4, cadence: "monthly" }];
@@ -3061,7 +3067,140 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
 
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const fixtureSrc = fs.readFileSync(fixturePath, "utf8");
-  assert.doesNotMatch(src, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.doesNotMatch(src, /Duquesne|Columbia Gas|M&T|nfcu/i);
+  assert.match(src, /"t-mobile": "Phone"/);
+  assert.match(src, /share the spend-category name space/);
+  assert.match(src, /not a second category system/);
   assert.doesNotMatch(fixtureSrc, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.doesNotMatch(src, /Elective|Other spending/);
+});
+
+test("T-Mobile displays as Phone and matching stays on the raw name", async function () {
+  const ctx = boot();
+  assert.equal(ctx.bankDisplayName("T-Mobile"), "Phone");
+  assert.equal(ctx.bankDisplayName("t-mobile"), "Phone");
+  assert.equal(ctx.bankDisplayName("T-MOBILE"), "Phone");
+  assert.equal(ctx.bankDisplayName("  T-Mobile  "), "Phone");
+  assert.equal(ctx.bankDisplayName("Phone"), "Phone");
+  assert.equal(ctx.bankDisplayName("T-Mobile plan"), "T-Mobile plan");
+
+  const fx = loadFixture();
+  const snap = JSON.parse(JSON.stringify(fx));
+  snap.budget.bills.push({ name: "T-Mobile", amount: 15, typical_day: 12, cadence: "monthly" });
+  snap.budget.mtd_actual_by_category["T-Mobile"] = 15;
+  snap.budget.income_monthly = [{ label: "Paycheck", amount: 12.34, cadence: "biweekly", typical_day: 1, source: "detected" }];
+  snap.mustpay_overrides = Object.assign({}, snap.mustpay_overrides, { Phone: "elective" });
+  assert.equal(ctx.bankResolveKind("T-Mobile", snap), "must_pay");
+  assert.equal(ctx.bankResolveKind("Phone", snap), "elective");
+  const byPhone = ctx.bankNormalizeBills(snap.budget, { phone: 9 });
+  assert.equal(byPhone.filter(function (b) { return b.name === "T-Mobile"; })[0].typical_day, 12);
+  const byRaw = ctx.bankNormalizeBills(snap.budget, { "t-mobile": 9 });
+  const rawBill = byRaw.filter(function (b) { return b.name === "T-Mobile"; })[0];
+  assert.equal(rawBill.name, "T-Mobile");
+  assert.equal(rawBill.typical_day, 9);
+
+  snap.mustpay_overrides["T-Mobile"] = "elective";
+  assert.equal(ctx.bankResolveKind("T-Mobile", snap), "elective");
+  assert.equal(ctx.bankResolveKind("Phone", snap), "elective");
+  delete snap.mustpay_overrides["T-Mobile"];
+  assert.equal(ctx.bankResolveKind("T-Mobile", snap), "must_pay");
+
+  snap.current.edits_tx = (snap.current.edits_tx || []).concat([{
+    date: "2026-10-04",
+    id: "acct-check",
+    desc: "Handset",
+    amount: 15,
+    flow: "outflow",
+    category: "T-Mobile",
+    tx_key: "phone-1"
+  }]);
+  const before = JSON.stringify(snap.budget.bills);
+  const budget = ctx.bankPageHtml(snap, { tab: "budget" });
+  assert.equal(JSON.stringify(snap.budget.bills), before);
+  assert.equal(snap.budget.mtd_actual_by_category["T-Mobile"], 15);
+  assert.match(budget, /data-bar="T-Mobile"/);
+  const barAt = budget.indexOf('data-bar="T-Mobile"');
+  const bar = budget.slice(barAt, budget.indexOf("</div></div>", barAt));
+  assert.match(bar, /<span>Phone<\/span>/);
+  assert.doesNotMatch(bar.replace(/data-bar="[^"]*"/, ""), /T-Mobile/);
+  assert.match(pieBlock(budget, "bills"), /Phone<\/span><b>\$15\.00<\/b>/);
+  assert.doesNotMatch(pieBlock(budget, "bills"), /T-Mobile/);
+  assert.match(budget, /<b>12<\/b><span>Phone<\/span>/);
+  assert.match(budget, /<span>Phone<\/span><b>\$15\.00<\/b><i>day 12<\/i>/);
+  const covers = budget.match(/<ul class="bank-covers">[\s\S]*?<\/ul>/);
+  assert.ok(covers);
+  assert.match(covers[0], /Phone/);
+  assert.doesNotMatch(covers[0], /T-Mobile/);
+  assert.doesNotMatch(budget.replace(/data-bar="[^"]*"/g, ""), /T-Mobile/);
+
+  const hidden = JSON.parse(JSON.stringify(snap));
+  hidden.budget.mtd_actual_by_category["T-Mobile"] = 0;
+  const hiddenHtml = ctx.bankPageHtml(hidden, { tab: "budget" });
+  assert.doesNotMatch(hiddenHtml, /data-bar="T-Mobile"/);
+  assert.doesNotMatch(pieBlock(hiddenHtml, "bills"), /Phone<\/span><b>\$15\.00<\/b>/);
+  assert.match(hiddenHtml, /<span>Phone<\/span><b>\$15\.00<\/b><i>day 12<\/i>/);
+
+  const edits = ctx.bankPageHtml(snap, { tab: "edits", editCat: "T-Mobile" });
+  assert.match(edits, /<option value="T-Mobile" selected>Phone<\/option>/);
+  const kindAt = edits.indexOf('data-bank-kind="T-Mobile"');
+  assert.ok(kindAt >= 0);
+  const kindRow = edits.slice(edits.lastIndexOf("<li>", kindAt), edits.indexOf("</li>", kindAt));
+  assert.match(kindRow, /class="bank-kind-name">Phone</);
+  assert.match(kindRow, /aria-label="Bill or Optional for Phone"/);
+  assert.match(kindRow, /value="must_pay" selected/);
+  assert.equal((kindRow.match(/T-Mobile/g) || []).length, 1);
+  const dueAt = edits.indexOf('data-bank-due="t-mobile"');
+  assert.ok(dueAt >= 0);
+  const dueRow = edits.slice(edits.lastIndexOf("<li>", dueAt), edits.indexOf("</li>", dueAt));
+  assert.match(dueRow, /class="bank-merchant">Phone</);
+  assert.match(dueRow, /aria-label="Due day for Phone"/);
+  assert.doesNotMatch(dueRow, /T-Mobile/);
+  const visible = edits
+    .replace(/value="[^"]*"/g, "")
+    .replace(/data-bank-kind="[^"]*"/g, "")
+    .replace(/data-bank-due="[^"]*"/g, "")
+    .replace(/data-bank-tx="[^"]*"/g, "")
+    .replace(/data-bank-cat="[^"]*"/g, "");
+  assert.doesNotMatch(visible, /T-Mobile/i);
+
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    const method = init && init.method ? String(init.method).toUpperCase() : "GET";
+    const cached = categoryRead(url, init, snap.custom_categories);
+    if (cached) return cached;
+    calls.push({ url: String(url), init: init });
+    const body = JSON.parse(init.body);
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+        json: function () {
+        return Promise.resolve({
+          schema: "banking-mustpay-overrides/v1",
+          overrides: { "T-Mobile": body.kind, Phone: "elective" }
+        });
+      }
+    });
+  };
+  const el = mount(ctx, JSON.parse(JSON.stringify(snap)), { tab: "edits", editCat: "T-Mobile" });
+  await el._bank.prune;
+  assert.match(el.innerHTML, /data-bank-kind="T-Mobile"/);
+  assert.match(el.innerHTML, /value="T-Mobile" selected>Phone</);
+  await el.listeners.change({
+    target: {
+      value: "elective",
+      getAttribute: function (name) { return name === "data-bank-kind" ? "T-Mobile" : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/data/banking/mustpay-overrides.json");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { name: "T-Mobile", kind: "elective" });
+  assert.equal(ctx.bankResolveKind("T-Mobile", el._bank.data), "elective");
+  assert.equal(ctx.bankResolveKind("Phone", el._bank.data), "elective");
+  assert.equal(el._bank.data.mustpay_overrides["T-Mobile"], "elective");
+  assert.equal(el._bank.data.mustpay_overrides.Phone, "elective");
+  assert.equal(el._bank.data.budget.mtd_actual_by_category["T-Mobile"], 15);
+  assert.equal(el._bank.data.budget.mtd_actual_by_category.Phone, undefined);
 });
