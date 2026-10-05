@@ -195,7 +195,7 @@ test("bills_monthly maps label and due day, and a paycheck groups the calendar",
   assert.match(html, /Phone/);
 });
 
-test("known bills keep a fixed due day unless a manual override says otherwise", function () {
+test("a detected due day beats the filler and a null day still gets one", function () {
   const ctx = boot();
   function dayOf(raw, extra) {
     const budget = Object.assign({ bills: [raw] }, extra || {});
@@ -204,8 +204,8 @@ test("known bills keep a fixed due day unless a manual override says otherwise",
   [
     ["Mortgage", 1],
     ["mortgage payment", 1],
-    ["T-Mobile", 28],
-    ["t-mobile", 28],
+    ["Mobile plan", 28],
+    ["mobile", 28],
     ["Car payment", 15],
     ["Auto Loan", 15],
     ["Auto Pay", 15],
@@ -213,11 +213,10 @@ test("known bills keep a fixed due day unless a manual override says otherwise",
     ["Vehicle Loan", 15],
     ["Electric", 15],
     ["Power", 15],
-    ["Duquesne Light", 15],
     ["Utility Electric", 15],
     ["Gas Bill", 15],
     ["Natural Gas", 15],
-    ["Columbia Gas", 15],
+    ["Gas utility", 15],
     ["Gas (Utility)", 15]
   ].forEach(function (pair) {
     const row = dayOf({ name: pair[0], amount: 12.34, typical_day: null });
@@ -227,14 +226,29 @@ test("known bills keep a fixed due day unless a manual override says otherwise",
   assert.equal(dayOf({ name: "Cargo", amount: 12.34, typical_day: null }).typical_day, null);
   assert.equal(dayOf({ name: "Gasoline", amount: 12.34, typical_day: null }).typical_day, null);
   assert.equal(dayOf({ name: "City Fuel", amount: 12.34, typical_day: null }).typical_day, null);
-  assert.equal(dayOf({ name: "Electric", amount: 12.34, typical_day: 20, source: "detected" }).typical_day, 15);
+  const detected = dayOf({ name: "Power", amount: 12.34, typical_day: 3, source: "detected" });
+  assert.equal(detected.typical_day, 3);
+  assert.equal(detected.due_day, 3);
+  assert.equal(dayOf({ name: "Electric", amount: 12.34, typical_day: 20, source: "detected" }).typical_day, 20);
+  const kv = ctx.bankNormalizeBills(
+    { bills: [{ name: "Power", amount: 12.34, typical_day: 3, source: "detected" }] },
+    { power: 9 }
+  )[0];
+  assert.equal(kv.typical_day, 9);
+  assert.equal(kv.source, "user");
+  const restored = ctx.bankNormalizeBills(
+    { bills: [{ name: "Power", amount: 12.34, typical_day: 3, source: "detected" }] },
+    { power: null }
+  )[0];
+  assert.equal(restored.typical_day, 3);
+  assert.notEqual(restored.source, "user");
   const manual = dayOf({ name: "Mortgage", amount: 12.34, typical_day: 5, source: "manual" });
   assert.equal(manual.typical_day, 5);
   assert.equal(manual.due_day, 5);
   assert.equal(manual.source, "manual");
   const pinned = dayOf(
-    { name: "T-Mobile", amount: 12.34, typical_day: null },
-    { overrides: [{ match: "T-Mobile", field: "due_day", value: 9, by: "fixture", at: "2026-10-05", source: "manual" }] }
+    { name: "Mobile plan", amount: 12.34, typical_day: null },
+    { overrides: [{ match: "Mobile plan", field: "due_day", value: 9, by: "fixture", at: "2026-10-05", source: "manual" }] }
   );
   assert.equal(pinned.typical_day, 9);
   assert.equal(pinned.due_day, 9);
@@ -247,18 +261,19 @@ test("known bills keep a fixed due day unless a manual override says otherwise",
   const fx = loadFixture();
   fx.budget.bills = [
     { name: "Mortgage", amount: 12.34, typical_day: null, cadence: "monthly" },
-    { name: "T-Mobile", amount: 12.34, typical_day: null, cadence: "monthly" },
+    { name: "Mobile plan", amount: 12.34, typical_day: null, cadence: "monthly" },
     { name: "Car payment", amount: 12.34, typical_day: null, cadence: "monthly" },
     { name: "Electric", amount: 12.34, typical_day: null, cadence: "monthly" },
-    { name: "Columbia Gas", amount: 12.34, typical_day: null, cadence: "monthly" }
+    { name: "Gas (Utility)", amount: 12.34, typical_day: null, cadence: "monthly" }
   ];
   fx.budget.bills_monthly = [];
   fx.budget.income_monthly[0].typical_day = null;
   const html = ctx.bankPageHtml(fx, { tab: "budget" });
   assert.match(html, /<div class="bank-day has"><b>1<\/b><span>Mortgage<\/span>/);
-  assert.match(html, /<div class="bank-day has"><b>28<\/b><span>T-Mobile<\/span>/);
-  assert.match(html, /<b>15<\/b><span>Car payment<\/span><span>Electric<\/span><span>Columbia Gas<\/span>/);
+  assert.match(html, /<div class="bank-day has"><b>28<\/b><span>Mobile plan<\/span>/);
+  assert.match(html, /<b>15<\/b><span>Car payment<\/span><span>Electric<\/span><span>Gas \(Utility\)<\/span>/);
   assert.doesNotMatch(html, /data-bank-due/);
+  assert.doesNotMatch(html, /data-bank-cat/);
   assert.doesNotMatch(html, /<select/);
   assert.doesNotMatch(html, /Due days need more history/);
 });
@@ -314,7 +329,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip co", function () {
+test("desk links Banking and banking assets are cache-busted at tip cp", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -324,8 +339,8 @@ test("desk links Banking and banking assets are cache-busted at tip co", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904co/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904co/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cp/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904cp/);
   assert.match(page, /\/house\/house\.css\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
   assert.doesNotMatch(page, /href="\.\.\//);
@@ -360,35 +375,55 @@ test("one-category pie renders without throwing", function () {
   assert.match(html, /Groceries/);
 });
 
-test("merchant is the tape label and an empty desc falls back to the category", function () {
+test("merchant is the tape label and an empty desc uses a placeholder", function () {
   const ctx = boot();
   const fx = loadFixture();
   const html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
   assert.match(html, /class="bank-merchant">Corner Market<\/span><span class="bank-chip">Groceries<\/span>/);
   assert.match(html, /class="bank-merchant">City Fuel<\/span><span class="bank-chip">Transport<\/span>/);
-  assert.match(html, /class="bank-merchant">Shopping<\/span><span class="bank-chip">Shopping<\/span>/);
+  assert.match(html, /class="bank-merchant">No description<\/span><span class="bank-chip">Shopping<\/span>/);
+  assert.doesNotMatch(html, /class="bank-merchant">Shopping<\/span><span class="bank-chip">Shopping<\/span>/);
   assert.doesNotMatch(html, /class="bank-merchant"><\/span>/);
   assert.doesNotMatch(html, /class="bank-desc"/);
   assert.doesNotMatch(html, /<select/);
   assert.doesNotMatch(html, /data-bank-tx/);
+  assert.doesNotMatch(html, /data-bank-cat/);
   assert.match(html, /Main Street Cafe[\s\S]*?<td>\u2014<\/td>/);
   assert.doesNotMatch(html, /Category edits sync across your seats/);
-  const edits = ctx.bankPageHtml(fx, { tab: "edits", now: "2026-10-05T18:00:00-04:00" });
+  const edits = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Transport", now: "2026-10-05T18:00:00-04:00" });
   assert.match(edits, /data-panel="edits"/);
   assert.match(edits, /data-bank-tab="edits"[^>]*aria-selected="true"/);
+  assert.match(edits, /data-bank-cat/);
+  assert.match(edits, /value="Transport" selected/);
+  assert.match(edits, /class="bank-merchant">City Fuel<\/span><span class="bank-edit-meta">2026-10-04<\/span>/);
   const fuel = edits.match(/data-bank-tx="2026-10-04\|acct-check\|12\.34\|City Fuel"[\s\S]*?<\/select>/);
   assert.ok(fuel);
   assert.match(fuel[0], /value="Transport" selected/);
+  assert.doesNotMatch(edits, /data-bank-tx="2026-10-05\|acct-check\|12\.34\|Corner Market"/);
+  const shopping = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Shopping", now: "2026-10-05T18:00:00-04:00" });
+  assert.match(shopping, /class="bank-merchant">No description<\/span><span class="bank-edit-meta">2026-10-03<\/span>/);
+  assert.doesNotMatch(shopping, /class="bank-merchant">Shopping<\/span>/);
   assert.match(edits, /Category edits sync across your seats/);
   assert.doesNotMatch(edits, /this device/);
   assert.equal(ctx.bankResolveTab("#edits"), "edits");
+  ["current", "historical", "budget"].forEach(function (tab) {
+    const page = ctx.bankPageHtml(fx, { tab: tab, now: "2026-10-05T18:00:00-04:00" });
+    assert.doesNotMatch(page, /data-bank-tx/);
+    assert.doesNotMatch(page, /data-bank-cat/);
+    assert.doesNotMatch(page, /data-bank-due/);
+  });
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   assert.match(css, /\.bank-merchant\s*\{[^}]*font-weight:\s*600/);
   assert.match(css, /\.bank-chip\s*\{[^}]*font-size:\s*11px/);
+  assert.match(css, /\.bank-cat-pick select\s*\{[^}]*var\(--brand-fg\)/);
   const rank = html.match(/<ol class="bank-rank">[\s\S]*?<\/ol>/);
   assert.ok(rank);
   assert.match(rank[0], /Groceries/);
   assert.doesNotMatch(rank[0], /Transport/);
+  const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
+  const fixtureSrc = fs.readFileSync(fixturePath, "utf8");
+  assert.doesNotMatch(src, /Duquesne|Columbia Gas|T-Mobile|M&T/);
+  assert.doesNotMatch(fixtureSrc, /Duquesne|Columbia Gas|T-Mobile|M&T/);
 });
 
 test("tape stays hidden when recent_tx is empty", function () {
@@ -444,12 +479,23 @@ test("category override posts to the feed and repaints without localStorage", as
   const posted = JSON.parse(calls[0].init.body);
   assert.equal(posted.key, key);
   assert.equal(posted.category, "Food/Drink");
-  const chipAt = el.innerHTML.indexOf('data-bank-tx="' + key + '"');
-  const chip = el.innerHTML.slice(chipAt, el.innerHTML.indexOf("</select>", chipAt));
-  assert.match(chip, /value="Food\/Drink" selected/);
-  assert.match(el.innerHTML, /class="bank-merchant">Corner Market</);
+  assert.equal(el.innerHTML.indexOf('data-bank-tx="' + key + '"'), -1);
+  assert.match(el.innerHTML, /value="Groceries" selected/);
   assert.match(el.innerHTML, /Category edits sync across your seats/);
   assert.equal(writes.length, 0);
+  await el.listeners.change({
+    target: {
+      value: "Food/Drink",
+      getAttribute: function () { return null; },
+      hasAttribute: function (name) { return name === "data-bank-cat"; }
+    }
+  });
+  assert.equal(calls.length, 1);
+  const chipAt = el.innerHTML.indexOf('data-bank-tx="' + key + '"');
+  assert.ok(chipAt >= 0);
+  const chip = el.innerHTML.slice(chipAt, el.innerHTML.indexOf("</select>", chipAt));
+  assert.match(chip, /value="Food\/Drink" selected/);
+  assert.match(el.innerHTML, /class="bank-merchant">Corner Market<\/span><span class="bank-edit-meta">2026-10-05<\/span>/);
   ctx.bankActivate(el, "current");
   assert.match(el.innerHTML, /class="bank-merchant">Corner Market<\/span><span class="bank-chip">Food\/Drink<\/span>/);
   assert.doesNotMatch(el.innerHTML, /data-bank-tx/);
@@ -524,6 +570,14 @@ test("override post refetches banking.json when the body has no map", async func
     }
   });
   assert.deepEqual(urls, ["/data/banking/overrides.json", "/data/banking.json"]);
+  assert.equal(el.innerHTML.indexOf('data-bank-tx="' + key + '"'), -1);
+  await el.listeners.change({
+    target: {
+      value: "Health",
+      getAttribute: function () { return null; },
+      hasAttribute: function (name) { return name === "data-bank-cat"; }
+    }
+  });
   const chipAt = el.innerHTML.indexOf('data-bank-tx="' + key + '"');
   assert.ok(chipAt >= 0);
   const chip = el.innerHTML.slice(chipAt, el.innerHTML.indexOf("</select>", chipAt));
@@ -563,12 +617,12 @@ test("banking fetch asks for JSON and a login redirect counts as locked", async 
 
 test("selecting a bill posts its due day and a null amount stays pending", async function () {
   const ctx = boot();
-  assert.equal(ctx.bankBillKey("  M&T Mortgage "), "m&t mortgage");
-  assert.equal(ctx.bankBillKey("T-Mobile"), "t-mobile");
+  assert.equal(ctx.bankBillKey("  Mortgage "), "mortgage");
+  assert.equal(ctx.bankBillKey("Mobile plan"), "mobile plan");
   assert.equal(ctx.bankBillKey("Gas (Utility)"), "gas (utility)");
   const pinned = ctx.bankNormalizeBills(
-    { bills: [{ name: "M&T Mortgage", amount: null, typical_day: null }] },
-    { "m&t mortgage": 4 }
+    { bills: [{ name: "Mortgage", amount: null, typical_day: null }] },
+    { mortgage: 4 }
   )[0];
   assert.equal(pinned.typical_day, 4);
   assert.equal(pinned.due_day, 4);
@@ -579,8 +633,8 @@ test("selecting a bill posts its due day and a null amount stays pending", async
   assert.equal(kept.typical_day, 4);
   assert.equal(kept.source, "user");
   const cleared = ctx.bankNormalizeBills(
-    { bills: [{ name: "T-Mobile", amount: 12.34, typical_day: 3, source: "user" }] },
-    { "t-mobile": null }
+    { bills: [{ name: "Mobile plan", amount: 12.34, typical_day: 3, source: "user" }] },
+    { "mobile plan": null }
   )[0];
   assert.equal(cleared.typical_day, 28);
   assert.notEqual(cleared.source, "user");
@@ -594,9 +648,11 @@ test("selecting a bill posts its due day and a null amount stays pending", async
   assert.doesNotMatch(html, /Due days on this browser/);
   const editsHtml = ctx.bankPageHtml(fx, { tab: "edits" });
   assert.match(editsHtml, /data-bank-due="car payment"/);
-  assert.match(editsHtml, /data-bank-due="m&amp;t mortgage"/);
+  assert.match(editsHtml, /data-bank-due="mortgage"/);
   assert.match(editsHtml, /data-bank-due="gas \(utility\)"/);
   assert.match(editsHtml, /amount pending/);
+  assert.match(editsHtml, />Default</);
+  assert.doesNotMatch(editsHtml, />Clear</);
 
   const writes = [];
   ctx.localStorage.setItem = function (k, v) { writes.push(k + "=" + v); };
