@@ -1,4 +1,4 @@
-/* tip do — House Banking.
+/* tip dp — House Banking.
    Edits is not a main tab. A gear menu beside Historical, Current, and Budget opens it.
    #edits still resolves through bankResolveTab and bankActivate.
    Budget stacks the bill calendar above Insights. Covers stay under the calendar.
@@ -34,6 +34,9 @@
    A bill prefers typical_amount, then amount, and reads "amount pending" when both are blank.
    The Bill list is those budget bills and due-day items from the print. Those names share the spend-category name space when Bill or Optional is tagged. It is not a second category system.
    The bill calendar is a Sun–Sat month grid for the as-of date in ET.
+   Each pay or bill label keeps its full display name on title and aria-label.
+   A day with two or more labels shows the first name and a +N chip at narrow widths, and two names on a wide screen. The full list stays on the day title and in the bill list.
+   Budget Income and Bills are separate sections.
    The Budget month-to-date block shows spent so far and income received, with a bar for spend as a share of income. It does not invent income from income_monthly.
    Budget pies, the ranked lists under those pies, and month-to-date category bars list a category only when its month-to-date spend is positive.
    A plan, a missing amount, or a zero or non-positive amount does not keep that category on those surfaces, and it does not invent spend.
@@ -1826,15 +1829,51 @@ function bankCalendarByDay(cells, dim) {
   return byDay;
 }
 
-function bankDayCellHtml(c) {
-  var bits = [];
-  (c.pays || []).forEach(function (name) { bits.push('<em class="pay">' + bankEsc(name) + "</em>"); });
-  (c.bills || []).forEach(function (name) { bits.push("<span>" + bankEsc(name) + "</span>"); });
+function bankDayLabels(c) {
+  var labels = [];
+  (c.pays || []).forEach(function (name) { labels.push({ kind: "pay", name: name }); });
+  (c.bills || []).forEach(function (name) { labels.push({ kind: "bill", name: name }); });
   (c.items || []).forEach(function (name) {
     if ((c.bills || []).indexOf(name) >= 0) return;
-    bits.push("<span>" + bankEsc(name) + "</span>");
+    labels.push({ kind: "bill", name: name });
   });
-  return '<div class="bank-day' + (bits.length ? " has" : "") + '"><b>' + c.day + "</b>" + bits.join("") + "</div>";
+  return labels;
+}
+
+function bankDayLabelHtml(kind, name, extraClass) {
+  var esc = bankEsc(name);
+  var cls = kind === "pay" ? "pay" : "";
+  if (extraClass) cls = cls ? cls + " " + extraClass : extraClass;
+  var tag = kind === "pay" ? "em" : "span";
+  var classAttr = cls ? ' class="' + cls + '"' : "";
+  return "<" + tag + classAttr + ' title="' + esc + '" aria-label="' + esc + '">' + esc + "</" + tag + ">";
+}
+
+function bankDayMoreHtml(list, count, wide) {
+  var n = wide ? count - 2 : count - 1;
+  var which = wide ? "bank-day-more-wide" : "bank-day-more-narrow";
+  return '<i class="bank-day-more ' + which + '" title="' + bankEsc(list) + '" aria-hidden="true">+' + n + "</i>";
+}
+
+function bankDayCellHtml(c) {
+  var labels = bankDayLabels(c);
+  if (!labels.length) return '<div class="bank-day"><b>' + c.day + "</b></div>";
+  var list = labels.map(function (lab) { return lab.name; }).join(", ");
+  var bits = labels.map(function (lab, i) {
+    var extra = i === 1 ? "bank-day-second" : (i >= 2 ? "bank-day-rest" : "");
+    return bankDayLabelHtml(lab.kind, lab.name, extra);
+  }).join("");
+  var multi = labels.length >= 2;
+  var head = "<b>" + c.day + "</b>";
+  if (multi) {
+    var chips = bankDayMoreHtml(list, labels.length, false);
+    if (labels.length >= 3) chips += bankDayMoreHtml(list, labels.length, true);
+    head = '<span class="bank-day-top">' + head + chips + "</span>";
+  }
+  var attrs = multi
+    ? ' title="' + bankEsc(list) + '" aria-label="' + bankEsc("Day " + c.day + ": " + list) + '"'
+    : "";
+  return '<div class="bank-day has' + (multi ? " multi" : "") + '"' + attrs + ">" + head + bits + "</div>";
 }
 
 function bankCalendarHtml(cells, hasDays, ym) {
@@ -2035,8 +2074,9 @@ function bankBillAmount(v) {
   return bankMoney(v);
 }
 
-function bankDayOptions(current) {
-  var html = '<option value=""' + (current == null ? " selected" : "") + ">Default</option>";
+function bankDayOptions(current, emptyLabel) {
+  var blank = emptyLabel || "Default";
+  var html = '<option value=""' + (current == null ? " selected" : "") + ">" + bankEsc(blank) + "</option>";
   var d;
   for (d = 1; d <= 31; d++) {
     html += '<option value="' + d + '"' + (current === d ? " selected" : "") + ">" + d + "</option>";
@@ -2047,13 +2087,13 @@ function bankDayOptions(current) {
 /* Print bills and due-day items. The name is a spend category when Bill or Optional is tagged, not a separate taxonomy. */
 function bankBillListHtml(bills) {
   if (!bills.length) return "";
-  return '<ul class="bank-bill-list">' + bills.map(function (b) {
+  return '<section class="bank-bills"><h3>Bills</h3><ul class="bank-bill-list">' + bills.map(function (b) {
     var day = b.typical_day == null ? "\u2014" : String(b.typical_day);
     var shown = bankBillShownAmount(b);
     var pending = shown == null;
     return "<li><span>" + bankEsc(bankBillDisplayName(b.name)) + "</span><b" + (pending ? ' class="bank-pending"' : "") + ">" +
       bankEsc(bankBillAmount(shown)) + "</b><i>day " + day + "</i></li>";
-  }).join("") + "</ul>";
+  }).join("") + "</ul></section>";
 }
 
 function bankIncomeListHtml(incomes) {
@@ -2085,7 +2125,7 @@ function bankEditIncomeHtml(incomes) {
       '" value="' + bankEsc(amtVal) + '">' +
       '<select class="bank-chip" data-bank-income="' + bankEsc(label) +
       '" data-bank-income-field="day" aria-label="Day for ' + bankEsc(label) + '">' +
-      bankDayOptions(inc.typical_day) + "</select></span></li>";
+      bankDayOptions(inc.typical_day, "Day") + "</select></span></li>";
   }).join("") + "</ul>";
 }
 
@@ -2221,15 +2261,14 @@ function bankEditsPanelHtml(snap, opts) {
   var known = bankKnownCategories(snap);
   var inUse = bankCategoriesInUse(rows, known);
   var picked = bankResolveEditCat(inUse, known, opts.editCat);
-  var catNote = bankHasOverrides(snap) ? '<p class="hint bank-sync">Category edits sync across your seats</p>' : "";
   var catSync = '<p class="hint bank-sync">Categories sync across your seats</p>';
   var dueNote = bankHasDueNote(snap) ? '<p class="hint bank-sync">Due day edits sync across your seats</p>' : "";
-  var kindNote = bankHasMustPayNote(snap) ? '<p class="hint bank-sync">Bill or Optional edits sync across your seats</p>' : "";
+  var kindNote = bankHasMustPayNote(snap) ? '<p class="hint bank-sync">Bill or Optional edits sync across your seats.</p>' : "";
   var catErr = opts.overrideError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.overrideError) + "</p>" : "";
   var addErr = opts.categoryError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.categoryError) + "</p>" : "";
   var dueErr = opts.dueError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.dueError) + "</p>" : "";
   var kindErr = opts.kindError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.kindError) + "</p>" : "";
-  return '<section class="bank-edit-block"><h3>Transactions</h3>' + catNote + catErr + catSync + addErr +
+  return '<section class="bank-edit-block"><h3>Transactions</h3>' + catSync + catErr + addErr +
     bankAddCategoryHtml() +
     bankEditTxHtml(rows, known, picked, opts.rowAdd) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
     dueNote + dueErr + bankEditBillHtml(bills) + '</section><section class="bank-edit-block"><h3>Income</h3>' +
