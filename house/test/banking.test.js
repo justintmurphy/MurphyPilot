@@ -331,7 +331,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip cu", function () {
+test("desk links Banking and banking assets are cache-busted at tip cv", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -341,7 +341,7 @@ test("desk links Banking and banking assets are cache-busted at tip cu", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cu/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cv/);
   assert.match(page, /\/house\/banking\.css\?v=20260904cu/);
   assert.match(page, /\/house\/house\.css\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
@@ -354,6 +354,7 @@ test("desk links Banking and banking assets are cache-busted at tip cu", functio
   assert.doesNotMatch(page, /banking\.js\?v=20260904cs/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ct/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904ct/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904cu/);
   assert.doesNotMatch(page, /href="\.\.\//);
   assert.doesNotMatch(page, /src="\.\.\//);
   assert.match(page, /id="bankDesk"/);
@@ -1311,12 +1312,14 @@ test("choosing Add category on a merchant row posts the category then assigns it
   await el.listeners.change(chooseRowAdd(ctx, key));
   el.listeners.input(rowDraftInput(" Household "));
   await el.listeners.click(rowButtonClick("ok"));
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 5);
   assert.deepEqual(JSON.parse(calls[2].init.body), { category: "Household" });
   assert.equal(calls[2].url, "/data/banking/categories.json");
   assert.equal(calls[3].url, "/data/banking/overrides.json");
   assert.deepEqual(JSON.parse(calls[3].init.body), { key: key, category: "Household" });
-  assert.deepEqual(JSON.parse(JSON.stringify(el._bank.data.custom_categories)), ["Household", "Gifts", "Pets"]);
+  assert.equal(calls[4].url, "/data/banking/categories.json");
+  assert.deepEqual(JSON.parse(calls[4].init.body), { category: "Pets", remove: true });
+  assert.deepEqual(JSON.parse(JSON.stringify(el._bank.data.custom_categories)), ["Household", "Gifts"]);
   assert.equal(el._bank.editCat, "Household");
   const dupPick = el.innerHTML.match(/<select data-bank-cat[\s\S]*?<\/select>/);
   const dupRow = el.innerHTML.match(new RegExp('data-bank-tx="' + key.replace(/[|]/g, "\\|") + '"[\\s\\S]*?<\\/select>'));
@@ -1335,11 +1338,11 @@ test("choosing Add category on a merchant row posts the category then assigns it
       hasAttribute: function (name) { return name === "data-bank-row-cat"; }
     }
   });
-  assert.equal(calls.length, 6);
-  assert.equal(calls[4].url, "/data/banking/categories.json");
-  assert.equal(calls[5].url, "/data/banking/overrides.json");
-  assert.equal(JSON.parse(calls[4].init.body).category, "B".repeat(64));
+  assert.equal(calls.length, 7);
+  assert.equal(calls[5].url, "/data/banking/categories.json");
+  assert.equal(calls[6].url, "/data/banking/overrides.json");
   assert.equal(JSON.parse(calls[5].init.body).category, "B".repeat(64));
+  assert.equal(JSON.parse(calls[6].init.body).category, "B".repeat(64));
   assert.equal(el._bank.editCat, "B".repeat(64));
   const longRow = rowSelectHtml(el.innerHTML, key);
   assert.match(longRow, /value="B{64}" selected/);
@@ -1535,4 +1538,272 @@ test("a failed row assign leaves the merchant on its old category", async functi
   assert.match(el.innerHTML, /not on the feed yet/);
   assert.match(el.innerHTML, /Nothing was saved/);
   assert.doesNotMatch(el.innerHTML, /data-bank-row-cat/);
+});
+
+function editsSelects(html) {
+  const pick = html.match(/<select data-bank-cat[\s\S]*?<\/select>/);
+  const rows = html.match(/<select class="bank-chip" data-bank-tx="[\s\S]*?<\/select>/g) || [];
+  return {
+    pick: pick ? pick[0] : "",
+    pickVals: pick ? bankOptionValues(pick[0]) : [],
+    rows: rows,
+    rowVals: rows.map(function (row) {
+      const vals = bankOptionValues(row);
+      return vals[vals.length - 1] === "__add_category__" ? vals.slice(0, -1) : vals;
+    })
+  };
+}
+
+function assertCategoryEverywhere(html, name, want) {
+  const sel = editsSelects(html);
+  assert.ok(sel.pick, "top category select");
+  assert.ok(sel.rows.length > 0, "row assign selects");
+  function has(vals) { return vals.indexOf(name) >= 0; }
+  if (want) assert.ok(has(sel.pickVals), name + " missing from the top select");
+  else assert.equal(sel.pickVals.indexOf(name), -1, name + " still in the top select");
+  sel.rowVals.forEach(function (vals) {
+    assert.deepEqual(vals, sel.pickVals);
+    if (want) assert.ok(has(vals), name + " missing from a row select");
+    else assert.equal(vals.indexOf(name), -1, name + " still in a row select");
+  });
+  return sel;
+}
+
+test("a new custom category shows in every edits select while it is still empty", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const key = "2026-10-05|acct-check|12.34|Corner Market";
+
+  async function addPets(mode) {
+    const calls = [];
+    ctx.fetch = function (url, init) {
+      const u = String(url);
+      calls.push({ url: u, init: init || {} });
+      const body = init && init.body ? JSON.parse(init.body) : null;
+      if (u === "/data/banking/categories.json") {
+        if (body && body.remove) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            type: "basic",
+            json: function () { return Promise.resolve({ ok: true }); }
+          });
+        }
+        if (mode === "list") {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            type: "basic",
+            json: function () {
+              return Promise.resolve({
+                schema: "banking-custom-categories/v1",
+                categories: ["Household", "Gifts"]
+              });
+            }
+          });
+        }
+        if (mode === "snapshot") {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            type: "basic",
+            json: function () { return Promise.resolve(JSON.parse(JSON.stringify(fx))); }
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          type: "basic",
+          json: function () { return Promise.resolve({ ok: true }); }
+        });
+      }
+      if (u === "/data/banking.json") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          type: "basic",
+          json: function () { return Promise.resolve(JSON.parse(JSON.stringify(fx))); }
+        });
+      }
+      return Promise.resolve({ ok: false, status: 500, type: "basic" });
+    };
+    const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { tab: "edits", editCat: "Groceries" });
+    await el._bank.prune;
+    const typed = addCategoryClick("Pets");
+    el.listeners.input(typed.input);
+    await el.listeners.click(typed.click);
+    assert.equal(el._bank.editCat, "Pets");
+    assert.ok(el._bank.data.custom_categories.indexOf("Pets") >= 0);
+    const emptyPick = el.innerHTML.match(/<select data-bank-cat[\s\S]*?<\/select>/);
+    assert.ok(emptyPick);
+    assert.match(emptyPick[0], /value="Pets" selected/);
+    assert.match(el.innerHTML, /No items in this category/);
+    await el.listeners.change({
+      target: {
+        value: "Groceries",
+        getAttribute: function () { return null; },
+        hasAttribute: function (name) { return name === "data-bank-cat"; }
+      }
+    });
+    const shown = assertCategoryEverywhere(el.innerHTML, "Pets", true);
+    assert.ok(shown.rows.length > 1);
+    assert.ok(shown.pickVals.indexOf("Utilities/Bills") >= 0);
+    assert.equal(el.innerHTML.indexOf('data-bank-tx="' + key + '"') >= 0, true);
+    const categoryPosts = calls.filter(function (c) { return c.url === "/data/banking/categories.json"; });
+    assert.equal(categoryPosts.length, 1);
+    assert.deepEqual(JSON.parse(categoryPosts[0].init.body), { category: "Pets" });
+    return { el: el, calls: calls };
+  }
+
+  const listed = await addPets("list");
+  ctx.bankActivate(listed.el, "current");
+  await ctx.bankActivate(listed.el, "edits");
+  assertCategoryEverywhere(listed.el.innerHTML, "Pets", false);
+  assertCategoryEverywhere(listed.el.innerHTML, "Utilities/Bills", true);
+  assertCategoryEverywhere(listed.el.innerHTML, "Paycheck/Salary/Wages", true);
+  const removed = listed.calls.filter(function (c) {
+    return c.url === "/data/banking/categories.json" && c.init && c.init.body && JSON.parse(c.init.body).remove === true;
+  });
+  assert.equal(removed.length, 1);
+  assert.deepEqual(JSON.parse(removed[0].init.body), { category: "Pets", remove: true });
+  assert.equal(listed.el._bank.data.custom_categories.indexOf("Pets"), -1);
+
+  await addPets("ack");
+  await addPets("snapshot");
+});
+
+test("moving the last merchant off a custom category removes it from both selects", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    calls.push({ url: String(url), init: init || {} });
+    const body = JSON.parse(init.body);
+    if (String(url) === "/data/banking/categories.json") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () {
+          return Promise.resolve({
+            schema: "banking-custom-categories/v1",
+            categories: ["Household", "Gifts", "Solo"]
+          });
+        }
+      });
+    }
+    const overrides = Object.assign({}, fx.category_overrides || {});
+    overrides[body.key] = body.category;
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () {
+        return Promise.resolve({ schema: "banking-category-overrides/v1", overrides: overrides });
+      }
+    });
+  };
+  const data = JSON.parse(JSON.stringify(fx));
+  data.custom_categories = ["Household", "Gifts", "Solo"];
+  data.category_overrides = Object.assign({}, data.category_overrides, {
+    "2026-04-01|acct-check|12.34|Solo Shop": "Solo"
+  });
+  data.current.edits_tx.push({
+    date: "2026-04-01",
+    id: "acct-check",
+    desc: "Solo Shop",
+    amount: 12.34,
+    flow: "outflow",
+    category: "Shopping",
+    tx_key: "2026-04-01|acct-check|12.34|Solo Shop"
+  });
+  const el = mount(ctx, data, { tab: "edits", editCat: "Solo" });
+  await el._bank.prune;
+  assert.equal(calls.length, 0);
+  assertCategoryEverywhere(el.innerHTML, "Solo", true);
+  assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
+  const key = "2026-04-01|acct-check|12.34|Solo Shop";
+  await el.listeners.change({
+    target: {
+      value: "Groceries",
+      getAttribute: function (name) { return name === "data-bank-tx" ? key : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, "/data/banking/overrides.json");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { key: key, category: "Groceries" });
+  assert.equal(calls[1].url, "/data/banking/categories.json");
+  assert.deepEqual(JSON.parse(calls[1].init.body), { category: "Solo", remove: true });
+  assert.equal(el._bank.data.custom_categories.indexOf("Solo"), -1);
+  await el.listeners.change({
+    target: {
+      value: "Groceries",
+      getAttribute: function () { return null; },
+      hasAttribute: function (name) { return name === "data-bank-cat"; }
+    }
+  });
+  assert.equal(calls.length, 2);
+  assertCategoryEverywhere(el.innerHTML, "Solo", false);
+  assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
+  assertCategoryEverywhere(el.innerHTML, "Household", true);
+  const moved = rowSelectHtml(el.innerHTML, key);
+  assert.match(moved, /value="Groceries" selected/);
+  assert.doesNotMatch(moved, /value="Solo"/);
+  ["current", "historical", "budget"].forEach(function (tab) {
+    const page = ctx.bankPageHtml(el._bank.data, { tab: tab, now: "2026-10-05T18:00:00-04:00" });
+    assert.doesNotMatch(page, /data-bank-cat/);
+    assert.doesNotMatch(page, /data-bank-add-cat/);
+    assert.doesNotMatch(page, /data-bank-tx/);
+  });
+});
+
+test("opening edits drops empty customs and keeps feed categories that have no rows", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    calls.push({ url: String(url), body: JSON.parse(init.body) });
+    const body = JSON.parse(init.body);
+    const left = ["Household", "Gifts"].filter(function (name) { return name !== body.category; });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () {
+        return Promise.resolve({ schema: "banking-custom-categories/v1", categories: left.concat([body.category]) });
+      }
+    });
+  };
+  const data = JSON.parse(JSON.stringify(fx));
+  data.custom_categories = ["Household", "Gifts", "Linger"];
+  const el = mount(ctx, data, { tab: "edits", editCat: "Groceries" });
+  await el._bank.prune;
+  assert.deepEqual(calls.map(function (c) { return c.body; }), [{ category: "Linger", remove: true }]);
+  assert.equal(el._bank.data.custom_categories.indexOf("Linger"), -1);
+  assert.ok(el._bank.data.custom_categories.indexOf("Household") >= 0);
+  assert.ok(el._bank.data.custom_categories.indexOf("Gifts") >= 0);
+  assertCategoryEverywhere(el.innerHTML, "Linger", false);
+  assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
+  assertCategoryEverywhere(el.innerHTML, "Paycheck/Salary/Wages", true);
+  assert.equal(ctx.bankCategoryCount(el._bank.data, "Utilities/Bills"), 0);
+  assert.equal(ctx.bankCategoryCount(el._bank.data, "Paycheck/Salary/Wages"), 0);
+  assert.ok(ctx.bankCategoryCount(el._bank.data, "Household") > 0);
+
+  el._bank.data.custom_categories = el._bank.data.custom_categories.concat(["Linger", "Vacant"]);
+  el._bank.rowAdd = { key: "2026-10-05|acct-check|12.34|Corner Market", draft: "  Linger  " };
+  el._bank.newCatDraft = "Vacant";
+  const held = ctx.bankTakeEmptyCustoms(el._bank);
+  assert.deepEqual(JSON.parse(JSON.stringify(held)), []);
+  assert.ok(el._bank.data.custom_categories.indexOf("Linger") >= 0);
+  assert.ok(el._bank.data.custom_categories.indexOf("Vacant") >= 0);
+  el._bank.rowAdd = null;
+  el._bank.newCatDraft = "";
+  await ctx.bankRefreshEmptyCustoms(el);
+  assert.deepEqual(calls.slice(1).map(function (c) { return c.body.category; }).sort(), ["Linger", "Vacant"]);
+  assert.equal(el._bank.data.custom_categories.indexOf("Linger"), -1);
+  assert.equal(el._bank.data.custom_categories.indexOf("Vacant"), -1);
+  assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
+  assert.doesNotMatch(el.innerHTML, /Category did not save/);
+  assert.doesNotMatch(el.innerHTML, /Nothing was changed/);
 });
