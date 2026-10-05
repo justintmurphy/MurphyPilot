@@ -151,6 +151,8 @@ test("tabs switch through the click path and historical labels an open month", f
 test("empty calendar shows the due-day empty state and insights keep severity", function () {
   const ctx = boot();
   const fx = loadFixture();
+  fx.budget.bills = [{ name: "Phone", amount: 12.34, typical_day: null, cadence: "monthly", category: "Utilities/Bills" }];
+  fx.budget.bills_monthly = [];
   const html = ctx.bankPageHtml(fx, { tab: "budget" });
   assert.match(html, /Due days need more history/);
   assert.doesNotMatch(html, /class="bank-days"/);
@@ -215,7 +217,8 @@ test("known bills keep a fixed due day unless a manual override says otherwise",
     ["Utility Electric", 15],
     ["Gas Bill", 15],
     ["Natural Gas", 15],
-    ["Columbia Gas", 15]
+    ["Columbia Gas", 15],
+    ["Gas (Utility)", 15]
   ].forEach(function (pair) {
     const row = dayOf({ name: pair[0], amount: 12.34, typical_day: null });
     assert.equal(row.typical_day, pair[1], pair[0]);
@@ -254,7 +257,9 @@ test("known bills keep a fixed due day unless a manual override says otherwise",
   const html = ctx.bankPageHtml(fx, { tab: "budget" });
   assert.match(html, /<div class="bank-day has"><b>1<\/b><span>Mortgage<\/span>/);
   assert.match(html, /<div class="bank-day has"><b>28<\/b><span>T-Mobile<\/span>/);
-  assert.match(html, /<div class="bank-day has"><b>15<\/b><span>Car payment<\/span><span>Electric<\/span><span>Columbia Gas<\/span>/);
+  assert.match(html, /<b>15<\/b><span>Car payment<\/span><span>Electric<\/span><span>Columbia Gas<\/span>/);
+  assert.doesNotMatch(html, /data-bank-due/);
+  assert.doesNotMatch(html, /<select/);
   assert.doesNotMatch(html, /Due days need more history/);
 });
 
@@ -267,13 +272,18 @@ test("a transaction row shows a category chip and a blank category becomes Other
   ];
   const html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
   assert.match(html, /bank-tape/);
-  assert.match(html, /class="bank-merchant">Sample</);
-  assert.match(html, /value="Other" selected/);
-  const transfer = html.match(/data-bank-tx="2026-10-04\|acct-check\|\|Sample"[\s\S]*?<\/select>/);
-  assert.ok(transfer);
-  assert.match(transfer[0], /value="Transfer" selected/);
-  assert.match(html, /data-bank-tx="2026-10-04\|acct-check\|\|Sample"[\s\S]*?<td>\u2014<\/td>/);
-  assert.doesNotMatch(html, /data-bank-tx="2026-10-04\|acct-check\|\|Sample"[\s\S]*?<td>\$0/);
+  assert.match(html, /class="bank-merchant">Sample<\/span><span class="bank-chip">Other<\/span>/);
+  assert.match(html, /class="bank-chip">Transfer<\/span>/);
+  assert.match(html, /Main Street Cafe|Sample[\s\S]*?\u2014/);
+  assert.doesNotMatch(html, /<select/);
+  assert.doesNotMatch(html, /data-bank-tx/);
+  const edits = ctx.bankPageHtml(fx, { tab: "edits", now: "2026-10-05T18:00:00-04:00" });
+  const rowAt = edits.indexOf('data-bank-tx="2026-10-04|acct-check||Sample"');
+  assert.ok(rowAt >= 0);
+  const row = edits.slice(rowAt, edits.indexOf("</li>", rowAt));
+  assert.match(row, /value="Transfer" selected/);
+  assert.match(row, /\u2014/);
+  assert.doesNotMatch(row, /\$0/);
 });
 
 test("fetch failure paints a gate and does not invent balances", async function () {
@@ -354,17 +364,24 @@ test("merchant is the tape label and an empty desc falls back to the category", 
   const ctx = boot();
   const fx = loadFixture();
   const html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
-  assert.match(html, /class="bank-merchant">Corner Market<\/span><select class="bank-chip"/);
-  assert.match(html, /class="bank-merchant">City Fuel<\/span><select class="bank-chip"/);
-  assert.match(html, /class="bank-merchant">Shopping<\/span><select class="bank-chip"/);
+  assert.match(html, /class="bank-merchant">Corner Market<\/span><span class="bank-chip">Groceries<\/span>/);
+  assert.match(html, /class="bank-merchant">City Fuel<\/span><span class="bank-chip">Transport<\/span>/);
+  assert.match(html, /class="bank-merchant">Shopping<\/span><span class="bank-chip">Shopping<\/span>/);
   assert.doesNotMatch(html, /class="bank-merchant"><\/span>/);
   assert.doesNotMatch(html, /class="bank-desc"/);
-  const fuel = html.match(/data-bank-tx="2026-10-04\|acct-check\|12\.34\|City Fuel"[\s\S]*?<\/select>/);
+  assert.doesNotMatch(html, /<select/);
+  assert.doesNotMatch(html, /data-bank-tx/);
+  assert.match(html, /Main Street Cafe[\s\S]*?<td>\u2014<\/td>/);
+  assert.doesNotMatch(html, /Category edits sync across your seats/);
+  const edits = ctx.bankPageHtml(fx, { tab: "edits", now: "2026-10-05T18:00:00-04:00" });
+  assert.match(edits, /data-panel="edits"/);
+  assert.match(edits, /data-bank-tab="edits"[^>]*aria-selected="true"/);
+  const fuel = edits.match(/data-bank-tx="2026-10-04\|acct-check\|12\.34\|City Fuel"[\s\S]*?<\/select>/);
   assert.ok(fuel);
   assert.match(fuel[0], /value="Transport" selected/);
-  assert.match(html, /Main Street Cafe[\s\S]*?<td>\u2014<\/td>/);
-  assert.match(html, /Category edits sync across your seats/);
-  assert.doesNotMatch(html, /this device/);
+  assert.match(edits, /Category edits sync across your seats/);
+  assert.doesNotMatch(edits, /this device/);
+  assert.equal(ctx.bankResolveTab("#edits"), "edits");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   assert.match(css, /\.bank-merchant\s*\{[^}]*font-weight:\s*600/);
   assert.match(css, /\.bank-chip\s*\{[^}]*font-size:\s*11px/);
@@ -408,7 +425,7 @@ test("category override posts to the feed and repaints without localStorage", as
       }
     });
   };
-  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { now: "2026-10-05T18:00:00-04:00" });
+  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { tab: "edits", now: "2026-10-05T18:00:00-04:00" });
   const key = "2026-10-05|acct-check|12.34|Corner Market";
   assert.ok(el.innerHTML.indexOf('data-bank-tx="' + key + '"') >= 0);
   const sel = {
@@ -433,6 +450,9 @@ test("category override posts to the feed and repaints without localStorage", as
   assert.match(el.innerHTML, /class="bank-merchant">Corner Market</);
   assert.match(el.innerHTML, /Category edits sync across your seats/);
   assert.equal(writes.length, 0);
+  ctx.bankActivate(el, "current");
+  assert.match(el.innerHTML, /class="bank-merchant">Corner Market<\/span><span class="bank-chip">Food\/Drink<\/span>/);
+  assert.doesNotMatch(el.innerHTML, /data-bank-tx/);
   const rank = el.innerHTML.match(/<ol class="bank-rank">[\s\S]*?<\/ol>/);
   assert.ok(rank);
   assert.match(rank[0], /<span>Groceries<\/span><b>\$12\.34<\/b>/);
@@ -448,7 +468,7 @@ test("a failed override leaves the chip and does not use localStorage", async fu
     ctx.fetch = function () {
       return Promise.resolve({ ok: false, status: status, type: "basic" });
     };
-    const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { now: "2026-10-05T18:00:00-04:00" });
+    const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { tab: "edits", now: "2026-10-05T18:00:00-04:00" });
     const key = "2026-10-05|acct-check|12.34|Corner Market";
     const sel = {
       value: "Health",
@@ -494,7 +514,7 @@ test("override post refetches banking.json when the body has no map", async func
       json: function () { return Promise.resolve(copy); }
     });
   };
-  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { now: "2026-10-05T18:00:00-04:00" });
+  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { tab: "edits", now: "2026-10-05T18:00:00-04:00" });
   const key = "2026-10-05|acct-check|12.34|Corner Market";
   await el.listeners.change({
     target: {
@@ -539,4 +559,118 @@ test("banking fetch asks for JSON and a login redirect counts as locked", async 
   }), "2026-10-05|acct-check|12.34|Corner Market");
   assert.equal(ctx.bankTxKey({ date: "2026-10-02", id: "acct-share", amount: null, desc: "Main Street Cafe" }),
     "2026-10-02|acct-share||Main Street Cafe");
+});
+
+test("selecting a bill posts its due day and a null amount stays pending", async function () {
+  const ctx = boot();
+  assert.equal(ctx.bankBillKey("  M&T Mortgage "), "m&t mortgage");
+  assert.equal(ctx.bankBillKey("T-Mobile"), "t-mobile");
+  assert.equal(ctx.bankBillKey("Gas (Utility)"), "gas (utility)");
+  const pinned = ctx.bankNormalizeBills(
+    { bills: [{ name: "M&T Mortgage", amount: null, typical_day: null }] },
+    { "m&t mortgage": 4 }
+  )[0];
+  assert.equal(pinned.typical_day, 4);
+  assert.equal(pinned.due_day, 4);
+  assert.equal(pinned.source, "user");
+  const kept = ctx.bankNormalizeBills({
+    bills: [{ name: "Mortgage", amount: 12.34, typical_day: 4, source: "user" }]
+  })[0];
+  assert.equal(kept.typical_day, 4);
+  assert.equal(kept.source, "user");
+  const cleared = ctx.bankNormalizeBills(
+    { bills: [{ name: "T-Mobile", amount: 12.34, typical_day: 3, source: "user" }] },
+    { "t-mobile": null }
+  )[0];
+  assert.equal(cleared.typical_day, 28);
+  assert.notEqual(cleared.source, "user");
+
+  const fx = loadFixture();
+  const html = ctx.bankPageHtml(fx, { tab: "budget" });
+  assert.match(html, /class="bank-pending">amount pending/);
+  assert.doesNotMatch(html, /data-bank-due/);
+  assert.doesNotMatch(html, /data-bank-bill/);
+  assert.doesNotMatch(html, /\$0\.00/);
+  assert.doesNotMatch(html, /Due days on this browser/);
+  const editsHtml = ctx.bankPageHtml(fx, { tab: "edits" });
+  assert.match(editsHtml, /data-bank-due="car payment"/);
+  assert.match(editsHtml, /data-bank-due="m&amp;t mortgage"/);
+  assert.match(editsHtml, /data-bank-due="gas \(utility\)"/);
+  assert.match(editsHtml, /amount pending/);
+
+  const writes = [];
+  ctx.localStorage.setItem = function (k, v) { writes.push(k + "=" + v); };
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    calls.push({ url: String(url), init: init });
+    const body = JSON.parse(init.body);
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () {
+        return Promise.resolve({
+          schema: "banking-dueday-overrides/v1",
+          overrides: { "car payment": body.day }
+        });
+      }
+    });
+  };
+  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { tab: "edits" });
+  assert.match(el.innerHTML, /data-panel="edits"/);
+  assert.match(el.innerHTML, /data-bank-due="car payment"/);
+  await el.listeners.change({
+    target: {
+      value: "16",
+      getAttribute: function (name) { return name === "data-bank-due" ? "car payment" : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/data/banking/dueday-overrides.json");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  assert.equal(calls[0].init.headers.Accept, "application/json");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { key: "car payment", day: 16 });
+  assert.match(el.innerHTML, /data-bank-due="car payment"[\s\S]*value="16" selected/);
+  assert.match(el.innerHTML, /Due day edits sync across your seats/);
+  assert.equal(writes.length, 0);
+  ctx.bankActivate(el, "budget");
+  assert.match(el.innerHTML, /<b>16<\/b><span>Car payment<\/span>/);
+  assert.doesNotMatch(el.innerHTML, /data-bank-due/);
+
+  await el.listeners.change({
+    target: {
+      value: "",
+      getAttribute: function (name) { return name === "data-bank-due" ? "car payment" : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(JSON.parse(calls[1].init.body).day, null);
+  assert.match(el.innerHTML, /<b>15<\/b><span>Car payment<\/span>/);
+});
+
+test("a failed due-day edit leaves the bill and does not use localStorage", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const writes = [];
+  ctx.localStorage.setItem = function (k, v) { writes.push(k + "=" + v); };
+  ctx.fetch = function () {
+    return Promise.resolve({ ok: false, status: 404, type: "basic" });
+  };
+  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { tab: "edits" });
+  assert.match(el.innerHTML, /data-bank-due="electric"/);
+  await el.listeners.change({
+    target: {
+      value: "2",
+      getAttribute: function (name) { return name === "data-bank-due" ? "electric" : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.match(el.innerHTML, /not on the feed yet/);
+  assert.match(el.innerHTML, /Nothing was saved/);
+  assert.match(el.innerHTML, /data-bank-due="electric"[\s\S]*value="15" selected/);
+  assert.doesNotMatch(el.innerHTML, /value="2" selected/);
+  assert.equal(writes.length, 0);
 });

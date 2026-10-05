@@ -410,11 +410,24 @@ body.bank-page > header .clock {
   font-weight: 700;
 }
 
-.bank-day span {
+.bank-day span,
+.bank-day button {
   display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
 
 .bank-covers,
@@ -434,7 +447,49 @@ body.bank-page > header .clock {
 .bank-bill-list li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 4px 8px;
+  align-items: center;
+}
+
+.bank-bill-list li.on {
+  background: var(--row);
+  box-shadow: inset 3px 0 0 var(--brand-fg);
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.bank-bill-pick {
+  margin: 0;
+  padding: 6px 0;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bank-bill-pick span {
+  display: block;
+}
+
+.bank-pending {
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.bank-due-edit {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 8px;
+  padding-bottom: 6px;
+  color: var(--ink-soft);
+  font-size: 12px;
 }
 
 .bank-bar {
@@ -544,6 +599,46 @@ body.bank-page > header .clock {
   cursor: pointer;
 }
 
+span.bank-chip {
+  min-height: 0;
+  padding: 1px 6px;
+  cursor: default;
+}
+
+.bank-edit-block {
+  margin: 12px 0;
+}
+
+.bank-edit-block h3 {
+  margin: 0 0 8px;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-weight: 400;
+  font-size: 16px;
+}
+
+.bank-edit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bank-edit-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.bank-edit-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .bank-flow {
   color: var(--ink-soft);
   font-size: 11px;
@@ -639,10 +734,16 @@ body.bank-page > header .clock {
     padding: 8px 10px 28px;
   }
   .bank-tabs button {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     justify-content: center;
     min-height: 44px;
-    padding: 8px 4px;
+    padding: 8px 2px;
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+  .bank-edit-list select {
+    min-height: 44px;
   }
   .bank-tiles,
   .bank-kpi,
