@@ -23,6 +23,22 @@
       {"date": "2026-10-03", "id": "acct-debit", "desc": "", "amount": 12.34, "flow": "outflow", "category": "Shopping"},
       {"date": "2026-10-02", "id": "acct-share", "desc": "Main Street Cafe", "amount": null, "flow": "outflow", "category": "Food/Drink"}
     ],
+    "edits_tx": [
+      {"date": "2026-10-05", "id": "acct-check", "desc": "Corner Market", "amount": 12.34, "flow": "outflow", "category": "Groceries", "tx_id": "tx-1005", "tx_key": "2026-10-05|acct-check|12.34|Corner Market"},
+      {"date": "2026-10-04", "id": "acct-check", "desc": "City Fuel", "amount": 12.34, "flow": "outflow", "category": "Gas", "tx_id": "tx-1004", "tx_key": "2026-10-04|acct-check|12.34|City Fuel"},
+      {"date": "2026-10-03", "id": "acct-debit", "desc": "", "amount": 12.34, "flow": "outflow", "category": "Shopping", "tx_id": "tx-1003", "tx_key": "2026-10-03|acct-debit|12.34|"},
+      {"date": "2026-10-02", "id": "acct-share", "desc": "Main Street Cafe", "amount": null, "flow": "outflow", "category": "Food/Drink", "tx_id": "tx-1002", "tx_key": "2026-10-02|acct-share||Main Street Cafe"},
+      {"date": "2026-09-18", "id": "acct-check", "desc": "Weekly Market", "amount": 12.34, "flow": "outflow", "category": "Groceries", "tx_id": "tx-0918", "tx_key": "2026-09-18|acct-check|12.34|Weekly Market"},
+      {"date": "2026-09-04", "id": "acct-check", "desc": "Town Fuel", "amount": 12.34, "flow": "outflow", "category": "Gas", "tx_id": "tx-0904", "tx_key": "2026-09-04|acct-check|12.34|Town Fuel"},
+      {"date": "2026-08-21", "id": "acct-check", "desc": "Neighborhood Grocer", "amount": 12.34, "flow": "outflow", "category": "Groceries", "tx_id": "tx-0821", "tx_key": "2026-08-21|acct-check|12.34|Neighborhood Grocer"},
+      {"date": "2026-08-07", "id": "acct-debit", "desc": "Hardware Shop", "amount": 12.34, "flow": "outflow", "category": "Shopping", "tx_id": "tx-0807", "tx_key": "2026-08-07|acct-debit|12.34|Hardware Shop"},
+      {"date": "2026-07-16", "id": "acct-check", "desc": "Corner Market", "amount": 12.34, "flow": "outflow", "category": "Groceries", "tx_id": "tx-0716", "tx_key": "2026-07-16|acct-check|12.34|Corner Market"},
+      {"date": "2026-07-02", "id": "acct-check", "desc": "Pharmacy Counter", "amount": 12.34, "flow": "outflow", "category": "Health", "tx_id": "tx-0702", "tx_key": "2026-07-02|acct-check|12.34|Pharmacy Counter"},
+      {"date": "2026-06-19", "id": "acct-check", "desc": "Weekly Market", "amount": 12.34, "flow": "outflow", "category": "Groceries", "tx_id": "tx-0619", "tx_key": "2026-06-19|acct-check|12.34|Weekly Market"},
+      {"date": "2026-06-05", "id": "acct-share", "desc": "Main Street Cafe", "amount": 12.34, "flow": "outflow", "category": "Food/Drink", "tx_id": "tx-0605", "tx_key": "2026-06-05|acct-share|12.34|Main Street Cafe"},
+      {"date": "2026-05-22", "id": "acct-check", "desc": "Neighborhood Grocer", "amount": 12.34, "flow": "outflow", "category": "Groceries", "tx_id": "tx-0522", "tx_key": "2026-05-22|acct-check|12.34|Neighborhood Grocer"},
+      {"date": "2026-05-08", "id": "acct-check", "desc": "Town Fuel", "amount": 12.34, "flow": "outflow", "category": "Gas", "tx_id": "tx-0508", "tx_key": "2026-05-08|acct-check|12.34|Town Fuel"}
+    ],
     "last_closed_month_categories": [
       {"name": "Groceries", "amount": 12.34},
       {"name": "Paycheck/Salary/Wages", "amount": 12.34},
@@ -88,10 +104,10 @@
     ],
     "bills": [
       {"name": "Phone", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"},
-      {"name": "Mortgage", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Rent/Mortgage"},
+      {"name": "Mortgage", "amount": 12.34, "typical_amount": 40, "typical_day": null, "cadence": "monthly", "category": "Rent/Mortgage"},
       {"name": "Mobile plan", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"},
-      {"name": "Car payment", "amount": null, "typical_day": null, "cadence": "monthly", "category": "Auto"},
-      {"name": "Electric", "amount": null, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"},
+      {"name": "Car payment", "amount": null, "typical_amount": null, "typical_day": null, "cadence": "monthly", "category": "Auto"},
+      {"name": "Electric", "amount": null, "typical_amount": 18.5, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"},
       {"name": "Gas (Utility)", "amount": null, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"}
     ],
     "calendar": [],

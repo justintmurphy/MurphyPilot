@@ -1,10 +1,12 @@
-/* tip cp — House Banking.
+/* tip cq — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Due days POST to /data/banking/dueday-overrides.json.
-   Edits: pick a category, then recategorize the merchants in that list.
+   Edits lists current.edits_tx (the long window). The Current tape stays on recent_tx.
+   A transaction key prefers tx_key, otherwise date|id|amount|desc.
    Due-day precedence: user KV, then snapshot manual, then a feed day, then a generic filler only when the feed day is null.
-   Both sync across seats. A null balance stays blank. A bill with no amount reads "amount pending".
+   Both sync across seats. A null balance stays blank.
+   A bill prefers typical_amount, then amount, and reads "amount pending" when both are blank.
    This file does not embed balances, last-4s, or named utilities. */
 
 var BANK_STALE_MS = 36 * 60 * 60 * 1000;
@@ -295,6 +297,7 @@ function bankTxPart(v) {
 
 function bankTxKey(raw) {
   raw = raw || {};
+  if (raw.tx_key != null && String(raw.tx_key).trim() !== "") return String(raw.tx_key);
   return [bankTxPart(raw.date), bankTxPart(raw.id), bankTxPart(raw.amount), bankTxPart(raw.desc)].join("|");
 }
 
@@ -344,6 +347,9 @@ function bankKnownCategories(snap) {
   if (planned && typeof planned === "object") Object.keys(planned).forEach(add);
   var txs = cur && cur.recent_tx;
   if (Array.isArray(txs)) txs.forEach(function (r) { if (r) add(r.category); });
+  bankEditSourceLists(snap).forEach(function (list) {
+    list.forEach(function (r) { if (r) add(r.category); });
+  });
   var ov = bankOverrideMap(snap);
   Object.keys(ov).forEach(function (k) { add(ov[k]); });
   if (seen.Other) order = order.filter(function (n) { return n !== "Other"; });
@@ -351,25 +357,91 @@ function bankKnownCategories(snap) {
   return order;
 }
 
+function bankMapTx(raw, i, overrides) {
+  raw = raw || {};
+  return {
+    key: bankTxKey(raw),
+    date: raw.date || "",
+    desc: raw.desc == null ? "" : String(raw.desc),
+    amount: bankNum(raw.amount),
+    flow: raw.flow || "",
+    category: bankTxCategory(raw, overrides),
+    i: i
+  };
+}
+
+function bankSortTx(rows) {
+  return rows.sort(function (a, b) {
+    if (a.date === b.date) return b.i - a.i;
+    return a.date < b.date ? 1 : -1;
+  });
+}
+
+function bankTxList(v) {
+  return Array.isArray(v) && v.length ? v : null;
+}
+
+function bankPushTxList(out, v) {
+  var list = bankTxList(v);
+  if (list) out.push(list);
+}
+
+function bankHistoryTxLists(snap) {
+  var out = [];
+  var cur = snap && snap.current;
+  bankPushTxList(out, cur && cur.history_tx);
+  var hist = snap && snap.history;
+  if (hist && typeof hist === "object" && !Array.isArray(hist)) {
+    bankPushTxList(out, hist.history_tx);
+    bankPushTxList(out, hist.tx);
+    bankPushTxList(out, hist.transactions);
+  }
+  bankMonths(snap).forEach(function (m) {
+    bankPushTxList(out, m.tx);
+    bankPushTxList(out, m.txs);
+    bankPushTxList(out, m.transactions);
+    bankPushTxList(out, m.history_tx);
+    bankPushTxList(out, m.recent_tx);
+  });
+  return out;
+}
+
+/* edits_tx when the feed sent it. Otherwise the full recent list plus any history tx arrays. */
+function bankEditSourceLists(snap) {
+  var cur = snap && snap.current;
+  var edits = bankTxList(cur && cur.edits_tx);
+  if (edits) return [edits];
+  var out = [];
+  bankPushTxList(out, cur && cur.recent_tx);
+  bankHistoryTxLists(snap).forEach(function (list) { out.push(list); });
+  return out;
+}
+
+function bankEditRows(snap) {
+  var overrides = bankOverrideMap(snap);
+  var seen = {};
+  var out = [];
+  var n = 0;
+  bankEditSourceLists(snap).forEach(function (list) {
+    list.forEach(function (raw) {
+      var row = bankMapTx(raw, n, overrides);
+      n += 1;
+      if (seen[row.key]) return;
+      seen[row.key] = true;
+      out.push(row);
+    });
+  });
+  return bankSortTx(out);
+}
+
+/* Current tape only. Edits uses bankEditRows and does not clip this window. */
 function bankRecent(snap) {
   var rows = snap && snap.current && snap.current.recent_tx;
   if (!Array.isArray(rows) || !rows.length) return [];
   var overrides = bankOverrideMap(snap);
-  return rows.map(function (raw, i) {
-    raw = raw || {};
-    return {
-      key: bankTxKey(raw),
-      date: raw.date || "",
-      desc: raw.desc == null ? "" : String(raw.desc),
-      amount: bankNum(raw.amount),
-      flow: raw.flow || "",
-      category: bankTxCategory(raw, overrides),
-      i: i
-    };
-  }).sort(function (a, b) {
-    if (a.date === b.date) return b.i - a.i;
-    return a.date < b.date ? 1 : -1;
-  }).slice(0, 40);
+  return bankSortTx(rows.map(function (raw, i) {
+    return bankMapTx(raw, i, overrides);
+  })).slice(0, 40);
 }
 
 /* Bills only. Generic fillers when the feed day is null. Do not match merchants (gasoline, City Fuel). */
@@ -448,11 +520,13 @@ function bankNormalizeBills(budget, dueMap) {
       : (raw.typical_day != null && raw.typical_day !== "" ? raw.typical_day : raw.due_day);
     var day = bankDay(dayRaw);
     var amount = bankNum(raw.amount);
+    var typical = bankNum(raw.typical_amount);
     var row = byName[name];
     if (!row) {
       row = {
         name: name,
         amount: amount,
+        typical_amount: typical,
         typical_day: day,
         cadence: raw.cadence || null,
         category: raw.category || "",
@@ -462,6 +536,7 @@ function bankNormalizeBills(budget, dueMap) {
       order.push(name);
     } else {
       if (row.amount == null && amount != null) row.amount = amount;
+      if (row.typical_amount == null && typical != null) row.typical_amount = typical;
       if (row.typical_day == null && day != null) row.typical_day = day;
       if (!row.cadence && raw.cadence) row.cadence = raw.cadence;
       if (!row.category && raw.category) row.category = raw.category;
@@ -1082,6 +1157,12 @@ function bankCoversHtml(groups) {
   }).join("") + "</ul>";
 }
 
+function bankBillShownAmount(row) {
+  var typical = bankNum(row && row.typical_amount);
+  if (typical != null) return typical;
+  return bankNum(row && row.amount);
+}
+
 function bankBillAmount(v) {
   if (bankNum(v) == null) return "amount pending";
   return bankMoney(v);
@@ -1100,9 +1181,10 @@ function bankBillListHtml(bills) {
   if (!bills.length) return "";
   return '<ul class="bank-bill-list">' + bills.map(function (b) {
     var day = b.typical_day == null ? "\u2014" : String(b.typical_day);
-    var pending = bankNum(b.amount) == null;
+    var shown = bankBillShownAmount(b);
+    var pending = shown == null;
     return "<li><span>" + bankEsc(b.name) + "</span><b" + (pending ? ' class="bank-pending"' : "") + ">" +
-      bankEsc(bankBillAmount(b.amount)) + "</b><i>day " + day + "</i></li>";
+      bankEsc(bankBillAmount(shown)) + "</b><i>day " + day + "</i></li>";
   }).join("") + "</ul>";
 }
 
@@ -1165,12 +1247,12 @@ function bankEditCategoryChoices(inUse, current) {
 }
 
 function bankEditTxHtml(rows, known, inUse, picked) {
-  if (!rows || !rows.length) return '<p class="bank-empty">No recent transactions.</p>';
+  if (!rows || !rows.length) return '<p class="bank-empty">No transactions in this print.</p>';
   var choices = bankEditCategoryChoices(inUse, picked);
   var picker = '<label class="bank-cat-pick">Category <select data-bank-cat aria-label="Category">' +
     bankChipOptions(choices, picked) + "</select></label>";
   var mine = rows.filter(function (r) { return r.category === picked; });
-  if (!mine.length) return picker + '<p class="bank-empty">No recent items in this category.</p>';
+  if (!mine.length) return picker + '<p class="bank-empty">No items in this category.</p>';
   return picker + '<ul class="bank-edit-list">' + mine.map(function (r) {
     var label = bankItemLabel(r.desc);
     var date = r.date ? String(r.date) : "\u2014";
@@ -1187,10 +1269,11 @@ function bankEditBillHtml(bills) {
   if (!bills || !bills.length) return '<p class="bank-empty">No bills in this print.</p>';
   return '<ul class="bank-edit-list">' + bills.map(function (b) {
     var key = bankBillKey(b.name);
-    var pending = bankNum(b.amount) == null;
+    var shown = bankBillShownAmount(b);
+    var pending = shown == null;
     return "<li><span class=\"bank-merchant\">" + bankEsc(b.name) + '</span><span class="bank-edit-side"><select class="bank-chip" data-bank-due="' +
       bankEsc(key) + '" aria-label="Due day for ' + bankEsc(b.name) + '">' + bankDayOptions(b.typical_day) +
-      '</select><b' + (pending ? ' class="bank-pending"' : "") + ">" + bankEsc(bankBillAmount(b.amount)) + "</b></span></li>";
+      '</select><b' + (pending ? ' class="bank-pending"' : "") + ">" + bankEsc(bankBillAmount(shown)) + "</b></span></li>";
   }).join("") + "</ul>";
 }
 
@@ -1199,7 +1282,7 @@ function bankEditsPanelHtml(snap, opts) {
   var budget = (snap && snap.budget) || {};
   var dueArg = bankHasDueMap(snap) ? bankDueMap(snap) : undefined;
   var bills = bankNormalizeBills(budget, dueArg);
-  var rows = bankRecent(snap);
+  var rows = bankEditRows(snap);
   var known = bankKnownCategories(snap);
   var inUse = bankCategoriesInUse(rows, known);
   var picked = bankResolveEditCat(inUse, known, opts.editCat);
@@ -1251,7 +1334,7 @@ function bankPaint(root) {
   st.month = sel.month;
   if (st.tab === "edits") {
     var known = bankKnownCategories(st.data);
-    st.editCat = bankResolveEditCat(bankCategoriesInUse(bankRecent(st.data), known), known, st.editCat);
+    st.editCat = bankResolveEditCat(bankCategoriesInUse(bankEditRows(st.data), known), known, st.editCat);
   }
   root.innerHTML = bankPageHtml(st.data, {
     tab: st.tab,
@@ -1452,7 +1535,7 @@ function bankSaveCategory(root, key, category) {
   var next = category == null ? "" : String(category).trim();
   if (!next) return Promise.resolve();
   var same = false;
-  bankRecent(root._bank.data).forEach(function (r) {
+  bankEditRows(root._bank.data).forEach(function (r) {
     if (r.key === key && r.category === next) same = true;
   });
   if (same) return Promise.resolve();
