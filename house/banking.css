@@ -174,6 +174,8 @@ body.bank-page > header .clock {
 .bank-pie-mid span {
   color: var(--ink-soft);
   font-size: 11px;
+  line-height: 1.15;
+  max-width: 100%;
 }
 
 .bank-rank {
@@ -376,16 +378,49 @@ body.bank-page > header .clock {
   min-width: 0;
 }
 
-.bank-days {
-  display: grid;
-  grid-template-columns: repeat(31, minmax(26px, 1fr));
+.bank-cal-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.bank-cal-grid {
+  display: flex;
+  flex-direction: column;
   gap: 3px;
-  overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.bank-cal-dow,
+.bank-cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  min-width: 0;
+}
+
+.bank-cal-dow span {
+  display: block;
+  min-width: 0;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.bank-cal-pad {
+  min-height: 22px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
 .bank-day {
   background: var(--row);
   border-radius: 4px;
+  min-width: 0;
   min-height: 48px;
   padding: 3px;
   font-size: 10px;
@@ -405,9 +440,13 @@ body.bank-page > header .clock {
 
 .bank-day .pay {
   display: block;
+  max-width: 100%;
   color: var(--brand-fg);
   font-style: normal;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bank-day span,
@@ -887,13 +926,21 @@ span.bank-chip {
   .bank-tile b {
     font-size: 16px;
   }
-  .bank-days {
-    display: flex;
-    overflow-x: auto;
-    padding-bottom: 4px;
+  .bank-cal-dow,
+  .bank-cal-week {
+    gap: 2px;
+  }
+  .bank-cal-dow span,
+  .bank-day,
+  .bank-day b,
+  .bank-day .pay,
+  .bank-day span,
+  .bank-day button {
+    font-size: 9px;
   }
   .bank-day {
-    flex: 0 0 44px;
+    min-height: 34px;
+    padding: 2px;
   }
   .bank-year {
     min-width: 520px;
@@ -901,6 +948,14 @@ span.bank-chip {
 }
 
 @media (max-width: 390px) {
+  .bank-cal-dow,
+  .bank-cal-week {
+    gap: 1px;
+  }
+  .bank-day {
+    min-height: 30px;
+    padding: 1px 2px;
+  }
   .bank-kpi,
   .bank-tiles {
     gap: 6px;
