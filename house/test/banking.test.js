@@ -62,6 +62,20 @@ function mount(ctx, data, opts) {
   return rootEl;
 }
 
+function categoryRead(url, init, categories) {
+  const method = init && init.method ? String(init.method).toUpperCase() : "GET";
+  if (String(url) !== "/data/banking/categories.json" || method !== "GET") return null;
+  const list = (categories || ["Household", "Gifts"]).slice();
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    type: "basic",
+    json: function () {
+      return Promise.resolve({ schema: "banking-custom-categories/v1", categories: list });
+    }
+  });
+}
+
 test("null money stays blank and a real zero is zero", function () {
   const ctx = boot();
   assert.equal(ctx.bankMoney(null), "\u2014");
@@ -331,7 +345,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip cw", function () {
+test("desk links Banking and banking assets are cache-busted at tip cx", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -341,7 +355,7 @@ test("desk links Banking and banking assets are cache-busted at tip cw", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cw/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cx/);
   assert.match(page, /\/house\/banking\.css\?v=20260904cu/);
   assert.match(page, /\/house\/house\.css\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
@@ -356,6 +370,7 @@ test("desk links Banking and banking assets are cache-busted at tip cw", functio
   assert.doesNotMatch(page, /banking\.css\?v=20260904ct/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cu/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cv/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904cw/);
   assert.doesNotMatch(page, /href="\.\.\//);
   assert.doesNotMatch(page, /src="\.\.\//);
   assert.match(page, /id="bankDesk"/);
@@ -460,6 +475,8 @@ test("category override posts to the feed and repaints without localStorage", as
   ctx.localStorage.setItem = function (k, v) { writes.push(k + "=" + v); };
   const calls = [];
   ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
     calls.push({ url: String(url), init: init });
     const body = JSON.parse(init.body);
     const overrides = Object.assign({}, fx.category_overrides || {});
@@ -556,7 +573,9 @@ test("override post refetches banking.json when the body has no map", async func
   const copy = JSON.parse(JSON.stringify(fx));
   const urls = [];
   let n = 0;
-  ctx.fetch = function (url) {
+  ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
     n += 1;
     urls.push(String(url));
     if (n === 1) {
@@ -675,6 +694,8 @@ test("selecting a bill posts its due day and a null amount stays pending", async
   ctx.localStorage.setItem = function (k, v) { writes.push(k + "=" + v); };
   const calls = [];
   ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
     calls.push({ url: String(url), init: init });
     const body = JSON.parse(init.body);
     return Promise.resolve({
@@ -1039,6 +1060,8 @@ test("edits can add a custom category and assign a merchant to it", async functi
   ctx.localStorage.setItem = function (k, v) { writes.push(k + "=" + v); };
   const calls = [];
   ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
     calls.push({ url: String(url), init: init });
     const body = JSON.parse(init.body);
     if (String(url) === "/data/banking/categories.json") {
@@ -1179,6 +1202,8 @@ test("a failed category add leaves the list unchanged", async function () {
 
 function categoryWrites(fx, calls) {
   return function (url, init) {
+    const cached = categoryRead(url, init, fx && fx.custom_categories);
+    if (cached) return cached;
     calls.push({ url: String(url), init: init });
     const body = JSON.parse(init.body);
     if (String(url) === "/data/banking/categories.json") {
@@ -1354,7 +1379,9 @@ test("canceling or leaving a row category blank does not post", async function (
   const ctx = boot();
   const fx = loadFixture();
   const calls = [];
-  ctx.fetch = function (url) {
+  ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
     calls.push(String(url));
     return Promise.reject(new Error("should not post"));
   };
@@ -1405,7 +1432,9 @@ test("a failed row category add does not assign the merchant", async function ()
   const ctx = boot();
   const fx = loadFixture();
   const calls = [];
-  ctx.fetch = function (url) {
+  ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
     calls.push(String(url));
     return Promise.resolve({ ok: false, status: 404, type: "basic" });
   };
@@ -1429,6 +1458,8 @@ test("a select reset still posts the category and assigns that row", async funct
   const calls = [];
   const key = "2026-10-05|acct-check|12.34|Corner Market";
   ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
     calls.push({ url: String(url), init: init || {} });
     const u = String(url);
     if (u === "/data/banking/categories.json") {
@@ -1505,6 +1536,8 @@ test("a failed row assign leaves the merchant on its old category", async functi
   const calls = [];
   const key = "2026-10-05|acct-check|12.34|Corner Market";
   ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
     calls.push({ url: String(url), init: init });
     if (String(url) === "/data/banking/categories.json") {
       const body = JSON.parse(init.body);
@@ -1578,6 +1611,8 @@ test("a new custom category shows in every edits select while it is still empty"
   async function addPets(mode) {
     const calls = [];
     ctx.fetch = function (url, init) {
+      const cached = categoryRead(url, init, fx.custom_categories);
+      if (cached) return cached;
       const u = String(url);
       calls.push({ url: u, init: init || {} });
       const body = init && init.body ? JSON.parse(init.body) : null;
@@ -1677,6 +1712,8 @@ test("moving the last merchant off a custom category removes it from both select
   const fx = loadFixture();
   const calls = [];
   ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, ["Household", "Gifts", "Solo"]);
+    if (cached) return cached;
     calls.push({ url: String(url), init: init || {} });
     const body = JSON.parse(init.body);
     if (String(url) === "/data/banking/categories.json") {
@@ -1764,7 +1801,24 @@ test("opening edits does not remove empty customs or a history-only override", a
   const calls = [];
   const ancientKey = "2020-01-02|acct-check|12.34|Ancient Shop";
   ctx.fetch = function (url, init) {
-    calls.push({ url: String(url), body: init && init.body ? JSON.parse(init.body) : null });
+    const method = init && init.method ? String(init.method).toUpperCase() : "GET";
+    calls.push({
+      url: String(url),
+      method: method,
+      body: init && init.body ? JSON.parse(init.body) : null
+    });
+    if (String(url) === "/data/banking/categories.json" && method === "GET") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () {
+          return Promise.resolve({
+            categories: ["Household", "Gifts", "Linger", "HistOnly", "Ghost"]
+          });
+        }
+      });
+    }
     return Promise.resolve({ ok: false, status: 500, type: "basic" });
   };
   const data = JSON.parse(JSON.stringify(fx));
@@ -1784,7 +1838,15 @@ test("opening edits does not remove empty customs or a history-only override", a
   });
   const el = mount(ctx, data, { tab: "edits", editCat: "Groceries" });
   await el._bank.prune;
-  assert.equal(calls.length, 0);
+  function assertReadsOnly() {
+    assert.ok(calls.length >= 1);
+    calls.forEach(function (c) {
+      assert.equal(c.url, "/data/banking/categories.json");
+      assert.equal(c.method, "GET");
+      assert.notEqual(c.body && c.body.remove, true);
+    });
+  }
+  assertReadsOnly();
   ["Linger", "HistOnly", "Ghost", "Household", "Gifts"].forEach(function (name) {
     assert.ok(el._bank.data.custom_categories.indexOf(name) >= 0, name);
     assertCategoryEverywhere(el.innerHTML, name, true);
@@ -1803,7 +1865,7 @@ test("opening edits does not remove empty customs or a history-only override", a
   ctx.bankActivate(el, "current");
   await ctx.bankActivate(el, "edits");
   await ctx.bankRefreshEmptyCustoms(el);
-  assert.equal(calls.length, 0);
+  assertReadsOnly();
   assert.ok(el._bank.data.custom_categories.indexOf("HistOnly") >= 0);
   assert.ok(el._bank.data.custom_categories.indexOf("Linger") >= 0);
   assertCategoryEverywhere(el.innerHTML, "HistOnly", true);
@@ -1823,7 +1885,7 @@ test("opening edits does not remove empty customs or a history-only override", a
   assert.deepEqual(JSON.parse(JSON.stringify(dropped)).sort(), ["Linger", "Vacant"]);
   assert.ok(el._bank.data.custom_categories.indexOf("HistOnly") >= 0);
   assert.ok(el._bank.data.custom_categories.indexOf("Ghost") >= 0);
-  assert.equal(calls.length, 0);
+  assertReadsOnly();
   assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
   assert.doesNotMatch(el.innerHTML, /Category did not save/);
   assert.doesNotMatch(el.innerHTML, /Nothing was changed/);
@@ -1860,6 +1922,8 @@ test("reassigning the last in-window merchant keeps a history-only override", as
     [windowKey]: "HistOnly"
   });
   ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, data.custom_categories);
+    if (cached) return cached;
     calls.push({ url: String(url), init: init || {} });
     const body = JSON.parse(init.body);
     if (String(url) === "/data/banking/categories.json") {
@@ -1922,6 +1986,8 @@ test("a failed category removal restores the label and shows an error", async fu
   async function failRemove(status) {
     const calls = [];
     ctx.fetch = function (url, init) {
+      const cached = categoryRead(url, init, ["Household", "Gifts", "Solo"]);
+      if (cached) return cached;
       calls.push({ url: String(url), init: init || {} });
       const body = JSON.parse(init.body);
       if (String(url) === "/data/banking/categories.json") {
@@ -1981,6 +2047,8 @@ test("a failed category removal restores the label and shows an error", async fu
   }
   for (const status of [404, 405, 401, 403, 302, 500]) await failRemove(status);
   ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, ["Household", "Gifts", "Solo"]);
+    if (cached) return cached;
     const body = JSON.parse(init.body);
     if (String(url) === "/data/banking/categories.json") return Promise.reject(new Error("offline"));
     const overrides = Object.assign({}, fx.category_overrides || {});
@@ -2018,4 +2086,153 @@ test("a failed category removal restores the label and shows an error", async fu
   assert.match(el.innerHTML, /Nothing was changed/);
   assert.ok(el._bank.data.custom_categories.indexOf("Solo") >= 0);
   assertCategoryEverywhere(el.innerHTML, "Solo", true);
+});
+
+test("custom_categories Pets and no txs shows in both edits dropdowns after mount", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  fx.custom_categories = ["Pets"];
+  fx.current.recent_tx = [];
+  fx.current.edits_tx = [];
+  fx.category_overrides = {};
+  fx.history.months.forEach(function (month) {
+    delete month.tx;
+    delete month.txs;
+    delete month.transactions;
+    delete month.history_tx;
+    delete month.recent_tx;
+  });
+  ctx.fetch = function () {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () { return Promise.resolve({ categories: [] }); }
+    });
+  };
+  const bare = mount(ctx, JSON.parse(JSON.stringify(fx)), { tab: "edits" });
+  await bare._bank.prune;
+  assert.equal(ctx.bankEditRows(bare._bank.data).length, 0);
+  assert.match(bare.innerHTML, /No transactions in this print/);
+  assert.match(bare.innerHTML, /<select data-bank-cat[^>]*>[\s\S]*value="Pets"/);
+  assert.deepEqual(JSON.parse(JSON.stringify(bare._bank.data.custom_categories)), ["Pets"]);
+
+  const withRow = JSON.parse(JSON.stringify(fx));
+  withRow.current.edits_tx = [{
+    date: "2026-10-05",
+    id: "acct-check",
+    desc: "Corner Market",
+    amount: 12.34,
+    flow: "outflow",
+    category: "Groceries",
+    tx_key: "2026-10-05|acct-check|12.34|Corner Market"
+  }];
+  const el = mount(ctx, withRow, { tab: "edits", editCat: "Groceries" });
+  await el._bank.prune;
+  assert.equal(ctx.bankEditRows(el._bank.data).some(function (row) { return row.category === "Pets"; }), false);
+  assertCategoryEverywhere(el.innerHTML, "Pets", true);
+  assert.deepEqual(JSON.parse(JSON.stringify(el._bank.data.custom_categories)), ["Pets"]);
+  const seat = { data: { custom_categories: ["Pets"] } };
+  ctx.bankAdoptSnapshot(seat, { custom_categories: [], current: { recent_tx: [] } });
+  assert.deepEqual(JSON.parse(JSON.stringify(seat.data.custom_categories)), ["Pets"]);
+});
+
+test("categories.json GET merges into both edits dropdowns", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  fx.custom_categories = [];
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    calls.push({ url: String(url), method: init && init.method ? String(init.method).toUpperCase() : "GET" });
+    assert.equal(String(url), "/data/banking/categories.json");
+    assert.equal(init.credentials, "include");
+    assert.equal(init.headers.Accept, "application/json");
+    assert.equal(init.cache, "no-store");
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () { return Promise.resolve({ categories: ["  Pets  ", "", "Pets", "   "] }); }
+    });
+  };
+  const el = mount(ctx, fx, { tab: "edits", editCat: "Groceries" });
+  assert.doesNotMatch(el.innerHTML, /value="Pets"/);
+  await el._bank.prune;
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, "GET");
+  assertCategoryEverywhere(el.innerHTML, "Pets", true);
+  assert.deepEqual(JSON.parse(JSON.stringify(el._bank.data.custom_categories)), ["Pets"]);
+  ctx.bankMergeCustomCategories(el._bank.data, []);
+  assert.deepEqual(JSON.parse(JSON.stringify(el._bank.data.custom_categories)), ["Pets"]);
+});
+
+test("an added category still shows after an empty body and a mock reload", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  let stored = ["Household", "Gifts"];
+  let liveGet = true;
+  ctx.fetch = function (url, init) {
+    const method = init && init.method ? String(init.method).toUpperCase() : "GET";
+    if (String(url) === "/data/banking/categories.json" && method === "GET") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () { return Promise.resolve({ categories: liveGet ? [] : stored.slice() }); }
+      });
+    }
+    if (String(url) === "/data/banking/categories.json" && method === "POST") {
+      const body = JSON.parse(init.body);
+      assert.equal(body.category, "Pets");
+      assert.equal(body.remove, undefined);
+      stored = stored.concat([body.category]);
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () { return Promise.resolve({}); }
+      });
+    }
+    if (String(url) === "/data/banking.json") {
+      const snap = JSON.parse(JSON.stringify(fx));
+      snap.custom_categories = [];
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () { return Promise.resolve(snap); }
+      });
+    }
+    return Promise.reject(new Error("unexpected " + url));
+  };
+  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { tab: "edits", editCat: "Groceries" });
+  await el._bank.prune;
+  const typed = addCategoryClick("Pets");
+  el.listeners.input(typed.input);
+  await el.listeners.click(typed.click);
+  assert.equal(el._bank.editCat, "Pets");
+  assert.match(el.innerHTML, /value="Pets" selected/);
+  await el.listeners.change({
+    target: {
+      value: "Groceries",
+      getAttribute: function () { return null; },
+      hasAttribute: function (name) { return name === "data-bank-cat"; }
+    }
+  });
+  assertCategoryEverywhere(el.innerHTML, "Pets", true);
+
+  liveGet = false;
+  ctx.location.hash = "#edits";
+  const reloaded = JSON.parse(JSON.stringify(fx));
+  reloaded.custom_categories = [];
+  const next = { innerHTML: "", addEventListener: function () {} };
+  await ctx.bankLoad(next, function () {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: function () { return Promise.resolve(reloaded); }
+    });
+  });
+  assertCategoryEverywhere(next.innerHTML, "Pets", true);
+  assert.deepEqual(JSON.parse(JSON.stringify(next._bank.data.custom_categories)), ["Household", "Gifts", "Pets"]);
 });
