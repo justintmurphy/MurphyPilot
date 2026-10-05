@@ -1,4 +1,4 @@
-/* tip dp — Banking page. Multi-bill days use a +N chip. Edits gear uses a charcoal menu shadow. */
+/* tip dr — Banking page. Current tape scrolls about ten rows. Bill, Optional, and Savings meters use go and stop. In and out use two other colors. */
 
 body.bank-page > header {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -206,8 +206,16 @@ body.bank-page > header .clock {
 .bank-bars,
 .bank-income,
 .bank-bills,
+.bank-io,
+.bank-caps-block,
 .bank-month-head {
   margin: 12px 0;
+}
+
+.bank-tab-hint {
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+  font-size: 12px;
 }
 
 .bank-spark-block h3,
@@ -218,6 +226,8 @@ body.bank-page > header .clock {
 .bank-bars h3,
 .bank-income h3,
 .bank-bills h3,
+.bank-io h3,
+.bank-caps-block h3,
 .bank-month-head h3 {
   margin: 0 0 8px;
   font-family: Georgia, "Times New Roman", Times, serif;
@@ -792,11 +802,21 @@ body.bank-page > header .clock {
   background: var(--ink);
 }
 
+.bank-tape-scroll {
+  max-height: 20.5rem; /* 10 rows at 2.05rem */
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
 .bank-tape {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+}
+
+.bank-tape tbody tr {
+  height: 2.05rem;
 }
 
 .bank-tape td {
@@ -1296,6 +1316,100 @@ span.bank-chip {
 
 .bank-mtd-track.over .fill {
   background: var(--stop);
+}
+
+.bank-cap-note {
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.bank-caps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.bank-cap-k {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.bank-cap-k span {
+  font-weight: 600;
+}
+
+.bank-cap-k b,
+.bank-cap-k i {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-cap-k i {
+  color: var(--ink-soft);
+  margin-left: auto;
+}
+
+.bank-cap-track {
+  height: 10px;
+  margin-top: 4px;
+  background: var(--row);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bank-cap.under .fill {
+  display: block;
+  height: 100%;
+  background: var(--go);
+}
+
+.bank-cap.over .fill {
+  display: block;
+  height: 100%;
+  background: var(--stop);
+}
+
+.bank-io-k {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-io-k span {
+  font-weight: 600;
+}
+
+.bank-io-track {
+  height: 10px;
+  margin: 4px 0 8px;
+  background: var(--row);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bank-io-fill {
+  display: block;
+  height: 100%;
+}
+
+.bank-io-in {
+  background: var(--brand-fg);
+}
+
+.bank-io-out {
+  background: var(--mix-c);
+}
+
+@media (min-width: 800px) {
+  .bank-caps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .bank-kind-pies {
