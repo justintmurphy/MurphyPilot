@@ -331,7 +331,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip cr", function () {
+test("desk links Banking and banking assets are cache-busted at tip cs", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -341,7 +341,7 @@ test("desk links Banking and banking assets are cache-busted at tip cr", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cr/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cs/);
   assert.match(page, /\/house\/banking\.css\?v=20260904cr/);
   assert.match(page, /\/house\/house\.css\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
@@ -349,6 +349,7 @@ test("desk links Banking and banking assets are cache-busted at tip cr", functio
   assert.doesNotMatch(page, /banking\.css\?v=20260904cp/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cq/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904cq/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904cr/);
   assert.doesNotMatch(page, /href="\.\.\//);
   assert.doesNotMatch(page, /src="\.\.\//);
   assert.match(page, /id="bankDesk"/);
@@ -916,6 +917,84 @@ test("known categories include custom labels and keep Other last", function () {
     assert.doesNotMatch(page, /data-bank-new-cat/);
     assert.doesNotMatch(page, /Add category/);
     assert.doesNotMatch(page, /Categories sync across your seats/);
+  });
+});
+
+function bankOptionValues(html) {
+  const values = [];
+  const re = /<option value="([^"]*)"/g;
+  let m;
+  while ((m = re.exec(html))) {
+    values.push(m[1]
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'"));
+  }
+  return values;
+}
+
+test("edits category picker and merchant assigns share one option list", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  fx.current.edits_tx = fx.current.edits_tx.concat([{
+    date: "2026-04-02",
+    id: "acct-check",
+    desc: "Old Stand",
+    amount: 12.34,
+    flow: "outflow",
+    category: "Archive",
+    tx_key: "2026-04-02|acct-check|12.34|Old Stand"
+  }]);
+  const known = ctx.bankKnownCategories(fx);
+  assert.ok(known.indexOf("Utilities/Bills") >= 0);
+  assert.ok(known.indexOf("Paycheck/Salary/Wages") >= 0);
+  assert.ok(known.indexOf("Household") >= 0);
+  assert.ok(known.indexOf("Gifts") >= 0);
+  assert.ok(known.indexOf("Archive") >= 0);
+  assert.equal(known.indexOf("Archive"), known.lastIndexOf("Archive"));
+  assert.equal(known[known.length - 1], "Other");
+  assert.ok(known.indexOf("Utilities/Bills") < known.indexOf("Household"));
+  assert.ok(known.indexOf("Household") < known.indexOf("Other"));
+
+  const edits = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Groceries" });
+  const pick = edits.match(/<select data-bank-cat[\s\S]*?<\/select>/);
+  assert.ok(pick);
+  const pickVals = bankOptionValues(pick[0]);
+  assert.deepEqual(pickVals, JSON.parse(JSON.stringify(known)));
+  const rows = edits.match(/<select class="bank-chip" data-bank-tx="[\s\S]*?<\/select>/g);
+  assert.ok(rows && rows.length > 1);
+  rows.forEach(function (row) {
+    assert.deepEqual(bankOptionValues(row), pickVals);
+  });
+  assert.match(edits, /Corner Market/);
+  assert.doesNotMatch(edits, /Old Stand/);
+  assert.doesNotMatch(edits, /City Fuel/);
+
+  const archive = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Archive" });
+  assert.match(archive, /Old Stand<\/span><span class="bank-edit-meta">2026-04-02/);
+  assert.doesNotMatch(archive, /Corner Market/);
+  const archivePick = archive.match(/<select data-bank-cat[\s\S]*?<\/select>/);
+  const archiveRows = archive.match(/<select class="bank-chip" data-bank-tx="[\s\S]*?<\/select>/g);
+  assert.ok(archivePick && archiveRows && archiveRows.length === 1);
+  assert.deepEqual(bankOptionValues(archivePick[0]), pickVals);
+  assert.deepEqual(bankOptionValues(archiveRows[0]), pickVals);
+  assert.match(archiveRows[0], /value="Archive" selected/);
+
+  const empty = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Utilities/Bills" });
+  assert.match(empty, /No items in this category/);
+  const emptyPick = empty.match(/<select data-bank-cat[\s\S]*?<\/select>/);
+  assert.ok(emptyPick);
+  assert.deepEqual(bankOptionValues(emptyPick[0]), pickVals);
+  assert.doesNotMatch(empty, /data-bank-tx/);
+
+  ["current", "historical", "budget"].forEach(function (tab) {
+    const page = ctx.bankPageHtml(fx, { tab: tab, now: "2026-10-05T18:00:00-04:00" });
+    assert.doesNotMatch(page, /data-bank-tx/);
+    assert.doesNotMatch(page, /data-bank-cat/);
+    assert.doesNotMatch(page, /data-bank-add-cat/);
+    assert.doesNotMatch(page, /Old Stand/);
   });
 });
 
