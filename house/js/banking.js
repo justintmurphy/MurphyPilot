@@ -1,9 +1,15 @@
-/* tip cn — House Banking.
-   Live numbers come only from same-origin GET /data/banking.json (OTP cookie).
-   A null amount stays blank. This file does not embed balances or last-4s. */
+/* tip co — House Banking.
+   Live numbers come only from GET /data/banking.json (OTP cookie).
+   Category edits POST to /data/banking/overrides.json.
+   Due days POST to /data/banking/dueday-overrides.json.
+   Both sync across seats. A null balance stays blank. A bill with no amount reads "amount pending".
+   This file does not embed balances or last-4s. */
 
 var BANK_STALE_MS = 36 * 60 * 60 * 1000;
 var BANK_STORE = "murphyHouseBanking";
+var BANK_DATA_URL = "/data/banking.json";
+var BANK_OVERRIDES_URL = "/data/banking/overrides.json";
+var BANK_DUEDAY_URL = "/data/banking/dueday-overrides.json";
 var BANK_COLORS = ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
 var BANK_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -112,7 +118,7 @@ function bankMonthLabel(ym) {
 
 function bankResolveTab(hash) {
   var h = String(hash || "").replace(/^#/, "");
-  if (h === "historical" || h === "budget" || h === "current") return h;
+  if (h === "historical" || h === "budget" || h === "current" || h === "edits") return h;
   return "current";
 }
 
@@ -136,8 +142,29 @@ function bankGateHtml(kind) {
   return '<section class="bank-gate" data-bank-gate="' + bankEsc(kind || "error") + '"><h2>' + title + "</h2><p>" + body + "</p></section>";
 }
 
-function bankFetchInit() {
-  return { credentials: "same-origin", cache: "no-store" };
+function bankFetchInit(extra) {
+  extra = extra || {};
+  var headers = { Accept: "application/json" };
+  var extraHeaders = extra.headers;
+  if (extraHeaders && typeof extraHeaders === "object") {
+    Object.keys(extraHeaders).forEach(function (k) { headers[k] = extraHeaders[k]; });
+  }
+  var init = {
+    credentials: "include",
+    cache: "no-store",
+    redirect: "manual",
+    headers: headers
+  };
+  if (extra.method) init.method = extra.method;
+  if (extra.body != null) init.body = extra.body;
+  return init;
+}
+
+function bankIsLockedResponse(res) {
+  if (!res) return false;
+  if (res.type === "opaqueredirect") return true;
+  var n = Number(res.status);
+  return n === 401 || n === 403;
 }
 
 function bankAccounts(snap) {
@@ -258,17 +285,83 @@ function bankSparkSeries(snap) {
   return out;
 }
 
+/* txKey is date|id|amount|desc. Null and undefined become empty strings. */
+function bankTxPart(v) {
+  if (v == null) return "";
+  return String(v);
+}
+
+function bankTxKey(raw) {
+  raw = raw || {};
+  return [bankTxPart(raw.date), bankTxPart(raw.id), bankTxPart(raw.amount), bankTxPart(raw.desc)].join("|");
+}
+
+function bankOverrideMap(snap) {
+  var o = snap && snap.category_overrides;
+  if (!o || typeof o !== "object" || Array.isArray(o)) return {};
+  return o;
+}
+
+function bankHasOverrides(snap) {
+  var o = bankOverrideMap(snap);
+  return Object.keys(o).some(function (k) {
+    return o[k] != null && String(o[k]).trim() !== "";
+  });
+}
+
+function bankTxCategory(raw, overrides) {
+  raw = raw || {};
+  var key = bankTxKey(raw);
+  if (overrides && Object.prototype.hasOwnProperty.call(overrides, key)) {
+    var v = overrides[key];
+    if (v != null && String(v).trim() !== "") return bankCatName(v);
+  }
+  return bankCatName(raw.category);
+}
+
+function bankKnownCategories(snap) {
+  var seen = {};
+  var order = [];
+  function add(name) {
+    var n = String(name == null ? "" : name).trim();
+    if (!n || seen[n]) return;
+    seen[n] = true;
+    order.push(n);
+  }
+  function addList(list) {
+    (list || []).forEach(function (c) {
+      if (!c) return;
+      if (typeof c === "string") add(c);
+      else add(c.name || c.category);
+    });
+  }
+  var cur = snap && snap.current;
+  if (cur) addList(cur.last_closed_month_categories);
+  bankMonths(snap).forEach(function (m) { addList(bankCatList(m)); });
+  var planned = snap && snap.budget && snap.budget.planned_by_category;
+  if (planned && typeof planned === "object") Object.keys(planned).forEach(add);
+  var txs = cur && cur.recent_tx;
+  if (Array.isArray(txs)) txs.forEach(function (r) { if (r) add(r.category); });
+  var ov = bankOverrideMap(snap);
+  Object.keys(ov).forEach(function (k) { add(ov[k]); });
+  if (seen.Other) order = order.filter(function (n) { return n !== "Other"; });
+  order.push("Other");
+  return order;
+}
+
 function bankRecent(snap) {
   var rows = snap && snap.current && snap.current.recent_tx;
   if (!Array.isArray(rows) || !rows.length) return [];
+  var overrides = bankOverrideMap(snap);
   return rows.map(function (raw, i) {
     raw = raw || {};
     return {
+      key: bankTxKey(raw),
       date: raw.date || "",
       desc: raw.desc == null ? "" : String(raw.desc),
       amount: bankNum(raw.amount),
       flow: raw.flow || "",
-      category: bankCatName(raw.category),
+      category: bankTxCategory(raw, overrides),
       i: i
     };
   }).sort(function (a, b) {
@@ -277,10 +370,74 @@ function bankRecent(snap) {
   }).slice(0, 40);
 }
 
-function bankNormalizeBills(budget) {
+/* Bills only. Do not run this on transaction merchants (gasoline, City Fuel). */
+function bankFixedBillDay(name) {
+  var s = String(name || "");
+  if (/mortgage/i.test(s)) return 1;
+  if (/t[-\s]?mobile/i.test(s)) return 28;
+  if (/\bcar[-\s]?payment\b/i.test(s) || /\bauto[-\s]?loan\b/i.test(s) ||
+      /\bauto[-\s]?pay(?:ment)?\b/i.test(s) || /\bvehicle[-\s]?loan\b/i.test(s)) return 15;
+  if (/electric/i.test(s) || /\bpower\b/i.test(s) || /duquesne\s+light/i.test(s)) return 15;
+  if (/gas\s+bills?\b/i.test(s) || /natural\s+gas/i.test(s) || /columbia\s+gas/i.test(s) || /gas\s*\(\s*utility\s*\)/i.test(s)) return 15;
+  return null;
+}
+
+function bankBillKey(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function bankDueMap(snap) {
+  var o = snap && snap.dueday_overrides;
+  if ((!o || typeof o !== "object" || Array.isArray(o)) && snap && snap.budget) o = snap.budget.dueday_overrides;
+  if (!o || typeof o !== "object" || Array.isArray(o)) return undefined;
+  return o;
+}
+
+function bankHasDueMap(snap) {
+  if (!snap || typeof snap !== "object") return false;
+  if (Object.prototype.hasOwnProperty.call(snap, "dueday_overrides")) {
+    return !!(snap.dueday_overrides && typeof snap.dueday_overrides === "object" && !Array.isArray(snap.dueday_overrides));
+  }
+  var budget = snap.budget;
+  return !!(budget && Object.prototype.hasOwnProperty.call(budget, "dueday_overrides") && budget.dueday_overrides &&
+    typeof budget.dueday_overrides === "object" && !Array.isArray(budget.dueday_overrides));
+}
+
+function bankBillNameMatch(name, match) {
+  var n = String(name || "").trim().toLowerCase();
+  var m = String(match || "").trim().toLowerCase();
+  if (!n || !m) return false;
+  if (n === m) return true;
+  if (n.indexOf(m) === 0) {
+    var next = n.charAt(m.length);
+    if (!next || next === " " || next === "-" || next === "/") return true;
+  }
+  if (m.length >= 5 && n.indexOf(m) >= 0) return true;
+  return false;
+}
+
+function bankBillOverrideDay(budget, row) {
+  var list = budget && budget.overrides;
+  if (!Array.isArray(list)) return null;
+  var found = null;
+  list.forEach(function (o) {
+    if (!o || typeof o !== "object") return;
+    var field = String(o.field || "");
+    if (field !== "typical_day" && field !== "due_day") return;
+    var match = o.match != null ? o.match : (o.name || o.label || "");
+    if (!bankBillNameMatch(row && row.name, match)) return;
+    var day = bankDay(o.value);
+    if (day == null) return;
+    found = day;
+  });
+  return found;
+}
+
+function bankNormalizeBills(budget, dueMap) {
   budget = budget || {};
   var byName = {};
   var order = [];
+  var manualDays = {};
   function add(raw, fromMonthly) {
     if (!raw || typeof raw !== "object") return;
     var name = String((fromMonthly ? (raw.label || raw.name) : (raw.name || raw.label)) || "").trim() || "Other";
@@ -291,7 +448,7 @@ function bankNormalizeBills(budget) {
     var amount = bankNum(raw.amount);
     var row = byName[name];
     if (!row) {
-      byName[name] = {
+      row = {
         name: name,
         amount: amount,
         typical_day: day,
@@ -299,13 +456,20 @@ function bankNormalizeBills(budget) {
         category: raw.category || "",
         source: raw.source || (fromMonthly ? "bills_monthly" : "bills")
       };
+      byName[name] = row;
       order.push(name);
-      return;
+    } else {
+      if (row.amount == null && amount != null) row.amount = amount;
+      if (row.typical_day == null && day != null) row.typical_day = day;
+      if (!row.cadence && raw.cadence) row.cadence = raw.cadence;
+      if (!row.category && raw.category) row.category = raw.category;
+      if (raw.source === "manual") row.source = "manual";
     }
-    if (row.amount == null && amount != null) row.amount = amount;
-    if (row.typical_day == null && day != null) row.typical_day = day;
-    if (!row.cadence && raw.cadence) row.cadence = raw.cadence;
-    if (!row.category && raw.category) row.category = raw.category;
+    if (raw.source === "manual" && day != null) {
+      row.source = "manual";
+      row.typical_day = day;
+      manualDays[name] = day;
+    }
   }
   var primary = Array.isArray(budget.bills) ? budget.bills : [];
   var alias = Array.isArray(budget.bills_monthly) ? budget.bills_monthly : [];
@@ -315,7 +479,45 @@ function bankNormalizeBills(budget) {
   } else {
     alias.forEach(function (raw) { add(raw, true); });
   }
-  return order.map(function (name) { return byName[name]; });
+  var mapGiven = arguments.length > 1 && dueMap && typeof dueMap === "object" && !Array.isArray(dueMap);
+  return order.map(function (name) {
+    var row = byName[name];
+    var feedSource = row.source;
+    var feedDay = row.typical_day;
+    var forgeDay = bankBillOverrideDay(budget, row);
+    var baseDay = null;
+    var baseSource = feedSource === "user" ? "bills" : (feedSource || "bills");
+    if (forgeDay != null) {
+      baseDay = forgeDay;
+      baseSource = "manual";
+    } else if (Object.prototype.hasOwnProperty.call(manualDays, name)) {
+      baseDay = manualDays[name];
+      baseSource = "manual";
+    } else {
+      var fixed = bankFixedBillDay(row.name);
+      if (fixed != null) {
+        baseDay = fixed;
+        baseSource = "bills";
+      } else if (feedSource !== "user") {
+        baseDay = feedDay;
+      }
+    }
+    function put(day, source) {
+      row.typical_day = day;
+      row.due_day = day;
+      row.source = source;
+      return row;
+    }
+    var key = bankBillKey(row.name);
+    if (mapGiven && Object.prototype.hasOwnProperty.call(dueMap, key)) {
+      var chosen = bankDay(dueMap[key]);
+      if (chosen != null) return put(chosen, "user");
+      return put(baseDay, baseSource);
+    }
+    if (mapGiven) return put(baseDay, baseSource);
+    if (feedSource === "user" && bankDay(feedDay) != null) return put(bankDay(feedDay), "user");
+    return put(baseDay, baseSource);
+  });
 }
 
 function bankNormalizeIncome(budget) {
@@ -697,7 +899,7 @@ function bankEndHtml(chips, caption) {
 }
 
 function bankTabsHtml(tab) {
-  var items = [["historical", "Historical"], ["current", "Current"], ["budget", "Budget"]];
+  var items = [["historical", "Historical"], ["current", "Current"], ["budget", "Budget"], ["edits", "Edits"]];
   return '<div class="bank-tabs" role="tablist" aria-label="Banking">' + items.map(function (it) {
     var on = it[0] === tab;
     return '<button type="button" role="tab" data-bank-tab="' + it[0] + '" class="' + (on ? "on" : "") + '" aria-selected="' +
@@ -705,14 +907,25 @@ function bankTabsHtml(tab) {
   }).join("") + "</div>";
 }
 
+function bankChipOptions(categories, current) {
+  var list = (categories || []).slice();
+  if (current && list.indexOf(current) < 0) list.unshift(current);
+  return list.map(function (name) {
+    var sel = name === current ? " selected" : "";
+    return '<option value="' + bankEsc(name) + '"' + sel + ">" + bankEsc(name) + "</option>";
+  }).join("");
+}
+
 function bankTapeHtml(rows) {
   if (!rows || !rows.length) return "";
-  return '<section class="bank-tape-block"><h3>Recent</h3><table class="bank-tape"><tbody>' + rows.map(function (r) {
-    var flow = r.flow ? '<i class="bank-flow">' + bankEsc(r.flow) + "</i>" : "";
-    var desc = r.desc ? '<span class="bank-desc">' + bankEsc(r.desc) + "</span>" : "";
-    return "<tr><td>" + bankEsc(r.date) + "</td><td>" + desc + flow +
-      '<span class="bank-chip">' + bankEsc(r.category) + "</span></td><td>" + bankMoney(r.amount) + "</td></tr>";
-  }).join("") + "</tbody></table></section>";
+  return '<section class="bank-tape-block"><h3>Recent</h3><table class="bank-tape"><tbody>' +
+    rows.map(function (r) {
+      var label = r.desc ? r.desc : (r.category || "Other");
+      var flow = r.flow ? '<i class="bank-flow">' + bankEsc(r.flow) + "</i>" : "";
+      return "<tr><td>" + bankEsc(r.date) + '</td><td><div class="bank-tx-main"><span class="bank-merchant">' +
+        bankEsc(label) + '</span><span class="bank-chip">' + bankEsc(r.category) + "</span>" + flow +
+        "</div></td><td>" + bankMoney(r.amount) + "</td></tr>";
+    }).join("") + "</tbody></table></section>";
 }
 
 function bankTilesHtml(tiles, total) {
@@ -738,6 +951,7 @@ function bankCurrentHtml(snap, opts) {
   var head = '<p class="bank-asof">' + (asof ? "As of " + bankEsc(asof) : "As of \u2014") +
     (stale ? ' <span class="bank-stale">Stale \u00b7 older than 36h</span>' : "") + "</p>";
   var cats = bankClosedCats(snap);
+  /* Last-closed-month pie stays on Forge totals. Overrides retitle recent_tx until the feed republishes. */
   return head + bankTilesHtml(tiles, total) + bankSparkHtml(bankSparkSeries(snap)) +
     bankPieBlock(cats, "Last closed month") + bankTapeHtml(bankRecent(snap));
 }
@@ -860,36 +1074,36 @@ function bankCoversHtml(groups) {
   }).join("") + "</ul>";
 }
 
+function bankBillAmount(v) {
+  if (bankNum(v) == null) return "amount pending";
+  return bankMoney(v);
+}
+
+function bankDayOptions(current) {
+  var html = '<option value=""' + (current == null ? " selected" : "") + ">Clear</option>";
+  var d;
+  for (d = 1; d <= 31; d++) {
+    html += '<option value="' + d + '"' + (current === d ? " selected" : "") + ">" + d + "</option>";
+  }
+  return html;
+}
+
 function bankBillListHtml(bills) {
   if (!bills.length) return "";
   return '<ul class="bank-bill-list">' + bills.map(function (b) {
     var day = b.typical_day == null ? "\u2014" : String(b.typical_day);
-    return "<li><span>" + bankEsc(b.name) + "</span><b>" + bankMoney(b.amount) + "</b><i>day " + day + "</i></li>";
+    var pending = bankNum(b.amount) == null;
+    return "<li><span>" + bankEsc(b.name) + "</span><b" + (pending ? ' class="bank-pending"' : "") + ">" +
+      bankEsc(bankBillAmount(b.amount)) + "</b><i>day " + day + "</i></li>";
   }).join("") + "</ul>";
-}
-
-function bankEditsHtml(bills, incomes, edits, open) {
-  if (!bills.length && !incomes.length) return "";
-  var billEd = (edits && edits.bills) || {};
-  var incEd = (edits && edits.income) || {};
-  function field(kind, name, stored) {
-    var val = Object.prototype.hasOwnProperty.call(stored, name) && bankDay(stored[name]) != null ? String(bankDay(stored[name])) : "";
-    return '<label>' + bankEsc(name) + ' <input type="number" min="1" max="31" inputmode="numeric" placeholder="day" data-bank-edit="' +
-      kind + '" data-bank-name="' + bankEsc(name) + '" value="' + bankEsc(val) + '"></label>';
-  }
-  var fields = incomes.map(function (inc) { return field("income", inc.label, incEd); }).join("") +
-    bills.map(function (b) { return field("bill", b.name, billEd); }).join("");
-  return '<details class="bank-edits"' + (open ? " open" : "") + "><summary>Due days on this browser</summary>" +
-    '<p class="hint">Saved only in this browser. A blank day leaves the feed value, or blank when the feed has none.</p>' +
-    '<div class="bank-edit-grid">' + fields + "</div></details>";
 }
 
 function bankBudgetHtml(snap, opts) {
   opts = opts || {};
   var budget = (snap && snap.budget) || {};
-  var bills = bankNormalizeBills(budget);
+  var dueArg = bankHasDueMap(snap) ? bankDueMap(snap) : undefined;
+  var bills = bankNormalizeBills(budget, dueArg);
   var incomes = bankNormalizeIncome(budget);
-  bankApplyEdits(bills, incomes, opts.edits);
   var insights = bankNormalizeInsights(budget);
   var cells = bankDayCells(bills, incomes, Array.isArray(budget.calendar) ? budget.calendar : []);
   var hasDays = bankHasDueDays(cells);
@@ -904,8 +1118,49 @@ function bankBudgetHtml(snap, opts) {
     '</section><section class="bank-cal"><h3>Bill calendar</h3>' + bankCalendarHtml(cells, hasDays) +
     bankCoversHtml(bankCheckGroups(bills, incomes)) + "</section></div>" +
     bankBillListHtml(bills) +
-    '<section class="bank-bars"><h3>' + bankEsc(bankMtdCaption(snap && snap.asof)) + "</h3>" + bankBarsHtml(bars) + "</section>" +
-    bankEditsHtml(bills, incomes, opts.edits, !!opts.editsOpen);
+    '<section class="bank-bars"><h3>' + bankEsc(bankMtdCaption(snap && snap.asof)) + "</h3>" + bankBarsHtml(bars) + "</section>";
+}
+
+function bankHasDueNote(snap) {
+  var map = bankDueMap(snap);
+  if (!map) return false;
+  return Object.keys(map).some(function (k) { return bankDay(map[k]) != null; });
+}
+
+function bankEditTxHtml(rows, categories) {
+  if (!rows || !rows.length) return '<p class="bank-empty">No recent transactions.</p>';
+  return '<ul class="bank-edit-list">' + rows.map(function (r) {
+    var label = r.desc ? r.desc : (r.category || "Other");
+    return "<li><span class=\"bank-merchant\">" + bankEsc(label) + '</span><span class="bank-edit-side"><select class="bank-chip" data-bank-tx="' +
+      bankEsc(r.key) + '" aria-label="Category for ' + bankEsc(label) + '">' + bankChipOptions(categories, r.category) +
+      "</select><b>" + bankMoney(r.amount) + "</b></span></li>";
+  }).join("") + "</ul>";
+}
+
+function bankEditBillHtml(bills) {
+  if (!bills || !bills.length) return '<p class="bank-empty">No bills in this print.</p>';
+  return '<ul class="bank-edit-list">' + bills.map(function (b) {
+    var key = bankBillKey(b.name);
+    var pending = bankNum(b.amount) == null;
+    return "<li><span class=\"bank-merchant\">" + bankEsc(b.name) + '</span><span class="bank-edit-side"><select class="bank-chip" data-bank-due="' +
+      bankEsc(key) + '" aria-label="Due day for ' + bankEsc(b.name) + '">' + bankDayOptions(b.typical_day) +
+      '</select><b' + (pending ? ' class="bank-pending"' : "") + ">" + bankEsc(bankBillAmount(b.amount)) + "</b></span></li>";
+  }).join("") + "</ul>";
+}
+
+function bankEditsPanelHtml(snap, opts) {
+  opts = opts || {};
+  var budget = (snap && snap.budget) || {};
+  var dueArg = bankHasDueMap(snap) ? bankDueMap(snap) : undefined;
+  var bills = bankNormalizeBills(budget, dueArg);
+  var rows = bankRecent(snap);
+  var catNote = bankHasOverrides(snap) ? '<p class="hint bank-sync">Category edits sync across your seats</p>' : "";
+  var dueNote = bankHasDueNote(snap) ? '<p class="hint bank-sync">Due day edits sync across your seats</p>' : "";
+  var catErr = opts.overrideError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.overrideError) + "</p>" : "";
+  var dueErr = opts.dueError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.dueError) + "</p>" : "";
+  return '<section class="bank-edit-block"><h3>Transactions</h3>' + catNote + catErr +
+    bankEditTxHtml(rows, bankKnownCategories(snap)) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
+    dueNote + dueErr + bankEditBillHtml(bills) + "</section>";
 }
 
 function bankPageHtml(snap, opts) {
@@ -914,6 +1169,7 @@ function bankPageHtml(snap, opts) {
   var panel = "";
   if (tab === "historical") panel = bankHistHtml(snap || {}, opts);
   else if (tab === "budget") panel = bankBudgetHtml(snap || {}, opts);
+  else if (tab === "edits") panel = bankEditsPanelHtml(snap || {}, opts);
   else panel = bankCurrentHtml(snap || {}, opts);
   return bankTabsHtml(tab) + '<div class="bank-panel" data-panel="' + tab + '" role="tabpanel">' + panel +
     '<p class="hint bank-src">From the one-time passcode feed. Blank means the print omitted that figure.</p></div>';
@@ -950,7 +1206,10 @@ function bankPaint(root) {
     month: st.month,
     now: st.now,
     edits: st.edits || bankReadStore(),
-    editsOpen: !!st.editsOpen
+    editsOpen: !!st.editsOpen,
+    overrideError: st.overrideError || "",
+    dueError: st.dueError || "",
+    billKey: st.billKey || ""
   });
 }
 
@@ -993,6 +1252,176 @@ function bankSaveEdit(root, input) {
   bankPaint(root);
 }
 
+function bankReadJson(res) {
+  if (!res || typeof res.json !== "function") return Promise.resolve(null);
+  try {
+    return Promise.resolve(res.json()).then(function (data) { return data; }, function () { return null; });
+  } catch (e) {
+    return Promise.resolve(null);
+  }
+}
+
+function bankRememberOverride(snap, key, category) {
+  var map = {};
+  var prev = bankOverrideMap(snap);
+  Object.keys(prev).forEach(function (k) { map[k] = prev[k]; });
+  var cat = category == null ? "" : String(category).trim();
+  if (!cat) delete map[key];
+  else map[key] = cat;
+  snap.category_overrides = map;
+}
+
+function bankRefetch(root) {
+  return fetch(BANK_DATA_URL, bankFetchInit()).then(function (res) {
+    if (!res || res.ok !== true || res.type === "opaqueredirect") return false;
+    return bankReadJson(res).then(function (data) {
+      if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+      root._bank.data = data;
+      root._bank.overrideError = "";
+      root._bank.dueError = "";
+      bankPaint(root);
+      return true;
+    });
+  }).catch(function () { return false; });
+}
+
+function bankTakeOverrideResponse(root, payload, key, category) {
+  var st = root._bank;
+  if (payload && payload.current && typeof payload.current === "object" && !Array.isArray(payload.current)) {
+    st.data = payload;
+    st.overrideError = "";
+    bankPaint(root);
+    return Promise.resolve();
+  }
+  if (payload && payload.overrides && typeof payload.overrides === "object" && !Array.isArray(payload.overrides)) {
+    if (!st.data || typeof st.data !== "object") st.data = {};
+    st.data.category_overrides = payload.overrides;
+    st.overrideError = "";
+    bankPaint(root);
+    return Promise.resolve();
+  }
+  return bankRefetch(root).then(function (ok) {
+    if (ok) return;
+    if (key && st.data) bankRememberOverride(st.data, key, category);
+    st.overrideError = "";
+    bankPaint(root);
+  });
+}
+
+function bankOverrideErrorText(res) {
+  if (bankIsLockedResponse(res)) return "Sign in again to save a category edit.";
+  var status = res && Number(res.status);
+  if (status === 404 || status === 405) return "Category edits are not on the feed yet. Nothing was saved.";
+  return "Category edit did not save. Nothing was changed.";
+}
+
+function bankDueErrorText(res) {
+  if (bankIsLockedResponse(res)) return "Sign in again to save a due day.";
+  var status = res && Number(res.status);
+  if (status === 404 || status === 405) return "Due day edits are not on the feed yet. Nothing was saved.";
+  return "Due day edit did not save. Nothing was changed.";
+}
+
+function bankTakeDueResponse(root, payload, key, day) {
+  var st = root._bank;
+  if (payload && payload.schema === "banking-dueday-overrides/v1" && payload.overrides &&
+      typeof payload.overrides === "object" && !Array.isArray(payload.overrides)) {
+    if (!st.data || typeof st.data !== "object") st.data = {};
+    st.data.dueday_overrides = payload.overrides;
+    st.dueError = "";
+    st.billKey = key || st.billKey || "";
+    bankPaint(root);
+    return Promise.resolve();
+  }
+  if (payload && payload.current && typeof payload.current === "object" && !Array.isArray(payload.current)) {
+    st.data = payload;
+    st.dueError = "";
+    st.billKey = key || st.billKey || "";
+    bankPaint(root);
+    return Promise.resolve();
+  }
+  return bankRefetch(root).then(function (ok) {
+    if (ok) {
+      if (key) st.billKey = key;
+      return;
+    }
+    if (!st.data || typeof st.data !== "object") st.data = {};
+    var map = {};
+    var prev = st.data.dueday_overrides;
+    if (prev && typeof prev === "object" && !Array.isArray(prev)) {
+      Object.keys(prev).forEach(function (k) { map[k] = prev[k]; });
+    }
+    map[key] = day;
+    st.data.dueday_overrides = map;
+    st.dueError = "";
+    st.billKey = key || "";
+    bankPaint(root);
+  });
+}
+
+function bankSaveDueDay(root, key, day) {
+  if (!root || !root._bank || !key) return Promise.resolve();
+  var next = day == null ? null : bankDay(day);
+  if (day != null && next == null) return Promise.resolve();
+  var dueArg = bankHasDueMap(root._bank.data) ? bankDueMap(root._bank.data) : undefined;
+  var bills = bankNormalizeBills((root._bank.data && root._bank.data.budget) || {}, dueArg);
+  var same = false;
+  bills.forEach(function (b) {
+    if (bankBillKey(b.name) !== key) return;
+    if (next == null) same = b.typical_day == null;
+    else same = b.typical_day === next;
+  });
+  if (same) return Promise.resolve();
+  root._bank.dueError = "";
+  root._bank.billKey = key;
+  return fetch(BANK_DUEDAY_URL, bankFetchInit({
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key: key, day: next })
+  })).then(function (res) {
+    if (!res || res.ok !== true || res.type === "opaqueredirect") {
+      root._bank.dueError = bankDueErrorText(res);
+      bankPaint(root);
+      return;
+    }
+    return bankReadJson(res).then(function (payload) {
+      return bankTakeDueResponse(root, payload, key, next);
+    });
+  }).catch(function () {
+    root._bank.dueError = "Due day edit did not save. Nothing was changed.";
+    bankPaint(root);
+  });
+}
+
+function bankSaveCategory(root, key, category) {
+  if (!root || !root._bank || !key) return Promise.resolve();
+  var next = category == null ? "" : String(category).trim();
+  if (!next) return Promise.resolve();
+  var same = false;
+  bankRecent(root._bank.data).forEach(function (r) {
+    if (r.key === key && r.category === next) same = true;
+  });
+  if (same) return Promise.resolve();
+  root._bank.overrideError = "";
+  return fetch(BANK_OVERRIDES_URL, bankFetchInit({
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key: key, category: next })
+  })).then(function (res) {
+    if (!res || res.ok !== true || res.type === "opaqueredirect") {
+      root._bank.overrideError = bankOverrideErrorText(res);
+      bankPaint(root);
+      return;
+    }
+    return bankReadJson(res).then(function (payload) {
+      return bankTakeOverrideResponse(root, payload, key, next);
+    });
+  }).catch(function () {
+    root._bank.overrideError = "Category edit did not save. Nothing was changed.";
+    bankPaint(root);
+  });
+}
+
 function bankMount(root, data, opts) {
   if (!root) return;
   opts = opts || {};
@@ -1004,7 +1433,10 @@ function bankMount(root, data, opts) {
     month: opts.month || null,
     now: opts.now,
     edits: opts.edits || bankReadStore(),
-    editsOpen: !!opts.editsOpen
+    editsOpen: !!opts.editsOpen,
+    overrideError: opts.overrideError || "",
+    dueError: opts.dueError || "",
+    billKey: opts.billKey || ""
   };
   bankPaint(root);
   if (root._bankBound || !root.addEventListener) return;
@@ -1023,6 +1455,15 @@ function bankMount(root, data, opts) {
   root.addEventListener("change", function (e) {
     var el = e && e.target;
     if (!el || !el.getAttribute) return;
+    if (el.getAttribute("data-bank-due")) {
+      var rawDay = el.value;
+      var dueDay = rawDay === "" || rawDay == null ? null : bankDay(rawDay);
+      if (rawDay !== "" && rawDay != null && dueDay == null) return;
+      return bankSaveDueDay(root, el.getAttribute("data-bank-due"), dueDay);
+    }
+    if (el.getAttribute("data-bank-tx")) {
+      return bankSaveCategory(root, el.getAttribute("data-bank-tx"), el.value);
+    }
     if (el.hasAttribute && el.hasAttribute("data-bank-year")) {
       root._bank.year = el.value;
       root._bank.month = "year";
@@ -1030,7 +1471,7 @@ function bankMount(root, data, opts) {
       bankPaint(root);
       return;
     }
-    if (el.getAttribute("data-bank-edit")) bankSaveEdit(root, el);
+    if (el.getAttribute("data-bank-edit")) return;
   });
   root.addEventListener("toggle", function (e) {
     var el = e && e.target;
@@ -1041,11 +1482,12 @@ function bankMount(root, data, opts) {
 
 function bankLoad(root, fetcher) {
   var run = fetcher || function () {
-    return fetch("/data/banking.json", bankFetchInit());
+    return fetch(BANK_DATA_URL, bankFetchInit());
   };
   return Promise.resolve().then(run).then(function (res) {
     if (!res || res.ok !== true) {
-      root.innerHTML = bankGateHtml(bankClassifyStatus(res && res.status));
+      var kind = bankIsLockedResponse(res) ? "gate" : bankClassifyStatus(res && res.status);
+      root.innerHTML = bankGateHtml(kind);
       return;
     }
     return Promise.resolve(res.json()).then(function (data) {
