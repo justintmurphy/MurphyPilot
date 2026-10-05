@@ -1,4 +1,4 @@
-/* tip cz — House Banking.
+/* tip da — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
@@ -6,7 +6,7 @@
    A failed categories read keeps names already on the banking snap and does not post a removal.
    An empty categories list does not wipe a custom that any override still names.
    A just-added custom stays in every Edits dropdown while it is still empty (draft or keptEmpty).
-   Entering or refreshing Edits drops a custom with no merchants and no override, then posts that removal.
+   Entering or refreshing Edits paints the lists, then reloads categories.json. It does not post a removal.
    The last-merchant reassign path still posts a removal when that custom is unused everywhere.
    A custom that is any category_overrides value stays, including history_tx outside the edits window.
    Feed categories stay when they were never in custom_categories.
@@ -1781,8 +1781,7 @@ function bankDraftKeep(st) {
   return keep;
 }
 
-/* Local dropdown filter. Drops customs with count 0, no override, and no draft or keptEmpty hold.
-   Feed categories are not in this list. This does not post; the caller posts. */
+/* Local dropdown filter only. Opening or refreshing Edits does not call this, and it does not post. */
 function bankTakeEmptyCustoms(st) {
   if (!st || !st.data) return [];
   var keep = bankDraftKeep(st);
@@ -1930,24 +1929,12 @@ function bankRehydrateCategories(root, opts) {
   }).catch(function () { return false; });
 }
 
-/* Entering or refreshing Edits paints, reloads categories.json, then drops unused empty customs.
-   A failed categories read keeps the snap names and does not post. Draft and keptEmpty names stay. */
+/* Entering or refreshing Edits paints the lists, then reloads categories.json. It does not post a removal. */
 function bankRefreshEmptyCustoms(root) {
   var st = root && root._bank;
   if (!st || st.tab !== "edits") return Promise.resolve();
   bankPaint(root);
-  var seen = st.catGen || 0;
-  var job = bankRehydrateCategories(root).then(function (ok) {
-    if (!root._bank || root._bank.tab !== "edits") return;
-    if ((root._bank.catGen || 0) !== seen + 1) return;
-    if (!ok) return;
-    var removed = bankTakeEmptyCustoms(root._bank);
-    if (!removed.length) return;
-    bankPaint(root);
-    return bankPostCategoryRemoval(root, removed);
-  });
-  st.prune = job;
-  return job;
+  return bankRehydrateCategories(root);
 }
 
 function bankTakeCategoryResponse(root, payload, name, hold) {

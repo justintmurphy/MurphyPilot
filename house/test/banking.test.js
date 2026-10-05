@@ -345,7 +345,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip cz", function () {
+test("desk links Banking and banking assets are cache-busted at tip da", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -355,8 +355,8 @@ test("desk links Banking and banking assets are cache-busted at tip cz", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904cz/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904cz/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904da/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904da/);
   assert.match(page, /\/house\/house\.css\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cp/);
@@ -376,6 +376,8 @@ test("desk links Banking and banking assets are cache-busted at tip cz", functio
   assert.doesNotMatch(page, /banking\.css\?v=20260904cx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904cy/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904cz/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904cz/);
   assert.doesNotMatch(page, /href="\.\.\//);
   assert.doesNotMatch(page, /src="\.\.\//);
   assert.match(page, /id="bankDesk"/);
@@ -1859,7 +1861,7 @@ test("moving the last merchant off a custom category removes it from both select
   });
 });
 
-test("opening edits drops an unused empty custom and keeps a history-only override", async function () {
+test("opening edits keeps an unused empty custom and a history-only override", async function () {
   const ctx = boot();
   const fx = loadFixture();
   const calls = [];
@@ -1917,13 +1919,12 @@ test("opening edits drops an unused empty custom and keeps a history-only overri
   }
   assert.equal(calls[0].url, "/data/banking/categories.json");
   assert.equal(calls[0].method, "GET");
-  assert.deepEqual(removePosts().map(function (c) { return c.body.category; }), ["Linger"]);
-  assert.equal(el._bank.data.custom_categories.indexOf("Linger"), -1);
-  ["HistOnly", "Ghost", "Household", "Gifts"].forEach(function (name) {
+  assert.deepEqual(removePosts().map(function (c) { return c.body.category; }), []);
+  assert.ok(el._bank.data.custom_categories.indexOf("Linger") >= 0);
+  ["Linger", "HistOnly", "Ghost", "Household", "Gifts"].forEach(function (name) {
     assert.ok(el._bank.data.custom_categories.indexOf(name) >= 0, name);
     assertCategoryEverywhere(el.innerHTML, name, true);
   });
-  assertCategoryEverywhere(el.innerHTML, "Linger", false);
   assert.doesNotMatch(el.innerHTML, /Ancient Shop/);
   assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
   assertCategoryEverywhere(el.innerHTML, "Paycheck/Salary/Wages", true);
@@ -1942,9 +1943,11 @@ test("opening edits drops an unused empty custom and keeps a history-only overri
   await ctx.bankActivate(el, "edits");
   await ctx.bankRefreshEmptyCustoms(el);
   assert.equal(removePosts().length, posted);
+  assert.equal(posted, 0);
   assert.ok(el._bank.data.custom_categories.indexOf("HistOnly") >= 0);
-  assert.equal(el._bank.data.custom_categories.indexOf("Linger"), -1);
+  assert.ok(el._bank.data.custom_categories.indexOf("Linger") >= 0);
   assertCategoryEverywhere(el.innerHTML, "HistOnly", true);
+  assertCategoryEverywhere(el.innerHTML, "Linger", true);
   assertCategoryEverywhere(el.innerHTML, "Household", true);
   assertCategoryEverywhere(el.innerHTML, "Gifts", true);
   assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
@@ -2003,7 +2006,7 @@ test("a failed categories read keeps snap customs and does not post removal", as
   assert.doesNotMatch(el.innerHTML, /Nothing was changed/);
 });
 
-test("an empty categories list keeps override customs and drops an unused custom", async function () {
+test("an empty categories list keeps override customs and an unused custom", async function () {
   const ctx = boot();
   const fx = loadFixture();
   const calls = [];
@@ -2037,13 +2040,12 @@ test("an empty categories list keeps override customs and drops an unused custom
   const el = mount(ctx, data, { tab: "edits", editCat: "Groceries" });
   await el._bank.prune;
   const removed = calls.filter(function (c) { return c.body && c.body.remove === true; });
-  assert.deepEqual(removed.map(function (c) { return c.body.category; }), ["Linger"]);
-  assert.equal(el._bank.data.custom_categories.indexOf("Linger"), -1);
-  ["Household", "Gifts", "HistOnly"].forEach(function (name) {
+  assert.deepEqual(removed.map(function (c) { return c.body.category; }), []);
+  assert.ok(el._bank.data.custom_categories.indexOf("Linger") >= 0);
+  ["Household", "Gifts", "HistOnly", "Linger"].forEach(function (name) {
     assert.ok(el._bank.data.custom_categories.indexOf(name) >= 0, name);
     assertCategoryEverywhere(el.innerHTML, name, true);
   });
-  assertCategoryEverywhere(el.innerHTML, "Linger", false);
   assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
   assert.doesNotMatch(el.innerHTML, /Category did not save/);
 });
@@ -2245,7 +2247,7 @@ test("a failed category removal restores the label and shows an error", async fu
   assertCategoryEverywhere(el.innerHTML, "Solo", true);
 });
 
-test("failed categories read keeps an unused snap custom, and an empty list does not", async function () {
+test("failed categories read and an empty list both keep an unused snap custom", async function () {
   const ctx = boot();
   const fx = loadFixture();
   fx.custom_categories = ["Pets"];
@@ -2296,13 +2298,13 @@ test("failed categories read keeps an unused snap custom, and an empty list does
   const el = mount(ctx, withRow, { tab: "edits", editCat: "Groceries" });
   await el._bank.prune;
   assert.equal(ctx.bankEditRows(el._bank.data).some(function (row) { return row.category === "Pets"; }), false);
-  assertCategoryEverywhere(el.innerHTML, "Pets", false);
+  assertCategoryEverywhere(el.innerHTML, "Pets", true);
   assertCategoryEverywhere(el.innerHTML, "HistOnly", true);
-  assert.equal(el._bank.data.custom_categories.indexOf("Pets"), -1);
+  assert.ok(el._bank.data.custom_categories.indexOf("Pets") >= 0);
   assert.ok(el._bank.data.custom_categories.indexOf("HistOnly") >= 0);
   assert.deepEqual(calls.filter(function (c) { return c.body && c.body.remove === true; }).map(function (c) {
     return c.body.category;
-  }), ["Pets"]);
+  }), []);
   const seat = { data: { custom_categories: ["Pets"] } };
   ctx.bankAdoptSnapshot(seat, { custom_categories: [], current: { recent_tx: [] } });
   assert.deepEqual(JSON.parse(JSON.stringify(seat.data.custom_categories)), ["Pets"]);
@@ -2421,7 +2423,7 @@ test("an added category still shows after an empty body and a mock reload", asyn
   assertCategoryEverywhere(next.innerHTML, "HistOnly", true);
   assertCategoryEverywhere(next.innerHTML, "Household", true);
   assertCategoryEverywhere(next.innerHTML, "Gifts", true);
-  assertCategoryEverywhere(next.innerHTML, "Pets", false);
+  assertCategoryEverywhere(next.innerHTML, "Pets", true);
   assert.ok(next._bank.data.custom_categories.indexOf("HistOnly") >= 0);
-  assert.equal(next._bank.data.custom_categories.indexOf("Pets"), -1);
+  assert.ok(next._bank.data.custom_categories.indexOf("Pets") >= 0);
 });
