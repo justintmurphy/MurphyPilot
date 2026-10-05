@@ -1,4 +1,4 @@
-/* tip di — House Banking.
+/* tip dk — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
@@ -16,11 +16,11 @@
    Stored kinds are must_pay (shown as Bill) and elective (shown as Optional).
    An unmarked name is Bill when it is a normalized bill or it has a due day.
    Any other unmarked spend category is Optional. An override always wins.
-   Budget, Edits, the bill calendar, and the Current tape show a display name. Keys stay on the raw category or bill name.
-   A name that contains the word mobile displays as Phone. Matching keys stay on the raw name, the same way a leading provider is stripped only on screen.
+   Budget and Edits show a display name. Keys stay on the raw category or bill name.
+   A bill or budget category that contains the word mobile displays as Phone. Matching keys stay on the raw name, the same way a leading provider is stripped only on screen.
    Edits lists current.edits_tx (the long window) plus history tx arrays.
    A present edits_tx does not hide a merchant that lives only on history.
-   The Current tape stays on recent_tx. Its category chip uses the display name, and so does a merchant label when that string is a display name. A known category with no rows still reads "No items in this category."
+   The Current tape stays on recent_tx. The merchant line and the category chip stay the feed strings. A known category with no rows still reads "No items in this category."
    A transaction key prefers tx_key, otherwise date|id|amount|desc.
    Due-day precedence: user KV, then snapshot manual, then a feed day, then a generic filler only when the feed day is null.
    Custom categories and both edits sync across seats. A null balance stays blank.
@@ -41,7 +41,7 @@ var BANK_DUEDAY_URL = "/data/banking/dueday-overrides.json";
 var BANK_MUSTPAY_URL = "/data/banking/mustpay-overrides.json";
 var BANK_CATEGORIES_URL = "/data/banking/categories.json";
 /* Generic bill tails only. A leading provider is hidden at display time (Acme Mortgage shows as Mortgage).
-   The word mobile is not a tail. bankDisplayName shows that word as Phone. */
+   The word mobile is not a tail. bankBillDisplayName shows that word as Phone on bill and budget category labels. */
 var BANK_DISPLAY_TAILS = [
   "gas (utility)",
   "natural gas",
@@ -118,11 +118,10 @@ function bankCatName(name) {
 }
 
 /* Display only. Matching keys (overrides, mustpay, dueday, categories, dig-in, POST bodies) stay on the raw name.
-   The word mobile displays as Phone, including a provider in front of it. Gasoline and other words stay. */
+   A leading provider is hidden. Bill and budget labels use bankBillDisplayName when the word mobile should read as Phone. */
 function bankDisplayName(name) {
   var raw = String(name == null ? "" : name).trim().replace(/\s+/g, " ");
   if (!raw) return "";
-  if (/\bmobile\b/i.test(raw)) return "Phone";
   var lower = raw.toLowerCase();
   var i;
   for (i = 0; i < BANK_DISPLAY_TAILS.length; i++) {
@@ -138,6 +137,14 @@ function bankDisplayName(name) {
   }
   if (!best) return raw;
   return raw.slice(raw.length - best.length);
+}
+
+/* Bill and budget category labels. The word mobile displays as Phone. The Current tape does not use this. */
+function bankBillDisplayName(name) {
+  var raw = String(name == null ? "" : name).trim().replace(/\s+/g, " ");
+  if (!raw) return "";
+  if (/\bmobile\b/i.test(raw)) return "Phone";
+  return bankDisplayName(raw);
 }
 
 function bankIsIncomeName(name, incomeObj) {
@@ -711,7 +718,7 @@ function bankKindPies(snap) {
   var optional = [];
   var optionalSum = 0;
   bankMtdSpendRows((snap && snap.budget) || {}).forEach(function (r) {
-    var row = { name: bankDisplayName(r.name), amount: r.amount, raw: r.name };
+    var row = { name: bankBillDisplayName(r.name), amount: r.amount, raw: r.name };
     if (bankResolveKind(r.name, snap, ctx) === "must_pay") must.push(row);
     else {
       optional.push(row);
@@ -923,7 +930,7 @@ function bankNormalizeInsights(budget) {
 
 function bankInsightText(row) {
   if (row.message) return row.message;
-  var name = bankDisplayName(row.name);
+  var name = bankBillDisplayName(row.name);
   if (row.delta != null) {
     var sign = row.delta > 0 ? "+" : "";
     return name + " " + sign + bankMoney(row.delta) + " vs 3-mo avg";
@@ -1261,7 +1268,7 @@ function bankChipOptions(categories, current) {
   if (current && list.indexOf(current) < 0) list.unshift(current);
   return list.map(function (name) {
     var sel = name === current ? " selected" : "";
-    return '<option value="' + bankEsc(name) + '"' + sel + ">" + bankEsc(bankDisplayName(name)) + "</option>";
+    return '<option value="' + bankEsc(name) + '"' + sel + ">" + bankEsc(bankBillDisplayName(name)) + "</option>";
   }).join("");
 }
 
@@ -1288,10 +1295,10 @@ function bankTapeHtml(rows) {
   if (!rows || !rows.length) return "";
   return '<section class="bank-tape-block"><h3>Recent</h3><table class="bank-tape"><tbody>' +
     rows.map(function (r) {
-      var label = bankDisplayName(bankItemLabel(r.desc));
+      var label = bankItemLabel(r.desc);
       var flow = r.flow ? '<i class="bank-flow">' + bankEsc(r.flow) + "</i>" : "";
       return "<tr><td>" + bankEsc(r.date) + '</td><td><div class="bank-tx-main"><span class="bank-merchant">' +
-        bankEsc(label) + '</span><span class="bank-chip">' + bankEsc(bankDisplayName(r.category)) + "</span>" + flow +
+        bankEsc(label) + '</span><span class="bank-chip">' + bankEsc(r.category) + "</span>" + flow +
         "</div></td><td>" + bankMoney(r.amount) + "</td></tr>";
     }).join("") + "</tbody></table></section>";
 }
@@ -1413,7 +1420,7 @@ function bankBarsHtml(rows) {
     var fill = r.actual == null ? "" : '<span class="fill" style="width:' + pct.toFixed(1) + '%"></span>';
     var mark = tick == null ? "" : '<i class="tick" style="left:' + tick.toFixed(1) + '%"></i>';
     return '<div class="bank-bar' + (r.over ? " over" : "") + '" data-bar="' + bankEsc(r.name) + '">' +
-      '<div class="bank-bar-k"><span>' + bankEsc(bankDisplayName(r.name)) + "</span><b>MTD " + bankMoney(r.actual) +
+      '<div class="bank-bar-k"><span>' + bankEsc(bankBillDisplayName(r.name)) + "</span><b>MTD " + bankMoney(r.actual) +
       "</b><i>target " + bankMoney(r.target) + "</i></div>" +
       '<div class="bank-bar-track" aria-hidden="true">' + fill + mark + "</div></div>";
   }).join("");
@@ -1496,7 +1503,7 @@ function bankOrdinal(n) {
 
 /* A 31st (or 29th/30th) has no cell in a shorter month. Park it on the last day and mark the real due day. */
 function bankClampDayLabel(name, due, dim) {
-  var shown = bankDisplayName(name);
+  var shown = bankBillDisplayName(name);
   if (due > dim) return shown + " (" + bankOrdinal(due) + ")";
   return shown;
 }
@@ -1712,7 +1719,7 @@ function bankKindBlocks(snap) {
 function bankCoversHtml(groups) {
   if (!groups.length) return "";
   return '<ul class="bank-covers">' + groups.map(function (g) {
-    var names = g.bills.map(function (b) { return bankEsc(bankDisplayName(b.name)); });
+    var names = g.bills.map(function (b) { return bankEsc(bankBillDisplayName(b.name)); });
     return "<li><b>This check (" + bankEsc(g.label) + ", day " + g.day + ") covers:</b> " +
       (names.length ? names.join(", ") : "no dated bills") + "</li>";
   }).join("") + "</ul>";
@@ -1745,7 +1752,7 @@ function bankBillListHtml(bills) {
     var day = b.typical_day == null ? "\u2014" : String(b.typical_day);
     var shown = bankBillShownAmount(b);
     var pending = shown == null;
-    return "<li><span>" + bankEsc(bankDisplayName(b.name)) + "</span><b" + (pending ? ' class="bank-pending"' : "") + ">" +
+    return "<li><span>" + bankEsc(bankBillDisplayName(b.name)) + "</span><b" + (pending ? ' class="bank-pending"' : "") + ">" +
       bankEsc(bankBillAmount(shown)) + "</b><i>day " + day + "</i></li>";
   }).join("") + "</ul>";
 }
@@ -1837,7 +1844,7 @@ function bankEditBillHtml(bills) {
   if (!bills || !bills.length) return '<p class="bank-empty">No bills in this print.</p>';
   return '<ul class="bank-edit-list">' + bills.map(function (b) {
     var key = bankBillKey(b.name);
-    var label = bankDisplayName(b.name);
+    var label = bankBillDisplayName(b.name);
     var shown = bankBillShownAmount(b);
     var pending = shown == null;
     return "<li><span class=\"bank-merchant\">" + bankEsc(label) + '</span><span class="bank-edit-side"><select class="bank-chip" data-bank-due="' +
@@ -1863,7 +1870,7 @@ function bankKindEditHtml(snap) {
   if (!names.length) return '<p class="bank-empty">No budget categories in this print.</p>';
   var ctx = bankKindContext(snap);
   return '<ul class="bank-edit-list">' + names.map(function (name) {
-    var label = bankDisplayName(name);
+    var label = bankBillDisplayName(name);
     var kind = bankResolveKind(name, snap, ctx);
     return "<li><span class=\"bank-kind-name\">" + bankEsc(label) + '</span><span class="bank-edit-side"><select class="bank-chip" data-bank-kind="' +
       bankEsc(name) + '" aria-label="Bill or Optional for ' + bankEsc(label) + '">' + bankKindOptions(kind) +

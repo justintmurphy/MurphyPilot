@@ -631,7 +631,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip di", function () {
+test("desk links Banking and banking assets are cache-busted at tip dk", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -641,8 +641,10 @@ test("desk links Banking and banking assets are cache-busted at tip di", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904di/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904di/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dk/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dk/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904di/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904di/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dh/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dh/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dg/);
@@ -769,7 +771,9 @@ test("merchant is the tape label and an empty desc uses a placeholder", function
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const fixtureSrc = fs.readFileSync(fixturePath, "utf8");
   assert.doesNotMatch(src, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.doesNotMatch(src, /t-?\s?mobile/i);
   assert.doesNotMatch(fixtureSrc, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.doesNotMatch(fixtureSrc, /t-?\s?mobile/i);
 });
 
 test("tape stays hidden when recent_tx is empty", function () {
@@ -2925,10 +2929,19 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
   assert.equal(ctx.bankDisplayName("Acme Mortgage"), "Mortgage");
   assert.equal(ctx.bankDisplayName("Acme Gas (Utility)"), "Gas (Utility)");
   assert.equal(ctx.bankDisplayName("Gas (Utility)"), "Gas (Utility)");
-  assert.equal(ctx.bankDisplayName("Northwind Mobile plan"), "Phone");
-  assert.equal(ctx.bankDisplayName("Acme Mobile"), "Phone");
-  assert.equal(ctx.bankDisplayName("Mobile"), "Phone");
-  assert.equal(ctx.bankDisplayName("X Mobile plan"), "Phone");
+  assert.equal(ctx.bankDisplayName("Northwind Mobile plan"), "Northwind Mobile plan");
+  assert.equal(ctx.bankDisplayName("Acme Mobile"), "Acme Mobile");
+  assert.equal(ctx.bankDisplayName("Mobile"), "Mobile");
+  assert.equal(ctx.bankDisplayName("X Mobile plan"), "X Mobile plan");
+  assert.equal(ctx.bankDisplayName("Mobile Deposit"), "Mobile Deposit");
+  assert.equal(ctx.bankDisplayName("Exxon Mobil"), "Exxon Mobil");
+  assert.equal(ctx.bankBillDisplayName("Northwind Mobile plan"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("Acme Mobile"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("Mobile"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("X Mobile plan"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("Mobile Deposit"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("Exxon Mobil"), "Exxon Mobil");
+  assert.equal(ctx.bankBillDisplayName("Acme Mortgage"), "Mortgage");
   assert.equal(ctx.bankDisplayName("Gasoline"), "Gasoline");
   assert.equal(ctx.bankDisplayName("Rent/Mortgage"), "Rent/Mortgage");
   assert.equal(ctx.bankDisplayName("Groceries"), "Groceries");
@@ -3070,28 +3083,39 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const fixtureSrc = fs.readFileSync(fixturePath, "utf8");
   assert.doesNotMatch(src, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.doesNotMatch(src, /t-?\s?mobile/i);
   assert.match(src, /share the spend-category name space/);
   assert.match(src, /not a second category system/);
-  assert.match(src, /function bankDisplayName[\s\S]*?\\bmobile\\b/);
+  assert.match(src, /function bankBillDisplayName[\s\S]*?\\bmobile\\b/);
+  assert.doesNotMatch(src.slice(src.indexOf("function bankDisplayName"), src.indexOf("function bankBillDisplayName")), /\\bmobile\\b/);
   assert.doesNotMatch(src, /BANK_DISPLAY_ALIASES/);
   assert.doesNotMatch(fixtureSrc, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.doesNotMatch(fixtureSrc, /t-?\s?mobile/i);
   assert.doesNotMatch(src, /Elective|Other spending/);
 });
 
 test("a mobile name displays as Phone and matching stays on the raw name", async function () {
   const ctx = boot();
-  assert.equal(ctx.bankDisplayName("Acme Mobile"), "Phone");
-  assert.equal(ctx.bankDisplayName("acme mobile"), "Phone");
-  assert.equal(ctx.bankDisplayName("ACME MOBILE"), "Phone");
-  assert.equal(ctx.bankDisplayName("  Acme Mobile  "), "Phone");
-  assert.equal(ctx.bankDisplayName("Mobile"), "Phone");
-  assert.equal(ctx.bankDisplayName("mobile"), "Phone");
-  assert.equal(ctx.bankDisplayName("X Mobile plan"), "Phone");
-  assert.equal(ctx.bankDisplayName("x mobile plan"), "Phone");
-  assert.equal(ctx.bankDisplayName("Phone"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("Acme Mobile"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("acme mobile"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("ACME MOBILE"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("  Acme Mobile  "), "Phone");
+  assert.equal(ctx.bankBillDisplayName("Mobile"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("mobile"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("X Mobile plan"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("x mobile plan"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("Phone"), "Phone");
+  assert.equal(ctx.bankBillDisplayName("Gasoline"), "Gasoline");
+  assert.equal(ctx.bankBillDisplayName("gasoline"), "gasoline");
+  assert.equal(ctx.bankBillDisplayName("City Fuel"), "City Fuel");
+  assert.equal(ctx.bankBillDisplayName("automobile"), "automobile");
+  assert.equal(ctx.bankBillDisplayName("Mobileplan"), "Mobileplan");
+  assert.equal(ctx.bankBillDisplayName("Exxon Mobil"), "Exxon Mobil");
+  assert.equal(ctx.bankBillDisplayName("Mobile Deposit"), "Phone");
+  assert.equal(ctx.bankDisplayName("Acme Mobile"), "Acme Mobile");
+  assert.equal(ctx.bankDisplayName("Mobile Deposit"), "Mobile Deposit");
+  assert.equal(ctx.bankDisplayName("Exxon Mobil"), "Exxon Mobil");
   assert.equal(ctx.bankDisplayName("Gasoline"), "Gasoline");
-  assert.equal(ctx.bankDisplayName("gasoline"), "gasoline");
-  assert.equal(ctx.bankDisplayName("City Fuel"), "City Fuel");
   assert.equal(ctx.bankDisplayName("automobile"), "automobile");
   assert.equal(ctx.bankDisplayName("Mobileplan"), "Mobileplan");
 
@@ -3140,7 +3164,8 @@ test("a mobile name displays as Phone and matching stays on the raw name", async
     { date: "2026-10-05", id: "acct-check", desc: "Acme Mobile", amount: 15, flow: "outflow", category: "Acme Mobile", tx_key: "tape-1" },
     { date: "2026-10-04", id: "acct-check", desc: "Handset", amount: 4, flow: "outflow", category: "X Mobile plan", tx_key: "tape-2" },
     { date: "2026-10-03", id: "acct-check", desc: "Gasoline", amount: 12.34, flow: "outflow", category: "Gasoline", tx_key: "tape-3" },
-    { date: "2026-10-02", id: "acct-check", desc: "", amount: 1, flow: "outflow", category: "Mobile", tx_key: "tape-4" }
+    { date: "2026-10-02", id: "acct-check", desc: "", amount: 1, flow: "outflow", category: "Mobile", tx_key: "tape-4" },
+    { date: "2026-10-01", id: "acct-check", desc: "Mobile Deposit", amount: 20, flow: "inflow", category: "Mobile Deposit", tx_key: "tape-5" }
   ];
   const before = JSON.stringify(snap.budget.bills);
   const budget = ctx.bankPageHtml(snap, { tab: "budget" });
@@ -3182,11 +3207,12 @@ test("a mobile name displays as Phone and matching stays on the raw name", async
   const current = ctx.bankPageHtml(snap, { tab: "current" });
   const tape = current.match(/<table class="bank-tape">[\s\S]*?<\/table>/);
   assert.ok(tape);
-  assert.match(tape[0], /class="bank-merchant">Phone<\/span><span class="bank-chip">Phone<\/span>/);
-  assert.match(tape[0], /class="bank-merchant">Handset<\/span><span class="bank-chip">Phone<\/span>/);
+  assert.match(tape[0], /class="bank-merchant">Acme Mobile<\/span><span class="bank-chip">Acme Mobile<\/span>/);
+  assert.match(tape[0], /class="bank-merchant">Handset<\/span><span class="bank-chip">X Mobile plan<\/span>/);
   assert.match(tape[0], /class="bank-merchant">Gasoline<\/span><span class="bank-chip">Gasoline<\/span>/);
-  assert.match(tape[0], /class="bank-merchant">No description<\/span><span class="bank-chip">Phone<\/span>/);
-  assert.doesNotMatch(tape[0], /Acme Mobile|X Mobile plan|>Mobile</);
+  assert.match(tape[0], /class="bank-merchant">No description<\/span><span class="bank-chip">Mobile<\/span>/);
+  assert.match(tape[0], /class="bank-merchant">Mobile Deposit<\/span><span class="bank-chip">Mobile Deposit<\/span>/);
+  assert.doesNotMatch(tape[0], />Phone</);
 
   const edits = ctx.bankPageHtml(snap, { tab: "edits", editCat: "Acme Mobile" });
   assert.match(edits, /<option value="Acme Mobile" selected>Phone<\/option>/);
