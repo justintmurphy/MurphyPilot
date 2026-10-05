@@ -1,9 +1,11 @@
-/* tip cv — House Banking.
+/* tip cw — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
    A just-added custom stays in every Edits dropdown while it is still empty.
-   An empty custom is dropped from those lists and removed from categories.json.
+   Empty customs are removed only after the user moves the last merchant off that custom.
+   Opening or refreshing Edits does not remove them.
+   A custom that is any category_overrides value stays, including history_tx outside the edits window.
    Feed categories stay when the edits window has no rows in them.
    A merchant row add posts the category, then that row's override. The assign is not skipped when the feed body is stale.
    Due days POST to /data/banking/dueday-overrides.json.
@@ -437,7 +439,8 @@ function bankHistoryTxLists(snap) {
   return out;
 }
 
-/* edits_tx when the feed sent it. Otherwise the full recent list plus any history tx arrays. */
+/* edits_tx when the feed sent it. Otherwise the full recent list plus any history tx arrays.
+   The edits window stays on that list. Usage counts look further (bankCategorySourceLists). */
 function bankEditSourceLists(snap) {
   var cur = snap && snap.current;
   var edits = bankTxList(cur && cur.edits_tx);
@@ -445,6 +448,23 @@ function bankEditSourceLists(snap) {
   var out = [];
   bankPushTxList(out, cur && cur.recent_tx);
   bankHistoryTxLists(snap).forEach(function (list) { out.push(list); });
+  return out;
+}
+
+/* Rows that can still be using a custom: the edits window, the tape, and every history_tx list. */
+function bankCategorySourceLists(snap) {
+  var out = [];
+  var seen = [];
+  function push(list) {
+    if (!list || seen.indexOf(list) >= 0) return;
+    seen.push(list);
+    out.push(list);
+  }
+  bankEditSourceLists(snap).forEach(push);
+  var cur = snap && snap.current;
+  push(bankTxList(cur && cur.recent_tx));
+  push(bankTxList(cur && cur.history_tx));
+  bankHistoryTxLists(snap).forEach(push);
   return out;
 }
 
@@ -1654,6 +1674,13 @@ function bankCategoryErrorText(res) {
   return "Category did not save. Nothing was changed.";
 }
 
+function bankCategoryRemoveErrorText(res) {
+  if (bankIsLockedResponse(res) || (res && Number(res.status) === 302)) return "Sign in again to remove a category.";
+  var status = res && Number(res.status);
+  if (status === 404 || status === 405) return "Categories are not on the feed yet. Nothing was saved.";
+  return "Category did not save. Nothing was changed.";
+}
+
 function bankRememberCategory(snap, name) {
   var next = bankClipCategory(name);
   if (!next || !snap) return;
@@ -1670,11 +1697,35 @@ function bankAdoptSnapshot(st, payload) {
 }
 
 function bankCategoryCount(snap, name) {
+  var target = name == null ? "" : String(name).trim();
+  if (!target) return 0;
+  var overrides = bankOverrideMap(snap);
+  var seen = {};
   var n = 0;
-  bankEditRows(snap).forEach(function (r) {
-    if (r && r.category === name) n += 1;
+  bankCategorySourceLists(snap).forEach(function (list) {
+    list.forEach(function (raw) {
+      var row = bankMapTx(raw, 0, overrides);
+      if (!row.key || seen[row.key]) return;
+      seen[row.key] = true;
+      if (row.category === target) n += 1;
+    });
+  });
+  /* An override whose tx is outside every loaded list still counts. */
+  Object.keys(overrides).forEach(function (k) {
+    if (seen[k]) return;
+    seen[k] = true;
+    if (bankCatName(overrides[k]) === target) n += 1;
   });
   return n;
+}
+
+function bankOverrideHasCategory(snap, name) {
+  var target = name == null ? "" : String(name).trim();
+  if (!target) return false;
+  var ov = bankOverrideMap(snap);
+  return Object.keys(ov).some(function (k) {
+    return bankCatName(ov[k]) === target;
+  });
 }
 
 /* Names sitting in an open add field are not removed before confirm. */
@@ -1690,6 +1741,7 @@ function bankDraftKeep(st) {
   return keep;
 }
 
+/* Local dropdown filter only. Opening Edits does not call this, and it does not post. */
 function bankTakeEmptyCustoms(st) {
   if (!st || !st.data) return [];
   var keep = bankDraftKeep(st);
@@ -1697,7 +1749,7 @@ function bankTakeEmptyCustoms(st) {
   if (held) keep[held] = true;
   var removed = [];
   var list = bankCustomCategories(st.data).filter(function (name) {
-    if (keep[name] || bankCategoryCount(st.data, name) > 0) return true;
+    if (keep[name] || bankCategoryCount(st.data, name) > 0 || bankOverrideHasCategory(st.data, name)) return true;
     removed.push(name);
     return false;
   });
@@ -1721,6 +1773,9 @@ function bankNoteCategoryRemoved(st, name, payload, pending) {
   var drop = {};
   drop[name] = true;
   (pending || []).forEach(function (n) { drop[n] = true; });
+  Object.keys(drop).forEach(function (n) {
+    if (bankOverrideHasCategory(st.data, n) || bankCategoryCount(st.data, n) > 0) delete drop[n];
+  });
   st.data.custom_categories = bankCustomCategories(st.data).filter(function (n) { return !drop[n]; });
   if (st.keptEmpty && !drop[st.keptEmpty]) bankRememberCategory(st.data, st.keptEmpty);
   if (drop[st.editCat]) st.editCat = "";
@@ -1729,26 +1784,43 @@ function bankNoteCategoryRemoved(st, name, payload, pending) {
 
 function bankPostCategoryRemoval(root, names) {
   if (!names || !names.length) return Promise.resolve();
+  if (root && root._bank) root._bank.categoryError = "";
   var pending = names.slice();
   var failed = [];
+  var failRes = null;
+  var sawFail = false;
   var i = 0;
+  function noteFail(name, res) {
+    failed.push(name);
+    if (!sawFail) {
+      sawFail = true;
+      failRes = res || null;
+    }
+  }
   function step() {
     if (!root || !root._bank) return Promise.resolve();
     if (i >= names.length) {
       if (failed.length && root._bank.data) {
         failed.forEach(function (n) { bankRememberCategory(root._bank.data, n); });
+        root._bank.categoryError = bankCategoryRemoveErrorText(failRes);
       }
       bankPaint(root);
       return Promise.resolve();
     }
     var name = names[i++];
+    var snap = root._bank.data;
+    /* Never delete a custom that any override still names, even outside the edits window. */
+    if (snap && (bankOverrideHasCategory(snap, name) || bankCategoryCount(snap, name) > 0)) {
+      bankRememberCategory(snap, name);
+      return step();
+    }
     return fetch(BANK_CATEGORIES_URL, bankFetchInit({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category: name, remove: true })
     })).then(function (res) {
       if (!res || res.ok !== true || res.type === "opaqueredirect") {
-        failed.push(name);
+        noteFail(name, res);
         return step();
       }
       return bankReadJson(res).then(function (payload) {
@@ -1756,7 +1828,7 @@ function bankPostCategoryRemoval(root, names) {
         return step();
       });
     }).catch(function () {
-      failed.push(name);
+      noteFail(name, null);
       return step();
     });
   }
@@ -1769,23 +1841,22 @@ function bankPruneCustomIfEmpty(root, name) {
   if (!st || !st.data || !name) return Promise.resolve();
   if (bankCustomCategories(st.data).indexOf(name) < 0) return Promise.resolve();
   if (bankCategoryCount(st.data, name) > 0) return Promise.resolve();
+  if (bankOverrideHasCategory(st.data, name)) return Promise.resolve();
   if (bankDraftKeep(st)[name]) return Promise.resolve();
   st.data.custom_categories = bankCustomCategories(st.data).filter(function (n) { return n !== name; });
   if (st.editCat === name) st.editCat = "";
   if (st.keptEmpty === name) st.keptEmpty = "";
+  st.categoryError = "";
   bankPaint(root);
   return bankPostCategoryRemoval(root, [name]);
 }
 
+/* Entering or refreshing Edits paints the lists. It does not remove customs. */
 function bankRefreshEmptyCustoms(root) {
   var st = root && root._bank;
-  if (!st || st.tab !== "edits" || !st.data) return Promise.resolve();
-  st.keptEmpty = "";
-  var removed = bankTakeEmptyCustoms(st);
+  if (!st || st.tab !== "edits") return Promise.resolve();
   bankPaint(root);
-  if (!removed.length) return Promise.resolve();
-  st.prune = bankPostCategoryRemoval(root, removed);
-  return st.prune;
+  return Promise.resolve();
 }
 
 function bankTakeCategoryResponse(root, payload, name, hold) {
