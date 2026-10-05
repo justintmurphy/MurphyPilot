@@ -95,6 +95,7 @@
   "category_overrides": {
     "2026-10-04|acct-check|12.34|City Fuel": "Transport"
   },
+  "custom_categories": ["Household", "Gifts"],
   "budget": {
     "income_monthly": [
       {"label": "Paycheck", "amount": 12.34, "cadence": "biweekly", "typical_day": null, "source": "detected"}

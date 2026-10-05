@@ -1,11 +1,12 @@
-/* tip cq — House Banking.
+/* tip cr — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
+   Custom categories POST to /data/banking/categories.json.
    Due days POST to /data/banking/dueday-overrides.json.
    Edits lists current.edits_tx (the long window). The Current tape stays on recent_tx.
    A transaction key prefers tx_key, otherwise date|id|amount|desc.
    Due-day precedence: user KV, then snapshot manual, then a feed day, then a generic filler only when the feed day is null.
-   Both sync across seats. A null balance stays blank.
+   Custom categories and both edits sync across seats. A null balance stays blank.
    A bill prefers typical_amount, then amount, and reads "amount pending" when both are blank.
    This file does not embed balances, last-4s, or named utilities. */
 
@@ -14,6 +15,8 @@ var BANK_STORE = "murphyHouseBanking";
 var BANK_DATA_URL = "/data/banking.json";
 var BANK_OVERRIDES_URL = "/data/banking/overrides.json";
 var BANK_DUEDAY_URL = "/data/banking/dueday-overrides.json";
+var BANK_CATEGORIES_URL = "/data/banking/categories.json";
+var BANK_CAT_MAX = 64;
 var BANK_COLORS = ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)"];
 var BANK_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -324,6 +327,28 @@ function bankTxCategory(raw, overrides) {
   return bankCatName(raw.category);
 }
 
+function bankClipCategory(name) {
+  if (typeof name !== "string") return "";
+  var n = name.trim();
+  if (!n) return "";
+  if (n.length > BANK_CAT_MAX) n = n.slice(0, BANK_CAT_MAX).trim();
+  return n;
+}
+
+function bankCustomCategories(snap) {
+  var raw = snap && snap.custom_categories;
+  if (!Array.isArray(raw)) return [];
+  var seen = {};
+  var out = [];
+  raw.forEach(function (name) {
+    var n = bankClipCategory(name);
+    if (!n || seen[n]) return;
+    seen[n] = true;
+    out.push(n);
+  });
+  return out;
+}
+
 function bankKnownCategories(snap) {
   var seen = {};
   var order = [];
@@ -352,6 +377,7 @@ function bankKnownCategories(snap) {
   });
   var ov = bankOverrideMap(snap);
   Object.keys(ov).forEach(function (k) { add(ov[k]); });
+  bankCustomCategories(snap).forEach(add);
   if (seen.Other) order = order.filter(function (n) { return n !== "Other"; });
   order.push("Other");
   return order;
@@ -1240,15 +1266,29 @@ function bankResolveEditCat(inUse, known, requested) {
   return "";
 }
 
-function bankEditCategoryChoices(inUse, current) {
+function bankEditCategoryChoices(inUse, current, extra) {
   var out = (inUse || []).slice();
+  (extra || []).forEach(function (name) {
+    if (name && out.indexOf(name) < 0) out.push(name);
+  });
   if (current && out.indexOf(current) < 0) out.unshift(current);
+  var otherAt = out.indexOf("Other");
+  if (otherAt >= 0 && otherAt !== out.length - 1) {
+    out.splice(otherAt, 1);
+    out.push("Other");
+  }
   return out;
 }
 
-function bankEditTxHtml(rows, known, inUse, picked) {
+function bankAddCategoryHtml() {
+  return '<div class="bank-add-cat"><label>Add category <input type="text" maxlength="' + BANK_CAT_MAX +
+    '" autocomplete="off" data-bank-new-cat aria-label="New category"></label>' +
+    '<button type="button" data-bank-add-cat>Add</button></div>';
+}
+
+function bankEditTxHtml(rows, known, inUse, picked, extra) {
   if (!rows || !rows.length) return '<p class="bank-empty">No transactions in this print.</p>';
-  var choices = bankEditCategoryChoices(inUse, picked);
+  var choices = bankEditCategoryChoices(inUse, picked, extra);
   var picker = '<label class="bank-cat-pick">Category <select data-bank-cat aria-label="Category">' +
     bankChipOptions(choices, picked) + "</select></label>";
   var mine = rows.filter(function (r) { return r.category === picked; });
@@ -1285,13 +1325,17 @@ function bankEditsPanelHtml(snap, opts) {
   var rows = bankEditRows(snap);
   var known = bankKnownCategories(snap);
   var inUse = bankCategoriesInUse(rows, known);
+  var customs = bankCustomCategories(snap);
   var picked = bankResolveEditCat(inUse, known, opts.editCat);
   var catNote = bankHasOverrides(snap) ? '<p class="hint bank-sync">Category edits sync across your seats</p>' : "";
+  var catSync = '<p class="hint bank-sync">Categories sync across your seats</p>';
   var dueNote = bankHasDueNote(snap) ? '<p class="hint bank-sync">Due day edits sync across your seats</p>' : "";
   var catErr = opts.overrideError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.overrideError) + "</p>" : "";
+  var addErr = opts.categoryError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.categoryError) + "</p>" : "";
   var dueErr = opts.dueError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.dueError) + "</p>" : "";
-  return '<section class="bank-edit-block"><h3>Transactions</h3>' + catNote + catErr +
-    bankEditTxHtml(rows, known, inUse, picked) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
+  return '<section class="bank-edit-block"><h3>Transactions</h3>' + catNote + catErr + catSync + addErr +
+    bankAddCategoryHtml() +
+    bankEditTxHtml(rows, known, inUse, picked, customs) + '</section><section class="bank-edit-block"><h3>Bills</h3>' +
     dueNote + dueErr + bankEditBillHtml(bills) + "</section>";
 }
 
@@ -1345,6 +1389,7 @@ function bankPaint(root) {
     editsOpen: !!st.editsOpen,
     overrideError: st.overrideError || "",
     dueError: st.dueError || "",
+    categoryError: st.categoryError || "",
     billKey: st.billKey || "",
     editCat: st.editCat || ""
   });
@@ -1559,6 +1604,90 @@ function bankSaveCategory(root, key, category) {
   });
 }
 
+function bankReadNewCategory(root) {
+  if (root && typeof root.querySelector === "function") {
+    var input = root.querySelector("[data-bank-new-cat]");
+    if (input) return input.value == null ? "" : String(input.value);
+  }
+  var st = root && root._bank;
+  return st && st.newCatDraft != null ? String(st.newCatDraft) : "";
+}
+
+function bankCategoryErrorText(res) {
+  if (bankIsLockedResponse(res)) return "Sign in again to add a category.";
+  var status = res && Number(res.status);
+  if (status === 404 || status === 405) return "Categories are not on the feed yet. Nothing was saved.";
+  return "Category did not save. Nothing was changed.";
+}
+
+function bankRememberCategory(snap, name) {
+  var next = bankClipCategory(name);
+  if (!next || !snap) return;
+  var list = bankCustomCategories(snap);
+  if (list.indexOf(next) < 0) list.push(next);
+  snap.custom_categories = list;
+}
+
+function bankTakeCategoryResponse(root, payload, name) {
+  var st = root._bank;
+  var next = bankClipCategory(name);
+  if (payload && Array.isArray(payload.categories)) {
+    if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
+    st.data.custom_categories = bankCustomCategories({ custom_categories: payload.categories });
+    st.categoryError = "";
+    st.newCatDraft = "";
+    if (next && st.data.custom_categories.indexOf(next) >= 0) st.editCat = next;
+    st.tab = "edits";
+    bankPaint(root);
+    return Promise.resolve();
+  }
+  if (payload && payload.current && typeof payload.current === "object" && !Array.isArray(payload.current)) {
+    st.data = payload;
+    st.categoryError = "";
+    st.newCatDraft = "";
+    if (next) st.editCat = next;
+    st.tab = "edits";
+    bankPaint(root);
+    return Promise.resolve();
+  }
+  return bankRefetch(root).then(function () {
+    if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
+    if (next && bankCustomCategories(st.data).indexOf(next) < 0) bankRememberCategory(st.data, next);
+    st.categoryError = "";
+    st.newCatDraft = "";
+    if (next) st.editCat = next;
+    st.tab = "edits";
+    bankPaint(root);
+  });
+}
+
+function bankAddCategory(root, name) {
+  if (!root || !root._bank) return Promise.resolve();
+  var next = bankClipCategory(name);
+  if (!next) return Promise.resolve();
+  root._bank.categoryError = "";
+  root._bank.tab = "edits";
+  return fetch(BANK_CATEGORIES_URL, bankFetchInit({
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ category: next })
+  })).then(function (res) {
+    if (!res || res.ok !== true || res.type === "opaqueredirect") {
+      root._bank.categoryError = bankCategoryErrorText(res);
+      root._bank.newCatDraft = "";
+      bankPaint(root);
+      return;
+    }
+    return bankReadJson(res).then(function (payload) {
+      return bankTakeCategoryResponse(root, payload, next);
+    });
+  }).catch(function () {
+    root._bank.categoryError = "Category did not save. Nothing was changed.";
+    root._bank.newCatDraft = "";
+    bankPaint(root);
+  });
+}
+
 function bankMount(root, data, opts) {
   if (!root) return;
   opts = opts || {};
@@ -1573,8 +1702,10 @@ function bankMount(root, data, opts) {
     editsOpen: !!opts.editsOpen,
     overrideError: opts.overrideError || "",
     dueError: opts.dueError || "",
+    categoryError: opts.categoryError || "",
     billKey: opts.billKey || "",
-    editCat: opts.editCat || ""
+    editCat: opts.editCat || "",
+    newCatDraft: ""
   };
   bankPaint(root);
   if (root._bankBound || !root.addEventListener) return;
@@ -1588,11 +1719,23 @@ function bankMount(root, data, opts) {
       return;
     }
     var monthBtn = t.closest("[data-bank-month]");
-    if (monthBtn && monthBtn.getAttribute) bankActivateMonth(root, monthBtn.getAttribute("data-bank-month"));
+    if (monthBtn && monthBtn.getAttribute) {
+      bankActivateMonth(root, monthBtn.getAttribute("data-bank-month"));
+      return;
+    }
+    var addBtn = t.closest("[data-bank-add-cat]");
+    if (addBtn) {
+      if (e.preventDefault) e.preventDefault();
+      return bankAddCategory(root, bankReadNewCategory(root));
+    }
   });
   root.addEventListener("change", function (e) {
     var el = e && e.target;
     if (!el || !el.getAttribute) return;
+    if (el.hasAttribute && el.hasAttribute("data-bank-new-cat")) {
+      if (root._bank) root._bank.newCatDraft = el.value == null ? "" : String(el.value);
+      return;
+    }
     if (el.getAttribute("data-bank-due")) {
       var rawDay = el.value;
       var dueDay = rawDay === "" || rawDay == null ? null : bankDay(rawDay);
@@ -1617,6 +1760,19 @@ function bankMount(root, data, opts) {
       return;
     }
     if (el.getAttribute("data-bank-edit")) return;
+  });
+  root.addEventListener("input", function (e) {
+    var el = e && e.target;
+    if (!el || !el.hasAttribute || !el.hasAttribute("data-bank-new-cat")) return;
+    if (!root._bank) return;
+    root._bank.newCatDraft = el.value == null ? "" : String(el.value);
+  });
+  root.addEventListener("keydown", function (e) {
+    var el = e && e.target;
+    if (!el || !el.hasAttribute || !el.hasAttribute("data-bank-new-cat")) return;
+    if (e.key !== "Enter") return;
+    if (e.preventDefault) e.preventDefault();
+    return bankAddCategory(root, el.value);
   });
   root.addEventListener("toggle", function (e) {
     var el = e && e.target;
