@@ -623,6 +623,12 @@ body.bank-page > header .clock {
   font-weight: 600;
 }
 
+.bank-kind-name {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .bank-chip {
   display: inline-block;
   margin: 0;
@@ -965,5 +971,23 @@ span.bank-chip {
   }
   .bank-chip {
     max-width: 100%;
+  }
+}
+
+.bank-mtd-sub {
+  margin: -4px 0 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.bank-kind-pies {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 16px;
+}
+
+@media (min-width: 900px) {
+  .bank-kind-pies {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
