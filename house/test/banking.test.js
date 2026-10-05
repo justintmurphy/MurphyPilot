@@ -64,6 +64,16 @@ function mount(ctx, data, opts) {
 
 function categoryRead(url, init, categories) {
   const method = init && init.method ? String(init.method).toUpperCase() : "GET";
+  if (String(url) === "/data/banking/mustpay-overrides.json" && method === "GET") {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () {
+        return Promise.resolve({ schema: "banking-mustpay-overrides/v1", overrides: {} });
+      }
+    });
+  }
   if (String(url) !== "/data/banking/categories.json" || method !== "GET") return null;
   const list = (categories || ["Household", "Gifts"]).slice();
   return Promise.resolve({
@@ -172,7 +182,8 @@ test("empty calendar shows the due-day empty state and insights keep severity", 
   assert.doesNotMatch(html, /class="bank-days"/);
   assert.doesNotMatch(html, /class="bank-cal-grid"/);
   assert.match(html, /Income for this month is not in the print/);
-  assert.doesNotMatch(html, /class="bank-pie"/);
+  assert.doesNotMatch(mtdBlock(html), /class="bank-pie"/);
+  assert.match(html, /data-bank-pie="bills"/);
   assert.match(html, /sev-red/);
   assert.match(html, /sev-amber/);
   assert.match(html, /Groceries \+\$12\.34 vs 3-mo avg/);
@@ -316,10 +327,13 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   assert.match(html, /<div class="bank-day"><b>2<\/b><\/div>/);
   assert.match(html, /<div class="bank-day has"><b>3<\/b><span>Sample item<\/span>/);
   assert.doesNotMatch(html, /class="bank-days"/);
-  assert.match(html, /This month/);
-  assert.match(html, /Spent so far \$42\.34/);
-  assert.match(html, /Income for this month is not in the print/);
-  assert.doesNotMatch(html, /class="bank-pie"/);
+  let mtd = mtdBlock(html);
+  assert.match(mtd, /Month to date · day 5 of 31/);
+  assert.match(mtd, /of income/);
+  assert.match(mtd, /Spent so far \$42\.34/);
+  assert.match(mtd, /Income for this month is not in the print/);
+  assert.doesNotMatch(mtd, /class="bank-pie"/);
+  assert.doesNotMatch(mtd, /Elective|Other spending/);
 
   fx.budget.mtd_actual_by_category = {
     Groceries: 30,
@@ -335,13 +349,13 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
     { date: "2026-10-02", id: "acct-check", desc: "Pay", amount: 70, flow: "inflow", category: "Paycheck/Salary/Wages", tx_key: "pay-oct" }
   );
   html = ctx.bankPageHtml(fx, { tab: "budget" });
-  let block = html.slice(html.indexOf("This month"), html.indexOf("Month to date"));
+  let block = mtdBlock(html);
   assert.match(block, /class="bank-pie"/);
   assert.equal((block.match(/<path /g) || []).length, 2);
-  assert.match(block, /Spent vs income/);
-  assert.match(block, />30%</);
+  assert.match(block, /of income/);
+  assert.match(block, />43%</);
   assert.match(block, /Spent so far<\/span><b>\$30\.00<\/b>/);
-  assert.match(block, /Income in<\/span><b>\$70\.00<\/b>/);
+  assert.match(block, /Income received<\/span><b>\$70\.00<\/b>/);
   assert.doesNotMatch(block, /\$500/);
   assert.doesNotMatch(block, /\$400/);
 
@@ -353,10 +367,11 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   ];
   fx.budget.mtd_actual_by_category = { Groceries: 60 };
   html = ctx.bankPageHtml(fx, { tab: "budget" });
-  block = html.slice(html.indexOf("This month"), html.indexOf("Month to date"));
-  assert.match(block, /Income in<\/span><b>\$40\.00<\/b>/);
+  block = mtdBlock(html);
+  assert.match(block, /Income received<\/span><b>\$40\.00<\/b>/);
   assert.match(block, /Spent so far<\/span><b>\$60\.00<\/b>/);
-  assert.match(block, />60%</);
+  assert.match(block, />150%</);
+  assert.match(block, /of income/);
 
   fx.current.edits_tx = [];
   fx.current.recent_tx = [];
@@ -368,9 +383,10 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   oct.tx = [{ date: "2026-10-12", id: "acct-check", desc: "Extra", amount: 15, flow: "inflow", category: "Bonus" }];
   fx.budget.mtd_actual_by_category = { Shopping: 75 };
   html = ctx.bankPageHtml(fx, { tab: "budget" });
-  block = html.slice(html.indexOf("This month"), html.indexOf("Month to date"));
-  assert.match(block, /Income in<\/span><b>\$15\.00<\/b>/);
+  block = mtdBlock(html);
+  assert.match(block, /Income received<\/span><b>\$15\.00<\/b>/);
   assert.match(block, /Spent so far<\/span><b>\$75\.00<\/b>/);
+  assert.match(block, />500%</);
   assert.doesNotMatch(block, /\$999/);
   assert.doesNotMatch(block, /\$80/);
 
@@ -379,17 +395,17 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   oct.income_total = 50;
   fx.budget.mtd_actual_by_category = { Groceries: 50 };
   html = ctx.bankPageHtml(fx, { tab: "budget" });
-  block = html.slice(html.indexOf("This month"), html.indexOf("Month to date"));
+  block = mtdBlock(html);
   assert.equal((block.match(/<path /g) || []).length, 2);
-  assert.match(block, /Income in<\/span><b>\$50\.00<\/b>/);
-  assert.match(block, />50%</);
+  assert.match(block, /Income received<\/span><b>\$50\.00<\/b>/);
+  assert.match(block, />100%</);
 
   oct.closed = true;
   oct.income_total = 80;
   fx.budget.income_monthly[0].amount = 80;
   fx.budget.mtd_actual_by_category = { Groceries: 20 };
   html = ctx.bankPageHtml(fx, { tab: "budget" });
-  block = html.slice(html.indexOf("This month"), html.indexOf("Month to date"));
+  block = mtdBlock(html);
   assert.doesNotMatch(block, /class="bank-pie"/);
   assert.match(block, /Income for this month is not in the print/);
   assert.match(block, /Spent so far \$20\.00/);
@@ -398,15 +414,15 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   oct.income_total = 33;
   fx.budget.mtd_actual_by_category = { "Paycheck/Salary/Wages": 10, Transfer: 4 };
   html = ctx.bankPageHtml(fx, { tab: "budget" });
-  block = html.slice(html.indexOf("This month"), html.indexOf("Month to date"));
+  block = mtdBlock(html);
   assert.doesNotMatch(block, /<path /);
-  assert.match(block, /Income in \$33\.00/);
+  assert.match(block, /Income received \$33\.00/);
   assert.match(block, /No month-to-date spend in this print/);
 
   oct.income_total = null;
   fx.budget.mtd_actual_by_category = {};
   html = ctx.bankPageHtml(fx, { tab: "budget" });
-  block = html.slice(html.indexOf("This month"), html.indexOf("Month to date"));
+  block = mtdBlock(html);
   assert.match(block, /No month-to-date spend or income in this print/);
   assert.doesNotMatch(block, /<path /);
   assert.doesNotMatch(block, /\$0/);
@@ -414,9 +430,9 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   oct.income_total = 0;
   fx.budget.mtd_actual_by_category = { Groceries: 10 };
   html = ctx.bankPageHtml(fx, { tab: "budget" });
-  block = html.slice(html.indexOf("This month"), html.indexOf("Month to date"));
+  block = mtdBlock(html);
   assert.doesNotMatch(block, /<path /);
-  assert.match(block, /Income in this month is zero/);
+  assert.match(block, /Income received this month is zero/);
   assert.match(block, /Spent so far \$10\.00/);
 
   fx.asof = "2026-10-01T03:30:00Z";
@@ -459,10 +475,19 @@ test("bill calendar is a month grid and the budget pie splits MTD spend from inc
   const edits = ctx.bankPageHtml(fresh, { tab: "edits" });
   assert.doesNotMatch(edits, /This month/);
   assert.doesNotMatch(edits, /Spent vs income/);
+  assert.doesNotMatch(edits, /of income/);
   const current = ctx.bankPageHtml(fresh, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
   assert.doesNotMatch(current, /Spent vs income/);
   assert.doesNotMatch(current, /This month/);
+  assert.doesNotMatch(current, /of income/);
 });
+
+function mtdBlock(html) {
+  const start = html.indexOf('class="bank-pie-block bank-mtd"');
+  const end = html.indexOf('data-bank-pie="bills"');
+  assert.ok(start >= 0, "mtd block");
+  return html.slice(start, end === -1 ? html.length : end);
+}
 
 test("short-month due days clamp onto the last day of that month", function () {
   const ctx = boot();
@@ -570,7 +595,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip dc", function () {
+test("desk links Banking and banking assets are cache-busted at tip dd", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -580,9 +605,12 @@ test("desk links Banking and banking assets are cache-busted at tip dc", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dc/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904db/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dd/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dd/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dc/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904db/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904db/);
   assert.match(page, /\/house\/house\.css\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cp/);
@@ -676,6 +704,7 @@ test("merchant is the tape label and an empty desc uses a placeholder", function
     assert.doesNotMatch(page, /data-bank-tx/);
     assert.doesNotMatch(page, /data-bank-cat/);
     assert.doesNotMatch(page, /data-bank-due/);
+    assert.doesNotMatch(page, /data-bank-kind/);
     assert.doesNotMatch(page, /data-bank-add-cat/);
     assert.doesNotMatch(page, /data-bank-new-cat/);
     assert.doesNotMatch(page, /data-bank-row-cat/);
@@ -2226,8 +2255,11 @@ test("a failed categories read keeps snap customs and does not post removal", as
   });
   const el = mount(ctx, data, { tab: "edits", editCat: "Groceries" });
   await el._bank.prune;
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, "/data/banking/categories.json");
   assert.equal(calls[0].method, "GET");
+  assert.equal(calls[1].url, "/data/banking/mustpay-overrides.json");
+  assert.equal(calls[1].method, "GET");
   ["Household", "Gifts", "Linger", "HistOnly"].forEach(function (name) {
     assert.ok(el._bank.data.custom_categories.indexOf(name) >= 0, name);
     assertCategoryEverywhere(el.innerHTML, name, true);
@@ -2547,7 +2579,16 @@ test("categories.json GET merges into both edits dropdowns", async function () {
   fx.category_overrides = Object.assign({}, fx.category_overrides, { "not-in-any-list": "Pets" });
   const calls = [];
   ctx.fetch = function (url, init) {
-    calls.push({ url: String(url), method: init && init.method ? String(init.method).toUpperCase() : "GET" });
+    const method = init && init.method ? String(init.method).toUpperCase() : "GET";
+    calls.push({ url: String(url), method: method });
+    if (String(url) === "/data/banking/mustpay-overrides.json" && method === "GET") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () { return Promise.resolve({ schema: "banking-mustpay-overrides/v1", overrides: {} }); }
+      });
+    }
     assert.equal(String(url), "/data/banking/categories.json");
     assert.equal(init.credentials, "include");
     assert.equal(init.headers.Accept, "application/json");
@@ -2562,7 +2603,7 @@ test("categories.json GET merges into both edits dropdowns", async function () {
   const el = mount(ctx, fx, { tab: "edits", editCat: "Groceries" });
   assert.equal(el._bank.data.custom_categories.indexOf("Pets"), -1);
   await el._bank.prune;
-  assert.equal(calls.length, 1);
+  assert.equal(calls.filter(function (c) { return c.url === "/data/banking/categories.json"; }).length, 1);
   assert.equal(calls[0].method, "GET");
   assertCategoryEverywhere(el.innerHTML, "Pets", true);
   assert.deepEqual(JSON.parse(JSON.stringify(el._bank.data.custom_categories)), ["Pets"]);
@@ -2656,4 +2697,229 @@ test("an added category still shows after an empty body and a mock reload", asyn
   assertCategoryEverywhere(next.innerHTML, "Pets", true);
   assert.ok(next._bank.data.custom_categories.indexOf("HistOnly") >= 0);
   assert.ok(next._bank.data.custom_categories.indexOf("Pets") >= 0);
+});
+
+function pieBlock(html, key) {
+  const marker = 'data-bank-pie="' + key + '"';
+  const start = html.indexOf(marker);
+  assert.ok(start >= 0, key);
+  const rest = html.slice(start);
+  const close = rest.indexOf("</section>");
+  assert.ok(close >= 0, key + " section");
+  return rest.slice(0, close);
+}
+
+test("budget marks Bill versus Optional and hides a provider prefix", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const phone = ctx.bankNormalizeBills(fx.budget).filter(function (b) { return b.name === "Phone"; })[0];
+  assert.equal(phone.typical_day, null);
+  assert.equal(ctx.bankResolveKind("Phone", fx), "must_pay");
+  assert.equal(ctx.bankResolveKind("Mortgage", fx), "must_pay");
+  assert.equal(ctx.bankResolveKind("Groceries", fx), "elective");
+  assert.equal(ctx.bankResolveKind("Shopping", fx), "elective");
+  assert.equal(ctx.bankResolveKind("Childcare", fx), "elective");
+  assert.equal(ctx.bankResolveKind("Tuition", fx), "must_pay");
+  assert.equal(ctx.bankResolveKind("Streaming", fx), "elective");
+
+  const base = ctx.bankPageHtml(fx, { tab: "budget" });
+  const baseBills = pieBlock(base, "bills");
+  const baseOptional = pieBlock(base, "optional");
+  assert.match(baseBills, /<h3>Bills<\/h3>/);
+  assert.match(baseBills, /Optional<\/span><b>\$42\.34<\/b>/);
+  assert.equal((baseBills.match(/<path /g) || []).length, 1);
+  assert.doesNotMatch(baseBills, /Groceries|Shopping|Tuition/);
+  assert.match(baseOptional, /<h3>Optional<\/h3>/);
+  assert.match(baseOptional, /Groceries<\/span><b>\$30\.00<\/b>/);
+  assert.match(baseOptional, /Shopping<\/span><b>\$12\.34<\/b>/);
+  assert.doesNotMatch(baseOptional, /Tuition|Mortgage/);
+  assert.doesNotMatch(base, /Elective|Other spending/);
+  assert.doesNotMatch(base, /data-bank-kind/);
+
+  const parked = JSON.parse(JSON.stringify(fx));
+  parked.dueday_overrides = { parking: 8 };
+  parked.budget.mtd_actual_by_category = { Parking: 5, Groceries: 2 };
+  assert.equal(ctx.bankResolveKind("Parking", parked), "must_pay");
+  assert.equal(ctx.bankResolveKind("Groceries", parked), "elective");
+  parked.mustpay_overrides = { Parking: "elective" };
+  assert.equal(ctx.bankResolveKind("Parking", parked), "elective");
+
+  const lantern = JSON.parse(JSON.stringify(fx));
+  delete lantern.mustpay_overrides;
+  lantern.budget.calendar = [{ day: 9, items: ["Lantern"] }];
+  lantern.budget.mtd_actual_by_category = { Lantern: 4, Groceries: 2 };
+  assert.equal(ctx.bankResolveKind("Lantern", lantern), "must_pay");
+  assert.equal(ctx.bankResolveKind("Groceries", lantern), "elective");
+
+  const flipped = JSON.parse(JSON.stringify(fx));
+  flipped.mustpay_overrides = { Mortgage: "elective", Groceries: "must_pay" };
+  assert.equal(ctx.bankResolveKind("Mortgage", flipped), "elective");
+  assert.equal(ctx.bankResolveKind("Groceries", flipped), "must_pay");
+  flipped.budget.mtd_actual_by_category = {
+    Groceries: 30,
+    Shopping: 10,
+    Mortgage: 20,
+    "Paycheck/Salary/Wages": 500,
+    Transfer: 9
+  };
+  const split = ctx.bankPageHtml(flipped, { tab: "budget" });
+  const bills = pieBlock(split, "bills");
+  const optional = pieBlock(split, "optional");
+  assert.match(bills, /Groceries<\/span><b>\$30\.00<\/b>/);
+  assert.match(bills, /Optional<\/span><b>\$30\.00<\/b>/);
+  assert.doesNotMatch(bills, /Paycheck|Transfer|Shopping|Mortgage/);
+  assert.match(optional, /Mortgage<\/span><b>\$20\.00<\/b>/);
+  assert.match(optional, /Shopping<\/span><b>\$10\.00<\/b>/);
+  assert.doesNotMatch(optional, /Groceries|Paycheck|Transfer/);
+  assert.doesNotMatch(split, /Elective|Other spending/);
+
+  const nested = JSON.parse(JSON.stringify(fx));
+  delete nested.mustpay_overrides;
+  nested.budget.mustpay_overrides = { Shopping: "must_pay" };
+  assert.equal(ctx.bankResolveKind("Shopping", nested), "must_pay");
+  assert.equal(ctx.bankResolveKind("Groceries", nested), "elective");
+  nested.mustpay_overrides = { Shopping: "elective" };
+  assert.equal(ctx.bankResolveKind("Shopping", nested), "elective");
+
+  const quiet = JSON.parse(JSON.stringify(fx));
+  quiet.budget.mtd_actual_by_category = {};
+  quiet.mustpay_overrides = {};
+  const quietHtml = ctx.bankPageHtml(quiet, { tab: "budget" });
+  assert.match(pieBlock(quietHtml, "bills"), /No bill spending this month/);
+  assert.match(pieBlock(quietHtml, "optional"), /No optional spending this month/);
+  assert.doesNotMatch(pieBlock(quietHtml, "bills"), /<path /);
+  assert.doesNotMatch(pieBlock(quietHtml, "optional"), /<path /);
+
+  assert.equal(ctx.bankDisplayName("Acme Mortgage"), "Mortgage");
+  assert.equal(ctx.bankDisplayName("Acme Gas (Utility)"), "Gas (Utility)");
+  assert.equal(ctx.bankDisplayName("Gas (Utility)"), "Gas (Utility)");
+  assert.equal(ctx.bankDisplayName("Northwind Mobile plan"), "Mobile plan");
+  assert.equal(ctx.bankDisplayName("Rent/Mortgage"), "Rent/Mortgage");
+  assert.equal(ctx.bankDisplayName("Groceries"), "Groceries");
+  assert.equal(ctx.bankDisplayName("Utilities/Bills"), "Utilities/Bills");
+
+  const shown = JSON.parse(JSON.stringify(fx));
+  shown.budget.bills = [{ name: "Acme Mortgage", amount: 12.34, typical_day: 4, cadence: "monthly" }];
+  shown.budget.bills_monthly = [];
+  shown.budget.calendar = [];
+  shown.budget.income_monthly = [];
+  shown.budget.planned_by_category = {};
+  shown.budget.mtd_actual_by_category = { "Acme Mortgage": 8, Groceries: 3 };
+  shown.mustpay_overrides = {};
+  shown.current.edits_tx = [{
+    date: "2026-10-04",
+    id: "acct-check",
+    desc: "House Note",
+    amount: 8,
+    flow: "outflow",
+    category: "Acme Mortgage",
+    tx_key: "acme-1"
+  }];
+  shown.current.recent_tx = shown.current.edits_tx.slice();
+  const beforeBills = JSON.stringify(shown.budget.bills);
+  const budget = ctx.bankPageHtml(shown, { tab: "budget" });
+  assert.equal(JSON.stringify(shown.budget.bills), beforeBills);
+  assert.equal(shown.budget.mtd_actual_by_category["Acme Mortgage"], 8);
+  assert.doesNotMatch(budget.replace(/data-bar="[^"]*"/g, ""), /Acme/);
+  assert.match(budget, /<b>4<\/b><span>Mortgage<\/span>/);
+  assert.match(pieBlock(budget, "bills"), /Mortgage<\/span><b>\$8\.00<\/b>/);
+  assert.match(pieBlock(budget, "bills"), /Optional<\/span><b>\$3\.00<\/b>/);
+  assert.match(pieBlock(budget, "optional"), /Groceries<\/span><b>\$3\.00<\/b>/);
+  assert.doesNotMatch(pieBlock(budget, "optional"), /Mortgage/);
+  const edits = ctx.bankPageHtml(shown, { tab: "edits", editCat: "Acme Mortgage" });
+  assert.match(edits, /<option value="Acme Mortgage"(?: selected)?>Mortgage<\/option>/);
+  assert.match(edits, /data-bank-kind="Acme Mortgage"/);
+  assert.match(edits, /aria-label="Bill or Optional for Mortgage"/);
+  assert.match(edits, /data-bank-kind="Acme Mortgage"[\s\S]*?value="must_pay" selected/);
+  assert.match(edits, />Bill<\/option>/);
+  assert.match(edits, />Optional<\/option>/);
+  assert.match(edits, /class="bank-merchant">House Note</);
+  assert.doesNotMatch(edits, /Elective|Other spending/);
+  assert.doesNotMatch(budget, /data-bank-kind/);
+  assert.match(ctx.bankMtdSplitHtml(5000, 1), /999%\+/);
+  assert.match(ctx.bankMtdSplitHtml(60, 40), />150%</);
+  assert.match(ctx.bankMtdSplitHtml(60, 40), /of income/);
+  assert.match(ctx.bankMtdBlock(shown), /Month to date · day 5 of 31/);
+
+  const writes = [];
+  ctx.localStorage.setItem = function (k, v) { writes.push(k + "=" + v); };
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    const method = init && init.method ? String(init.method).toUpperCase() : "GET";
+    if (String(url) === "/data/banking/mustpay-overrides.json" && method === "GET") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () {
+          return Promise.resolve({
+            schema: "banking-mustpay-overrides/v1",
+            overrides: { "Acme Mortgage": "must_pay" }
+          });
+        }
+      });
+    }
+    const cached = categoryRead(url, init, shown.custom_categories);
+    if (cached) return cached;
+    calls.push({ url: String(url), init: init });
+    const body = JSON.parse(init.body);
+    if (method === "PUT") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () { return Promise.resolve(JSON.parse(init.body)); }
+      });
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () {
+        return Promise.resolve({
+          schema: "banking-mustpay-overrides/v1",
+          overrides: { "Acme Mortgage": body.kind }
+        });
+      }
+    });
+  };
+  const el = mount(ctx, JSON.parse(JSON.stringify(shown)), { tab: "edits", editCat: "Acme Mortgage" });
+  await el._bank.prune;
+  assert.match(el.innerHTML, /data-bank-kind="Acme Mortgage"[\s\S]*?value="must_pay" selected/);
+  assert.match(el.innerHTML, /Bill or Optional edits sync across your seats/);
+  await el.listeners.change({
+    target: {
+      value: "elective",
+      getAttribute: function (name) { return name === "data-bank-kind" ? "Acme Mortgage" : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/data/banking/mustpay-overrides.json");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { name: "Acme Mortgage", kind: "elective" });
+  assert.match(el.innerHTML, /data-bank-kind="Acme Mortgage"[\s\S]*?value="elective" selected/);
+  assert.equal(writes.length, 0);
+  ctx.bankActivate(el, "budget");
+  assert.doesNotMatch(el.innerHTML.replace(/data-bar="[^"]*"/g, ""), /Acme/);
+  assert.match(pieBlock(el.innerHTML, "optional"), /Mortgage<\/span><b>\$8\.00<\/b>/);
+  assert.match(pieBlock(el.innerHTML, "bills"), /Optional<\/span><b>\$11\.00<\/b>/);
+  assert.doesNotMatch(pieBlock(el.innerHTML, "bills"), /Mortgage/);
+
+  calls.length = 0;
+  await ctx.bankPutMustPay(el, { Groceries: "bill", "Acme Mortgage": "optional" });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].init.method, "PUT");
+  const putBody = JSON.parse(calls[0].init.body);
+  assert.equal(putBody.schema, "banking-mustpay-overrides/v1");
+  assert.deepEqual(putBody.overrides, { Groceries: "must_pay", "Acme Mortgage": "elective" });
+  assert.equal(ctx.bankResolveKind("Groceries", el._bank.data), "must_pay");
+  assert.equal(writes.length, 0);
+
+  const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
+  const fixtureSrc = fs.readFileSync(fixturePath, "utf8");
+  assert.doesNotMatch(src, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.doesNotMatch(fixtureSrc, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
+  assert.doesNotMatch(src, /Elective|Other spending/);
 });

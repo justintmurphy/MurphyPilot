@@ -100,6 +100,9 @@
   "category_overrides": {
     "2026-10-04|acct-check|12.34|City Fuel": "Transport"
   },
+  "mustpay_overrides": {
+    "Tuition": "must_pay"
+  },
   "custom_categories": ["Household", "Gifts"],
   "budget": {
     "income_monthly": [
