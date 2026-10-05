@@ -119,9 +119,11 @@ test("null balances are not shown as $0 and an empty tape stays hidden", functio
   assert.doesNotMatch(total[0], /\$0/);
   assert.match(html, /data-acct="Overdraft"[^>]*data-balance="0"/);
   assert.match(html, /data-acct="Check Account"[\s\S]*?\$12\.34/);
-  assert.doesNotMatch(html, /bank-tape/);
+  assert.match(html, /No recent activity in this print/);
+  assert.doesNotMatch(html, /<table class="bank-tape">/);
+  assert.doesNotMatch(html, /Month-end balances/);
+  assert.doesNotMatch(html, /class="bank-spark"/);
   assert.doesNotMatch(html, /bank-stale/);
-  assert.match(html, /class="bank-spark"/);
   assert.match(html, /Other/);
   assert.doesNotMatch(html, /Paycheck\/Salary\/Wages<\/span>/);
 });
@@ -395,8 +397,10 @@ test("empty calendar shows the due-day empty state and insights keep severity", 
   assert.match(html, /Due days need more history/);
   assert.doesNotMatch(html, /class="bank-days"/);
   assert.doesNotMatch(html, /class="bank-cal-grid"/);
-  assert.match(html, /Income for this month is not in the print/);
-  assert.doesNotMatch(mtdBlock(html), /class="bank-pie"/);
+  const live = ctx.bankPageHtml(fx, { tab: "current" });
+  assert.match(live, /Income for this month is not in the print/);
+  assert.doesNotMatch(mtdBlock(live), /class="bank-pie"/);
+  assert.doesNotMatch(html, /Income for this month is not in the print/);
   assert.match(html, /data-bank-pie="bills"/);
   assert.match(html, /sev-red/);
   assert.match(html, /sev-amber/);
@@ -539,7 +543,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   const insightAt = html.indexOf('<section class="bank-insight-block">');
   const coversAt = html.indexOf('class="bank-covers"');
   assert.ok(calAt >= 0 && insightAt > calAt);
-  assert.match(html.slice(calAt, insightAt), /Bill calendar/);
+  assert.match(html.slice(calAt, insightAt), /Due calendar · plan/);
   assert.doesNotMatch(html.slice(calAt, insightAt), /Insights/);
   if (coversAt >= 0) assert.ok(coversAt > calAt && coversAt < insightAt);
   assert.match(html, /role="columnheader">Sun<\/span>[\s\S]*role="columnheader">Sat<\/span>/);
@@ -548,7 +552,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   assert.match(html, /<div class="bank-day"><b>2<\/b><\/div>/);
   assert.match(html, /<div class="bank-day has"><b>3<\/b><span title="Sample item" aria-label="Sample item">Sample item<\/span>/);
   assert.doesNotMatch(html, /class="bank-days"/);
-  let mtd = mtdBlock(html);
+  let mtd = mtdBlock(ctx.bankPageHtml(fx, { tab: "current" }));
   assert.match(mtd, /Month to date · day 5 of 31/);
   assert.match(mtd, /of income/);
   assert.match(mtd, /Spent so far \$42\.34/);
@@ -569,7 +573,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   fx.current.recent_tx.push(
     { date: "2026-10-02", id: "acct-check", desc: "Pay", amount: 70, flow: "inflow", category: "Paycheck/Salary/Wages", tx_key: "pay-oct" }
   );
-  html = ctx.bankPageHtml(fx, { tab: "budget" });
+  html = ctx.bankPageHtml(fx, { tab: "current" });
   let block = mtdBlock(html);
   assert.match(block, /class="bank-mtd-meter"/);
   assert.match(block, /class="bank-mtd-track"/);
@@ -591,7 +595,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
     { date: "2026-10-02", id: "acct-check", desc: "Pay", amount: -40, flow: "inflow", category: "Cash Inflows", tx_key: "cash-oct" }
   ];
   fx.budget.mtd_actual_by_category = { Groceries: 60 };
-  html = ctx.bankPageHtml(fx, { tab: "budget" });
+  html = ctx.bankPageHtml(fx, { tab: "current" });
   block = mtdBlock(html);
   assert.match(block, /Income received<\/span><b>\$40\.00<\/b>/);
   assert.match(block, /Spent so far<\/span><b>\$60\.00<\/b>/);
@@ -609,7 +613,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   oct.income_total = 999;
   oct.tx = [{ date: "2026-10-12", id: "acct-check", desc: "Extra", amount: 15, flow: "inflow", category: "Bonus" }];
   fx.budget.mtd_actual_by_category = { Shopping: 75 };
-  html = ctx.bankPageHtml(fx, { tab: "budget" });
+  html = ctx.bankPageHtml(fx, { tab: "current" });
   block = mtdBlock(html);
   assert.match(block, /Income received<\/span><b>\$15\.00<\/b>/);
   assert.match(block, /Spent so far<\/span><b>\$75\.00<\/b>/);
@@ -622,7 +626,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   oct.tx = [];
   oct.income_total = 50;
   fx.budget.mtd_actual_by_category = { Groceries: 50 };
-  html = ctx.bankPageHtml(fx, { tab: "budget" });
+  html = ctx.bankPageHtml(fx, { tab: "current" });
   block = mtdBlock(html);
   assert.doesNotMatch(block, /<path /);
   assert.doesNotMatch(block, /class="bank-mtd-track over"/);
@@ -634,7 +638,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   oct.income_total = 80;
   fx.budget.income_monthly[0].amount = 80;
   fx.budget.mtd_actual_by_category = { Groceries: 20 };
-  html = ctx.bankPageHtml(fx, { tab: "budget" });
+  html = ctx.bankPageHtml(fx, { tab: "current" });
   block = mtdBlock(html);
   assert.doesNotMatch(block, /class="bank-pie"/);
   assert.doesNotMatch(block, /class="bank-mtd-meter"/);
@@ -645,7 +649,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   oct.closed = false;
   oct.income_total = 33;
   fx.budget.mtd_actual_by_category = { "Paycheck/Salary/Wages": 10, Transfer: 4 };
-  html = ctx.bankPageHtml(fx, { tab: "budget" });
+  html = ctx.bankPageHtml(fx, { tab: "current" });
   block = mtdBlock(html);
   assert.doesNotMatch(block, /<path /);
   assert.doesNotMatch(block, /class="bank-mtd-meter"/);
@@ -655,7 +659,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
 
   oct.income_total = null;
   fx.budget.mtd_actual_by_category = {};
-  html = ctx.bankPageHtml(fx, { tab: "budget" });
+  html = ctx.bankPageHtml(fx, { tab: "current" });
   block = mtdBlock(html);
   assert.match(block, /No month-to-date spend or income in this print/);
   assert.doesNotMatch(block, /<path /);
@@ -665,7 +669,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
 
   oct.income_total = 0;
   fx.budget.mtd_actual_by_category = { Groceries: 10 };
-  html = ctx.bankPageHtml(fx, { tab: "budget" });
+  html = ctx.bankPageHtml(fx, { tab: "current" });
   block = mtdBlock(html);
   assert.doesNotMatch(block, /<path /);
   assert.doesNotMatch(block, /class="bank-mtd-meter"/);
@@ -714,17 +718,23 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   assert.doesNotMatch(edits, /This month/);
   assert.doesNotMatch(edits, /Spent vs income/);
   assert.doesNotMatch(edits, /of income/);
+  const budgetPage = ctx.bankPageHtml(fresh, { tab: "budget" });
+  assert.doesNotMatch(budgetPage, /Spent vs income/);
+  assert.doesNotMatch(budgetPage, /of income/);
+  assert.doesNotMatch(budgetPage, /Month to date · day/);
   const current = ctx.bankPageHtml(fresh, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
   assert.doesNotMatch(current, /Spent vs income/);
   assert.doesNotMatch(current, /This month/);
-  assert.doesNotMatch(current, /of income/);
+  assert.match(current, /Month to date · day 5 of 31/);
+  assert.match(current, /of income/);
 });
 
 function mtdBlock(html) {
   const start = html.indexOf('class="bank-pie-block bank-mtd"');
-  const end = html.indexOf('data-bank-pie="bills"');
   assert.ok(start >= 0, "mtd block");
-  return html.slice(start, end === -1 ? html.length : end);
+  const end = html.indexOf("</section>", start);
+  assert.ok(end >= 0, "mtd section");
+  return html.slice(start, end);
 }
 
 test("month-to-date caption uses the Eastern calendar day of asof", function () {
@@ -734,10 +744,12 @@ test("month-to-date caption uses the Eastern calendar day of asof", function () 
   const html = ctx.bankPageHtml(fx, { tab: "budget" });
   assert.match(html, /aria-label="October 2026"/);
   assert.equal(ctx.bankMtdCaption(fx.asof), "Month to date · day 31 of 31");
-  assert.match(mtdBlock(html), /<h3>Month to date · day 31 of 31<\/h3>/);
+  const current = ctx.bankPageHtml(fx, { tab: "current" });
+  assert.match(mtdBlock(current), /<h3>Month to date · day 31 of 31<\/h3>/);
   const barsAt = html.indexOf('class="bank-bars"');
   assert.ok(barsAt >= 0);
-  assert.match(html.slice(barsAt, barsAt + 80), /<h3>Month to date · day 31 of 31<\/h3>/);
+  assert.match(html.slice(barsAt, barsAt + 80), /<h3>Progress vs limits<\/h3>/);
+  assert.doesNotMatch(html, /Month to date · day/);
   assert.doesNotMatch(html, /day 1 of 30/);
 
   fx.asof = "2026-10-05T12:00:00-04:00";
@@ -854,7 +866,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip dq", function () {
+test("desk links Banking and banking assets are cache-busted at tip dr", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -864,8 +876,10 @@ test("desk links Banking and banking assets are cache-busted at tip dq", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dq/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904dq/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dr/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dr/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dq/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dp/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dp/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904do/);
@@ -1027,12 +1041,13 @@ test("merchant is the tape label and an empty desc uses a placeholder", function
   assert.doesNotMatch(fixtureSrc, /t-?\s?mobile/i);
 });
 
-test("tape stays hidden when recent_tx is empty", function () {
+test("an empty recent tape says the print has no activity", function () {
   const ctx = boot();
   const fx = loadFixture();
   fx.current.recent_tx = [];
   const html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
-  assert.doesNotMatch(html, /bank-tape/);
+  assert.match(html, /No recent activity in this print/);
+  assert.doesNotMatch(html, /<table class="bank-tape">/);
   assert.doesNotMatch(html, /bank-merchant/);
   assert.doesNotMatch(html, /bank-sync/);
 });
@@ -1405,6 +1420,7 @@ test("edits lists edits_tx across months and bills prefer typical_amount", funct
   const longCurrent = ctx.bankPageHtml(long, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
   const tape = longCurrent.match(/<table class="bank-tape">[\s\S]*?<\/table>/);
   assert.ok(tape);
+  assert.match(longCurrent, /class="bank-tape-scroll"/);
   assert.equal((tape[0].match(/<tr>/g) || []).length, 40);
 
   const fallback = JSON.parse(JSON.stringify(fx));
@@ -1590,10 +1606,10 @@ test("budget hides empty categories from pies, ranks, and month-to-date bars", f
   assert.match(optional, /Groceries<\/span><b>\$30\.00<\/b>/);
   assert.match(optional, /Shopping<\/span><b>\$12\.34<\/b>/);
   assert.match(bills, /Optional<\/span><b>\$42\.34<\/b>/);
-  assert.match(budget, /data-bar="Groceries"[\s\S]*?MTD \$30\.00[\s\S]*?target \$12\.34/);
-  assert.match(budget, /data-bar="Shopping"[\s\S]*?MTD \$12\.34[\s\S]*?target \$24\.00/);
-  assert.doesNotMatch(budget, /MTD \$0\.00/);
-  assert.doesNotMatch(budget, /MTD \u2014/);
+  assert.match(budget, /data-bar="Groceries"[\s\S]*?Actual \$30\.00[\s\S]*?Limit \$12\.34/);
+  assert.match(budget, /data-bar="Shopping"[\s\S]*?Actual \$12\.34[\s\S]*?Limit \$24\.00/);
+  assert.doesNotMatch(budget, /Actual \$0\.00/);
+  assert.doesNotMatch(budget, /Actual \u2014/);
 
   const edits = ctx.bankPageHtml(fx, { tab: "edits" });
   assert.match(edits, /data-bank-kind="Childcare"[\s\S]*?value="elective" selected/);
@@ -1612,7 +1628,7 @@ test("budget hides empty categories from pies, ranks, and month-to-date bars", f
   quiet.budget.mtd_actual_by_category = { Childcare: 0, Tuition: null, Health: "0", Shopping: -1 };
   quiet.budget.planned_by_category = { Childcare: 12.34, Tuition: 40, Shopping: 9 };
   const quietHtml = ctx.bankPageHtml(quiet, { tab: "budget" });
-  assert.match(quietHtml, /No month-to-date category spend in this print/);
+  assert.match(quietHtml, /No category limits in this print/);
   assert.doesNotMatch(quietHtml, /data-bar=/);
   assert.match(pieBlock(quietHtml, "bills"), /No bill spending this month/);
   assert.match(pieBlock(quietHtml, "optional"), /No optional spending this month/);
@@ -3113,11 +3129,11 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
   const base = ctx.bankPageHtml(fx, { tab: "budget" });
   const baseBills = pieBlock(base, "bills");
   const baseOptional = pieBlock(base, "optional");
-  assert.match(baseBills, /<h3>Bills<\/h3>/);
+  assert.match(baseBills, /<h3>Bill vs optional · plan<\/h3>/);
   assert.match(baseBills, /Optional<\/span><b>\$42\.34<\/b>/);
   assert.equal((baseBills.match(/<path /g) || []).length, 1);
   assert.doesNotMatch(baseBills, /Groceries|Shopping|Tuition/);
-  assert.match(baseOptional, /<h3>Optional<\/h3>/);
+  assert.match(baseOptional, /<h3>Optional split · plan<\/h3>/);
   assert.match(baseOptional, /Groceries<\/span><b>\$30\.00<\/b>/);
   assert.match(baseOptional, /Shopping<\/span><b>\$12\.34<\/b>/);
   assert.doesNotMatch(baseOptional, /Tuition|Mortgage/);
@@ -3920,7 +3936,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.match(income, />Fostering Per Diem Stipend</);
   assert.match(income, /amount pending/);
   assert.doesNotMatch(income, /\$0/);
-  assert.match(budget, /<section class="bank-bills"><h3>Bills<\/h3>/);
+  assert.match(budget, /<section class="bank-bills"><h3>Bills · plan<\/h3>/);
   assert.ok(budget.indexOf('class="bank-income"') < budget.indexOf('class="bank-bills"'));
   assert.match(budget, /<b>11<\/b><span title="Car Insurance" aria-label="Car Insurance">Car Insurance<\/span>/);
   assert.match(budget, /<b>14<\/b><span title="Car Insurance" aria-label="Car Insurance">Car Insurance<\/span>/);
@@ -4057,7 +4073,147 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20260904dq/);
+  assert.match(page, /banking\.js\?v=20260904dr/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dp/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904do/);
+});
+
+test("tip dr current shows live meters and an in-out bar without linked transfers", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  const htmlFiles = src + "\n" + css + "\n" + page;
+  assert.doesNotMatch(htmlFiles, /NFCU|Progressive|UPMC|T-Mobile/i);
+  assert.match(css, /\.bank-tape-scroll\s*\{[^}]*max-height:\s*20\.5rem/);
+  assert.match(css, /\.bank-tape-scroll\s*\{[^}]*overflow-y:\s*auto/);
+  assert.match(css, /\.bank-tape tbody tr\s*\{[^}]*height:\s*2\.05rem/);
+  assert.match(css, /\.bank-cap\.under \.fill\s*\{[^}]*background:\s*var\(--go\)/);
+  assert.match(css, /\.bank-cap\.over \.fill\s*\{[^}]*background:\s*var\(--stop\)/);
+  assert.match(css, /\.bank-io-in\s*\{[^}]*background:\s*var\(--brand-fg\)/);
+  assert.match(css, /\.bank-io-out\s*\{[^}]*background:\s*var\(--mix-c\)/);
+
+  const current = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
+  assert.match(current, /Live balances, in\/out, recent/);
+  assert.match(current, /As of /);
+  assert.match(current, /Total cash/);
+  assert.match(current, /In \/ out · this month/);
+  assert.match(current, /Spent so far · actual/);
+  assert.match(current, /From the live print — not the plan\./);
+  assert.match(current, /Last closed · actual/);
+  assert.match(current, /Recent · actual/);
+  assert.match(current, /What’s in the print right now\./);
+  assert.doesNotMatch(current, /Month-end balances/);
+  assert.doesNotMatch(current, /class="bank-spark"/);
+  assert.doesNotMatch(current, /data-bar=/);
+  assert.equal((current.match(/data-cap="/g) || []).length, 3);
+
+  const rows = ctx.bankCapRows(fx);
+  assert.equal(rows[0].label, "Bill");
+  assert.equal(rows[0].actual, 0);
+  assert.equal(rows[0].limit, 12.34);
+  assert.equal(rows[1].label, "Optional");
+  assert.equal(rows[1].actual, 42.34);
+  assert.equal(Math.round(rows[1].limit * 100), 4868);
+  assert.equal(rows[2].label, "Savings");
+  assert.equal(rows[2].actual, null);
+  assert.equal(rows[2].limit, null);
+  assert.match(current, /class="bank-cap under"[^>]*data-cap="bill"/);
+  assert.match(current, /class="bank-cap under"[^>]*data-cap="optional"/);
+  assert.match(current, /class="bank-cap pending"[^>]*data-cap="savings"/);
+  assert.match(current, /Limit pending/);
+  assert.doesNotMatch(current.slice(current.indexOf('data-cap="savings"'), current.indexOf('data-cap="savings"') + 500), /role="meter"/);
+
+  const budget = ctx.bankPageHtml(fx, { tab: "budget" });
+  assert.match(budget, /Plan, dues, progress vs limits/);
+  assert.match(budget, /Due calendar · plan/);
+  assert.match(budget, /<h3>Insights<\/h3>/);
+  assert.match(budget, /Bill vs optional · plan/);
+  assert.match(budget, /Optional split · plan/);
+  assert.match(budget, /Expected income · plan/);
+  assert.match(budget, /Bills · plan/);
+  assert.match(budget, /<h3>Progress vs limits<\/h3>/);
+  assert.match(budget, /What you planned — and how actuals track the limits\./);
+  assert.doesNotMatch(budget, /class="bank-mtd"/);
+  assert.doesNotMatch(budget, /Plan check/);
+  const hist = ctx.bankPageHtml(fx, { tab: "historical" });
+  assert.match(hist, />Historical</);
+  assert.match(hist, /From the one-time passcode feed\. Blank means the print omitted that figure\./);
+  assert.doesNotMatch(hist, /Due calendar · plan/);
+
+  fx.budget.must_pay_budget = 80;
+  fx.budget.optional_budget = 10;
+  let capped = ctx.bankCapRows(fx);
+  assert.equal(capped[0].limit, 80);
+  assert.equal(capped[1].limit, 10);
+  assert.equal(capped[1].actual, 42.34);
+  let overHtml = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
+  assert.match(overHtml, /class="bank-cap over"[^>]*data-cap="optional"/);
+  assert.match(overHtml, /Limit \$10\.00/);
+  assert.doesNotMatch(overHtml, /data-cap="groceries"/);
+
+  fx.budget.mtd_actual_by_category = Object.assign({}, fx.budget.mtd_actual_by_category, { Savings: 25 });
+  fx.budget.savings_limit = 20;
+  capped = ctx.bankCapRows(fx);
+  assert.equal(capped[2].actual, 25);
+  assert.equal(capped[2].limit, 20);
+  assert.equal(capped[1].actual, 42.34);
+  overHtml = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
+  assert.match(overHtml, /class="bank-cap over"[^>]*data-cap="savings"/);
+
+  delete fx.budget.savings_limit;
+  fx.budget.planned_by_category = Object.assign({}, fx.budget.planned_by_category, { Savings: 40 });
+  delete fx.budget.mtd_actual_by_category.Savings;
+  capped = ctx.bankCapRows(fx);
+  assert.equal(capped[2].limit, 40);
+  assert.equal(capped[2].actual, 0);
+  fx.budget.savings = 15;
+  delete fx.budget.planned_by_category.Savings;
+  capped = ctx.bankCapRows(fx);
+  assert.equal(capped[2].limit, 15);
+
+  const flowSnap = JSON.parse(JSON.stringify(loadFixture()));
+  flowSnap.current.recent_tx = [];
+  flowSnap.current.edits_tx = [
+    { date: "2026-10-02", id: "acct-check", amount: 100, flow: "inflow", category: "Paycheck/Salary/Wages", tx_key: "pay", desc: "Pay" },
+    { date: "2026-10-03", id: "acct-check", amount: 40, flow: "outflow", category: "Transfer", tx_key: "leg-out", desc: "Move out" },
+    { date: "2026-10-03", id: "acct-share", amount: 40, flow: "inflow", category: "Transfer", tx_key: "leg-in", desc: "Move in" },
+    { date: "2026-10-04", id: "acct-check", amount: 10, flow: "outflow", category: "Groceries", tx_key: "groc", desc: "Market" },
+    { date: "2026-10-04", id: "acct-check", amount: 15, flow: "outflow", category: "Credit Card Payment", tx_key: "card", desc: "Card" },
+    { date: "2026-10-05", id: "acct-check", amount: 7, flow: "outflow", category: "Transfer", external: true, tx_key: "wire", desc: "Outside" },
+    { date: "2026-10-05", id: "acct-check", amount: 9, flow: "outflow", category: "Shopping", counterparty_id: "acct-share", tx_key: "pair", desc: "Pair" },
+    { date: "2026-10-06", id: "acct-check", amount: 8, flow: "outflow", category: "Transfer", counterparty_id: "acct-outside", tx_key: "foreign", desc: "Foreign" },
+    { date: "2026-10-06", id: "acct-check", amount: 3, flow: "outflow", category: "Shopping", internal: true, tx_key: "flag", desc: "Flagged" },
+    { date: "2026-09-02", id: "acct-check", amount: 500, flow: "inflow", category: "Paycheck/Salary/Wages", tx_key: "old", desc: "Old pay" }
+  ];
+  const flow = ctx.bankMonthFlow(flowSnap);
+  assert.equal(flow.inSum, 100);
+  assert.equal(flow.outSum, 40);
+  const flowHtml = ctx.bankPageHtml(flowSnap, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
+  assert.match(flowHtml, /aria-label="Incoming \$100\.00, outgoing \$40\.00"/);
+  assert.match(flowHtml, /class="bank-io-fill bank-io-in"/);
+  assert.match(flowHtml, /class="bank-io-fill bank-io-out"/);
+  assert.doesNotMatch(flowHtml, /\$40\.00<\/b><\/div><div class="bank-io-track"[^>]*><span class="bank-io-fill bank-io-in"/);
+
+  const onlyMove = JSON.parse(JSON.stringify(flowSnap));
+  onlyMove.current.edits_tx = [
+    { date: "2026-10-03", id: "acct-check", amount: 40, flow: "transfer", category: "Transfer", tx_key: "only", desc: "Move" }
+  ];
+  const quietFlow = ctx.bankMonthFlow(onlyMove);
+  assert.equal(quietFlow.any, false);
+  assert.match(ctx.bankPageHtml(onlyMove, { tab: "current" }), /No incoming or outgoing in this print/);
+
+  const pending = JSON.parse(JSON.stringify(loadFixture()));
+  pending.budget.mtd_actual_by_category = { Savings: 5 };
+  pending.budget.planned_by_category = {};
+  const pendingRows = ctx.bankCapRows(pending);
+  assert.equal(pendingRows[2].actual, 5);
+  assert.equal(pendingRows[2].limit, null);
+  assert.equal(pendingRows[0].limit, null);
+  assert.equal(pendingRows[0].actual, null);
+  const pendingHtml = ctx.bankPageHtml(pending, { tab: "current" });
+  assert.match(pendingHtml, /data-cap="savings"[\s\S]*?Actual \$5\.00[\s\S]*?Limit pending/);
+  assert.doesNotMatch(pendingHtml, /data-cap="savings"[\s\S]{0,400}role="meter"/);
 });
