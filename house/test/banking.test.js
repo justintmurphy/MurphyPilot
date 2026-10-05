@@ -631,7 +631,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip df", function () {
+test("desk links Banking and banking assets are cache-busted at tip dg", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -641,8 +641,10 @@ test("desk links Banking and banking assets are cache-busted at tip df", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904df/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904df/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dg/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dg/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904df/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904df/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904de/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904de/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dd/);
@@ -1275,7 +1277,91 @@ test("edits dig-in lists a history-only merchant in a planned category", functio
   assert.match(current, /Corner Market/);
   assert.doesNotMatch(current, /Day Program/);
   const budget = ctx.bankPageHtml(fx, { tab: "budget" });
-  assert.match(budget, /data-bar="Childcare"[\s\S]*target \$12\.34/);
+  assert.doesNotMatch(budget, /data-bar="Childcare"/);
+  assert.doesNotMatch(budget, /data-bar="Tuition"/);
+  assert.match(budget, /data-bar="Groceries"/);
+  assert.match(budget, /data-bar="Shopping"/);
+});
+
+test("budget hides empty categories from pies, ranks, and month-to-date bars", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  fx.budget.planned_by_category = {
+    Groceries: 12.34,
+    Shopping: 24,
+    Childcare: 40,
+    Tuition: 50,
+    Health: 8,
+    Parking: 3
+  };
+  fx.budget.mtd_actual_by_category = {
+    Groceries: 30,
+    Shopping: 12.34,
+    Health: 0,
+    Parking: null,
+    Transit: "0.00",
+    Refunds: -4,
+    Dust: 0.004,
+    "Paycheck/Salary/Wages": 10,
+    Transfer: 4
+  };
+  const bars = ctx.bankBudgetBars(fx.budget);
+  assert.deepEqual(JSON.parse(JSON.stringify(bars.map(function (r) { return r.name; }))), ["Groceries", "Shopping"]);
+  assert.equal(bars[0].actual, 30);
+  assert.equal(bars[0].target, 12.34);
+  assert.equal(bars[0].over, true);
+  assert.equal(bars[1].actual, 12.34);
+  assert.equal(bars[1].target, 24);
+  assert.equal(bars[1].over, false);
+  const pies = ctx.bankKindPies(fx);
+  assert.deepEqual(JSON.parse(JSON.stringify(pies.optional.map(function (r) { return r.raw; }))), ["Groceries", "Shopping"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(pies.bills.map(function (r) { return r.name; }))), ["Optional"]);
+
+  const budget = ctx.bankPageHtml(fx, { tab: "budget" });
+  const bills = pieBlock(budget, "bills");
+  const optional = pieBlock(budget, "optional");
+  ["Childcare", "Tuition", "Health", "Parking", "Transit", "Refunds", "Dust", "Paycheck", "Transfer"].forEach(function (name) {
+    assert.doesNotMatch(bills, new RegExp(name));
+    assert.doesNotMatch(optional, new RegExp(name));
+  });
+  ["Childcare", "Tuition", "Health", "Parking", "Transit", "Refunds", "Dust", "Paycheck/Salary/Wages", "Transfer"].forEach(function (name) {
+    assert.doesNotMatch(budget, new RegExp('data-bar="' + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '"'));
+  });
+  assert.match(optional, /Groceries<\/span><b>\$30\.00<\/b>/);
+  assert.match(optional, /Shopping<\/span><b>\$12\.34<\/b>/);
+  assert.match(bills, /Optional<\/span><b>\$42\.34<\/b>/);
+  assert.match(budget, /data-bar="Groceries"[\s\S]*?MTD \$30\.00[\s\S]*?target \$12\.34/);
+  assert.match(budget, /data-bar="Shopping"[\s\S]*?MTD \$12\.34[\s\S]*?target \$24\.00/);
+  assert.doesNotMatch(budget, /MTD \$0\.00/);
+  assert.doesNotMatch(budget, /MTD \u2014/);
+
+  const edits = ctx.bankPageHtml(fx, { tab: "edits" });
+  assert.match(edits, /data-bank-kind="Childcare"[\s\S]*?value="elective" selected/);
+  assert.match(edits, /data-bank-kind="Tuition"[\s\S]*?value="must_pay" selected/);
+  assert.match(edits, /data-bank-kind="Health"/);
+  assert.match(edits, /data-bank-kind="Parking"/);
+  assert.match(edits, /data-bank-kind="Transit"/);
+  assert.match(edits, /data-bank-kind="Refunds"/);
+  assert.match(edits, /data-bank-kind="Dust"/);
+  assert.match(edits, /data-bank-kind="Groceries"/);
+  assert.doesNotMatch(edits, /data-bank-kind="Paycheck\/Salary\/Wages"/);
+  assert.doesNotMatch(edits, /data-bank-kind="Transfer"/);
+  assert.doesNotMatch(budget, /data-bank-kind/);
+
+  const quiet = JSON.parse(JSON.stringify(fx));
+  quiet.budget.mtd_actual_by_category = { Childcare: 0, Tuition: null, Health: "0", Shopping: -1 };
+  quiet.budget.planned_by_category = { Childcare: 12.34, Tuition: 40, Shopping: 9 };
+  const quietHtml = ctx.bankPageHtml(quiet, { tab: "budget" });
+  assert.match(quietHtml, /No month-to-date category spend in this print/);
+  assert.doesNotMatch(quietHtml, /data-bar=/);
+  assert.match(pieBlock(quietHtml, "bills"), /No bill spending this month/);
+  assert.match(pieBlock(quietHtml, "optional"), /No optional spending this month/);
+  assert.doesNotMatch(pieBlock(quietHtml, "bills"), /<path /);
+  assert.doesNotMatch(pieBlock(quietHtml, "optional"), /<path /);
+  const quietEdits = ctx.bankPageHtml(quiet, { tab: "edits" });
+  assert.match(quietEdits, /data-bank-kind="Childcare"/);
+  assert.match(quietEdits, /data-bank-kind="Tuition"[\s\S]*?value="must_pay" selected/);
+  assert.match(quietEdits, /data-bank-kind="Shopping"/);
 });
 
 test("known categories include custom labels and keep Other last", function () {
