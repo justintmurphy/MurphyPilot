@@ -4308,3 +4308,60 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   assert.doesNotMatch(current, /class="bank-spark"/);
   assert.doesNotMatch(current, /Month-end balances/);
 });
+
+test("explicit savings limit of zero shows the meter and a caption", function () {
+  const ctx = boot();
+  const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
+  assert.doesNotMatch(src, /NFCU|Progressive|UPMC|T-Mobile/i);
+
+  function savingsBlock(html) {
+    const i = html.indexOf('data-cap="savings"');
+    assert.ok(i >= 0);
+    const start = html.lastIndexOf("<div", i);
+    return html.slice(start, i + 700);
+  }
+
+  const fx = JSON.parse(JSON.stringify(loadFixture()));
+  fx.budget.savings_limit = 0;
+  fx.budget.savings_gap = -12.34;
+  const rows = ctx.bankCapRows(fx);
+  assert.equal(rows[2].label, "Savings");
+  assert.equal(rows[2].limit, 0);
+  assert.equal(rows[2].actual, 0);
+  let html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
+  let block = savingsBlock(html);
+  assert.match(block, /class="bank-cap under"/);
+  assert.match(block, /role="meter"/);
+  assert.match(block, /Limit \$0\.00/);
+  assert.match(block, /Actual \$0\.00/);
+  assert.match(block, /class="bank-cap-zero">No room to save this month\. Planned spend is \$12\.34 above income\./);
+  assert.doesNotMatch(block, /Limit pending/);
+  assert.doesNotMatch(block, /bank-cap pending/);
+  assert.equal((html.match(/data-cap="/g) || []).length, 3);
+
+  fx.budget.savings_limit = "0.00";
+  delete fx.budget.savings_gap;
+  fx.budget.meters_basis = { savings_gap: -4 };
+  html = ctx.bankPageHtml(fx, { tab: "current" });
+  block = savingsBlock(html);
+  assert.match(block, /role="meter"/);
+  assert.match(block, /Limit \$0\.00/);
+  assert.match(block, /Planned spend is \$4\.00 above income/);
+  assert.doesNotMatch(block, /Limit pending/);
+
+  delete fx.budget.meters_basis;
+  html = ctx.bankPageHtml(fx, { tab: "current" });
+  block = savingsBlock(html);
+  assert.match(block, /role="meter"/);
+  assert.match(block, /Limit is \$0 because planned spend is above income/);
+  assert.doesNotMatch(block, /Limit pending/);
+  assert.doesNotMatch(block, /bank-cap pending/);
+
+  delete fx.budget.savings_limit;
+  html = ctx.bankPageHtml(fx, { tab: "current" });
+  block = savingsBlock(html);
+  assert.match(block, /class="bank-cap pending"/);
+  assert.match(block, /Limit pending/);
+  assert.doesNotMatch(block, /role="meter"/);
+  assert.doesNotMatch(block, /No room to save/);
+});

@@ -5,7 +5,7 @@
    The recent tape keeps its print window and scrolls inside a pane about ten rows tall.
    That scroll region is a keyboard stop: tabindex 0, role region, label Recent activity.
    Bill, Optional, and Savings meters compare month-to-date print spend with a limit from the print.
-   A missing Savings limit stays pending. This tip does not draw a meter per category.
+   A missing Savings limit stays pending. An explicit Savings limit of 0 still draws the meter, with a short line that there is no room to save this month. This tip does not draw a meter per category.
    The in/out bar sums this month's inflows and outflows and leaves out a move only when both ends are linked accounts, or the print sets an internal or transfer flag.
    A category name is not a flag. An external mark keeps the row in the bar.
    Out counts tape flows. Spent so far counts category month-to-date. One line says so. The two figures are not forced to match.
@@ -1776,6 +1776,29 @@ function bankSavingsExplicit(budget) {
   return { limit: limit, actual: actual };
 }
 
+function bankSavingsGap(budget) {
+  if (!budget || typeof budget !== "object") return null;
+  var n = bankNum(budget.savings_gap);
+  if (n != null) return n;
+  var basis = budget.meters_basis;
+  if (basis && typeof basis === "object" && !Array.isArray(basis)) {
+    n = bankNum(basis.savings_gap);
+    if (n != null) return n;
+    n = bankNum(basis.gap);
+    if (n != null) return n;
+  }
+  return null;
+}
+
+/* Explicit $0 is a real limit. A negative savings_gap names how far planned spend sits above income. */
+function bankSavingsZeroNote(budget) {
+  var gap = bankSavingsGap(budget);
+  if (gap != null && gap < 0) {
+    return "No room to save this month. Planned spend is " + bankMoney(Math.abs(gap)) + " above income.";
+  }
+  return "No room to save this month. Limit is $0 because planned spend is above income.";
+}
+
 function bankSumTargets(map, snap, ctx, kind) {
   var any = false;
   var sum = 0;
@@ -1838,15 +1861,17 @@ function bankCapRows(snap) {
     if (!saw[kind] && limits[kind] == null) return null;
     return sums[kind];
   }
+  var savingsNote = limits.savings === 0 ? bankSavingsZeroNote(budget) : "";
   return [
     { key: "bill", label: "Bill", actual: actualFor("bill"), limit: limits.bill },
     { key: "optional", label: "Optional", actual: actualFor("optional"), limit: limits.optional },
-    { key: "savings", label: "Savings", actual: actualFor("savings"), limit: limits.savings }
+    { key: "savings", label: "Savings", actual: actualFor("savings"), limit: limits.savings, note: savingsNote }
   ];
 }
 
 function bankCapMeterHtml(row) {
-  var pending = row.limit == null || row.actual == null;
+  /* A limit of 0 is set, so the meter stays up even when actual is still blank. */
+  var pending = row.limit == null || (row.actual == null && row.limit !== 0);
   var over = !pending && row.actual > row.limit;
   var cls = "bank-cap " + (pending ? "pending" : (over ? "over" : "under"));
   var actualText = "Actual " + (row.actual == null ? "\u2014" : bankMoney(row.actual));
@@ -1865,8 +1890,9 @@ function bankCapMeterHtml(row) {
     track += ' aria-label="' + bankEsc(row.label + " " + actualText + ", " + limitText) + '">';
   }
   track += "</div>";
+  var note = row.note ? '<p class="bank-cap-zero">' + bankEsc(row.note) + "</p>" : "";
   return '<div class="' + cls + '" data-cap="' + row.key + '"><div class="bank-cap-k"><span>' + bankEsc(row.label) +
-    "</span><b>" + bankEsc(actualText) + "</b><i>" + bankEsc(limitText) + "</i></div>" + track + "</div>";
+    "</span><b>" + bankEsc(actualText) + "</b><i>" + bankEsc(limitText) + "</i></div>" + track + note + "</div>";
 }
 
 function bankCapMetersHtml(snap) {
