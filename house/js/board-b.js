@@ -316,19 +316,45 @@ function collapseHouseNames(list) {
   function moneyOrDash(n) {
     return (n == null || !isFinite(Number(n))) ? "\u2014" : money(n);
   }
-  function realizedStripHtml(book) {
-    if (!book || !book.realized_pnl || typeof book.realized_pnl !== "object") return "";
+  function realizedCellHtml(pair, v) {
+    return "<div><span>Realized " + pair + "</span><b class=\"tone-" + tone(v) + "\">" + money(v) + "</b></div>";
+  }
+  function realizedPeriods(book) {
+    if (!book || !book.realized_pnl || typeof book.realized_pnl !== "object") return [];
     var rp = book.realized_pnl;
     var cells = [];
     [["day", "Day"], ["week", "Week"], ["month", "Month"]].forEach(function (pair) {
       if (!Object.prototype.hasOwnProperty.call(rp, pair[0]) || rp[pair[0]] == null) return;
       var v = Number(rp[pair[0]]);
       if (!isFinite(v)) return;
-      cells.push("<div><span>Realized " + pair[1] + "</span><b class=\"tone-" + tone(v) + "\">" + money(v) + "</b></div>");
+      cells.push({ key: pair[0], label: pair[1], html: realizedCellHtml(pair[1], v) });
     });
+    return cells;
+  }
+  /* tip ck — phone only. Day stays in the glance; Week/Month collapse. One period has no details chrome. */
+  function realizedStripHtml(book) {
+    var cells = realizedPeriods(book);
     if (!cells.length) return "";
-    return "<h2>Realized P&L</h2><div class=\"card span realized-strip\"><div class=\"kpi\">" + cells.join("") + "</div>" +
-      '<p class="hint">Print-only. Periods hide when the feed omits them.</p></div>';
+    var hint = '<p class="hint">Print-only. Periods hide when the feed omits them.</p>';
+    var body = '<div class="kpi">' + cells.map(function (c) { return c.html; }).join("") + "</div>";
+    if (deskIsNarrow() && cells.length >= 2) {
+      syncPhoneMoreTab();
+      var glance = cells.filter(function (c) { return c.key === "day"; });
+      var extra = cells.filter(function (c) { return c.key !== "day"; });
+      if (!glance.length) {
+        glance = [cells[0]];
+        extra = cells.slice(1);
+      }
+      if (extra.length) {
+        body = '<div class="kpi">' + glance.map(function (c) { return c.html; }).join("") + "</div>" +
+          '<details class="pnl-more"' + (pnlMoreOpen ? " open" : "") + ">" +
+          '<summary><span class="pnl-sum">' + extra.map(function (c) { return c.label; }).join(" \u00b7 ") + "</span>" +
+          ' <span class="pnl-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
+          '<span class="pnl-dot">\u00b7 </span><span class="pnl-lab-show">Show</span><span class="pnl-lab-hide">Hide</span></span></summary>' +
+          '<div class="kpi">' + extra.map(function (c) { return c.html; }).join("") + "</div></details>";
+      }
+    }
+    return "<h2>Realized P&L</h2><div class=\"card span realized-strip\">" + body + hint + "</div>";
   }
   function cashflowFinite(n) {
     return n != null && n !== "" && isFinite(Number(n));
@@ -474,15 +500,39 @@ function collapseHouseNames(list) {
       (isSell ? '<td class="num fill-pnl">' + fillPnlHtml(f, true) + "</td>" : "") +
       "</tr>";
   }
+  function fillsTableHtml(list, isSell) {
+    var head = "<tr><th>When</th><th>Name</th><th>Book</th><th class=\"num\">Qty</th><th class=\"num\">Px</th>" +
+      (isSell ? '<th class="num">P&L</th>' : "") + "</tr>";
+    var rows = list.map(function (f) { return fillRowHtml(f, isSell); }).join("");
+    return '<div class="fills-pane"><table class="book fills-tape"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+  }
+  /* Newest hidden fill. Symbol + side only — buys never carry a P&L figure (tip bf). */
+  function fillsMoreLabel(rest, isSell) {
+    var n = rest.length;
+    var last = rest[0] || {};
+    var sym = String(last.symbol || "").trim();
+    var bits = [n + " more"];
+    if (sym) bits.push(sym + " " + (isSell ? "sell" : "buy"));
+    return bits.join(" \u00b7 ");
+  }
   function fillsSideHtml(title, list, isSell, emptyHint) {
+    if (deskIsNarrow() && !list.length) return "";
     var inner;
     if (!list.length) {
       inner = '<p class="hint fills-empty">' + emptyHint + "</p>";
+    } else if (deskIsNarrow() && list.length > FILLS_PHONE_CAP) {
+      syncPhoneMoreTab();
+      var glance = list.slice(0, FILLS_PHONE_CAP);
+      var rest = list.slice(FILLS_PHONE_CAP);
+      var open = isSell ? fillsSellMoreOpen : fillsBuyMoreOpen;
+      inner = fillsTableHtml(glance, isSell) +
+        '<details class="fills-more" data-fills-side="' + (isSell ? "sell" : "buy") + '"' + (open ? " open" : "") + ">" +
+        '<summary><span class="fills-sum">' + esc(fillsMoreLabel(rest, isSell)) + "</span>" +
+        ' <span class="fills-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
+        '<span class="fills-dot">\u00b7 </span><span class="fills-lab-show">Show</span><span class="fills-lab-hide">Hide</span></span></summary>' +
+        fillsTableHtml(rest, isSell) + "</details>";
     } else {
-      var head = "<tr><th>When</th><th>Name</th><th>Book</th><th class=\"num\">Qty</th><th class=\"num\">Px</th>" +
-        (isSell ? '<th class="num">P&L</th>' : "") + "</tr>";
-      var rows = list.map(function (f) { return fillRowHtml(f, isSell); }).join("");
-      inner = '<div class="fills-pane"><table class="book fills-tape"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+      inner = fillsTableHtml(list, isSell);
     }
     return '<section class="fills-col"><h3 class="fills-side">' + title + "</h3>" + inner + "</section>";
   }
@@ -500,10 +550,11 @@ function collapseHouseNames(list) {
       if (side === "buy") { if (buys.length < 40) buys.push(f); }
       else if (side === "sell") { if (sells.length < 40) sells.push(f); }
     });
-    var body = '<div class="fills-split">' +
-      fillsSideHtml("Buys", buys, false, "No buys in this print.") +
-      fillsSideHtml("Sells", sells, true, "No sells in this print.") +
-      "</div>";
+    if (deskIsNarrow() && !buys.length && !sells.length) return "";
+    var buyHtml = fillsSideHtml("Buys", buys, false, "No buys in this print.");
+    var sellHtml = fillsSideHtml("Sells", sells, true, "No sells in this print.");
+    if (!buyHtml && !sellHtml) return "";
+    var body = '<div class="fills-split">' + buyHtml + sellHtml + "</div>";
     return "<h2>Recent fills</h2><div class=\"card fills-card\">" + body +
       '<p class="hint">Status tape only. No order ticket.</p></div>';
   }
@@ -518,6 +569,19 @@ function collapseHouseNames(list) {
   var bookMoreOpen = false;
   var bookMoreTab = "";
   var retirementOpen = false;
+  var pnlMoreOpen = false;
+  var fillsBuyMoreOpen = false;
+  var fillsSellMoreOpen = false;
+  var phoneMoreTab = "";
+  var FILLS_PHONE_CAP = 3;
+  function syncPhoneMoreTab() {
+    var id = (typeof tab !== "undefined" && tab) ? tab : "";
+    if (phoneMoreTab === id) return;
+    phoneMoreTab = id;
+    pnlMoreOpen = false;
+    fillsBuyMoreOpen = false;
+    fillsSellMoreOpen = false;
+  }
 
   function applyTheme(choice) {
     var t = choice || document.documentElement.getAttribute("data-theme") || "justin";
@@ -1131,15 +1195,33 @@ function collapseHouseNames(list) {
       overlaySheet("booksOverlayAll", "all", "Overall \u00b7 all books", "Net worth plus every book. Only Voya is EOD.");
   }
 
+  function agenticSecondaryHtml(ag) {
+    var bits = [];
+    if (cashflowFinite(ag && ag.cash)) {
+      bits.push("<div><span>Cash</span><b>" + money(Number(ag.cash)) + "</b></div>");
+    }
+    if (cashflowFinite(ag && ag.buying_power)) {
+      bits.push("<div><span>Buying power</span><b>" + money(Number(ag.buying_power)) + "</b></div>");
+    }
+    if (!bits.length) return "";
+    return '<div class="status-secondary">' + bits.join("") + "</div>";
+  }
   function agenticOnlyHtml() {
     var ag = snap.accounts.agentic || {};
     var asof = rhBookAsof(ag);
-    var html = "<h2>AI WWIII</h2><div class=\"card span\"><div class=\"kpi\">" +
-      "<div><span>Equity</span><b>" + moneyOrDash(ag.equity) + "</b></div>" +
-      "<div><span>Cash</span><b>" + moneyOrDash(ag.cash) + "</b></div>" +
-      "<div><span>Buying power</span><b>" + moneyOrDash(ag.buying_power) + "</b></div>" +
-      "</div>" +
+    var narrow = deskIsNarrow();
+    var cells = "<div><span>Equity</span><b>" + moneyOrDash(ag.equity) + "</b></div>";
+    var secondary = "";
+    if (narrow) {
+      secondary = agenticSecondaryHtml(ag);
+    } else {
+      cells += "<div><span>Cash</span><b>" + moneyOrDash(ag.cash) + "</b></div>" +
+        "<div><span>Buying power</span><b>" + moneyOrDash(ag.buying_power) + "</b></div>";
+    }
+    var html = "<h2>AI WWIII</h2><div class=\"card span\"><div class=\"kpi" + (narrow ? " kpi-equity" : "") + "\">" +
+      cells + "</div>" +
       claudeAsofChipHtml(asof) +
+      secondary +
       '<p class="hint">Agentic Robinhood book labeled AI WWIII. Account id stays Agentic. Growth + status only \u2014 no trade chrome.</p></div>';
     html += cashflowStripHtml(ag);
     if (agenticHasMix(ag) && typeof mixHtml === "function") {
@@ -1165,7 +1247,7 @@ function collapseHouseNames(list) {
 
   /* tip bx — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904cj).
+     Defaults come from same-origin retirement.json (?v=20260904ck).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. Once that file has
      loaded, a missing or invalid federal block does not project without the
@@ -1632,7 +1714,7 @@ function collapseHouseNames(list) {
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904cj";
+    return (housePath ? name : "house/" + name) + "?v=20260904ck";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");
@@ -3509,6 +3591,11 @@ function collapseHouseNames(list) {
     if (e.target.classList.contains("cf-more")) cashflowOpen = !!e.target.open;
     if (e.target.classList.contains("mix-more")) mixOpen = !!e.target.open;
     if (e.target.classList.contains("book-more")) bookMoreOpen = !!e.target.open;
+    if (e.target.classList.contains("pnl-more")) pnlMoreOpen = !!e.target.open;
+    if (e.target.classList.contains("fills-more")) {
+      if (e.target.getAttribute("data-fills-side") === "sell") fillsSellMoreOpen = !!e.target.open;
+      else fillsBuyMoreOpen = !!e.target.open;
+    }
     if (e.target.classList.contains("ret-more")) retirementOpen = !!e.target.open;
   }, true);
   function retOnEdit(e) {

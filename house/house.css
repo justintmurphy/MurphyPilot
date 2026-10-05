@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904cj");
-@import url("house-b.css?v=20260904cj");
-@import url("mix.css?v=20260904cj");
+@import url("house-a.css?v=20260904ck");
+@import url("house-b.css?v=20260904ck");
+@import url("mix.css?v=20260904ck");
 
 header .brand-block {
   min-width: 0;
@@ -459,6 +459,131 @@ table.book.fills-tape a.fill-link { display: inline-flex; }
 .fills-empty { opacity: 0.85; margin: 0; }
 @media (max-width: 720px) {
   .fills-split { grid-template-columns: 1fr; }
+  .fills-pane { scrollbar-gutter: auto; }
+}
+
+/* tip ck — phone denseness. Markup for these blocks is emitted only at ≤720. */
+@media (max-width: 720px) {
+  .kpi.kpi-equity { grid-template-columns: 1fr; }
+  .kpi.kpi-equity div {
+    background: transparent;
+    padding: 2px 0 0;
+  }
+  .kpi.kpi-equity b {
+    font-size: 28px;
+    line-height: 1.05;
+    letter-spacing: -0.5px;
+  }
+  .status-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 14px;
+    margin-top: 6px;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .status-secondary div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .status-secondary span {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  .status-secondary b {
+    display: inline;
+    font-size: 12px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+}
+details.pnl-more,
+details.fills-more {
+  margin: 6px 0 0;
+  max-width: 100%;
+  min-width: 0;
+}
+details.pnl-more > summary,
+details.fills-more > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  min-height: 44px;
+  margin: 0;
+  max-width: 100%;
+}
+details.pnl-more > summary::-webkit-details-marker,
+details.pnl-more > summary::marker,
+details.fills-more > summary::-webkit-details-marker,
+details.fills-more > summary::marker {
+  display: none;
+  content: "";
+}
+details.pnl-more > summary:focus,
+details.fills-more > summary:focus { outline: none; }
+details.pnl-more > summary:focus-visible,
+details.fills-more > summary:focus-visible {
+  outline: 2px solid var(--brand-fg);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+details.pnl-more .pnl-sum,
+details.fills-more .fills-sum {
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  color: var(--ink-soft);
+  font-weight: 600;
+  min-width: 0;
+}
+details.pnl-more .pnl-affordance,
+details.fills-more .fills-affordance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  letter-spacing: 0.8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  min-height: 32px;
+  padding: 4px 2px;
+}
+details.pnl-more .pnl-dot,
+details.fills-more .fills-dot { letter-spacing: 0; text-transform: none; }
+details.pnl-more .cf-chev,
+details.fills-more .cf-chev {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transition: transform 120ms ease;
+}
+details.pnl-more[open] .cf-chev,
+details.fills-more[open] .cf-chev { transform: rotate(180deg); }
+details.pnl-more .pnl-lab-hide,
+details.fills-more .fills-lab-hide { display: none; }
+details.pnl-more[open] .pnl-lab-show,
+details.fills-more[open] .fills-lab-show { display: none; }
+details.pnl-more[open] .pnl-lab-hide,
+details.fills-more[open] .fills-lab-hide { display: inline; }
+details.pnl-more .kpi { margin-top: 6px; }
+@media (prefers-reduced-motion: reduce) {
+  details.pnl-more .cf-chev,
+  details.fills-more .cf-chev { transition: none; }
 }
 
 /* tip bl — per-source freshness chips under Book state / Truthifi feed h2 */
