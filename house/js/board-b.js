@@ -610,7 +610,7 @@ function collapseHouseNames(list) {
       /* tip cl — Banking is its own OTP page, not a book tab. */
       el.innerHTML = TABS.map(function (item) {
         return '<button type="button" data-tab="' + item.id + '" class="' + (onId === item.id ? "on" : "") + '">' + item.label + "</button>";
-      }).join("") + '<a class="section-link" href="/house/banking">Banking</a>';
+      }).join("") + '<a class="section-link" href="/house/banking/">Banking</a>';
     }
     var sub = document.getElementById("deskSub");
     if (sub) sub.textContent = LABEL[tab] || "HOUSE";
@@ -1248,7 +1248,7 @@ function collapseHouseNames(list) {
 
   /* tip bx — Retirement helper.
      Part B people, extra 401k estimator, optional #ret= prefill.
-     Defaults come from same-origin retirement.json (?v=20260904cl).
+     Defaults come from same-origin retirement.json (?v=20260904cn).
      Federal, state, and Social Security factors come from tax-rules.json.
      A missing or malformed file keeps the empty helper. Once that file has
      loaded, a missing or invalid federal block does not project without the
@@ -1715,7 +1715,7 @@ function collapseHouseNames(list) {
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
     var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904cl";
+    return (housePath ? name : "house/" + name) + "?v=20260904cn";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");

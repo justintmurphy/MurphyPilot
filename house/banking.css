@@ -1,8 +1,11 @@
-/* tip cl — Banking page. Charcoal + teal desk, dense at ≤720. */
+/* tip cn — Banking page. Charcoal + teal desk, dense at ≤720. */
 
-body.bank-page header {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "mark brand end";
+body.bank-page > header {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "mark brand end clock";
+}
+body.bank-page > header .clock {
+  grid-area: clock;
 }
 
 .bank-desk {
@@ -369,10 +372,15 @@ body.bank-page header {
   background: color-mix(in srgb, var(--stop) 16%, var(--paper));
 }
 
+.bank-cal {
+  min-width: 0;
+}
+
 .bank-days {
   display: grid;
   grid-template-columns: repeat(31, minmax(26px, 1fr));
   gap: 3px;
+  overflow-x: auto;
 }
 
 .bank-day {
@@ -565,9 +573,32 @@ body.bank-page header {
 }
 
 @media (max-width: 720px) {
-  body.bank-page header .theme-switch { display: inline-flex !important; }
-  body.bank-page header .mark,
-  body.bank-page header .mark img {
+  body.bank-page > header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "mark brand clock"
+      "end end end";
+    row-gap: 8px;
+  }
+  body.bank-page > header .brand-block {
+    min-width: 0;
+  }
+  body.bank-page > header .header-end {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px 8px;
+    min-width: 0;
+  }
+  /* Desk hides this nav at ≤720. On Banking there is no menu, so keep House. */
+  body.bank-page > header .section-nav {
+    display: flex;
+  }
+  body.bank-page > header .section-nav a[aria-current="page"] {
+    display: none;
+  }
+  body.bank-page > header .theme-switch { display: inline-flex !important; }
+  body.bank-page > header .mark,
+  body.bank-page > header .mark img {
     width: 32px;
     height: 32px;
   }
@@ -582,10 +613,12 @@ body.bank-page header {
   }
   .bank-tiles,
   .bank-kpi,
-  .bank-budget-top,
   .bank-split,
   .bank-edit-grid {
     grid-template-columns: 1fr 1fr;
+  }
+  .bank-budget-top {
+    grid-template-columns: minmax(0, 1fr);
   }
   .bank-tile.bank-total,
   .bank-split,
