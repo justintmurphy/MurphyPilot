@@ -1,8 +1,10 @@
-/* tip cw — House Banking.
+/* tip cx — House Banking.
    Live numbers come only from GET /data/banking.json (OTP cookie).
    Category edits POST to /data/banking/overrides.json.
    Custom categories POST to /data/banking/categories.json.
+   Mount and Edits also GET categories.json and merge that list into the dropdowns.
    A just-added custom stays in every Edits dropdown while it is still empty.
+   An empty custom list does not wipe names already loaded.
    Empty customs are removed only after the user moves the last merchant off that custom.
    Opening or refreshing Edits does not remove them.
    A custom that is any category_overrides value stays, including history_tx outside the edits window.
@@ -384,6 +386,7 @@ function bankKnownCategories(snap) {
   });
   var ov = bankOverrideMap(snap);
   Object.keys(ov).forEach(function (k) { add(ov[k]); });
+  /* A custom with no transactions still belongs in both Edits dropdowns. */
   bankCustomCategories(snap).forEach(add);
   if (seen.Other) order = order.filter(function (n) { return n !== "Other"; });
   order.push("Other");
@@ -1312,11 +1315,11 @@ function bankAddCategoryHtml() {
 }
 
 function bankEditTxHtml(rows, known, picked, rowAdd) {
-  if (!rows || !rows.length) return '<p class="bank-empty">No transactions in this print.</p>';
   var assignCats = known || [];
   var addingKey = rowAdd && rowAdd.key ? String(rowAdd.key) : "";
   var picker = '<label class="bank-cat-pick">Category <select data-bank-cat aria-label="Category">' +
     bankChipOptions(assignCats, picked) + "</select></label>";
+  if (!rows || !rows.length) return picker + '<p class="bank-empty">No transactions in this print.</p>';
   var mine = rows.filter(function (r) { return r.category === picked; });
   if (!mine.length) return picker + '<p class="bank-empty">No items in this category.</p>';
   return picker + '<ul class="bank-edit-list">' + mine.map(function (r) {
@@ -1689,11 +1692,37 @@ function bankRememberCategory(snap, name) {
   snap.custom_categories = list;
 }
 
-/* A replacement print may be older than the label this seat just saved. */
+/* Union clipped names. An empty incoming list does not clear names already held. */
+function bankMergeCustomCategories(snap, names) {
+  if (!snap || typeof snap !== "object" || Array.isArray(snap)) return [];
+  var prev = bankCustomCategories(snap);
+  var extra = bankCustomCategories({ custom_categories: names });
+  if (!extra.length) return prev;
+  var merged = bankCustomCategories({ custom_categories: prev.concat(extra) });
+  snap.custom_categories = merged;
+  return merged;
+}
+
+function bankPayloadListsCategory(payload, name) {
+  if (!name || !payload) return false;
+  if (Array.isArray(payload.categories)) {
+    return bankCustomCategories({ custom_categories: payload.categories }).indexOf(name) >= 0;
+  }
+  if (payload.current && typeof payload.current === "object" && !Array.isArray(payload.current)) {
+    return bankCustomCategories(payload).indexOf(name) >= 0;
+  }
+  return false;
+}
+
+/* A replacement print may be older than the label this seat just saved.
+   An empty custom_categories list does not drop names already on this seat. */
 function bankAdoptSnapshot(st, payload) {
   var prev = bankCustomCategories(st && st.data);
   st.data = payload;
-  prev.forEach(function (n) { bankRememberCategory(st.data, n); });
+  if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
+  var incoming = bankCustomCategories(st.data);
+  if (!incoming.length && prev.length) st.data.custom_categories = prev.slice();
+  else prev.forEach(function (n) { bankRememberCategory(st.data, n); });
 }
 
 function bankCategoryCount(snap, name) {
@@ -1843,6 +1872,7 @@ function bankPruneCustomIfEmpty(root, name) {
   if (bankCategoryCount(st.data, name) > 0) return Promise.resolve();
   if (bankOverrideHasCategory(st.data, name)) return Promise.resolve();
   if (bankDraftKeep(st)[name]) return Promise.resolve();
+  st.catGen = (st.catGen || 0) + 1;
   st.data.custom_categories = bankCustomCategories(st.data).filter(function (n) { return n !== name; });
   if (st.editCat === name) st.editCat = "";
   if (st.keptEmpty === name) st.keptEmpty = "";
@@ -1851,20 +1881,46 @@ function bankPruneCustomIfEmpty(root, name) {
   return bankPostCategoryRemoval(root, [name]);
 }
 
-/* Entering or refreshing Edits paints the lists. It does not remove customs. */
+/* GET categories.json and merge categories[] into the open snap. An empty or failed read does not clear names. */
+function bankRehydrateCategories(root, opts) {
+  opts = opts || {};
+  if (!root || !root._bank) return Promise.resolve(false);
+  var gen = (root._bank.catGen = (root._bank.catGen || 0) + 1);
+  return Promise.resolve().then(function () {
+    return fetch(BANK_CATEGORIES_URL, bankFetchInit());
+  }).then(function (res) {
+    if (!root._bank || root._bank.catGen !== gen) return false;
+    if (!res || res.ok !== true || res.type === "opaqueredirect") return false;
+    return bankReadJson(res).then(function (payload) {
+      if (!root._bank || root._bank.catGen !== gen) return false;
+      if (!payload || !Array.isArray(payload.categories)) return false;
+      var st = root._bank;
+      if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
+      var before = bankCustomCategories(st.data).join("\n");
+      bankMergeCustomCategories(st.data, payload.categories);
+      if (!root._bank || root._bank.catGen !== gen) return false;
+      var after = bankCustomCategories(st.data).join("\n");
+      if (!opts.silent && before !== after) bankPaint(root);
+      return true;
+    });
+  }).catch(function () { return false; });
+}
+
+/* Entering or refreshing Edits paints the lists, then reloads categories.json. It does not post a removal. */
 function bankRefreshEmptyCustoms(root) {
   var st = root && root._bank;
   if (!st || st.tab !== "edits") return Promise.resolve();
   bankPaint(root);
-  return Promise.resolve();
+  return bankRehydrateCategories(root);
 }
 
 function bankTakeCategoryResponse(root, payload, name, hold) {
   var st = root._bank;
   var next = bankClipCategory(name);
+  var known = bankPayloadListsCategory(payload, next);
   function ready() {
     if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
-    /* The feed body can lag the POST. The new label still has to land in both dropdowns. */
+    /* The feed body can be empty, stale, or {}. The posted label still has to land in both dropdowns. */
     if (next) bankRememberCategory(st.data, next);
     st.categoryError = "";
     st.newCatDraft = "";
@@ -1875,24 +1931,25 @@ function bankTakeCategoryResponse(root, payload, name, hold) {
     st.tab = "edits";
   }
   function finish() {
+    ready();
     if (!hold) bankPaint(root);
     return Promise.resolve();
   }
   if (payload && Array.isArray(payload.categories)) {
     if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
-    st.data.custom_categories = bankCustomCategories({ custom_categories: payload.categories });
-    ready();
-    return finish();
-  }
-  if (payload && payload.current && typeof payload.current === "object" && !Array.isArray(payload.current)) {
+    var cleaned = bankCustomCategories({ custom_categories: payload.categories });
+    if (cleaned.length) st.data.custom_categories = cleaned;
+  } else if (payload && payload.current && typeof payload.current === "object" && !Array.isArray(payload.current)) {
     bankAdoptSnapshot(st, payload);
-    ready();
-    return finish();
+  } else {
+    return bankRefetch(root, { silent: true }).then(function () {
+      ready();
+      if (known) return finish();
+      return bankRehydrateCategories(root, { silent: true }).then(finish);
+    });
   }
-  return bankRefetch(root, { silent: true }).then(function () {
-    ready();
-    return finish();
-  });
+  if (known) return finish();
+  return bankRehydrateCategories(root, { silent: true }).then(finish);
 }
 
 function bankAddCategory(root, name, hold) {
@@ -2005,7 +2062,10 @@ function bankMount(root, data, opts) {
     prune: Promise.resolve()
   };
   if (root._bank.tab === "edits") root._bank.prune = bankRefreshEmptyCustoms(root);
-  else bankPaint(root);
+  else {
+    bankPaint(root);
+    root._bank.prune = bankRehydrateCategories(root);
+  }
   if (root._bankBound || !root.addEventListener) return;
   root._bankBound = true;
   root.addEventListener("click", function (e) {
@@ -2128,6 +2188,7 @@ function bankLoad(root, fetcher) {
         return;
       }
       bankMount(root, data);
+      return root._bank && root._bank.prune;
     });
   }).catch(function () {
     if (root) root.innerHTML = bankGateHtml("error");
