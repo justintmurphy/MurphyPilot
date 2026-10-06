@@ -10,8 +10,8 @@ cd MurphyPilot
 ./serve.sh          # Windows: serve.bat
 ```
 
-- Pilot: http://127.0.0.1:8765/
-- House: http://127.0.0.1:8765/house/
+- Banking: http://127.0.0.1:8765/
+- Investments: http://127.0.0.1:8765/investments/
 
 Then `git pull` and refresh when a snapshot lands.
 
@@ -25,13 +25,14 @@ Standing how-to-read (Truthifi KEEP / HARD NOs, Fid 2× + Voya Tue/Thu cadence, 
 
 | Path | Role |
 | --- | --- |
-| `index.html` | Pilot desk (Agentic) |
+| `index.html` | Banking (Budget by default) |
 | `desk.js` / `site.css` | Pilot board |
 | `pilot-snapshot.json` | Latest Agentic print |
 | `Murphy_Pilot_Manual.html` | Operating Manual v7.2 |
 | `Murphy_Pilot_Setup.html` | Setup Guide v5.2 |
 | `Murphy_Pilot_Desk.html` | Desk chrome / docs entry |
-| `house/index.html` | House desk |
+| `investments/index.html` | Investments desk |
+| `house/index.html` | Redirect to `/investments/` |
 | `house/js/board-*.js` | House board |
 | `house/house-snapshot.json` | Latest House print |
 | `house/truthifi-snapshot.json` | Truthifi custodial SOV (Fid + Voya) |

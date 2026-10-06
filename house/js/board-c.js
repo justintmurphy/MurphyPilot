@@ -1,5 +1,5 @@
 TABS = [
-  { id: "combined", label: "House" },
+  { id: "combined", label: "Overview" },
   { id: "robinhood", label: "Robinhood" },
   { id: "fidelity", label: "Fidelity" },
   { id: "voya", label: "Voya" }
@@ -31,9 +31,15 @@ function ensureVisibleRhTab() {
 
 
 hashTab = function () {
-  var h = (location.hash || "").replace(/^#/, "");
-  if (h === "house") h = "combined";
-  if (TABS.some(function (t) { return t.id === h; }) || RH_IDS.indexOf(h) >= 0 || /^fid-/.test(h)) tab = h;
+  var raw = (location.hash || "").replace(/^#/, "");
+  if (!raw || raw.indexOf("ret=") === 0) return;
+  var h = raw === "house" ? "combined" : raw;
+  if (TABS.some(function (t) { return t.id === h; }) || RH_IDS.indexOf(h) >= 0 || /^fid-/.test(h)) {
+    tab = h;
+    return;
+  }
+  tab = "combined";
+  if (typeof setHash === "function") setHash();
 };
 setHash = function () {
   try { history.replaceState(null, "", "#" + (tab === "combined" ? "house" : tab)); } catch (e) {}
@@ -1072,12 +1078,11 @@ function fetchTruthifi(url) {
 }
 load = function () {
   if (typeof pulseKpisForFetch === "function") pulseKpisForFetch(true);
-  var housePath = /\/house(\/|$)/.test(location.pathname);
   var bust = "?t=" + Date.now();
   Promise.all([
-    fetch((housePath ? "house-snapshot.json" : "house/house-snapshot.json") + bust, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
-    fetch((housePath ? "../pilot-snapshot.json" : "pilot-snapshot.json") + bust, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-    fetchTruthifi((housePath ? "truthifi-snapshot.json" : "house/truthifi-snapshot.json") + bust)
+    fetch("/house/house-snapshot.json" + bust, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
+    fetch("/pilot-snapshot.json" + bust, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+    fetchTruthifi("/house/truthifi-snapshot.json" + bust)
   ]).then(function (pair) {
     if (typeof pulseKpisForFetch === "function") pulseKpisForFetch(false);
     var tf = pair[2] || { ok: false, fail: "unavailable", data: null };
