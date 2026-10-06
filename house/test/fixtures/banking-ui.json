@@ -10,6 +10,11 @@
     {"id": "acct-od", "suffix": "0000", "name": "Overdraft", "subType": "savings"}
   ],
   "current": {
+    "month": "2026-10",
+    "through_date": "2026-10-05",
+    "days_elapsed": 5,
+    "days_in_month": 31,
+    "month_basis": "posted",
     "balances": [
       {"id": "acct-check", "balance": 12.34, "asof_date": "2026-10-05"},
       {"id": "acct-debit", "balance": null, "asof_date": "2026-10-05"},
@@ -147,6 +152,7 @@
     ],
     "planned_by_category": {"Groceries": 12.34, "Shopping": 24, "Health": null, "Childcare": 12.34, "Tuition": 12.34},
     "mtd_actual_by_category": {"Groceries": 30, "Shopping": 12.34},
+    "mtd_actual_by_category_month": "2026-10",
     "income_total": 12.34,
     "bills_total": 12.34
   }
