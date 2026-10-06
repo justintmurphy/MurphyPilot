@@ -1537,3 +1537,156 @@ span.bank-chip {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
+
+.bank-fit h2 {
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.bank-plan-track {
+  position: relative;
+  display: flex;
+  height: 28px;
+  margin: 8px 0;
+  background: var(--row);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bank-plan-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--paper);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.bank-plan-seg.tier-required { background: var(--mix-b); }
+.bank-plan-seg.tier-needs { background: var(--mix-a); }
+.bank-plan-seg.tier-wants { background: var(--mix-c); }
+.bank-plan-seg.tier-left { background: var(--go); }
+.bank-plan-seg.tier-over { background: var(--stop); }
+
+.bank-plan-today,
+.bank-plan-income {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--ink);
+}
+
+.bank-plan-legend {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-plan-legend li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.bank-plan-legend b {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.bank-plan-legend b.tier-required { background: var(--mix-b); }
+.bank-plan-legend b.tier-needs { background: var(--mix-a); }
+.bank-plan-legend b.tier-wants { background: var(--mix-c); }
+.bank-plan-legend b.tier-left { background: var(--go); }
+.bank-plan-legend b.tier-over { background: var(--stop); }
+
+.bank-card-pay,
+.bank-overlap {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.bank-next {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.bank-next h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.bank-next-acct h4,
+.bank-next h3 {
+  margin: 10px 0 4px;
+  font-size: 13px;
+}
+
+.bank-next-bills,
+.bank-next-xfers,
+.bank-next-save {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bank-split-tbd {
+  font-weight: 650;
+}
+
+.bank-day-scrim {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
+  z-index: 4;
+}
+
+.bank-day-dialog {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 5;
+  width: min(390px, 100%);
+  max-height: 70vh;
+  overflow: auto;
+  transform: translateX(-50%);
+  padding: 16px;
+  border-radius: 16px 16px 0 0;
+  background: var(--paper);
+  box-shadow: 0 -8px 24px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.bank-day-dialog ul {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.bank-day-dialog li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.bank-tier-plans {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.bank-due-fixed {
+  color: var(--ink-soft);
+  font-size: 13px;
+}

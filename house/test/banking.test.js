@@ -444,7 +444,7 @@ test("bills_monthly maps label and due day, and a paycheck groups the calendar",
   assert.match(html, /role="columnheader">Sun</);
   assert.doesNotMatch(html, /class="bank-days"/);
   assert.match(html, /This check \(Paycheck, day 15\) covers:/);
-  assert.match(html, /This check \(Paycheck, day 31\) covers:/);
+  assert.match(html, /This check \(Paycheck, day 30\) covers:/);
   assert.doesNotMatch(html, /This check \(Paycheck, day 1\)/);
   assert.match(html, /Phone/);
 });
@@ -695,7 +695,8 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   html = ctx.bankPageHtml(fx, { tab: "budget" });
   assert.match(html, /aria-label="February 2026"/);
   assert.match(html, /<div class="bank-cal-week" role="row"><div class="bank-day has"><b>1<\/b><span title="Mortgage" aria-label="Mortgage">Mortgage<\/span>/);
-  assert.match(html, /<span class="bank-day-top"><b>28<\/b><i class="bank-day-more bank-day-more-narrow" title="Paycheck, Phone" aria-hidden="true">\+1<\/i><\/span><em class="pay" title="Paycheck" aria-label="Paycheck">Paycheck<\/em><span class="bank-day-second" title="Phone" aria-label="Phone">Phone<\/span>/);
+  assert.match(html, /<b>27<\/b><em class="pay" title="Paycheck" aria-label="Paycheck">Paycheck<\/em>/);
+  assert.match(html, /<b>28<\/b><span title="Phone" aria-label="Phone">Phone<\/span>/);
   assert.doesNotMatch(html, /<b>29<\/b>/);
   assert.doesNotMatch(html, /<b>31<\/b>/);
   assert.equal((html.match(/class="bank-cal-week"/g) || []).length, 4);
@@ -881,8 +882,10 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dz/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904dz/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904ea/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904ea/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dz/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dz/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -1629,8 +1632,8 @@ test("budget hides empty categories from pies, ranks, and month-to-date bars", f
   assert.doesNotMatch(budget, /Actual \u2014/);
 
   const edits = ctx.bankPageHtml(fx, { tab: "edits" });
-  assert.match(edits, /data-bank-kind="Childcare"[\s\S]*?value="elective" selected/);
-  assert.match(edits, /data-bank-kind="Tuition"[\s\S]*?value="must_pay" selected/);
+  assert.match(edits, /data-bank-kind="Childcare"[\s\S]*?value="needs" selected/);
+  assert.match(edits, /data-bank-kind="Tuition"[\s\S]*?value="required" selected/);
   assert.match(edits, /data-bank-kind="Health"/);
   assert.match(edits, /data-bank-kind="Parking"/);
   assert.match(edits, /data-bank-kind="Transit"/);
@@ -1653,7 +1656,7 @@ test("budget hides empty categories from pies, ranks, and month-to-date bars", f
   assert.doesNotMatch(pieBlock(quietHtml, "optional"), /<path /);
   const quietEdits = ctx.bankPageHtml(quiet, { tab: "edits" });
   assert.match(quietEdits, /data-bank-kind="Childcare"/);
-  assert.match(quietEdits, /data-bank-kind="Tuition"[\s\S]*?value="must_pay" selected/);
+  assert.match(quietEdits, /data-bank-kind="Tuition"[\s\S]*?value="required" selected/);
   assert.match(quietEdits, /data-bank-kind="Shopping"/);
 });
 
@@ -3273,10 +3276,13 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
   const edits = ctx.bankPageHtml(shown, { tab: "edits", editCat: "Acme Mortgage" });
   assert.match(edits, /<option value="Acme Mortgage"(?: selected)?>Mortgage<\/option>/);
   assert.match(edits, /data-bank-kind="Acme Mortgage"/);
-  assert.match(edits, /aria-label="Bill or Optional for Mortgage"/);
-  assert.match(edits, /data-bank-kind="Acme Mortgage"[\s\S]*?value="must_pay" selected/);
-  assert.match(edits, />Bill<\/option>/);
-  assert.match(edits, />Optional<\/option>/);
+  assert.match(edits, /aria-label="Tier for Mortgage"/);
+  assert.match(edits, /data-bank-kind="Acme Mortgage"[\s\S]*?value="required" selected/);
+  assert.match(edits, />Required<\/option>/);
+  assert.match(edits, />Needs<\/option>/);
+  assert.match(edits, />Wants<\/option>/);
+  assert.match(edits, />Reset<\/option>/);
+  assert.doesNotMatch(edits, />Bill<\/option>|>Optional<\/option>/);
   assert.match(edits, /class="bank-merchant">House Note</);
   assert.doesNotMatch(edits, /Elective|Other spending/);
   assert.doesNotMatch(budget, /data-bank-kind/);
@@ -3343,8 +3349,8 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
   };
   const el = mount(ctx, JSON.parse(JSON.stringify(shown)), { tab: "edits", editCat: "Acme Mortgage" });
   await el._bank.prune;
-  assert.match(el.innerHTML, /data-bank-kind="Acme Mortgage"[\s\S]*?value="must_pay" selected/);
-  assert.match(el.innerHTML, /Bill or Optional edits sync across your seats\./);
+  assert.match(el.innerHTML, /data-bank-kind="Acme Mortgage"[\s\S]*?value="required" selected/);
+  assert.match(el.innerHTML, /Tier edits sync across your seats\./);
   await el.listeners.change({
     target: {
       value: "elective",
@@ -3357,7 +3363,7 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.credentials, "include");
   assert.deepEqual(JSON.parse(calls[0].init.body), { name: "Acme Mortgage", kind: "elective" });
-  assert.match(el.innerHTML, /data-bank-kind="Acme Mortgage"[\s\S]*?value="elective" selected/);
+  assert.match(el.innerHTML, /data-bank-kind="Acme Mortgage"[\s\S]*?value="needs" selected/);
   assert.equal(writes.length, 0);
   ctx.bankActivate(el, "budget");
   assert.doesNotMatch(el.innerHTML.replace(/data-bar="[^"]*"/g, ""), /Acme/);
@@ -3598,19 +3604,19 @@ test("a mobile name displays as Phone and matching stays on the raw name", async
   assert.ok(kindAt >= 0);
   const kindRow = edits.slice(edits.lastIndexOf("<li>", kindAt), edits.indexOf("</li>", kindAt));
   assert.match(kindRow, /class="bank-kind-name">Phone</);
-  assert.match(kindRow, /aria-label="Bill or Optional for Phone"/);
-  assert.match(kindRow, /value="must_pay" selected/);
+  assert.match(kindRow, /aria-label="Tier for Phone"/);
+  assert.match(kindRow, /value="required" selected/);
   assert.equal((kindRow.match(/Acme Mobile/g) || []).length, 1);
   const planKindAt = edits.indexOf('data-bank-kind="X Mobile plan"');
   assert.ok(planKindAt >= 0);
   const planKind = edits.slice(edits.lastIndexOf("<li>", planKindAt), edits.indexOf("</li>", planKindAt));
   assert.match(planKind, /class="bank-kind-name">Phone</);
-  assert.match(planKind, /value="must_pay" selected/);
+  assert.match(planKind, /value="required" selected/);
   const parkKindAt = edits.indexOf('data-bank-kind="Mobile Home Park"');
   assert.ok(parkKindAt >= 0);
   const parkKind = edits.slice(edits.lastIndexOf("<li>", parkKindAt), edits.indexOf("</li>", parkKindAt));
   assert.match(parkKind, /class="bank-kind-name">Mobile Home Park</);
-  assert.match(parkKind, /aria-label="Bill or Optional for Mobile Home Park"/);
+  assert.match(parkKind, /aria-label="Tier for Mobile Home Park"/);
   assert.doesNotMatch(parkKind, />Phone</);
   assert.equal((parkKind.match(/Mobile Home Park/g) || []).length, 3);
   const depositsKindAt = edits.indexOf('data-bank-kind="Mobile Deposits"');
@@ -3781,7 +3787,7 @@ test("city and utility mobile names stay raw while a phone bill still displays a
   const phoneKindAt = edits.indexOf('data-bank-kind="Phone"');
   const phoneKind = edits.slice(edits.lastIndexOf("<li>", phoneKindAt), edits.indexOf("</li>", phoneKindAt));
   assert.match(phoneKind, /class="bank-kind-name">Phone</);
-  assert.match(phoneKind, /value="elective" selected/);
+  assert.match(phoneKind, /value="needs" selected/);
   const dig = ctx.bankPageHtml(snap, { tab: "edits", editCat: "T Mobile" });
   const txAt = dig.indexOf('data-bank-tx="city-2"');
   assert.ok(txAt >= 0);
@@ -3865,7 +3871,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.match(homeDue, /data-bank-due="acme home insurance"/);
   assert.doesNotMatch(homeDue.replace(/data-bank-due="[^"]*"/, ""), /Acme Home Insurance/);
   assert.match(typedEdits, /data-bank-kind="Acme Home Insurance"/);
-  assert.match(typedEdits, /aria-label="Bill or Optional for Home Insurance"/);
+  assert.match(typedEdits, /aria-label="Tier for Home Insurance"/);
   assert.doesNotMatch(typedEdits, /data-bank-kind="Health insurance"/);
 
   const kept = ctx.bankNormalizeBills({
@@ -3958,7 +3964,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.match(budget, /<b>11<\/b><span title="Car Insurance" aria-label="Car Insurance">Car Insurance<\/span>/);
   assert.match(budget, /<b>14<\/b><span title="Car Insurance" aria-label="Car Insurance">Car Insurance<\/span>/);
   assert.match(budget, /<b>15<\/b><em class="pay" title="Paycheck" aria-label="Paycheck">Paycheck<\/em>/);
-  assert.match(budget, /<b>31<\/b><em class="pay" title="Paycheck" aria-label="Paycheck">Paycheck<\/em>/);
+  assert.match(budget, /<b>30<\/b><em class="pay" title="Paycheck" aria-label="Paycheck">Paycheck<\/em>/);
   assert.match(budget, /<b>10<\/b><em class="pay" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Fostering Per Diem Stipend<\/em>/);
   assert.match(budget, /<b>25<\/b><em class="pay" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Fostering Per Diem Stipend<\/em>/);
   assert.doesNotMatch(budget, /<b>1<\/b><em class="pay"/);
@@ -3972,7 +3978,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.ok(covers);
   assert.match(covers[0], /Car Insurance/);
   assert.match(covers[0], /This check \(Paycheck, day 15\)/);
-  assert.match(covers[0], /This check \(Paycheck, day 31\)/);
+  assert.match(covers[0], /This check \(Paycheck, day 30\)/);
   assert.match(covers[0], /This check \(Fostering Per Diem Stipend, day 10\)/);
   assert.match(covers[0], /This check \(Fostering Per Diem Stipend, day 25\)/);
   const covered = covers[0].split(/covers:<\/b>\s*/).slice(1).map(function (part) { return part.split("</li>")[0]; }).join(" ");
@@ -4004,8 +4010,8 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.match(dueRow, /aria-label="Due day for Car Insurance"/);
   assert.doesNotMatch(dueRow.replace(/data-bank-due="[^"]*"/, ""), /Acme Insurance/i);
   assert.match(edits, /data-bank-kind="Insurance"/);
-  assert.match(edits, /data-bank-kind="Acme Insurance"[\s\S]*?value="elective" selected/);
-  assert.match(edits, /aria-label="Bill or Optional for Car Insurance"/);
+  assert.match(edits, /data-bank-kind="Acme Insurance"[\s\S]*?value="needs" selected/);
+  assert.match(edits, /aria-label="Tier for Car Insurance"/);
   assert.doesNotMatch(edits, /data-bank-kind="Health insurance"/);
   assert.doesNotMatch(edits, /data-bank-kind="Clinic Plan"/);
   assert.doesNotMatch(edits, /data-bank-kind="prior policy"/);
@@ -4104,7 +4110,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20260904dz/);
+  assert.match(page, /banking\.js\?v=20260904ea/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
@@ -4261,8 +4267,8 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20260904dz/);
-  assert.match(page, /banking\.css\?v=20260904dz/);
+  assert.match(page, /banking\.js\?v=20260904ea/);
+  assert.match(page, /banking\.css\?v=20260904ea/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4411,8 +4417,8 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dz/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904dz/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904ea/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904ea/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4461,17 +4467,17 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
 
   let html = ctx.bankPageHtml(fx, { tab: "budget" });
   const income = html.slice(html.indexOf('class="bank-income"'), html.indexOf('class="bank-bills"'));
-  assert.match(income, />Payroll<\/span><b>\$40\.00<\/b><i>per deposit · 2× \/ month · \$80\.00 \/ month · days 15 and 31<\/i>/);
+  assert.match(income, />Payroll<\/span><b>\$40\.00<\/b><i>per deposit · 2× \/ month · \$80\.00 \/ month · days 15 and 30<\/i>/);
   assert.match(income, />Fostering Per Diem Stipend<\/span><b>\$10\.00<\/b><i>per deposit · 2× \/ month · \$20\.00 \/ month · days 10 and 25<\/i>/);
   assert.doesNotMatch(income, /days 3|day 3|days 4|day 4/);
   assert.match(html, /<b>15<\/b><em class="pay" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
-  assert.match(html, /<b>31<\/b><em class="pay" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
+  assert.match(html, /<b>30<\/b><em class="pay" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
   assert.match(html, /<b>10<\/b><em class="pay" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Fostering Per Diem Stipend<\/em>/);
   assert.match(html, /<b>25<\/b><em class="pay" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Fostering Per Diem Stipend<\/em>/);
   assert.doesNotMatch(html, /<b>3<\/b><em class="pay"/);
   assert.doesNotMatch(html, /<b>4<\/b><em class="pay"/);
   assert.match(html, /This check \(Payroll, day 15\) covers:/);
-  assert.match(html, /This check \(Payroll, day 31\) covers:/);
+  assert.match(html, /This check \(Payroll, day 30\) covers:/);
   assert.match(html, /This check \(Fostering Per Diem Stipend, day 10\)/);
   assert.match(html, /This check \(Fostering Per Diem Stipend, day 25\)/);
   assert.match(html, /This check \(Payroll, day 15\) covers:<\/b> Rent/);
@@ -4495,10 +4501,11 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
     return ctx.bankPageHtml(fx, { tab: "budget" });
   }
   const feb = monthOf("2026-02-10T12:00:00-05:00");
-  assert.match(feb, /<b>28<\/b><em class="pay" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
-  assert.match(feb, /days 15 and 28/);
+  assert.match(feb, /<b>13<\/b><em class="pay" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
+  assert.match(feb, /<b>27<\/b><em class="pay" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
+  assert.match(feb, /days 13 and 27/);
   assert.doesNotMatch(feb, /Payroll \(31st\)|\(28th\)/);
-  assert.match(feb, /This check \(Payroll, day 28\)/);
+  assert.match(feb, /This check \(Payroll, day 27\)/);
   const apr = monthOf("2026-04-10T12:00:00-04:00");
   assert.match(apr, /<b>30<\/b><em class="pay" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
   assert.match(apr, /days 15 and 30/);
@@ -4516,7 +4523,7 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   fx.budget.bills = [];
   html = ctx.bankPageHtml(fx, { tab: "budget" });
   const plan = html.slice(html.indexOf('class="bank-income"'), html.indexOf('class="bank-bill-list"') >= 0 ? html.indexOf('class="bank-bill-list"') : html.length);
-  assert.match(plan, />Paycheck<\/span><b>\$10\.00<\/b><i>per deposit · 2× \/ month · \$30\.00 \/ month · days 15 and 31<\/i>/);
+  assert.match(plan, />Paycheck<\/span><b>\$10\.00<\/b><i>per deposit · 2× \/ month · \$30\.00 \/ month · days 15 and 30<\/i>/);
   assert.match(plan, />PER DIEM STIPEND<\/span><b>\$7\.00<\/b><i>per deposit · 2× \/ month · \$14\.00 \/ month · days 10 and 25<\/i>/);
   assert.match(plan, />Side gig<\/span><b>\$8\.00<\/b><i>per deposit · 2× \/ month · \$16\.00 \/ month · day 4<\/i>/);
   assert.match(plan, />Other draw<\/span><b>\$5\.00<\/b><i>per deposit · 2× \/ month · \$10\.00 \/ month · days 6 and 20<\/i>/);
@@ -4569,8 +4576,8 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20260904dz/);
-  assert.match(page, /banking\.css\?v=20260904dz/);
+  assert.match(page, /banking\.js\?v=20260904ea/);
+  assert.match(page, /banking\.css\?v=20260904ea/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4866,8 +4873,8 @@ test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20260904dz/);
-  assert.match(page, /banking\.css\?v=20260904dz/);
+  assert.match(page, /banking\.js\?v=20260904ea/);
+  assert.match(page, /banking\.css\?v=20260904ea/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4952,8 +4959,8 @@ test("tip dy plan blocks follow the selected month", function () {
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20260904dz/);
-  assert.match(page, /banking\.css\?v=20260904dz/);
+  assert.match(page, /banking\.js\?v=20260904ea/);
+  assert.match(page, /banking\.css\?v=20260904ea/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
 
@@ -5150,7 +5157,7 @@ test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function
     edits: { income: { "Side gig": { amount: 12 } } }
   });
   const editedLine = editedPay.slice(editedPay.indexOf('class="bank-income"'), editedPay.indexOf('class="bank-bills"'));
-  assert.match(editedLine, /\$12\.00 on the 10th · \$12\.00 on the 25th · \$210\.00 \/ mo/);
+  assert.match(editedLine, /\$12\.00 on the 10th · \$12\.00 on the 25th · \$24\.00 \/ mo/);
 
   pay.budget.income_monthly = [{
     label: "Side gig",
@@ -5200,8 +5207,488 @@ test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function
   sepHist.net = 10;
   sepHist.categories = [{ name: "Extra", amount: 30 }, { name: "Groceries", amount: 50 }];
   const hist = ctx.bankPageHtml(flowFx, { tab: "historical", year: "2026", month: "2026-09" });
+  assert.match(hist, /Spend<\/span><b>\$80\.00<\/b>/);
+  assert.match(hist, /Net<\/span><b>\$10\.00<\/b>/);
+  assert.match(hist, />Extra</);
+  assert.match(hist, /Groceries/);
+});
+
+test("payoff flags follow the print and a display label is not shortened", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  fx.asof = "2026-10-05T12:00:00-04:00";
+  fx.history.spend_includes_payoffs = false;
+  fx.budget.mtd_includes_payoffs = false;
+  fx.budget.one_off_payoffs = [{ name: "Extra", amount: 30, month: "2026-09", tx_key: "once" }];
+  fx.budget.mtd_actual_by_category = { Shopping: 30, Groceries: 40 };
+  fx.current.recent_tx = [
+    { date: "2026-09-02", amount: 30, flow: "outflow", category: "Shopping", tx_key: "once", desc: "Other store" },
+    { date: "2026-09-03", amount: 12, flow: "outflow", category: "Groceries", tx_key: "shop", desc: "Extra" }
+  ];
+  fx.current.edits_tx = [];
+  const sep = fx.history.months.filter(function (m) { return m.month === "2026-09"; })[0];
+  sep.spend_total = 80;
+  sep.net = 10;
+  sep.categories = [{ name: "Shopping", amount: 30 }, { name: "Groceries", amount: 50 }];
+  sep.tx = [{ date: "2026-09-02", amount: 30, category: "Shopping", tx_key: "once", desc: "Other store" }];
+
+  let hist = ctx.bankPageHtml(fx, { tab: "historical", year: "2026", month: "2026-09" });
+  assert.match(hist, /Spend<\/span><b>\$80\.00<\/b>/);
+  assert.match(hist, /Net<\/span><b>\$10\.00<\/b>/);
+  assert.match(hist, />Shopping</);
+
+  assert.equal(ctx.bankMtdSpendRows(fx.budget, fx).filter(function (r) { return r.name === "Shopping"; })[0].amount, 30);
+
+  fx.history.spend_includes_payoffs = true;
+  hist = ctx.bankPageHtml(fx, { tab: "historical", year: "2026", month: "2026-09" });
   assert.match(hist, /Spend<\/span><b>\$50\.00<\/b>/);
   assert.match(hist, /Net<\/span><b>\$40\.00<\/b>/);
-  assert.doesNotMatch(hist, />Extra</);
-  assert.match(hist, /Groceries/);
+  assert.doesNotMatch(hist, />Shopping</);
+  assert.match(hist, />Groceries</);
+
+  delete fx.history.spend_includes_payoffs;
+  fx.budget.spend_includes_payoffs = true;
+  hist = ctx.bankPageHtml(fx, { tab: "historical", year: "2026", month: "2026-09" });
+  assert.match(hist, /Spend<\/span><b>\$50\.00<\/b>/);
+  assert.doesNotMatch(hist, />Shopping</);
+
+  fx.budget.spend_includes_payoffs = false;
+  fx.budget.mtd_includes_payoffs = true;
+  fx.budget.one_off_payoffs = [{ name: "Extra", amount: 30, month: "2026-10", tx_key: "once" }];
+  fx.current.recent_tx = [
+    { date: "2026-10-02", amount: 30, flow: "outflow", category: "Shopping", tx_key: "once", desc: "Other store" },
+    { date: "2026-10-03", amount: 12, flow: "outflow", category: "Groceries", tx_key: "shop", desc: "Extra" }
+  ];
+  let rows = ctx.bankMtdSpendRows(fx.budget, fx);
+  assert.equal(rows.filter(function (r) { return r.name === "Shopping"; }).length, 0);
+  assert.equal(rows.filter(function (r) { return r.name === "Groceries"; })[0].amount, 40);
+
+  delete fx.budget.mtd_includes_payoffs;
+  fx.budget.spend_includes_payoffs = true;
+  rows = ctx.bankMtdSpendRows(fx.budget, fx);
+  assert.equal(rows.filter(function (r) { return r.name === "Shopping"; }).length, 0);
+
+  fx.budget.mtd_includes_payoffs = false;
+  fx.budget.spend_includes_payoffs = true;
+  rows = ctx.bankMtdSpendRows(fx.budget, fx);
+  assert.equal(rows.filter(function (r) { return r.name === "Shopping"; })[0].amount, 30);
+
+  assert.equal(ctx.bankBillDisplayName("Acme Mortgage", "North Lot Mortgage Payment"), "North Lot Mortgage Payment");
+  assert.equal(ctx.bankBillDisplayName("Acme Mortgage", "   "), "Mortgage");
+  fx.budget.bills = [{
+    name: "Acme Mortgage",
+    display_label: "North Lot Mortgage Payment",
+    amount: 12.5,
+    typical_day: 4,
+    cadence: "monthly"
+  }];
+  fx.budget.bills_monthly = [];
+  const normalized = ctx.bankNormalizeBills(fx.budget);
+  const labeled = normalized.filter(function (b) { return b.name === "Acme Mortgage"; })[0];
+  assert.equal(labeled.name, "Acme Mortgage");
+  assert.equal(labeled.display_label, "North Lot Mortgage Payment");
+  const budget = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
+  assert.match(budget, />North Lot Mortgage Payment</);
+  assert.match(budget, /title="North Lot Mortgage Payment"/);
+  assert.doesNotMatch(budget, /title="Mortgage Payment"/);
+  const edits = ctx.bankPageHtml(fx, { tab: "edits" });
+  assert.match(edits, /data-bank-due="acme mortgage"/);
+  assert.match(edits, /aria-label="Due day for North Lot Mortgage Payment"/);
+  assert.match(edits, /data-bank-kind="Acme Mortgage"/);
+  assert.doesNotMatch(edits, /data-bank-due="north lot mortgage payment"/);
+});
+
+function blankBudget(fx) {
+  fx.asof = "2026-10-06T12:00:00-04:00";
+  fx.budget.bills = [];
+  fx.budget.bills_monthly = [];
+  fx.budget.calendar = [];
+  fx.budget.subscriptions = [];
+  fx.budget.planned_by_category = {};
+  fx.budget.mtd_actual_by_category = {};
+  fx.budget.income_monthly = [];
+  fx.budget.insights = [];
+  fx.budget.tiers = {};
+  fx.budget.pay_schedule = [];
+  fx.budget.plan_dedupe = [];
+  fx.budget.savings_targets = [];
+  fx.budget.one_off_payoffs = [];
+  fx.mustpay_overrides = {};
+  fx.current.recent_tx = [];
+  fx.current.edits_tx = [];
+  return fx;
+}
+
+test("subscriptions land on the calendar and dedupe by name key", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.bills = [{ name: "North Lot", display_label: "Lot Fee", amount: 22, typical_day: 4, cadence: "monthly" }];
+  fx.budget.subscriptions = [
+    { name: "Lot Fee", amount: 6, typical_day: 4 },
+    { name: "North Lot", amount: 9, typical_day: 4 },
+    { name: "Stream Club", amount: 5, typical_day: 6 }
+  ];
+  const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
+  assert.match(html, /<span[^>]*title="Lot Fee"/);
+  assert.match(html, /<em class="sub"[^>]*title="Lot Fee"/);
+  assert.match(html, /<em class="sub"[^>]*title="Stream Club"/);
+  assert.doesNotMatch(html, /<em class="sub"[^>]*title="North Lot"/);
+});
+
+test("a calendar day opens a popup and Escape closes it", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.income_monthly = [{
+    label: "Payroll",
+    amount: 40,
+    monthly_amount: 40,
+    cadence: "monthly",
+    typical_day: 4,
+    deposits: [{ day: 4, amount: 40 }],
+    usual_account: { nickname: "Pay" }
+  }];
+  fx.budget.bills = [
+    { name: "Rent", amount: 22, typical_day: 4, cadence: "monthly", usual_account: { nickname: "House" } },
+    {
+      name: "Power",
+      amount: 6,
+      typical_day: 9,
+      cadence: "monthly",
+      usual_account: { last4: "4242" },
+      paid_current_month: { month: "2026-10", status: "paid", source: "bank", paid_date: "2026-10-02" }
+    }
+  ];
+  fx.budget.subscriptions = [{ name: "Stream Club", amount: 5, typical_day: 4, usual_account: { last4: "1111" } }];
+  const day4 = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", openDay: 4 });
+  assert.match(day4, /class="bank-day-dialog"/);
+  assert.match(day4, /Payroll \$40\.00<\/b><i>[^<]*Income · Estimated · Pay/);
+  assert.match(day4, /Rent<\/b><i>\$22\.00 · Bill · Estimated · House/);
+  assert.match(day4, /Stream Club<\/b><i>\$5\.00 · Sub · Estimated · …1111/);
+  assert.match(day4, /data-bank-day-close="1"/);
+  const day9 = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", openDay: 9 });
+  assert.match(day9, /Power<\/b><i>\$6\.00 · Bill · Paid · Oct 2 · …4242/);
+
+  const el = mount(ctx, fx, { tab: "budget", planMonth: "2026-10" });
+  const day = {
+    querySelector: function (sel) { return sel === "b" ? { textContent: "4" } : null; },
+    closest: function (sel) { return sel === ".bank-day" ? day : null; }
+  };
+  el.listeners.click({
+    target: { closest: function (sel) { return sel === ".bank-day" ? day : null; } },
+    preventDefault: function () {}
+  });
+  assert.match(el.innerHTML, /class="bank-day-dialog"/);
+  assert.match(el.innerHTML, /Rent<\/b><i>\$22\.00 · Bill · Estimated · House/);
+  el.listeners.keydown({
+    key: "Escape",
+    target: day,
+    preventDefault: function () {}
+  });
+  assert.doesNotMatch(el.innerHTML, /class="bank-day-dialog"/);
+  el.listeners.keydown({
+    key: "Enter",
+    target: day,
+    preventDefault: function () {}
+  });
+  assert.match(el.innerHTML, /class="bank-day-dialog"/);
+  el.listeners.click({
+    target: { closest: function (sel) { return sel === "[data-bank-day-close], [data-bank-day-scrim]" ? { close: true } : null; } },
+    preventDefault: function () {}
+  });
+  assert.doesNotMatch(el.innerHTML, /class="bank-day-dialog"/);
+});
+
+test("the plan pie includes required bills, subs, and needs and wants plans", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.bills = [{ name: "Rent", amount: 50, typical_day: 3, cadence: "monthly" }];
+  fx.budget.subscriptions = [{ name: "Stream Club", amount: 8, typical_day: 6 }];
+  fx.budget.planned_by_category = { Groceries: 12, Shopping: 6 };
+  const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
+  const pie = pieBlock(html, "tiers");
+  assert.match(pie, /Rent<\/span><b>\$50\.00<\/b><i>Required/);
+  assert.match(pie, /Stream Club<\/span><b>\$8\.00<\/b><i>Wants/);
+  assert.match(pie, /Groceries<\/span><b>\$12\.00<\/b><i>Needs/);
+  assert.match(pie, /Shopping<\/span><b>\$6\.00<\/b><i>Wants/);
+});
+
+test("the plan headline and bar use printed tier totals", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.income_monthly = [{ label: "Payroll", amount: 50, monthly_amount: 50, cadence: "monthly", typical_day: 15 }];
+  fx.budget.tiers = {
+    plan_total_tiers: 80,
+    left_after_tiers: 20,
+    required_plan: 10,
+    needs_plan: 10,
+    wants_plan: 10,
+    required_card_payments: 7
+  };
+  fx.budget.plan_dedupe = [{ name: "Groceries", amount: 3 }];
+  const fit = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
+  assert.match(fit, /Expected income \$50\.00 vs plan \$80\.00 → Fits by \$20\.00/);
+  assert.doesNotMatch(fit, /Fits by \$20\.00[\s\S]{0,40}plan \$30\.00|vs plan \$30\.00/);
+  assert.match(fit, /class="bank-plan-seg tier-required"/);
+  assert.match(fit, /class="bank-plan-seg tier-needs"/);
+  assert.match(fit, /class="bank-plan-seg tier-wants"/);
+  assert.match(fit, /class="bank-plan-seg tier-left"/);
+  assert.match(fit, /Required<\/span><em>\$10\.00 · /);
+  assert.match(fit, /incl\. card payments \$7\.00/);
+  assert.match(fit, /Category averages exclude bills &amp; subs counted above \(−\$3\.00\/mo\)/);
+  assert.match(fit, /class="bank-plan-today" style="left:19\.4%"/);
+
+  fx.budget.tiers.left_after_tiers = -15;
+  const over = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
+  assert.match(over, /Over by \$15\.00/);
+  assert.match(over, /class="bank-plan-seg tier-over"/);
+  assert.match(over, /Over income<\/span><em>\$15\.00 · /);
+});
+
+test("current actuals show month-to-date tiers and known unposted bills", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.tiers_mtd = {
+    required_spent: 11,
+    needs_spent: 4,
+    wants_spent: 2,
+    required_known_unposted: [{ name: "Rent", amount: 9 }]
+  };
+  const html = ctx.bankPageHtml(fx, { tab: "current" });
+  assert.match(html, /data-tier="required"[\s\S]*?Spent \$11\.00/);
+  assert.match(html, /data-tier="needs"[\s\S]*?Spent \$4\.00/);
+  assert.match(html, /data-tier="wants"[\s\S]*?Spent \$2\.00/);
+  assert.match(html, /Known · not posted yet/);
+  assert.match(html, /Rent \$9\.00/);
+});
+
+test("every edits row has a tier picker that posts tiers.json", async function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.planned_by_category = { Groceries: 12 };
+  const edits = ctx.bankPageHtml(fx, { tab: "edits" });
+  assert.match(edits, /<h3>Tier<\/h3>/);
+  assert.match(edits, />Required<\/option>/);
+  assert.match(edits, />Needs<\/option>/);
+  assert.match(edits, />Wants<\/option>/);
+  assert.match(edits, />Reset<\/option>/);
+  assert.match(edits, /data-bank-plan-tier="required"/);
+  assert.match(edits, /data-bank-plan-tier="needs"/);
+  assert.match(edits, /data-bank-plan-tier="wants"/);
+  assert.match(edits, /aria-label="Tier for Groceries"/);
+  assert.doesNotMatch(edits, />Bill<\/option>|>Optional<\/option>/);
+
+  const calls = [];
+  const bag = {};
+  let offline = false;
+  ctx.localStorage.getItem = function (k) { return bag[k] == null ? null : bag[k]; };
+  ctx.localStorage.setItem = function (k, v) { bag[k] = String(v); };
+  ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
+    const method = init && init.method ? String(init.method).toUpperCase() : "GET";
+    calls.push({ url: String(url), method: method, body: init && init.body });
+    if (offline) return Promise.resolve({ ok: false, status: 404, type: "basic" });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () { return Promise.resolve({}); }
+    });
+  };
+  const el = mount(ctx, fx, { tab: "edits" });
+  await el._bank.prune;
+  await el.listeners.change({
+    target: {
+      value: "wants",
+      getAttribute: function (name) { return name === "data-bank-kind" ? "Groceries" : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/data/banking/tiers.json");
+  assert.equal(calls[0].method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].body), { rule: { name: "Groceries", tier: "wants" } });
+  assert.match(el.innerHTML, /data-bank-kind="Groceries"[\s\S]*?value="wants" selected/);
+
+  offline = true;
+  calls.length = 0;
+  await el.listeners.change({
+    target: {
+      value: "18",
+      getAttribute: function (name) { return name === "data-bank-plan-tier" ? "needs" : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.equal(calls[0].url, "/data/banking/tiers.json");
+  assert.deepEqual(JSON.parse(calls[0].body), { plans: { needs: 18 } });
+  const stored = JSON.parse(bag.murphyHouseBanking);
+  assert.equal(stored.tiers.plans.needs, 18);
+  const fresh = blankBudget(loadFixture());
+  ctx.bankPageHtml(fresh, { tab: "budget", planMonth: "2026-10" });
+  assert.equal(ctx.bankUserPlanValue(fresh, "needs"), 18);
+  fresh.tier_doc = { plans: { needs: 3 }, rules: {} };
+  ctx.bankPageHtml(fresh, { tab: "budget", planMonth: "2026-10" });
+  assert.equal(ctx.bankUserPlanValue(fresh, "needs"), 3);
+});
+
+test("payroll rolls back onto a business day and the stipend stays put", function () {
+  const ctx = boot();
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.bankJustinPayDays("Payroll", { year: 2026, month: 11 }))), [13, 30]);
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.bankJustinPayDays("Per diem stipend", { year: 2026, month: 10 }))), [10, 25]);
+  assert.equal(ctx.bankRollBackDate(2026, 11, 26).key, "2026-11-25");
+  assert.equal(ctx.bankFedHolidaySet(2026)["2026-11-26"], true);
+  assert.equal(ctx.bankFedHolidaySet(2026)["2026-07-04"], true);
+  assert.equal(!!ctx.bankFedHolidaySet(2026)["2026-07-03"], false);
+  assert.equal(ctx.bankRollBackDate(2026, 7, 4).key, "2026-07-03");
+});
+
+test("the next pay card leads the budget and does not warn about a shortfall", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.pay_schedule = [
+    { name: "Payroll", kind: "payroll", date: "2026-10-15", amount: 40 },
+    { name: "Payroll", kind: "payroll", date: "2026-10-30", amount: 40, account: { nickname: "House" } }
+  ];
+  fx.budget.bills = [{ name: "Rent", amount: 10, typical_day: 20, cadence: "monthly", usual_account: { nickname: "Bills" } }];
+  fx.budget.subscriptions = [{ name: "Stream Club", amount: 5, typical_day: 18, usual_account: { last4: "4242" } }];
+  fx.budget.savings_targets = [{ nickname: "Rainy", last4: "1111" }];
+  const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-05T12:00:00-04:00" });
+  assert.ok(html.indexOf('class="bank-next"') < html.indexOf('class="bank-fit"'));
+  assert.match(html, /Next pay: Payroll · Thursday, Oct 15 · ~\$40\.00 → account TBD · in 10 days/);
+  assert.match(html, /What to do with it/);
+  assert.match(html, /<h4>Bills<\/h4>[\s\S]*?Rent/);
+  assert.match(html, /<h4>…4242<\/h4>[\s\S]*?Stream Club/);
+  assert.match(html, /Left over \$25\.00/);
+  assert.match(html, /Split TBD/);
+  assert.doesNotMatch(html, /shortfall|short by|underfunded/i);
+
+  fx.current.recent_tx = [{ date: "2026-10-15", amount: 40, flow: "inflow", desc: "Payroll", category: "Payroll" }];
+  const landed = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T12:00:00-04:00" });
+  assert.match(landed, /Landed ✓ Thursday, Oct 15 · \$40\.00/);
+  assert.doesNotMatch(landed, /shortfall|short by|underfunded/i);
+});
+
+test("cancelled and paid-off bills leave the plan month and calendar_excluded is ignored", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.bills = [
+    { name: "Old Plan", amount: 40, typical_day: 8, cadence: "monthly", status: "cancelled", status_from: "2026-10" },
+    { name: "Closed Loan", amount: 6, typical_day: 12, cadence: "monthly", status: "paid_off", status_from: "2026-10" },
+    { name: "Kept Chip", amount: 15, typical_day: 9, cadence: "monthly" }
+  ];
+  fx.budget.calendar = [{ day: 3, items: ["Only Excluded"] }, { day: 9, items: ["Kept Chip"] }];
+  fx.budget.calendar_excluded = ["Kept Chip", "Only Excluded", "Ghost Name"];
+  fx.budget.bills_total = 55;
+  fx.budget.bills_total_effective = 15;
+  fx.budget.income_monthly = [{ label: "Payroll", amount: 100, monthly_amount: 100, cadence: "monthly", typical_day: 1 }];
+  fx.budget.pay_schedule = [
+    { name: "Payroll", kind: "payroll", date: "2026-10-15", amount: 50 },
+    { name: "Payroll", kind: "payroll", date: "2026-10-30", amount: 50 }
+  ];
+  const oct = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-06T12:00:00-04:00" });
+  assert.match(oct, /title="Kept Chip"/);
+  assert.match(oct, /title="Only Excluded"/);
+  assert.doesNotMatch(oct, /Ghost Name/);
+  assert.doesNotMatch(oct, /Old Plan|Closed Loan/);
+  const legend = oct.match(/class="bank-plan-legend"[\s\S]*?<\/ul>/);
+  assert.ok(legend);
+  assert.match(legend[0], /Required<\/span><em>\$15\.00 · /);
+  assert.doesNotMatch(legend[0], /\$55\.00/);
+  assert.doesNotMatch(pieBlock(oct, "tiers"), /Old Plan|Closed Loan/);
+  assert.doesNotMatch(oct, /class="bank-next"[\s\S]*?Old Plan/);
+
+  const sep = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-09" });
+  assert.match(sep, /title="Old Plan"/);
+  assert.match(sep, /title="Closed Loan"/);
+});
+
+test("a manual paid bill reads Paid ✓ (marked)", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.bills = [
+    {
+      name: "Rent",
+      amount: 22,
+      typical_day: 4,
+      cadence: "monthly",
+      paid_current_month: { month: "2026-10", status: "paid", source: "manual", paid_date: "2026-10-03" }
+    },
+    {
+      name: "Power",
+      amount: 6,
+      typical_day: 9,
+      cadence: "monthly",
+      paid_current_month: { month: "2026-10", status: "paid", source: "bank", paid_date: "2026-10-02" }
+    }
+  ];
+  const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
+  assert.match(html, /Rent[\s\S]{0,180}Paid ✓ \(marked\)/);
+  assert.match(html, /Power[\s\S]{0,180}Paid · Oct 2/);
+  assert.doesNotMatch(html, /Rent[\s\S]{0,80}Paid · Oct 3/);
+});
+
+test("lens matches a payoff on tx_id and keeps twice-monthly amounts apart", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.mtd_includes_payoffs = true;
+  fx.budget.one_off_payoffs = [{ name: "Extra", amount: 30, month: "2026-10", tx_id: "tx-keep" }];
+  fx.budget.mtd_actual_by_category = { Shopping: 30, Groceries: 40 };
+  fx.current.recent_tx = [
+    { date: "2026-10-02", amount: 30, flow: "outflow", category: "Shopping", tx_id: "tx-other", desc: "Extra" },
+    { date: "2026-10-03", amount: 11, flow: "outflow", category: "Groceries", tx_id: "tx-keep", desc: "Market" }
+  ];
+  const rows = ctx.bankMtdSpendRows(fx.budget, fx);
+  assert.equal(rows.filter(function (r) { return r.name === "Shopping"; })[0].amount, 30);
+  assert.equal(rows.filter(function (r) { return r.name === "Groceries"; })[0].amount, 10);
+
+  fx.budget.bills = [
+    { name: "Cycle Fee", amount: 10, times_per_month: 2, typical_days: [15, 28], cadence: "twice_monthly" },
+    { name: "Set Aside Fund", amount: 4, kind: "set_aside", set_aside: true },
+    { name: "Acme Mortgage", display_label: "North Lot Mortgage Payment", amount: 12, typical_day: 4, cadence: "monthly" }
+  ];
+  fx.mustpay_overrides = { "Ghost Plan": "must_pay" };
+  fx.budget.income_monthly = [{
+    label: "Side gig",
+    amount: 5,
+    monthly_amount: 99,
+    editable: true,
+    deposits: [{ day: 3, amount: 30 }, { day: 18, amount: 20 }]
+  }];
+  const budget = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
+  assert.match(budget, /title="Cycle Fee \$10\.00"/);
+  assert.doesNotMatch(budget, /title="Cycle Fee \$20\.00"/);
+  assert.match(budget, /\$20\.00 \/ mo/);
+  assert.match(budget, />North Lot Mortgage Payment</);
+  assert.doesNotMatch(budget, /title="Mortgage Payment"/);
+  const income = budget.slice(budget.indexOf('class="bank-income"'), budget.indexOf('class="bank-bills"'));
+  assert.match(income, /\$50\.00 \/ mo/);
+  assert.doesNotMatch(income, /\$99\.00/);
+
+  const edits = ctx.bankPageHtml(fx, {
+    tab: "edits",
+    edits: { bills: { "Cycle Fee": { amount: 7 } }, income: { "Side gig": { amount: 8 } } }
+  });
+  assert.match(edits, /15 &amp; 28/);
+  assert.match(edits, /Set-aside · no due day/);
+  assert.doesNotMatch(edits, /data-bank-due="cycle fee"/);
+  assert.doesNotMatch(edits, /data-bank-due="set aside fund"/);
+  assert.doesNotMatch(edits, /data-bank-kind="Ghost Plan"/);
+  assert.match(edits, /data-bank-kind="Acme Mortgage"/);
+  assert.match(edits, /aria-label="Due day for North Lot Mortgage Payment"/);
+  const edited = ctx.bankPageHtml(fx, {
+    tab: "budget",
+    planMonth: "2026-10",
+    edits: { bills: { "Cycle Fee": { amount: 7 } }, income: { "Side gig": { amount: 8 } } }
+  });
+  assert.match(edited, /title="Cycle Fee \$7\.00"/);
+  assert.match(edited, /\$14\.00 \/ mo/);
+  assert.match(pieBlock(edited, "tiers"), /Cycle Fee<\/span><b>\$14\.00<\/b>/);
+  const editedIncome = edited.slice(edited.indexOf('class="bank-income"'), edited.indexOf('class="bank-bills"'));
+  assert.match(editedIncome, /\$16\.00 \/ mo/);
+});
+
+test("banking assets use the ea cache bust", function () {
+  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904ea/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904ea/);
 });
