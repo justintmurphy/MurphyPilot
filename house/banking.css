@@ -249,8 +249,6 @@ body.bank-page > header .clock {
   font-family: "Segoe UI", system-ui, sans-serif;
   font-weight: 600;
   font-size: 11px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
   color: var(--ink-soft);
 }
 
@@ -1126,9 +1124,11 @@ span.bank-chip {
 
 .bank-edit-side {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-left: auto;
+  min-width: 0;
 }
 
 .bank-edit-side-note {
@@ -1875,5 +1875,89 @@ span.bank-chip {
     grid-column: 2;
     text-align: left;
     white-space: normal;
+  }
+}
+
+.bank-funding {
+  margin: 14px 0 0;
+  min-width: 0;
+}
+
+.bank-fund-card {
+  margin: 0 0 12px;
+  min-width: 0;
+}
+
+.bank-fund-card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.bank-fund-flag {
+  color: var(--stop);
+  font-weight: 650;
+}
+
+.bank-fund-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.bank-fund-rows li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  column-gap: 10px;
+  align-items: baseline;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.bank-fund-neg,
+.bank-fund-neg b,
+.bank-fund-neg i {
+  color: var(--stop);
+}
+
+.bank-bill-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.bank-status-feed,
+.bank-paid-month {
+  color: var(--ink-soft);
+}
+
+.bank-paid-badge,
+.bank-paid-month {
+  color: var(--go);
+}
+
+.bank-bonus,
+.bank-bonus-next {
+  margin: 8px 0 0;
+}
+
+.bank-mix-track {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+}
+
+.bank-mix-seg.mix-rest { background: var(--mix-b); }
+.bank-mix-seg.mix-other,
+.bank-mix-legend b.mix-other { background: var(--mix-c); }
+
+@media (max-width: 390px) {
+  .bank-fund-rows li {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
