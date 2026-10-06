@@ -70,7 +70,7 @@
       : '<span class="mp-tick-empty">Next out \u2014</span>';
     var label = "Next deposit " + (deposit ? (deposit.kind || deposit.name || "") + " " + money(deposit.amount) : "none") +
       ". Next bill " + (bill ? bill.name + " " + money(bill.amount) : "none");
-    mountEl.innerHTML = '<div class="mp-ticker" role="region" aria-label="' + esc(label) + '">' + left + right + "</div>";
+    mountEl.innerHTML = '<div class="mp-ticker" role="region" aria-label="' + esc(label) + '">' + left + " " + right + "</div>";
     if (!mountEl._mpTickBound) {
       mountEl._mpTickBound = true;
       mountEl.addEventListener("click", function (e) {

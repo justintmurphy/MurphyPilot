@@ -2565,7 +2565,7 @@ function bankPieHtml(rows, opts) {
   if (!opts.midLabel && label.length > 14) label = label.slice(0, 13) + "\u2026";
   var aria = opts.aria || "Spend by category";
   return '<div class="bank-pie" role="img" aria-label="' + bankEsc(aria) + '"><svg viewBox="0 0 140 140" aria-hidden="true">' +
-    paths.join("") + '</svg><div class="bank-pie-mid"><b>' + bankEsc(mid) + '</b><span>' + bankEsc(label) + "</span></div></div>";
+    paths.join("") + '</svg><div class="bank-pie-mid"><b>' + bankEsc(mid) + '</b> <span>' + bankEsc(label) + "</span></div></div>";
 }
 
 /* Largest remainder so the integer percents sum to 100. Ties go to the earlier row. */
@@ -2686,10 +2686,10 @@ function bankKpi(key, label, value, missing, partial) {
 
 function bankEndHtml(chips, caption) {
   if (!chips || !chips.length) return "";
-  return '<div class="bank-ends"><span>' + bankEsc(caption || "End balances") + "</span>" + chips.map(function (c) {
+  return '<div class="bank-ends"><span>' + bankEsc(caption || "End balances") + "</span> " + chips.map(function (c) {
     return '<b data-end="' + bankEsc(c.name) + '" data-missing="' + (c.missing ? "1" : "0") + '">' +
       bankEsc(c.name) + (c.mask ? " " + bankEsc(c.mask) : "") + " " + bankMoney(c.missing ? null : c.value) + "</b>";
-  }).join("") + "</div>";
+  }).join(" ") + "</div>";
 }
 
 function bankGearSvg() {
@@ -2704,7 +2704,7 @@ function bankTabsHtml(tab) {
     var on = it[0] === tab;
     return '<button type="button" role="tab" data-bank-tab="' + it[0] + '" class="' + (on ? "on" : "") + '" aria-selected="' +
       (on ? "true" : "false") + '">' + it[1] + "</button>";
-  }).join("") + "</div>";
+  }).join(" ") + "</div>";
 }
 
 function bankOverflowHtml(tab, menuOpen) {
@@ -2730,7 +2730,7 @@ function bankChipOptions(categories, current) {
   return list.map(function (name) {
     var sel = name === current ? " selected" : "";
     return '<option value="' + bankEsc(name) + '"' + sel + ">" + bankEsc(bankBillDisplayName(name)) + "</option>";
-  }).join("");
+  }).join(" ");
 }
 
 function bankRowAddOption() {
@@ -2761,7 +2761,8 @@ function bankTapeHtml(rows) {
       var label = bankItemLabel(r.desc);
       var flow = r.flow ? '<i class="bank-flow">' + bankEsc(r.flow) + "</i>" : "";
       return "<tr><td>" + bankEsc(r.date) + '</td><td><div class="bank-tx-main"><span class="bank-merchant">' +
-        bankEsc(label) + '</span><span class="bank-chip">' + bankEsc(r.category) + "</span>" + flow +
+        bankEsc(label) + '</span> <span class="bank-chip">' + bankEsc(r.category) + "</span>" +
+        (flow ? " " + flow : "") +
         "</div></td><td>" + bankMoney(r.amount) + "</td></tr>";
     }).join("") + "</tbody></table>";
   return '<section class="bank-tape-block"><h3>Recent \u00b7 actual</h3>' +
@@ -3383,14 +3384,14 @@ function bankHistHtml(snap, opts) {
   if (!months.length) return prefix + '<p class="bank-empty">No history in this print.</p>';
   var yearOpts = sel.years.map(function (y) {
     return '<option value="' + bankEsc(y) + '"' + (y === sel.year ? " selected" : "") + ">" + bankEsc(y) + "</option>";
-  }).join("");
+  }).join(" ");
   var strip = '<div class="bank-months" role="tablist" aria-label="Months">' +
-    '<button type="button" data-bank-month="year" class="' + (sel.month === "year" ? "on" : "") + '">Year</button>' +
+    '<button type="button" data-bank-month="year" class="' + (sel.month === "year" ? "on" : "") + '">Year</button> ' +
     sel.inYear.map(function (m) {
       var on = m.month === sel.month;
       return '<button type="button" data-bank-month="' + bankEsc(m.month) + '" class="' + (on ? "on" : "") + '">' +
         bankEsc(bankMonthLabel(m.month)) + (bankOpenMonth(m) ? ' <i class="bank-open">in progress</i>' : "") + "</button>";
-    }).join("") + "</div>";
+    }).join(" ") + "</div>";
   var controls = '<div class="bank-hist-controls"><label>Year <select data-bank-year>' + yearOpts + "</select></label>" + strip + "</div>";
   var body;
   if (sel.month === "year") {
@@ -3615,22 +3616,26 @@ function bankDayCellHtml(c, tabIndex, ym) {
   var aria = ' aria-label="' + bankEsc(bankDayAria(c, ym)) + '"';
   var notes = (c.notes || []).filter(Boolean).map(function (note) {
     return '<small class="bank-day-note">' + bankEsc(note) + "</small>";
-  }).join("");
-  if (!labels.length) return '<div class="bank-day" tabindex="' + tab + '" role="button"' + aria + "><b>" + c.day + "</b>" + notes + "</div>";
+  }).join(" ");
+  if (!labels.length) {
+    return '<div class="bank-day" tabindex="' + tab + '" role="button"' + aria + "><b>" + c.day + "</b>" +
+      (notes ? " " + notes : "") + "</div>";
+  }
   var list = labels.map(function (lab) { return lab.name; }).join(", ");
   var bits = labels.map(function (lab, i) {
     var extra = i === 1 ? "bank-day-second" : (i >= 2 ? "bank-day-rest" : "");
     return bankDayLabelHtml(lab.kind, lab.name, extra);
-  }).join("");
+  }).join(" ");
   var multi = labels.length >= 2;
   var head = "<b>" + c.day + "</b>";
   if (multi) {
     var chips = bankDayMoreHtml(list, labels.length, false);
-    if (labels.length >= 3) chips += bankDayMoreHtml(list, labels.length, true);
-    head = '<span class="bank-day-top">' + head + chips + "</span>";
+    if (labels.length >= 3) chips += " " + bankDayMoreHtml(list, labels.length, true);
+    head = '<span class="bank-day-top">' + head + " " + chips + "</span>";
   }
+  bits = bits + (notes ? " " + notes : "");
   var title = multi ? ' title="' + bankEsc(list) + '"' : "";
-  return '<div class="bank-day has' + (multi ? " multi" : "") + '" tabindex="' + tab + '" role="button"' + title + aria + ">" + head + bits + notes + "</div>";
+  return '<div class="bank-day has' + (multi ? " multi" : "") + '" tabindex="' + tab + '" role="button"' + title + aria + ">" + head + (bits ? " " + bits : "") + "</div>";
 }
 
 function bankCalendarHtml(cells, hasDays, ym, amounts, faces) {
@@ -3648,7 +3653,7 @@ function bankCalendarHtml(cells, hasDays, ym, amounts, faces) {
   var byDay = bankCalendarByDay(cells, dim, amounts, faces);
   var heads = BANK_DOW.map(function (name) {
     return '<span role="columnheader">' + name + "</span>";
-  }).join("");
+  }).join(" ");
   var slots = [];
   var i;
   for (i = 0; i < start; i++) slots.push(null);
@@ -4376,7 +4381,7 @@ function bankPlanBarHtml(fig, mode) {
     var label = narrow ? "" : bankEsc(p.label);
     if (inner && label) label = '<span class="bank-plan-label">' + label + "</span>";
     segs += '<i class="bank-plan-seg tier-' + p.key + '"' + data + ' style="width:' + pct.toFixed(1) + '%">' +
-      inner + label + "</i>";
+      inner + label + "</i> ";
     var card = p.key === "required" && fig.cards > 0 ? '<small class="bank-card-pay">incl. card payments ' +
       bankMoney(fig.cards) + "</small>" : "";
     var remain = "";
@@ -4466,7 +4471,7 @@ function bankTierPieHtml(rows) {
     return bankTierLabel(r.tier) + " " + r.name + " " + bankMoney(r.amount);
   }).join(", ");
   var pie = '<div class="bank-pie" role="img" aria-label="' + bankEsc(aria) + '"><svg viewBox="0 0 140 140" aria-hidden="true">' +
-    paths.join("") + '</svg><div class="bank-pie-mid"><b>' + shares[0] + '%</b><span>' + bankEsc(top.name) + "</span></div></div>";
+    paths.join("") + '</svg><div class="bank-pie-mid"><b>' + shares[0] + '%</b> <span>' + bankEsc(top.name) + "</span></div></div>";
   var rank = '<ol class="bank-rank">' + rows.map(function (r, i) {
     return '<li class="tier-' + r.tier + '"><span>' + bankEsc(r.name) + "</span> <b>" + bankMoney(r.amount) + "</b> <i>" +
       bankEsc(bankTierLabel(r.tier)) + " " + shares[i] + "%</i></li>";
@@ -5463,7 +5468,7 @@ function bankCoversHtml(groups) {
   return '<ul class="bank-covers">' + groups.map(function (g) {
     var names = g.bills.map(function (b) { return bankEsc(bankBillDisplayName(b.name, b.display_label)); });
     var amt = g.amount != null ? ", " + bankMoney(g.amount) : "";
-    return "<li><b>This check (" + bankEsc(g.label) + ", day " + g.day + amt + ") covers:</b> " +
+    return "<li><b>This check (" + bankEsc(g.label) + ", day " + g.day + amt + " ) covers:</b> " +
       (names.length ? names.join(", ") : "no dated bills") + "</li>";
   }).join("") + "</ul>";
 }
@@ -5750,7 +5755,7 @@ function bankDayOptions(current, emptyLabel) {
   var html = '<option value=""' + (current == null ? " selected" : "") + ">" + bankEsc(blank) + "</option>";
   var d;
   for (d = 1; d <= 31; d++) {
-    html += '<option value="' + d + '"' + (current === d ? " selected" : "") + ">" + d + "</option>";
+    html += ' <option value="' + d + '"' + (current === d ? " selected" : "") + ">" + d + "</option>";
   }
   return html;
 }
@@ -6436,7 +6441,7 @@ function bankHistChrome(snap, opts) {
   var options = keys.map(function (ym) {
     var title = bankMonthTitle(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)));
     return '<option value="' + bankEsc(ym) + '"' + (ym === key ? " selected" : "") + ">" + bankEsc(title) + "</option>";
-  }).join("");
+  }).join(" ");
   if (!options) options = '<option value="">No months</option>';
   var budget = (snap && snap.budget) || {};
   var caps = "";
@@ -6528,7 +6533,7 @@ function bankEditTxHtml(rows, known, picked, rowAdd) {
     var control = addingKey && r.key === addingKey
       ? bankRowAddHtml(r, rowAdd.draft)
       : '<select class="bank-chip" data-bank-tx="' + bankEsc(r.key) + '" aria-label="Category for ' + bankEsc(label) + '">' +
-        bankChipOptions(assignCats, r.category) + bankRowAddOption() + "</select>";
+        bankChipOptions(assignCats, r.category) + " " + bankRowAddOption() + "</select>";
     return "<li><span class=\"bank-edit-id\"><span class=\"bank-merchant\">" + bankEsc(label) +
       '</span> <span class="bank-edit-meta">' + bankEsc(date) +
       '</span></span> <span class="bank-edit-side">' + control +
@@ -6658,7 +6663,7 @@ function bankBillStatusControls(b, ym, confirm) {
     ' <button type="button" data-bank-confirm="' + bankEsc(key) + '" data-bank-confirm-status="' + bankEsc(confirm.status) +
     '">Confirm</button></p>' : "";
   return '<span class="bank-bill-status"><label>Status <select data-bank-status="' + bankEsc(key) + '" aria-label="Status for ' + bankEsc(label) + '">' +
-    '<option value=""' + (active ? " selected" : "") + '>Active</option>' +
+    '<option value=""' + (active ? " selected" : "") + '>Active</option> ' +
     '<option value="cancelled"' + (b.status === "cancelled" ? " selected" : "") + '>Cancelled</option>' +
     "</select></label> " +
     '<label>Cancelled from <input type="month" data-bank-cancel="' + bankEsc(key) +
@@ -6740,8 +6745,8 @@ function bankKindOptions(tier) {
   function opt(value, label) {
     return '<option value="' + value + '"' + (tier === value ? " selected" : "") + ">" + label + "</option>";
   }
-  return opt("required", "Required") + opt("needs", "Needs") + opt("wants", "Wants") +
-    opt("other_income", "Other income") + opt("elective", "Default");
+  return [opt("required", "Required"), opt("needs", "Needs"), opt("wants", "Wants"),
+    opt("other_income", "Other income"), opt("elective", "Default")].join(" ");
 }
 
 function bankKindSourceRow(snap, name) {
@@ -6778,7 +6783,7 @@ function bankKindEditHtml(snap) {
       if (bankBillKey(b.name) === bankBillKey(name) && b.display_label) label = b.display_label;
     });
     var tier = bankResolveTier(name, snap, ctx, bankKindSourceRow(snap, name));
-    return "<li><span class=\"bank-kind-name\">" + bankEsc(label) + '</span><span class="bank-edit-side"><select class="bank-chip" data-bank-kind="' +
+    return "<li><span class=\"bank-kind-name\">" + bankEsc(label) + '</span> <span class="bank-edit-side"><select class="bank-chip" data-bank-kind="' +
       bankEsc(name) + '" aria-label="Tier for ' + bankEsc(label) + '">' + bankKindOptions(tier) +
       "</select></span></li>";
   }).join("");
@@ -6812,8 +6817,8 @@ function bankEditsPanelHtml(snap, opts) {
     '<p class="hint">Enter an amount and a day when the print left them blank. A blank stays blank. Payroll is the 15th and the last day of the month. Fostering per diem stipend is the 10th and the 25th. A day you set replaces the first of those. The other day stays.</p>' +
     bankEditIncomeHtml(incomes, ym) + '</section><section class="bank-edit-block"><h3>Tier</h3>' +
     '<p class="hint">Pick Required, Needs, or Wants. Default goes back to the category\u2019s usual tier. Changes save as you pick.</p>' +
-    '<div class="bank-tier-plans">' + bankPlanFieldHtml(snap, ym, "required", "Required plan") +
-    bankPlanFieldHtml(snap, ym, "needs", "Needs plan") + bankPlanFieldHtml(snap, ym, "wants", "Wants plan") + "</div>" +
+    '<div class="bank-tier-plans">' + bankPlanFieldHtml(snap, ym, "required", "Required plan") + " " +
+    bankPlanFieldHtml(snap, ym, "needs", "Needs plan") + " " + bankPlanFieldHtml(snap, ym, "wants", "Wants plan") + "</div>" +
     kindNote + kindErr + bankKindEditHtml(snap) + "</section>";
 }
 
