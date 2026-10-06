@@ -273,6 +273,7 @@ body.bank-page > header .clock {
   padding: 0;
   color: var(--ink-soft);
   font-size: 12px;
+  line-height: 1.35;
 }
 
 .bank-legend i {
@@ -692,7 +693,8 @@ body.bank-page > header .clock {
   white-space: nowrap;
 }
 
-.bank-day .pay {
+.bank-day .pay,
+.bank-day .sub {
   display: block;
   max-width: 100%;
   color: var(--brand-fg);
@@ -725,6 +727,7 @@ body.bank-page > header .clock {
 
 .bank-covers,
 .bank-bill-list,
+.bank-due-list,
 .bank-income-list {
   list-style: none;
   margin: 8px 0 0;
@@ -734,12 +737,14 @@ body.bank-page > header .clock {
 
 .bank-covers li,
 .bank-bill-list li,
+.bank-due-list li,
 .bank-income-list li {
   padding: 4px 0;
   border-bottom: 1px solid var(--rule);
 }
 
 .bank-bill-list li,
+.bank-due-list li,
 .bank-income-list li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 8rem auto;
@@ -757,6 +762,7 @@ body.bank-page > header .clock {
   white-space: normal;
 }
 
+.bank-due-list li b,
 .bank-bill-list li b,
 .bank-income-list li b {
   font-variant-numeric: tabular-nums;
@@ -765,6 +771,7 @@ body.bank-page > header .clock {
 }
 
 .bank-bill-list li i,
+.bank-due-list li i,
 .bank-income-list li i {
   color: var(--ink-soft);
   font-style: normal;
@@ -961,6 +968,7 @@ body.bank-page > header .clock {
   color: var(--ink-soft);
   font-size: 11px;
   font-weight: 500;
+  line-height: 1.35;
   cursor: pointer;
 }
 
@@ -973,7 +981,7 @@ span.bank-chip {
 .bank-edit-list select.bank-chip {
   border-radius: 4px;
   max-width: 16rem;
-  font: 600 13px/1.2 "Segoe UI", system-ui, sans-serif;
+  font: 600 13px/1.35 "Segoe UI", system-ui, sans-serif;
 }
 
 .bank-cat-pick {
@@ -1294,6 +1302,7 @@ span.bank-chip {
   .bank-day,
   .bank-day b,
   .bank-day .pay,
+  .bank-day .sub,
   .bank-day span,
   .bank-day button,
   .bank-day-more {
@@ -1586,14 +1595,36 @@ span.bank-chip {
   padding: 0;
   list-style: none;
   font-size: 13px;
+  line-height: 1.35;
   font-variant-numeric: tabular-nums;
+  min-width: 0;
 }
 
 .bank-plan-legend li {
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
   align-items: baseline;
-  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.bank-plan-legend span,
+.bank-plan-legend em,
+.bank-plan-legend i,
+.bank-plan-legend small {
+  min-width: 0;
+}
+
+.bank-plan-legend em,
+.bank-plan-legend i {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bank-plan-legend small {
+  grid-column: 2 / -1;
 }
 
 .bank-plan-legend b {
@@ -1617,9 +1648,11 @@ span.bank-chip {
 .bank-next {
   margin: 0 0 16px;
   padding: 12px 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--rule);
   border-radius: 14px;
   background: var(--paper);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .bank-next h2 {
@@ -1639,6 +1672,7 @@ span.bank-chip {
   margin: 0;
   padding: 0;
   list-style: none;
+  line-height: 1.35;
 }
 
 .bank-split-tbd {
@@ -1677,7 +1711,9 @@ span.bank-chip {
   display: grid;
   gap: 2px;
   padding: 8px 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--rule);
+  line-height: 1.35;
+  min-width: 0;
 }
 
 .bank-tier-plans {
@@ -1689,4 +1725,155 @@ span.bank-chip {
 .bank-due-fixed {
   color: var(--ink-soft);
   font-size: 13px;
+}
+
+.bank-tier-stale {
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* Spacing for name / amount / meta rows. --rule is the theme line; --line is not defined. */
+.sep {
+  margin: 0 0.25em;
+}
+
+.bank-unposted,
+.bank-tier-actual,
+.bank-due-list {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bank-unposted {
+  display: grid;
+  gap: 4px 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  line-height: 1.35;
+}
+
+.bank-due-list,
+.bank-next-bills {
+  line-height: 1.35;
+}
+
+.bank-next-bills li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) auto minmax(0, 1.1fr);
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: baseline;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.bank-next-bills li span,
+.bank-next-bills li i {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bank-next-bills li b {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bank-next-bills li i {
+  color: var(--ink-soft);
+  font-style: normal;
+}
+
+.bank-tier-actual .bank-cap-k {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: baseline;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.bank-tier-actual .bank-cap-k i {
+  margin-left: 0;
+}
+
+.bank-unposted li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: baseline;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.bank-unposted li.bank-unposted-label {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bank-unposted li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bank-unposted li b {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .bank-next-bills li,
+  .bank-tier-actual .bank-cap-k,
+  .bank-unposted li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .bank-plan-legend li {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+  }
+  .bank-next-bills li i,
+  .bank-tier-actual .bank-cap-k i {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+  .bank-plan-legend li i,
+  .bank-plan-legend small {
+    grid-column: 2 / -1;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 390px) {
+  .bank-desk {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .bank-next {
+    padding: 10px 12px;
+  }
+  .bank-next-bills li,
+  .bank-tier-actual .bank-cap-k,
+  .bank-unposted li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bank-plan-legend li {
+    grid-template-columns: 10px minmax(0, 1fr);
+  }
+  .bank-next-bills li b,
+  .bank-next-bills li i,
+  .bank-tier-actual .bank-cap-k b,
+  .bank-tier-actual .bank-cap-k i,
+  .bank-unposted li b {
+    grid-column: 1 / -1;
+    text-align: left;
+    white-space: normal;
+  }
+  .bank-plan-legend li em,
+  .bank-plan-legend li i,
+  .bank-plan-legend small {
+    grid-column: 2;
+    text-align: left;
+    white-space: normal;
+  }
 }
