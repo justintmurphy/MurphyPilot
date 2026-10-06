@@ -1332,7 +1332,8 @@ header .section-nav a:hover {
 .mp-nav #menuBtn {
   width: auto;
   height: auto;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: 36px;
   min-height: 36px;
   padding: 6px 10px;
   border: 1px solid var(--nav-line);
@@ -1378,10 +1379,10 @@ body.inv-page > header .clock { grid-area: clock; }
     grid-template-areas: "mark brand clock" "end end end";
     row-gap: 8px;
   }
-  body.inv-page > header .mark { grid-area: mark; grid-column: auto; grid-row: auto; }
-  body.inv-page > header .brand-block { grid-area: brand; grid-column: auto; grid-row: auto; }
-  body.inv-page > header .clock { grid-area: clock; grid-column: auto; grid-row: auto; }
-  body.inv-page > header .header-end { grid-area: end; grid-column: auto; grid-row: auto; width: 100%; }
+  body.inv-page > header .mark { grid-area: mark; }
+  body.inv-page > header .brand-block { grid-area: brand; }
+  body.inv-page > header .clock { grid-area: clock; }
+  body.inv-page > header .header-end { grid-area: end; width: 100%; }
   header .mp-top { width: 100%; }
   header .mp-top-btn { flex: 1 1 0; min-width: 0; }
   .mp-nav .mp-menu { left: 0; right: auto; }

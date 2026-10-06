@@ -1277,7 +1277,12 @@ function collapseHouseNames(list) {
      A missing ssa block leaves Social Security estimates as a dash, and
      take-home dashes with them when there is no statement amount to show.
      localStorage murphyHouseRetirement stores only fields that differ from
-     the baseline (_edited). A null or blank local value is not an override.
+     the baseline (_edited). A cleared growth, inflation, raise, employee, or
+     match percent is stored as null so the field stays blank; the projection
+     uses the default. Other null or blank local values are not overrides.
+     A failed save keeps the pending patch in sessionStorage. One GET retry
+     is armed again after any successful GET. Nothing is posted until a GET
+     succeeds.
      The extra 401k range gets its real max before its value. Until that cap
      is known, a reload keeps the saved percent instead of the placeholder 0.
      Once the cap is known, a stored extra above that max is floored to the slider step.
@@ -1290,6 +1295,7 @@ function collapseHouseNames(list) {
      Filing is single, mfj, mfs, or hoh, compared without case. mfs and hoh
      use the single standard deduction and brackets. */
   var RET_STORE = "murphyHouseRetirement";
+  var RET_KV_PENDING_KEY = "murphyHouseRetirementPending";
   var RET_SAVED = null;
   var RET_TAX = null;
   var RET_REMOTE_INPUTS = null;
@@ -1485,7 +1491,13 @@ function collapseHouseNames(list) {
     function on(k) {
       return edited.indexOf(k) >= 0 && Object.prototype.hasOwnProperty.call(store, k);
     }
-    ["nominalPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
+    ["nominalPct", "inflPct", "raisePct", "eePct", "matchPct"].forEach(function (k) {
+      if (!on(k)) return;
+      if (store[k] == null || store[k] === "") { d[k] = null; return; }
+      if (!retFinite(store[k])) return;
+      d[k] = Number(store[k]);
+    });
+    ["extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
       if (!on(k) || store[k] == null || store[k] === "" || !retFinite(store[k])) return;
       d[k] = Number(store[k]);
     });
@@ -1603,7 +1615,16 @@ function collapseHouseNames(list) {
       out[k] = v;
       if (edited.indexOf(k) < 0) edited.push(k);
     }
-    ["nominalPct", "inflPct", "raisePct", "eePct", "matchPct", "extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
+    ["nominalPct", "inflPct", "raisePct", "eePct", "matchPct"].forEach(function (k) {
+      if (d[k] == null || d[k] === "" || !retFinite(d[k])) {
+        if (retFinite(base[k])) put(k, null);
+        return;
+      }
+      var n = Number(d[k]);
+      if (retSameVal(n, base[k])) return;
+      put(k, n);
+    });
+    ["extraMonthly", "monthly", "ss62", "ss67", "ss70"].forEach(function (k) {
       if (d[k] == null || d[k] === "" || !retFinite(d[k])) return;
       var n = Number(d[k]);
       if (retSameVal(n, base[k])) return;
@@ -2162,6 +2183,31 @@ function collapseHouseNames(list) {
   function retClampNote() {
     return RET_CLAMP_NOTE;
   }
+  function retClampLabel(field) {
+    var labels = {
+      nominal_return_pct: "Expected return",
+      inflation_pct: "Inflation",
+      raise_pct: "Annual raise",
+      emp_pct: "Your 401k %",
+      match_pct: "Employer match",
+      salary: "Salary",
+      ssa62: "Monthly at 62",
+      ssa67: "Monthly at 67",
+      ssa70: "Monthly at 70",
+      retire_age: "Retirement age"
+    };
+    return labels[field] || field;
+  }
+  function retClampText(n, asMoney) {
+    var v = Number(n);
+    if (!isFinite(v)) return String(n);
+    if (asMoney) {
+      var rounded = Math.round(v);
+      return (rounded < 0 ? "-$" : "$") + Math.abs(rounded).toLocaleString("en-US");
+    }
+    if (Math.abs(v - Math.round(v)) < 1e-9) return Math.round(v).toLocaleString("en-US");
+    return v.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  }
   function retSavedFromInputs(o) {
     if (!o || typeof o !== "object" || Array.isArray(o)) return null;
     var has = {};
@@ -2403,7 +2449,7 @@ function collapseHouseNames(list) {
     if (changed("salary")) {
       if (!retFinite(next.salary)) {
         RET_KV_PENDING.salary = null;
-        if (Object.prototype.hasOwnProperty.call(RET_KV_PENDING, "salary_year")) delete RET_KV_PENDING.salary_year;
+        RET_KV_PENDING.salary_year = null;
       } else {
         RET_KV_PENDING.salary = retKvClampNum(next.salary, 0, 2000000, true);
         if (retFinite(next.salaryYear)) {
@@ -2425,21 +2471,48 @@ function collapseHouseNames(list) {
       RET_KV_PENDING.state = /^[A-Z]{2}$/.test(st) ? st : null;
     }
     if (changed("birthYear") || changed("birthMonth")) RET_KV_PENDING.birth_ym = retBirthYm(next);
+    retPersistPending();
   }
   function retPendingPatch() {
     var patch = {};
     Object.keys(RET_KV_PENDING).forEach(function (k) {
       if (!RET_KV_ALLOW[k]) return;
-      if (k === "salary_year" && RET_KV_PENDING[k] == null) return;
       patch[k] = RET_KV_PENDING[k];
     });
     return patch;
+  }
+  function retPersistPending(extra) {
+    try {
+      if (typeof sessionStorage === "undefined") return;
+      var patch = retPendingPatch();
+      Object.keys(extra || {}).forEach(function (k) {
+        if (!RET_KV_ALLOW[k]) return;
+        patch[k] = extra[k];
+      });
+      if (!Object.keys(patch).length) sessionStorage.removeItem(RET_KV_PENDING_KEY);
+      else sessionStorage.setItem(RET_KV_PENDING_KEY, JSON.stringify(patch));
+    } catch (eStore) {}
+  }
+  function retHydratePending() {
+    try {
+      if (typeof sessionStorage === "undefined") return;
+      var raw = sessionStorage.getItem(RET_KV_PENDING_KEY);
+      if (!raw) return;
+      var patch = JSON.parse(raw);
+      if (!patch || typeof patch !== "object" || Array.isArray(patch)) return;
+      Object.keys(patch).forEach(function (k) {
+        if (!RET_KV_ALLOW[k]) return;
+        if (!Object.prototype.hasOwnProperty.call(RET_KV_PENDING, k)) RET_KV_PENDING[k] = patch[k];
+      });
+      if (Object.keys(RET_KV_PENDING).length) RET_KV_DIRTY = true;
+    } catch (eHydrate) {}
   }
   function retRestorePending(patch) {
     Object.keys(patch || {}).forEach(function (k) {
       if (!Object.prototype.hasOwnProperty.call(RET_KV_PENDING, k)) RET_KV_PENDING[k] = patch[k];
     });
     RET_KV_DIRTY = true;
+    retPersistPending();
   }
   function retFlushKvPost() {
     RET_KV_TIMER = 0;
@@ -2447,10 +2520,12 @@ function collapseHouseNames(list) {
     var patch = retPendingPatch();
     if (!patch || !Object.keys(patch).length) {
       RET_KV_DIRTY = false;
+      retPersistPending();
       return;
     }
     Object.keys(patch).forEach(function (k) { delete RET_KV_PENDING[k]; });
     RET_KV_DIRTY = Object.keys(RET_KV_PENDING).length > 0;
+    retPersistPending(patch);
     try {
       fetch(retDataUrl(), retRemoteInit("POST", patch)).then(function (r) {
         var read = (!r || typeof r.json !== "function") ? Promise.resolve(null) : r.json().catch(function () { return null; });
@@ -2461,6 +2536,7 @@ function collapseHouseNames(list) {
           } else {
             RET_SAVE_STATE = "Saved";
             try { retNoteKvPatch(patch, body); } catch (eNote) {}
+            retPersistPending();
           }
           retRefreshSaved();
         });
@@ -2496,6 +2572,7 @@ function collapseHouseNames(list) {
       return r.json();
     }).then(function (o) {
       retIngestRemote(o);
+      if (RET_REMOTE_OK) RET_KV_RETRY_USED = false;
       if (RET_REMOTE_OK && RET_KV_DIRTY) retQueueKvPost();
       retRefreshSaved();
     }).catch(function () {
@@ -3301,7 +3378,15 @@ function collapseHouseNames(list) {
     var out = left * 0.04 / 12 + Number(ss70);
     return isFinite(out) ? out : null;
   }
+  function retCalcDefaults(state) {
+    var d = retClone(state || retBlank());
+    if (!retFinite(d.nominalPct)) d.nominalPct = 5;
+    if (!retFinite(d.inflPct)) d.inflPct = 2.5;
+    if (!retFinite(d.raisePct)) d.raisePct = 2;
+    return d;
+  }
   function retView(state) {
+    state = retCalcDefaults(state);
     var src = retSources();
     var h = retHorizon(state);
     if (retProjectionBlocked()) {
@@ -3358,8 +3443,8 @@ function collapseHouseNames(list) {
       split: money(income) + " savings + " + money(ss) + " SS"
     };
   }
-  function retRead(card) {
-    RET_CLAMP_NOTE = "";
+  function retRead(card, opts) {
+    var note = "";
     function raw(name) {
       var el = card.querySelector('[data-ret-in="' + name + '"]');
       return el ? el.value : "";
@@ -3368,13 +3453,14 @@ function collapseHouseNames(list) {
       if (!retFinite(rawVal) || clamped == null) return;
       var n = Number(rawVal);
       if (n >= lo && n <= hi) return;
-      var bit = "Adjusted " + field + " to " + clamped + " (allowed range " + lo + "\u2013" + hi + ")";
-      RET_CLAMP_NOTE = RET_CLAMP_NOTE ? (RET_CLAMP_NOTE + " " + bit) : bit;
+      var asMoney = field === "salary" || field === "ssa62" || field === "ssa67" || field === "ssa70";
+      var bit = "Adjusted " + retClampLabel(field) + " to " + retClampText(clamped, asMoney) + " (allowed range " + retClampText(lo, asMoney) + "\u2013" + retClampText(hi, asMoney) + ")";
+      note = note ? (note + " " + bit) : bit;
     }
-    function pct(name, field, fallback, lo, hi) {
+    function pct(name, field, lo, hi) {
       var n = retNum(raw(name));
-      if (n == null) return fallback == null ? null : retClampPct(fallback, lo, hi);
-      var clamped = retClampPct(n, lo, hi, fallback);
+      if (n == null) return null;
+      var clamped = retClampPct(n, lo, hi, null);
       noteClamp(field, n, clamped, lo, hi);
       return clamped;
     }
@@ -3390,22 +3476,25 @@ function collapseHouseNames(list) {
       return clamped;
     }
     var extra = retNum(raw("extra"));
-    var base = retBaseline();
     var prev = retLoad();
     var salary = optInt("salary", "salary", 0, 2000000);
     var salaryYear = prev.salaryYear;
     var salaryChanged = !((salary == null && prev.salary == null) || (salary != null && prev.salary != null && Number(salary) === Number(prev.salary)));
-    if (salaryChanged && salary != null && !retFinite(salaryYear)) salaryYear = retTodayNy().year;
+    if (salary == null) salaryYear = null;
+    else if (salaryChanged) salaryYear = retTodayNy().year;
     var monthly = opt("monthly");
     var printed = retPrintedMonthly();
     if (prev.monthly == null && monthly != null && printed != null && Number(monthly) === Number(printed)) monthly = null;
     var filing = retNormFiling(raw("filing"));
-    return {
-      nominalPct: pct("nominal", "nominal_return_pct", base.nominalPct, 0, 100),
-      inflPct: pct("infl", "inflation_pct", base.inflPct, 0, 20),
-      raisePct: pct("raise", "raise_pct", base.raisePct, 0, 100),
-      eePct: pct("ee", "emp_pct", base.eePct, 0, 100),
-      matchPct: pct("match", "match_pct", base.matchPct, 0, 100),
+    var ageRaw = retNum(raw("retireAge"));
+    var age = retRetireAge(ageRaw == null ? raw("retireAge") : ageRaw);
+    if (ageRaw != null && ageRaw !== age) noteClamp("retire_age", ageRaw, age, 62, 70);
+    var read = {
+      nominalPct: pct("nominal", "nominal_return_pct", 0, 100),
+      inflPct: pct("infl", "inflation_pct", 0, 20),
+      raisePct: pct("raise", "raise_pct", 0, 100),
+      eePct: pct("ee", "emp_pct", 0, 100),
+      matchPct: pct("match", "match_pct", 0, 100),
       extraMonthly: extra == null ? 0 : extra,
       monthly: monthly,
       salary: salary,
@@ -3413,7 +3502,7 @@ function collapseHouseNames(list) {
       ss62: optInt("ss62", "ssa62", 0, 10000),
       ss67: optInt("ss67", "ssa67", 0, 10000),
       ss70: optInt("ss70", "ssa70", 0, 10000),
-      retireAge: retRetireAge(raw("retireAge")),
+      retireAge: age,
       birthMonth: prev.birthMonth,
       birthYear: prev.birthYear,
       filing: filing,
@@ -3421,6 +3510,8 @@ function collapseHouseNames(list) {
       partBPeople: retPartBExplicit(raw("partBPeople")),
       extra401kPct: retExtraFromInput(card, prev)
     };
+    if (!opts || opts.replaceNote !== false) RET_CLAMP_NOTE = note;
+    return read;
   }
   /* The range is born with a placeholder max. A browser clamps value to that
      max, which used to turn a saved 2 into 0 before the IRS cap existed.
@@ -3528,6 +3619,7 @@ function collapseHouseNames(list) {
   }
   function retFill(card, state) {
     if (!card) return;
+    state = retCalcDefaults(state);
     var v = retView(state);
     var src = v.src;
     var h = v.horizon;
@@ -3660,7 +3752,8 @@ function collapseHouseNames(list) {
       retSetText(card, "take-sub", "Pick filing status");
     } else if (v.take == null) {
       retSetText(card, "take", "\u2014");
-      retSetText(card, "take-sub", "");
+      var missingBirth = state.birthMonth == null || state.birthYear == null;
+      retSetText(card, "take-sub", missingBirth ? "Add birth month to see this" : "");
     } else if (v.ss == null) {
       retSetText(card, "take", money(v.take));
       retSetText(card, "take-sub", "savings only \u00b7 rough; excludes IRMAA");
@@ -3699,8 +3792,7 @@ function collapseHouseNames(list) {
     }
     var saveEl = card.querySelector('[data-ret="save-state"]');
     if (saveEl) {
-      var saveMsg = RET_CLAMP_NOTE || "";
-      if (RET_SAVE_STATE) saveMsg = saveMsg ? (saveMsg + " " + RET_SAVE_STATE) : RET_SAVE_STATE;
+      var saveMsg = retSaveMessage();
       saveEl.textContent = saveMsg;
       retShow(saveEl, !!saveMsg);
     }
@@ -3733,11 +3825,15 @@ function collapseHouseNames(list) {
     retSyncPartB(card, state);
     retSyncExtra(card, state, v);
   }
+  function retSaveMessage() {
+    var saveMsg = RET_CLAMP_NOTE || "";
+    if (RET_SAVE_STATE) saveMsg = saveMsg ? (saveMsg + " " + RET_SAVE_STATE) : RET_SAVE_STATE;
+    return saveMsg;
+  }
   function retRestoreCleared(card, state) {
     if (!card || !card.querySelector) return;
     [
-      ["nominal", state.nominalPct], ["infl", state.inflPct], ["raise", state.raisePct],
-      ["ee", state.eePct], ["match", state.matchPct], ["extra", state.extraMonthly],
+      ["extra", state.extraMonthly],
       ["salary", state.salary], ["ss62", state.ss62], ["ss67", state.ss67],
       ["ss70", state.ss70]
     ].forEach(function (pair) {
@@ -3754,14 +3850,19 @@ function collapseHouseNames(list) {
     retFill(card, state);
   }
   function retSyncPartB(card, state) {
-    var count = retPartBCount(state);
-    var n = count == null ? "" : String(count);
-    var hidden = card.querySelector('[data-ret-in="partBPeople"]');
     var stored = retPartBStored(state);
-    if (hidden) hidden.value = stored != null ? String(stored) : "";
-    card.querySelectorAll("[data-ret-partb]").forEach(function (b) {
-      b.setAttribute("aria-pressed", n !== "" && b.getAttribute("data-ret-partb") === n ? "true" : "false");
-    });
+    var n = stored == null ? "" : String(stored);
+    var el = card.querySelector('[data-ret-in="partBPeople"]');
+    var active = null;
+    try { active = document.activeElement; } catch (eActive) {}
+    if (el && el !== active) el.value = n;
+    var buttons = card.querySelectorAll ? card.querySelectorAll("[data-ret-partb]") : [];
+    if (buttons && buttons.forEach) {
+      buttons.forEach(function (b) {
+        if (!b || !b.setAttribute) return;
+        b.setAttribute("aria-pressed", n !== "" && b.getAttribute("data-ret-partb") === n ? "true" : "false");
+      });
+    }
   }
   function retSyncExtra(card, state, view) {
     var x = retExtra401k(state, view);
@@ -3832,7 +3933,7 @@ function collapseHouseNames(list) {
     var open = retirementOpen ? " open" : "";
     var age = state.retireAge;
     var remoteNote = RET_REMOTE_NOTE || "";
-    var saveState = RET_SAVE_STATE || "";
+    var saveState = retSaveMessage();
     var filingShown = retNormFiling(state.filing) || "";
     return '<h2>Retirement</h2><div class="card span retirement-card" id="retirement">' +
       '<p class="hint ret-remote-note" data-ret="remote-note"' + (remoteNote ? "" : " hidden") + '>' + esc(remoteNote) + '</p>' +
@@ -3899,15 +4000,15 @@ function collapseHouseNames(list) {
       '<option value="single"' + (filingShown === "single" ? " selected" : "") + '>Single</option>' +
       '<option value="mfs"' + (filingShown === "mfs" ? " selected" : "") + '>Married filing separately</option>' +
       '<option value="hoh"' + (filingShown === "hoh" ? " selected" : "") + '>Head of household</option></select></div>' +
-      '<div><label id="ret-partb-label">Medicare Part B</label>' +
-      '<div class="ret-seg" role="group" aria-labelledby="ret-partb-label">' +
-      '<button type="button" data-ret-partb="0" aria-pressed="' + (retPartBCount(state) === 0 ? "true" : "false") + '">0</button>' +
-      '<button type="button" data-ret-partb="1" aria-pressed="' + (retPartBCount(state) === 1 ? "true" : "false") + '">1</button>' +
-      '<button type="button" data-ret-partb="2" aria-pressed="' + (retPartBCount(state) === 2 ? "true" : "false") + '">2</button>' +
-      '<button type="button" data-ret-partb="3" aria-pressed="' + (retPartBCount(state) === 3 ? "true" : "false") + '">3</button>' +
-      '<button type="button" data-ret-partb="4" aria-pressed="' + (retPartBCount(state) === 4 ? "true" : "false") + '">4</button>' +
-      '</div>' +
-      '<input type="hidden" data-ret-in="partBPeople" value="' + (partStored != null ? String(partStored) : "") + '">' +
+      '<div><label for="ret-partb">Medicare Part B</label>' +
+      '<select id="ret-partb" data-ret-in="partBPeople" autocomplete="off">' +
+      '<option value=""' + (partStored == null ? " selected" : "") + '>\u2014 choose \u2014</option>' +
+      '<option value="0"' + (partStored === 0 ? " selected" : "") + '>0</option>' +
+      '<option value="1"' + (partStored === 1 ? " selected" : "") + '>1</option>' +
+      '<option value="2"' + (partStored === 2 ? " selected" : "") + '>2</option>' +
+      '<option value="3"' + (partStored === 3 ? " selected" : "") + '>3</option>' +
+      '<option value="4"' + (partStored === 4 ? " selected" : "") + '>4</option>' +
+      '</select>' +
       '<p class="ret-field-hint" data-ret="partb-hint">People on Part B. Starts at 2 for married filing jointly and 1 for single, married filing separately, or head of household until you pick.</p></div>' +
       '<div class="ret-tax" data-ret="tax-wrap" hidden>' +
       '<p class="ret-tax-line" data-ret="tax-line"></p>' +
@@ -3933,7 +4034,7 @@ function collapseHouseNames(list) {
   function retSync() {
     var card = document.querySelector(".retirement-card");
     if (!card) return;
-    retFill(card, retRead(card));
+    retFill(card, retRead(card, { replaceNote: false }));
   }
 
   function paint() {
@@ -4117,12 +4218,44 @@ function collapseHouseNames(list) {
     }
     if (e.target.classList.contains("ret-more")) retirementOpen = !!e.target.open;
   }, true);
+  function retPctInputName(el) {
+    if (!el || typeof el.getAttribute !== "function") return "";
+    var name = el.getAttribute("data-ret-in") || "";
+    if (name === "nominal" || name === "infl" || name === "raise" || name === "ee" || name === "match") return name;
+    return "";
+  }
+  function retInputFocused(el) {
+    try { return !!(el && document.activeElement === el); } catch (eFocus) { return false; }
+  }
   function retOnEdit(e) {
     if (!e.target || !e.target.closest || !e.target.closest(".retirement-card")) return;
-    retCommit(e.target.closest(".retirement-card"));
+    var card = e.target.closest(".retirement-card");
+    if (retPctInputName(e.target) && String(e.target.value == null ? "" : e.target.value).trim() === "" && retInputFocused(e.target)) {
+      RET_CLAMP_NOTE = "";
+      retFill(card, retRead(card, { replaceNote: false }));
+      return;
+    }
+    retCommit(card);
   }
   document.addEventListener("input", retOnEdit);
   document.addEventListener("change", retOnEdit);
+  document.addEventListener("focusin", function (e) {
+    if (!retPctInputName(e.target) || typeof e.target.select !== "function") return;
+    try { e.target.select(); } catch (eSel) {}
+    if (typeof setTimeout === "function") {
+      var el = e.target;
+      setTimeout(function () {
+        try { if (document.activeElement === el) el.select(); } catch (eLater) {}
+      }, 0);
+    }
+  });
+  document.addEventListener("focusout", function (e) {
+    if (!retPctInputName(e.target)) return;
+    if (String(e.target.value == null ? "" : e.target.value).trim() !== "") return;
+    var card = e.target.closest && e.target.closest(".retirement-card");
+    if (!card) return;
+    retCommit(card);
+  });
   document.addEventListener("click", function (e) {
     var btn = e.target && e.target.closest && e.target.closest("[data-ret-partb]");
     if (!btn) return;
@@ -4154,8 +4287,18 @@ function collapseHouseNames(list) {
     if (typeof paint === "function" && snap) paint();
   });
 
+  retHydratePending();
   retConsumeRetHash();
   retFetchSaved();
+  document.addEventListener("visibilitychange", function () {
+    var vis = "";
+    try { vis = document.visibilityState || ""; } catch (eVis) {}
+    if (vis && vis !== "visible") return;
+    if (!RET_REMOTE_OK && RET_REMOTE_SETTLED) retRetryRemoteGet();
+  });
+  window.addEventListener("online", function () {
+    if (!RET_REMOTE_OK && RET_REMOTE_SETTLED) retRetryRemoteGet();
+  });
   hashTab();
   try {
     var mixMql = window.matchMedia("(max-width: 720px)");
