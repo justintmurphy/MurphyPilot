@@ -364,6 +364,32 @@ test("top nav is two buttons and the open menu matches the section", function ()
   edits.windowListeners.hashchange.forEach(function (fn) { fn(); });
   assert.match(edits.elements.tabs.innerHTML, /data-nav-item="current"[^>]*class="on"/);
   assert.doesNotMatch(edits.elements.tabs.innerHTML, /data-nav-item="budget"[^>]*class="on"/);
+  assert.equal(edits.replaced.length, 0);
+});
+
+test("a same-document hash change still forwards to the other section", function () {
+  const bank = bootNav({ pathname: "/", hash: "" });
+  assert.equal(bank.replaced.length, 0);
+  bank.location.hash = "#joint";
+  bank.windowListeners.hashchange.forEach(function (fn) { fn(); });
+  assert.deepEqual(bank.replaced, ["/investments/#joint"]);
+
+  const stay = bootNav({ pathname: "/", hash: "#budget" });
+  stay.location.hash = "#current";
+  stay.windowListeners.hashchange.forEach(function (fn) { fn(); });
+  stay.windowListeners.popstate.forEach(function (fn) { fn(); });
+  assert.equal(stay.replaced.length, 0);
+  assert.match(stay.elements.tabs.innerHTML, /data-nav-item="current"[^>]*class="on"/);
+
+  const inv = bootNav({ pathname: "/investments/", hash: "#house" });
+  inv.location.hash = "#edits";
+  inv.windowListeners.popstate.forEach(function (fn) { fn(); });
+  assert.deepEqual(inv.replaced, ["/#edits"]);
+
+  const combined = bootNav({ pathname: "/", search: "?x=1", hash: "#budget" });
+  combined.location.hash = "#combined";
+  combined.windowListeners.hashchange.forEach(function (fn) { fn(); });
+  assert.deepEqual(combined.replaced, ["/investments/?x=1#house"]);
 });
 
 test("the menu toggles from the active button and closes around it", async function () {

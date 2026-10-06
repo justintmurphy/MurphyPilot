@@ -39,16 +39,20 @@
     });
   }
 
+  function forwardFor(pathname, hash, search) {
+    var sec = /^\/investments(\/|$)/.test(pathname) ? "investments" : "banking";
+    var h = (hash || "").replace(/^#/, "");
+    if (sec === "banking" && h && BANKING_HASHES.indexOf(h) < 0) {
+      return "/investments/" + (search || "") + (h === "combined" ? "#house" : hash);
+    }
+    if (sec === "investments" && BANKING_HASHES.indexOf(h) >= 0) {
+      return "/" + (search || "") + hash;
+    }
+    return "";
+  }
   var section = /^\/investments(\/|$)/.test(location.pathname) ? "investments" : "banking";
-  var h0 = (location.hash || "").replace(/^#/, "");
-  if (section === "banking" && h0 && BANKING_HASHES.indexOf(h0) < 0) {
-    location.replace("/investments/" + (location.search || "") + (h0 === "combined" ? "#house" : location.hash));
-    return;
-  }
-  if (section === "investments" && BANKING_HASHES.indexOf(h0) >= 0) {
-    location.replace("/" + (location.search || "") + location.hash);
-    return;
-  }
+  var hopped = forwardFor(location.pathname, location.hash, location.search);
+  if (hopped) { location.replace(hopped); return; }
   if (location.pathname === "/investments") {
     try { history.replaceState(history.state, "", "/investments/" + (location.search || "") + (location.hash || "")); } catch (e) {}
   }
@@ -168,10 +172,13 @@
     if (section === "banking" && t.closest("[data-bank-tab]")) w.setTimeout(w.MPNav.syncBanking, 0);
   });
   d.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
-  if (section === "banking") {
-    w.addEventListener("hashchange", w.MPNav.syncBanking);
-    w.addEventListener("popstate", w.MPNav.syncBanking);
+  function onLocationChange() {
+    var dest = forwardFor(location.pathname, location.hash, location.search);
+    if (dest) { location.replace(dest); return; }
+    if (section === "banking" && w.MPNav) w.MPNav.syncBanking();
   }
+  w.addEventListener("hashchange", onLocationChange);
+  w.addEventListener("popstate", onLocationChange);
   w.addEventListener("pageshow", function () { close(); w.MPNav.syncBanking(); });
   if (d.readyState === "loading") d.addEventListener("DOMContentLoaded", mount);
   else mount();
