@@ -478,7 +478,7 @@ test("banking hash ids match bankResolveTab and stay off the investments menu", 
   assert.equal(bank.bankResolveTab("#"), "budget");
   assert.equal(bank.bankResolveTab("#nope"), "budget");
   const nav = bootNav({ pathname: "/" });
-  assert.deepEqual(nav.MPNav.bankingHashes, accepted);
+  assert.deepEqual(JSON.parse(JSON.stringify(nav.MPNav.bankingHashes)), accepted);
   assert.equal(nav.MPNav.config.sections.banking.items.map(function (it) { return it.id; }).indexOf("edits"), -1);
   const boardC = read("house/js/board-c.js");
   const tabBlock = /TABS\s*=\s*\[([\s\S]*?)\];/.exec(boardC)[1];
