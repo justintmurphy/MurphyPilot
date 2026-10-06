@@ -1837,7 +1837,7 @@ test("GET failure and inputs null fall back to this device and defaults", async 
   ctx.retFetchSaved();
   await flushMicro();
   await flushMicro();
-  assert.equal(ctx.retRemoteNote(), "Saved inputs unavailable; showing this device only");
+  assert.equal(ctx.retRemoteNote(), "Nothing saved yet; your edits will save to your account");
   assert.equal(ctx.retLoad().salary, 4242);
 
   ctx.fetch = function () { return Promise.reject(new Error("offline")); };
@@ -1923,7 +1923,7 @@ test("out of range inputs are clamped before save", function () {
   assert.equal(patch.ssa62, 10000);
   assert.equal(typeof patch.salary, "number");
   assert.equal(typeof patch.raise_pct, "number");
-  assert.equal(Object.prototype.hasOwnProperty.call(patch, "salary_year"), false);
+  assert.equal(patch.salary_year, 2026);
   assert.equal(Object.prototype.hasOwnProperty.call(patch, "retireAge"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(patch, "loan"), false);
 });
@@ -2023,4 +2023,257 @@ test("defaults and the public retirement file have no personal fields", function
   ["salary", "salary_year", "ssa62", "ssa67", "ssa70", "birth_ym", "state", "filing", "partb_people", "emp_pct", "match_pct", "loan"].forEach(function (k) {
     assert.equal(Object.prototype.hasOwnProperty.call(file, k), false, k);
   });
+});
+
+function kvResponse(body, ok, status) {
+  return {
+    ok: ok !== false,
+    status: status == null ? (ok === false ? 500 : 200) : status,
+    json: function () { return Promise.resolve(body); }
+  };
+}
+
+function postBodies(calls) {
+  return calls.filter(function (c) { return c.method === "POST"; }).map(function (c) {
+    return JSON.parse(c.body);
+  });
+}
+
+test("a failed GET keeps the edit on this device and does not POST", async function () {
+  async function run(kind) {
+    const ctx = boot();
+    seed(ctx, { salary: 4242, ss67: 1500, nominalPct: 8, _edited: ["salary", "ss67", "nominalPct"] });
+    const calls = [];
+    ctx.fetch = function (url, init) {
+      const method = (init && init.method) || "GET";
+      calls.push({ url: String(url), method: method, body: init && init.body });
+      if (kind === "network") return Promise.reject(new Error("offline"));
+      return Promise.resolve(kvResponse(null, false, kind === "500" ? 500 : 401));
+    };
+    ctx.retFetchSaved();
+    await flushMicro();
+    await flushMicro();
+    assert.match(ctx.retRemoteNote(), /Saved inputs unavailable/);
+    function dataGets() {
+      return calls.filter(function (c) {
+        return c.method === "GET" && c.url === "/data/retirement.json";
+      }).length;
+    }
+    const before = dataGets();
+    let state = ctx.retLoad();
+    state.salary = 51000;
+    ctx.retSave(state);
+    await flushMicro();
+    await flushMicro();
+    assert.equal(postBodies(calls).length, 0);
+    assert.equal(ctx.retSaveState(), "Not saved to your account (offline); saved on this device");
+    assert.equal(dataGets(), before + 1);
+    state = ctx.retLoad();
+    state.ss67 = 1600;
+    ctx.retSave(state);
+    await flushMicro();
+    await flushMicro();
+    assert.equal(postBodies(calls).length, 0);
+    assert.equal(dataGets(), before + 1);
+    assert.equal(ctx.retLoad().salary, 51000);
+    assert.equal(ctx.retLoad().ss67, 1600);
+  }
+  await run("401");
+  await run("500");
+  await run("network");
+});
+
+test("inputs null lets one edited field save", async function () {
+  const ctx = boot();
+  seed(ctx, { salary: 33333, ss67: 1800, _edited: ["salary", "ss67"] });
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    const method = (init && init.method) || "GET";
+    calls.push({ url: String(url), method: method, body: init && init.body });
+    if (method === "POST") {
+      return Promise.resolve(kvResponse({
+        schema: "retirement-inputs/v1",
+        inputs: JSON.parse(init.body),
+        updated_at: "t"
+      }));
+    }
+    return Promise.resolve(kvResponse({
+      schema: "retirement-inputs/v1",
+      inputs: null,
+      updated_at: null
+    }));
+  };
+  ctx.retFetchSaved();
+  await flushMicro();
+  await flushMicro();
+  assert.equal(ctx.retRemoteNote(), "Nothing saved yet; your edits will save to your account");
+  const state = ctx.retLoad();
+  assert.equal(state.salary, 33333);
+  assert.equal(state.ss67, 1800);
+  state.raisePct = 4;
+  ctx.retSave(state);
+  await flushMicro();
+  const posts = postBodies(calls);
+  assert.equal(posts.length, 1);
+  assert.deepEqual(posts[0], { raise_pct: 4 });
+});
+
+test("editing salary posts salary, and salary_year only when it is set", async function () {
+  const ctx = boot();
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    calls.push({ method: (init && init.method) || "GET", body: init && init.body });
+    const posted = init && init.body ? JSON.parse(init.body) : { salary: 40000 };
+    return Promise.resolve(kvResponse({
+      schema: "retirement-inputs/v1",
+      inputs: posted,
+      updated_at: "t"
+    }));
+  };
+  ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: { salary: 40000, ssa67: 900, nominal_return_pct: 5, raise_pct: 2, inflation_pct: 2.5 },
+    updated_at: "t"
+  });
+  seed(ctx, { ss62: 700, _edited: ["ss62"] });
+  let state = ctx.retLoad();
+  assert.equal(state.ss62, 700);
+  state.salary = 41000;
+  state.salaryYear = null;
+  ctx.retSave(state);
+  await flushMicro();
+  let posts = postBodies(calls);
+  assert.deepEqual(posts[posts.length - 1], { salary: 41000 });
+  assert.equal(Object.prototype.hasOwnProperty.call(posts[posts.length - 1], "salary_year"), false);
+
+  state = ctx.retLoad();
+  state.salary = 42000;
+  state.salaryYear = 2024;
+  ctx.retSave(state);
+  await flushMicro();
+  posts = postBodies(calls);
+  assert.deepEqual(posts[posts.length - 1], { salary: 42000, salary_year: 2024 });
+
+  const explicit = ctx.retKvExplicit({
+    salary: 45000, salaryYear: null, nominalPct: 5, raisePct: 2, inflPct: 2.5
+  });
+  assert.equal(Object.prototype.hasOwnProperty.call(explicit, "salary_year"), false);
+
+  ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: { salary: 40000, salary_year: 2021, nominal_return_pct: 5 },
+    updated_at: "t"
+  });
+  state = ctx.retLoad();
+  state.salary = 43000;
+  state.salaryYear = null;
+  ctx.retSave(state);
+  await flushMicro();
+  posts = postBodies(calls);
+  assert.deepEqual(posts[posts.length - 1], { salary: 43000, salary_year: ctx.retTodayNy().year });
+
+  const fresh = ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: { nominal_return_pct: 5 },
+    updated_at: "t"
+  });
+  assert.equal(fresh, true);
+  const card = cardFrom(ctx.retLoad(), { salary: "48000" });
+  const read = ctx.retRead(card);
+  assert.equal(read.salary, 48000);
+  assert.equal(read.salaryYear, ctx.retTodayNy().year);
+  ctx.retSave(read);
+  await flushMicro();
+  posts = postBodies(calls);
+  assert.deepEqual(posts[posts.length - 1], { salary: 48000, salary_year: ctx.retTodayNy().year });
+});
+
+test("clearing salary posts null for that field only", async function () {
+  const ctx = boot();
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    calls.push({ method: (init && init.method) || "GET", body: init && init.body });
+    return Promise.resolve(kvResponse({
+      schema: "retirement-inputs/v1",
+      inputs: { salary: null },
+      updated_at: "t"
+    }));
+  };
+  ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: { salary: 44000, salary_year: 2023, ssa67: 800, nominal_return_pct: 5 },
+    updated_at: "t"
+  });
+  seed(ctx, { ss62: 111, _edited: ["ss62"] });
+  const state = ctx.retLoad();
+  assert.equal(state.salary, 44000);
+  assert.equal(state.ss62, 111);
+  state.salary = null;
+  ctx.retSave(state);
+  await flushMicro();
+  const posts = postBodies(calls);
+  assert.equal(posts.length, 1);
+  assert.deepEqual(posts[0], { salary: null });
+});
+
+test("filing and Part B stay blank until they are chosen", function () {
+  const ctx = boot();
+  ctx.snap = { robinhood: { equity: 1000, label: "Robinhood" }, accounts: {}, combined: {} };
+  const state = ctx.retLoad();
+  assert.equal(state.filing, null);
+  assert.equal(state.partBPeople, null);
+  assert.equal(ctx.retPartBCount(state), null);
+  assert.equal(ctx.retPartBDefault(null), null);
+  const html = ctx.retirementHtml();
+  assert.match(html, /<option value="" selected>\u2014 choose \u2014<\/option>/);
+  [0, 1, 2, 3, 4].forEach(function (n) {
+    assert.match(html, new RegExp('data-ret-partb="' + n + '" aria-pressed="false"'));
+  });
+  assert.equal(html.indexOf('aria-pressed="true"'), -1);
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els["take-sub"].textContent, "Pick filing status");
+  assert.equal(card.els.take.textContent, "\u2014");
+  assert.equal(ctx.retTakeHome(2000, 500, state, 10, 67), null);
+});
+
+test("blank 401k percents prompt instead of $0", function () {
+  const ctx = boot();
+  ctx.snap = { robinhood: { equity: 1000, label: "Robinhood" }, accounts: {}, combined: {} };
+  const state = ctx.retBlank();
+  state.salary = 64000;
+  state.salaryYear = 2026;
+  assert.equal(state.eePct, null);
+  assert.equal(state.matchPct, null);
+  const meta = ctx.retSavingsMeta(state);
+  assert.equal(meta.needs401k, true);
+  assert.equal(meta.year1Annual, null);
+  assert.equal(meta.monthlyShown, null);
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els.save.textContent, "Add your 401k % to see this");
+  assert.equal(card.els.save.textContent.indexOf("$0"), -1);
+  assert.equal(card.els["save-sub"].textContent.indexOf("year 1"), -1);
+  state.eePct = 0;
+  state.matchPct = 0;
+  ctx.retFill(card, state);
+  assert.equal(card.els.save.textContent.indexOf("Add your 401k"), -1);
+});
+
+test("clamping shows the field and the allowed range", function () {
+  const ctx = boot();
+  ctx.snap = { robinhood: { equity: 1000, label: "Robinhood" }, accounts: {}, combined: {} };
+  const state = ctx.retBlank();
+  const card = cardFrom(state, { salary: "9000000", raise: "-3" });
+  const read = ctx.retRead(card);
+  assert.equal(read.salary, 2000000);
+  assert.equal(read.raisePct, 0);
+  const note = ctx.retClampNote();
+  assert.match(note, /Adjusted salary to 2000000 \(allowed range 0\u20132000000\)/);
+  assert.match(note, /Adjusted raise_pct to 0 \(allowed range 0\u2013100\)/);
+  const shown = textCard();
+  ctx.retFill(shown, read);
+  assert.match(shown.els["save-state"].textContent, /Adjusted salary to 2000000 \(allowed range 0\u20132000000\)/);
+  assert.equal(shown.els["save-state"].hidden, false);
 });
