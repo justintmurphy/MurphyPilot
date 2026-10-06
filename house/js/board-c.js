@@ -802,6 +802,7 @@ function custodialTableHtml(names, totalEq, opts) {
     var emptyNote = unavailable ? "names not available" : "No names on this sleeve. Cash-only or empty.";
     return "<div class=\"card\"><p class=\"hint\" style=\"margin:0\">" + emptyNote + "</p></div>";
   }
+  var label = (opts && opts.label) || (typeof isFidSleeveTab === "function" && isFidSleeveTab(tab) ? "Sleeve" : "Book");
   var head = "<tr><th>Name</th><th>Sleeve</th><th>Kind</th><th class=\"num\">Qty</th><th class=\"num\">Avg</th><th class=\"num\">Last</th><th class=\"num\">Value</th><th class=\"num\">Wt</th><th class=\"num\">Cost</th><th class=\"num\">P&L</th></tr>";
   var rows = names.map(function (n) {
     var wt = (Number(n.value) || 0) / total * 100;
@@ -816,8 +817,10 @@ function custodialTableHtml(names, totalEq, opts) {
       "<td class=\"num\">" + basisMoney(n.cost) + "</td>" +
       "<td class=\"num tone-" + tone(n.pnl) + "\">" + rowPnlHtml(n) + "</td></tr>";
   }).join("");
-  var table = "<div class=\"card book-scroll\"><table class=\"book custodial\"><thead>" + head + "</thead><tbody>" + rows + "</tbody></table></div>";
-  return (typeof bookPhoneDisclosure === "function") ? bookPhoneDisclosure(table, names, 8) : table;
+  var table = "<table class=\"book custodial\"><thead>" + head + "</thead><tbody>" + rows + "</tbody></table>";
+  var capped = (typeof capInvestList === "function") ? capInvestList(table, names.length, label) : table;
+  var inner = "<div class=\"card book-scroll\">" + capped + "</div>";
+  return (typeof bookPhoneDisclosure === "function") ? bookPhoneDisclosure(inner, names, 8) : inner;
 }
 function eodTapeHtml(key, title) {
   var prints = ((snap.tape && snap.tape[key]) || []).map(normPrint).filter(function (p) { return p && isFinite(p.equity); });
@@ -883,10 +886,14 @@ function fidelityBooksHtml(fid) {
     return (Number(s.equity) || 0) > 0.004 || (s.names || []).length > 0;
   });
   var tag = fid.live ? "live" : "EOD";
-  return "<h2>Books</h2><div class=\"acct-grid\">" + sleeves.map(function (s) {
+  var cards = sleeves.map(function (s) {
     registerFidSleeveLabel(s);
     return bookCardHtml(fidTabId(s.id), s.label, s.equity, tag, null);
-  }).join("") + "</div>" +
+  }).join("");
+  var grid = (typeof capInvestList === "function")
+    ? capInvestList('<div class="acct-grid">' + cards + "</div>", sleeves.length, "Sleeves")
+    : '<div class="acct-grid">' + cards + "</div>";
+  return "<h2>Books</h2>" + grid +
     "<p class=\"hint\">Each Truthifi/SnapTrade Fidelity account is its own book. Click a sleeve for book state, mix, and holdings. No account numbers.</p>";
 }
 function fidelityDeskHtml() {

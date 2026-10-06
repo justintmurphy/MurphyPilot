@@ -308,6 +308,56 @@ function collapseHouseNames(list) {
   });
 }
 
+/* Thin delegate. Markup and the ten-row scroll live in MPListCap, same as Banking. */
+function capInvestList(html, count, label) {
+  var max = 10;
+  if (!(count > max)) return html;
+  if (typeof MPListCap !== "undefined" && MPListCap && MPListCap.capHtml) {
+    return MPListCap.capHtml(html, { count: count, max: max, label: label || "List" });
+  }
+  return html;
+}
+function investDateKey(item) {
+  if (item == null || item === "") return "";
+  var raw;
+  if (typeof item !== "object") raw = item;
+  else raw = item.date || item.due || item.ts || item.asof || item.t || "";
+  raw = String(raw == null ? "" : raw).trim();
+  if (!raw || raw === "\u2014" || raw === "—") return "";
+  return raw;
+}
+/* Dated rows soonest-first. Rows with no date stay after every dated row. */
+function investSortSoonest(list) {
+  return (list || []).slice().sort(function (a, b) {
+    var da = investDateKey(a);
+    var db = investDateKey(b);
+    if (da && !db) return -1;
+    if (!da && db) return 1;
+    if (da < db) return -1;
+    if (da > db) return 1;
+    return 0;
+  });
+}
+function invPaintTicker(snap, opts) {
+  var el = typeof document !== "undefined" && document.getElementById ? document.getElementById("mp-ticker") : null;
+  if (!el || typeof MPTicker === "undefined" || !MPTicker.render) return;
+  try {
+    var tiers = (typeof bankTierDoc === "function") ? bankTierDoc(snap) : null;
+    var today = (typeof bankScreenToday === "function") ? bankScreenToday(snap, opts || {}) : null;
+    MPTicker.render(el, snap, tiers, today);
+  } catch (e) {
+    el.hidden = true;
+    el.innerHTML = "";
+  }
+}
+function invMountTicker() {
+  var el = typeof document !== "undefined" && document.getElementById ? document.getElementById("mp-ticker") : null;
+  if (!el || el._mpTickerPainted || typeof MPTicker === "undefined" || !MPTicker.load) return;
+  try { MPTicker.load(el); } catch (e) {
+    el.hidden = true;
+    el.innerHTML = "";
+  }
+}
 
   function nameUnrealized(n) {
     var lot = (typeof lotPnl === "function") ? lotPnl(n) : { pnl: null, pct: null };
@@ -504,9 +554,10 @@ function collapseHouseNames(list) {
     var head = "<tr><th>When</th><th>Name</th><th>Book</th><th class=\"num\">Qty</th><th class=\"num\">Px</th>" +
       (isSell ? '<th class="num">P&L</th>' : "") + "</tr>";
     var rows = list.map(function (f) { return fillRowHtml(f, isSell); }).join("");
-    return '<div class="fills-pane"><table class="book fills-tape"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+    var table = '<table class="book fills-tape"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table>";
+    return '<div class="fills-pane">' + capInvestList(table, list.length, isSell ? "Sells" : "Buys") + "</div>";
   }
-  /* Newest hidden fill. Symbol + side only — buys never carry a P&L figure (tip bf). */
+  /* Next hidden fill after the glance. Symbol + side only — buys never carry a P&L figure (tip bf). */
   function fillsMoreLabel(rest, isSell) {
     var n = rest.length;
     var last = rest[0] || {};
@@ -542,8 +593,7 @@ function collapseHouseNames(list) {
     var hasKey = book && Object.prototype.hasOwnProperty.call(book, "fills");
     if (!required && !hasKey) return "";
     var fills = (book && Array.isArray(book.fills)) ? book.fills.slice() : [];
-    fills = fills.filter(function (f) { return f && f.symbol; });
-    fills.sort(function (a, b) { return String(b.ts || "").localeCompare(String(a.ts || "")); });
+    fills = investSortSoonest(fills.filter(function (f) { return f && f.symbol; }));
     var buys = [], sells = [];
     fills.forEach(function (f) {
       var side = String(f.side || "").toLowerCase();
@@ -1074,9 +1124,10 @@ function collapseHouseNames(list) {
         '<td class="num">' + (n.last == null ? "\u2014" : money(n.last)) + "</td>" +
         '<td class="num">' + moneyOrDash(n.value) + '</td><td class="num tone-' + tone(u.pnl) + '">' + uHtml + "</td></tr>";
     }).join("");
+    var table = '<table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table>";
+    var capped = capInvestList(table, names.length, showBook ? "Book" : "Holdings");
     var wrap = (showBook || names.length > 10) ? "card book-scroll" : "card";
-    var table = '<div class="' + wrap + '"><table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
-    return bookPhoneDisclosure(table, names, 8);
+    return bookPhoneDisclosure('<div class="' + wrap + '">' + capped + "</div>", names, 8);
   }
   /* tip by — phone book disclosure. Wide viewports return the table unchanged. */
   function bookValueCell(n) {
@@ -1184,14 +1235,16 @@ function collapseHouseNames(list) {
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div></button>";
   }
   function overlaySheet(domId, mode, title, hint) {
-    var rows = overlayIds(mode).map(function (id) { return overlayChartCard(id, mode); }).join("");
+    var ids = overlayIds(mode);
+    var rows = ids.map(function (id) { return overlayChartCard(id, mode); }).join("");
     var on = overlayOpen && overlayMode === mode;
+    var grid = capInvestList('<div class="ov-grid ov-charts">' + rows + "</div>", ids.length, mode === "all" ? "All books" : "Live books");
     return '<div class="books-overlay' + (on ? " on" : "") + '" id="' + domId + '"' + (on ? "" : " hidden") + '>' +
       '<div class="books-sheet" role="dialog" aria-label="' + esc(title) + '">' +
       '<div class="books-head"><h2 style="margin:0">' + esc(title) + "</h2>" +
       '<button type="button" class="ov-close" data-close-books="1">Close</button></div>' +
       '<p class="hint" style="margin:8px 0 10px">' + esc(hint) + "</p>" +
-      '<div class="ov-grid ov-charts">' + rows + "</div></div></div>";
+      grid + "</div></div>";
   }
   function overlayHtml() {
     if (!snap) return "";
@@ -4330,3 +4383,4 @@ function collapseHouseNames(list) {
   tickClock();
   setInterval(tickClock, 1000);
   setInterval(function () { if (typeof load === "function") load(); }, 5 * 60 * 1000);
+  invMountTicker();

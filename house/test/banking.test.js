@@ -5944,7 +5944,7 @@ test("banking assets use the ec cache bust", function () {
   assert.match(page, /\/house\/js\/banking\.js\?v=20261006ec/);
   assert.match(page, /\/house\/banking\.css\?v=20261006ec/);
   assert.match(page, /list-cap\.js\?v=20261006ec/);
-  assert.match(page, /ticker\.js\?v=20261006ec/);
+  assert.match(page, /ticker\.js\?v=20261006ef/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -6955,8 +6955,8 @@ test("banking page links the shared list cap and ticker", function () {
   assert.equal((page.match(/id="mp-ticker"/g) || []).length, 1);
   assert.match(page, /<div id="mp-ticker" class="mp-ticker-slot" hidden><\/div>/);
   assert.match(page, /list-cap\.js\?v=20261006ec/);
-  assert.match(page, /ticker\.js\?v=20261006ec/);
-  assert.match(page, /list-cap\.css\?v=20261006ec/);
+  assert.match(page, /ticker\.js\?v=20261006ef/);
+  assert.match(page, /list-cap\.css\?v=20261006ef/);
   assert.match(page, /ticker\.css\?v=20261006ec/);
   const css = fs.readFileSync(path.join(root, "house/list-cap.css"), "utf8");
   assert.match(css, /overflow-y:\s*auto/);
@@ -6985,7 +6985,7 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.match(page, /banking\.js\?v=20261006ec2/);
   assert.match(page, /banking\.css\?v=20261006ec4/);
   assert.match(page, /list-cap\.js\?v=20261006ec3/);
-  assert.match(page, /list-cap\.css\?v=20261006ec3/);
+  assert.match(page, /list-cap\.css\?v=20261006ef/);
   assert.match(css, /--mp-in:\s*#8EEDC0/);
   assert.match(css, /--mp-out:\s*#FFB3AD/);
   assert.match(css, /--mp-in:\s*#0E6B3C/);

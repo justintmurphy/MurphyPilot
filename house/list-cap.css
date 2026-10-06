@@ -2,6 +2,7 @@
 .list-cap {
   --list-cap-rows: 10;
   max-height: calc(var(--list-cap-rows) * 2.05rem);
+  max-width: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -22,4 +23,31 @@
 
 .bank-tape tbody tr {
   height: 2.05rem;
+}
+
+/* The cap box is the only scroller. A second pane would trap the page at phone width. */
+.fills-pane:has(.list-cap),
+.book-scroll:has(.list-cap),
+.mix-detail:has(.list-cap) {
+  max-height: none;
+  overflow: visible;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 390px) {
+  .list-cap,
+  .list-cap table,
+  .list-cap ul,
+  .fills-pane,
+  .book-scroll,
+  .pack-scroll,
+  .mix-detail,
+  .ov-grid {
+    max-width: 100%;
+    min-width: 0;
+  }
+  .list-cap table {
+    font-size: 12px;
+  }
 }

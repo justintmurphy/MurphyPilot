@@ -957,7 +957,8 @@ test("live rows render the full-precision P&L sum rounded only at display", func
       pnl += lot.pnl;
       cost += lot.cost;
     });
-    return ctx.money(pnl) + " " + ctx.pct((pnl / cost) * 100);
+    const pctV = rows.length === 1 ? ctx.lotPnl(rows[0]).pct : (pnl / cost) * 100;
+    return ctx.money(pnl) + " " + ctx.pct(pctV);
   }
 
   const symbols = {};
@@ -1653,8 +1654,8 @@ test("phone fills cap Buys and Sells separately and the desk stays open", functi
   assert.equal((sells.split("</summary>")[1].match(/<tr>/g) || []).length, 1 + (5 - cap));
   const buySum = buys.match(/<summary>[\s\S]*?<\/summary>/)[0];
   const sellSum = sells.match(/<summary>[\s\S]*?<\/summary>/)[0];
-  assert.match(buySum, new RegExp((8 - cap) + " more · B" + cap + " buy"));
-  assert.match(sellSum, new RegExp((5 - cap) + " more · S" + cap + " sell"));
+  assert.match(buySum, /5 more · B4 buy/);
+  assert.match(sellSum, /2 more · S1 sell/);
   assert.match(buySum, /cf-chev/);
   assert.match(buySum, />Show</);
   assert.doesNotMatch(buySum, /\$/);
