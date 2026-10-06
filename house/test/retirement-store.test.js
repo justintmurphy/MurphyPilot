@@ -162,7 +162,11 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.ok(view.total != null && isFinite(view.total));
   assert.ok(Math.abs(view.total - (view.income + view.ss)) < 0.001);
   assert.equal(ctx.localStorage.getItem(storeKey), null);
-  assert.match(ctx.retSavedUrl(), /retirement\.json\?v=20260904cn$/);
+  assert.equal(ctx.retDataUrl(), "/data/retirement.json");
+  assert.equal(ctx.retRemoteInit().credentials, "same-origin");
+  assert.equal(ctx.retRemoteInit().cache, "no-store");
+  const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  assert.match(indexHtml, /house\/js\/board-b\.js\?v=20261006ee/);
 });
 
 test("slider touch does not pin salary, so a later file salary shows without Reset", function () {
@@ -1762,4 +1766,261 @@ test("deferral limits and the compensation limit index by the same factor", func
   const shipped = ctx.retParseTax(JSON.parse(fs.readFileSync(path.join(root, "house/tax-rules.json"), "utf8")));
   assert.equal(shipped.federal.deferralLimitsIndexed, true);
   assert.equal(shipped.federal.compLimitIndexed, true);
+});
+
+function flushMicro() {
+  return new Promise(function (resolve) { setImmediate(resolve); });
+}
+
+test("load order is saved inputs, then localStorage, then defaults", function () {
+  const ctx = boot();
+  seed(ctx, { salary: 333, retireAge: 64, _edited: ["salary", "retireAge"] });
+  const ok = ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: {
+      version: 1,
+      salary: 111,
+      salary_year: 2024,
+      ssa67: 222,
+      nominal_return_pct: 7,
+      filing: "MFJ",
+      emp_pct: 4
+    },
+    updated_at: "2026-10-06T00:00:00Z"
+  });
+  assert.equal(ok, true);
+  assert.equal(ctx.retRemoteNote(), "");
+  const d = ctx.retLoad();
+  assert.equal(d.salary, 333);
+  assert.equal(d.retireAge, 64);
+  assert.equal(d.ss67, 222);
+  assert.equal(d.ss62, null);
+  assert.equal(d.ss70, null);
+  assert.equal(d.nominalPct, 7);
+  assert.equal(d.raisePct, 2);
+  assert.equal(d.inflPct, 2.5);
+  assert.equal(d.filing, "mfj");
+  assert.equal(d.eePct, 4);
+  assert.equal(d.matchPct, null);
+  assert.equal(d.birthYear, null);
+  assert.equal(d.state, null);
+});
+
+test("GET failure and inputs null fall back to this device and defaults", async function () {
+  const ctx = boot();
+  seed(ctx, { salary: 4242, ss67: 1800, _edited: ["salary", "ss67"] });
+  ctx.fetch = function () {
+    return Promise.resolve({ ok: false, status: 401 });
+  };
+  ctx.retFetchSaved();
+  await flushMicro();
+  await flushMicro();
+  assert.equal(ctx.retRemoteNote(), "Saved inputs unavailable; showing this device only");
+  let state = ctx.retLoad();
+  assert.equal(state.salary, 4242);
+  assert.equal(state.ss67, 1800);
+  assert.equal(state.nominalPct, 5);
+  assert.equal(state.raisePct, 2);
+  assert.equal(state.inflPct, 2.5);
+  assert.equal(state.ss62, null);
+  assert.equal(state.eePct, null);
+
+  ctx.fetch = function () {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: function () {
+        return Promise.resolve({ schema: "retirement-inputs/v1", inputs: null, updated_at: null });
+      }
+    });
+  };
+  ctx.retFetchSaved();
+  await flushMicro();
+  await flushMicro();
+  assert.equal(ctx.retRemoteNote(), "Saved inputs unavailable; showing this device only");
+  assert.equal(ctx.retLoad().salary, 4242);
+
+  ctx.fetch = function () { return Promise.reject(new Error("offline")); };
+  ctx.retFetchSaved();
+  await flushMicro();
+  await flushMicro();
+  assert.equal(ctx.retRemoteNote(), "Saved inputs unavailable; showing this device only");
+  assert.equal(ctx.retLoad().raisePct, 2);
+  assert.equal(ctx.retIngestRemote({ schema: "nope", inputs: { salary: 1 } }), false);
+  assert.equal(ctx.retRemoteNote(), "Saved inputs unavailable; showing this device only");
+});
+
+test("POST sends a partial merge of allowed numeric fields", async function () {
+  const ctx = boot();
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    calls.push({ url: String(url), init: init || {} });
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: function () { return Promise.resolve({ schema: "retirement-inputs/v1", inputs: { salary: 222 }, updated_at: "t" }); }
+    });
+  };
+  ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: { salary: 100, filing: "MFJ", nominal_return_pct: 5, raise_pct: 2, inflation_pct: 2.5 },
+    updated_at: "t"
+  });
+  let state = ctx.retLoad();
+  state.salary = 222;
+  ctx.retSave(state);
+  await flushMicro();
+  const post = calls.filter(function (c) { return c.init && c.init.method === "POST"; })[0];
+  assert.ok(post);
+  assert.equal(post.url, "/data/retirement.json");
+  assert.equal(post.init.credentials, "same-origin");
+  assert.equal(post.init.cache, "no-store");
+  const body = JSON.parse(post.init.body);
+  assert.deepEqual(body, { salary: 222 });
+  assert.equal(typeof body.salary, "number");
+  assert.equal(ctx.retSaveState(), "Saved");
+
+  const cleared = ctx.retKvPatch(
+    { salary: 100, ssa67: 50, filing: "MFJ" },
+    { salary: null, ss67: null, filing: "mfj", nominalPct: 5, raisePct: 2, inflPct: 2.5 }
+  );
+  assert.equal(cleared.salary, null);
+  assert.equal(cleared.ssa67, null);
+  assert.equal(Object.keys(cleared).length, 2);
+  const noisy = ctx.retKvPatch({}, {
+    salary: 50, retireAge: 64, extra401kPct: 1, monthly: 9, loan: { balance: 1 }
+  });
+  assert.equal(noisy.salary, 50);
+  assert.equal(Object.keys(noisy).length, 1);
+  Object.keys(noisy).forEach(function (k) {
+    assert.equal(ctx.RET_KV_ALLOW[k], 1);
+  });
+});
+
+test("out of range inputs are clamped before save", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  const state = ctx.retLoad();
+  const card = cardFrom(state, {
+    raise: "-4", nominal: "140", infl: "25", ee: "-2", match: "150",
+    salary: "2500000.2", ss62: "10000.6"
+  });
+  const read = ctx.retRead(card);
+  assert.equal(read.raisePct, 0);
+  assert.equal(read.nominalPct, 100);
+  assert.equal(read.inflPct, 20);
+  assert.equal(read.eePct, 0);
+  assert.equal(read.matchPct, 100);
+  assert.equal(read.salary, 2000000);
+  assert.equal(read.ss62, 10000);
+  const patch = ctx.retKvPatch({}, read);
+  assert.equal(patch.raise_pct, 0);
+  assert.equal(patch.nominal_return_pct, 100);
+  assert.equal(patch.inflation_pct, 20);
+  assert.equal(patch.emp_pct, 0);
+  assert.equal(patch.match_pct, 100);
+  assert.equal(patch.salary, 2000000);
+  assert.equal(patch.ssa62, 10000);
+  assert.equal(typeof patch.salary, "number");
+  assert.equal(typeof patch.raise_pct, "number");
+  assert.equal(Object.prototype.hasOwnProperty.call(patch, "salary_year"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(patch, "retireAge"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(patch, "loan"), false);
+});
+
+test("bad_value errors show which field is out of range", async function () {
+  const ctx = boot();
+  assert.equal(ctx.retFormatSaveError({ error: "bad_value:salary" }, 400), "Not saved: salary out of range");
+  assert.equal(ctx.retFormatSaveError({ error: "bad_value:inflation_pct" }, 400), "Not saved: inflation_pct out of range");
+  assert.equal(ctx.retFormatSaveError({ error: "bad_field" }, 400), "Not saved: bad_field");
+  ctx.fetch = function () {
+    return Promise.resolve({
+      ok: false,
+      status: 400,
+      json: function () { return Promise.resolve({ error: "bad_value:raise_pct" }); }
+    });
+  };
+  ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: { raise_pct: 2, nominal_return_pct: 5, inflation_pct: 2.5 },
+    updated_at: "t"
+  });
+  const state = ctx.retLoad();
+  state.raisePct = 3;
+  ctx.retSave(state);
+  await flushMicro();
+  assert.equal(ctx.retSaveState(), "Not saved: raise_pct out of range");
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: {}
+  };
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els["save-state"].textContent, "Not saved: raise_pct out of range");
+  assert.equal(card.els["save-state"].hidden, false);
+});
+
+test("filing is case-insensitive and mfs and hoh use the single deduction", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  assert.equal(ctx.retFilingTaxKey("MFJ"), "mfj");
+  assert.equal(ctx.retFilingTaxKey("mfj"), "mfj");
+  assert.equal(ctx.retFilingTaxKey("MFS"), "single");
+  assert.equal(ctx.retFilingTaxKey("hoh"), "single");
+  assert.equal(ctx.retFilingTaxKey("Single"), "single");
+  const mfj = ctx.retStandardDeduction("MFJ", 60);
+  const mfjLower = ctx.retStandardDeduction("mfj", 60);
+  const single = ctx.retStandardDeduction("single", 60);
+  const mfs = ctx.retStandardDeduction("MFS", 60);
+  const hoh = ctx.retStandardDeduction("HOH", 60);
+  assert.equal(mfj, mfjLower);
+  assert.ok(mfj > single);
+  assert.equal(mfs, single);
+  assert.equal(hoh, single);
+  const state = ctx.retLoad();
+  state.filing = "MFS";
+  state.inflPct = 0;
+  const takeMfs = ctx.retTakeHome(2000, 0, state, 0, 60);
+  state.filing = "single";
+  const takeSingle = ctx.retTakeHome(2000, 0, state, 0, 60);
+  state.filing = "mfj";
+  const takeMfj = ctx.retTakeHome(2000, 0, state, 0, 60);
+  assert.equal(takeMfs, takeSingle);
+  assert.ok(takeMfj > takeSingle);
+  assert.equal(ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: { filing: "MFS", nominal_return_pct: 5 },
+    updated_at: "t"
+  }), true);
+  assert.equal(ctx.retLoad().filing, "mfs");
+  assert.equal(ctx.retPartBCount(ctx.retLoad()), 1);
+  ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: { filing: "MFJ", partb_people: 2, nominal_return_pct: 5 },
+    updated_at: "t"
+  });
+  assert.equal(ctx.retLoad().filing, "mfj");
+  assert.equal(ctx.retPartBCount(ctx.retLoad()), 2);
+});
+
+test("defaults and the public retirement file have no personal fields", function () {
+  const ctx = boot();
+  const d = ctx.retBlank();
+  assert.equal(d.nominalPct, 5);
+  assert.equal(d.raisePct, 2);
+  assert.equal(d.inflPct, 2.5);
+  ["salary", "salaryYear", "ss62", "ss67", "ss70", "birthMonth", "birthYear", "filing", "partBPeople", "eePct", "matchPct", "state"].forEach(function (k) {
+    assert.equal(d[k], null, k);
+  });
+  const file = JSON.parse(fs.readFileSync(path.join(root, "house/retirement.json"), "utf8"));
+  assert.deepEqual(Object.keys(file).sort(), ["inflation_pct", "nominal_return_pct", "raise_pct", "version"]);
+  assert.equal(file.version, 1);
+  assert.equal(file.raise_pct, 2);
+  assert.equal(file.nominal_return_pct, 5);
+  assert.equal(file.inflation_pct, 2.5);
+  ["salary", "salary_year", "ssa62", "ssa67", "ssa70", "birth_ym", "state", "filing", "partb_people", "emp_pct", "match_pct", "loan"].forEach(function (k) {
+    assert.equal(Object.prototype.hasOwnProperty.call(file, k), false, k);
+  });
 });
