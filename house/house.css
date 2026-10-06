@@ -1304,3 +1304,85 @@ header .section-nav a:hover {
 @media (max-width: 720px) {
   header .section-nav { display: none; }
 }
+
+/* tip ed — shared section nav. Justin + Nina via existing vars. */
+.mp-nav { position: relative; display: flex; align-items: center; min-width: 0; flex: 1 1 auto; }
+.mp-top { display: flex; gap: 6px; flex-wrap: nowrap; }
+.mp-top-btn {
+  color: var(--header-fg);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.7px;
+  min-height: 36px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--nav-line);
+  border-radius: 4px;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+.mp-top-btn.on,
+.mp-top-btn[aria-current="page"],
+.mp-top-btn:hover { background: var(--nav-hover); }
+.mp-nav #menuBtn {
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--nav-line);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.7px;
+  gap: 6px;
+}
+.mp-caret {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  display: inline-block;
+}
+.mp-nav .mp-menu { left: auto; right: 0; max-width: calc(100vw - 24px); }
+.mp-menu nav#tabs a {
+  color: var(--ink);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 15px;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  text-decoration: none;
+  border-radius: 10px;
+  opacity: 0.7;
+}
+.mp-menu nav#tabs a.on,
+.mp-menu nav#tabs a:hover { opacity: 1; background: var(--row); }
+body.inv-page > header {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "mark brand end clock";
+}
+body.inv-page > header .clock { grid-area: clock; }
+@media (max-width: 720px) {
+  body.inv-page > header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "mark brand clock" "end end end";
+    row-gap: 8px;
+  }
+  body.inv-page > header .mark { grid-area: mark; grid-column: auto; grid-row: auto; }
+  body.inv-page > header .brand-block { grid-area: brand; grid-column: auto; grid-row: auto; }
+  body.inv-page > header .clock { grid-area: clock; grid-column: auto; grid-row: auto; }
+  body.inv-page > header .header-end { grid-area: end; grid-column: auto; grid-row: auto; width: 100%; }
+  header .mp-top { width: 100%; }
+  header .mp-top-btn { flex: 1 1 0; min-width: 0; }
+  .mp-nav .mp-menu { left: 0; right: auto; }
+}

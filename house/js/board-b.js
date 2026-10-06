@@ -602,19 +602,25 @@ function collapseHouseNames(list) {
     if (btn) btn.setAttribute("aria-expanded", "false");
   }
   function paintNav() {
-    var el = document.getElementById("tabs");
     var onId = tab;
     if (typeof RH_IDS !== "undefined" && RH_IDS.indexOf(tab) >= 0) onId = "robinhood";
     if (typeof isFidSleeveTab === "function" ? isFidSleeveTab(tab) : /^fid-/.test(String(tab || ""))) onId = "fidelity";
-    if (el) {
-      /* tip cl — Banking is its own OTP page, not a book tab. */
-      el.innerHTML = TABS.map(function (item) {
-        return '<button type="button" data-tab="' + item.id + '" class="' + (onId === item.id ? "on" : "") + '">' + item.label + "</button>";
-      }).join("") + '<a class="section-link" href="/house/banking/">Banking</a>';
+    var items = (typeof TABS !== "undefined" ? TABS : []).map(function (item) {
+      return { id: item.id, label: item.label };
+    });
+    if (typeof MPNav !== "undefined" && MPNav && typeof MPNav.setItems === "function") {
+      MPNav.setItems("investments", items, onId);
+    } else {
+      var el = document.getElementById("tabs");
+      if (el) {
+        el.innerHTML = items.map(function (item) {
+          return '<button type="button" data-tab="' + item.id + '" class="' + (onId === item.id ? "on" : "") + '">' + item.label + "</button>";
+        }).join("");
+      }
     }
     var sub = document.getElementById("deskSub");
-    if (sub) sub.textContent = LABEL[tab] || "HOUSE";
-    document.title = "Murphy Pilot \u00b7 " + (LABEL[tab] || "House");
+    if (sub) sub.textContent = tab === "combined" ? "INVESTMENTS" : (LABEL[tab] || "INVESTMENTS");
+    document.title = "Murphy Pilot \u00b7 " + (tab === "combined" ? "Investments" : (LABEL[tab] || "Investments"));
     applyTheme();
   }
 
@@ -1747,8 +1753,7 @@ function collapseHouseNames(list) {
   /* Same-origin defaults. Cache-busted with the tip by asset query.
      A missing or malformed file leaves RET_SAVED null (empty helper). */
   function retAssetUrl(name) {
-    var housePath = /\/house(\/|$)/.test(location.pathname);
-    return (housePath ? name : "house/" + name) + "?v=20260904cn";
+    return "/house/" + name + "?v=20260904cn";
   }
   function retSavedUrl() {
     return retAssetUrl("retirement.json");
@@ -3881,8 +3886,8 @@ function collapseHouseNames(list) {
   function load() {
     pulseKpisForFetch(true);
     Promise.all([
-      fetch((/\/house(\/|$)/.test(location.pathname) ? "house-snapshot.json" : "house/house-snapshot.json") + "?t=" + Date.now(), { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
-      fetch((/\/house(\/|$)/.test(location.pathname) ? "../pilot-snapshot.json" : "pilot-snapshot.json") + "?t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+      fetch("/house/house-snapshot.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
+      fetch("/pilot-snapshot.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
     ]).then(function (pair) {
       pulseKpisForFetch(false);
       snap = merge(pair[0], pair[1]);
@@ -3907,16 +3912,7 @@ function collapseHouseNames(list) {
       toggleBookSource(srcLab);
       return;
     }
-    var menuBtn = e.target.closest("#menuBtn");
-    if (menuBtn) {
-      var menu = document.getElementById("deskMenu");
-      if (menu) {
-        menu.hidden = !menu.hidden;
-        menuBtn.setAttribute("aria-expanded", menu.hidden ? "false" : "true");
-      }
-      return;
-    }
-    if (!e.target.closest(".menu-wrap")) closeDeskMenu();
+    if (!e.target.closest(".menu-wrap, .mp-nav")) closeDeskMenu();
     var theme = e.target.closest("[data-theme-choice]");
     if (theme) {
       applyTheme(theme.getAttribute("data-theme-choice"));

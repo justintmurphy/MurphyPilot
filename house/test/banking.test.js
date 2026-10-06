@@ -877,14 +877,20 @@ test("fetch failure paints a gate and does not invent balances", async function 
 
 test("desk links Banking and banking assets are cache-busted at tip dx", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
-  const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
+  const page = index;
+  const stub = fs.readFileSync(path.join(root, "house", "banking", "index.html"), "utf8");
+  const investments = fs.readFileSync(path.join(root, "investments/index.html"), "utf8");
   const houseCss = fs.readFileSync(path.join(root, "house/house.css"), "utf8");
   const bankCss = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(index, /href="\/house\/banking\/"/);
+  assert.match(index, /id="bankDesk"/);
+  assert.match(index, /\/js\/nav\.js\?v=20261006ed/);
+  assert.match(index, /id="mpNav"/);
+  assert.doesNotMatch(index, /href="\/house\/banking\/"/);
   assert.doesNotMatch(index, /href="\/house\/banking"/);
-  assert.match(index, /house\.css\?v=20260904cn/);
-  assert.match(nav, /href="\/house\/banking\/">Banking</);
+  assert.match(stub, /location\.replace/);
+  assert.match(stub, /noindex/);
+  assert.match(stub, /canonical/);
+  assert.match(investments, /\/house\/house\.css\?v=20261006ed/);
   assert.match(page, /\/house\/js\/banking\.js\?v=20260904eb/);
   assert.match(page, /\/house\/banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dz/);
@@ -933,7 +939,7 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.doesNotMatch(page, /banking\.css\?v=20260904dc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904db/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904db/);
-  assert.match(page, /\/house\/house\.css\?v=20260904cn/);
+  assert.match(page, /\/house\/house\.css\?v=20261006ed/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cp/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904cp/);
@@ -959,7 +965,7 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.doesNotMatch(page, /href="\.\.\//);
   assert.doesNotMatch(page, /src="\.\.\//);
   assert.match(page, /id="bankDesk"/);
-  assert.match(page, /href="\/house\/banking\/"/);
+  assert.doesNotMatch(page, /href="\/house\/banking\/"/);
   assert.match(houseCss, /@media \(max-width: 720px\) \{\s*header \.section-nav \{ display: none; \}/);
   assert.match(bankCss, /\.bank-mtd-fig b\s*\{[^}]*font-size:\s*28px/);
   assert.match(bankCss, /\.bank-mtd-track\s*\{/);
@@ -4112,7 +4118,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
 
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.doesNotMatch(css, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
@@ -4135,7 +4141,7 @@ test("tip dr current shows live meters and an in-out bar without linked transfer
   const fx = loadFixture();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const htmlFiles = src + "\n" + css + "\n" + page;
   assert.doesNotMatch(htmlFiles, /NFCU|Progressive|UPMC|T-Mobile/i);
   assert.match(css, /\.bank-tape-scroll\s*\{[^}]*max-height:\s*20\.5rem/);
@@ -4273,7 +4279,7 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
   assert.match(page, /banking\.js\?v=20260904eb/);
   assert.match(page, /banking\.css\?v=20260904eb/);
@@ -4421,7 +4427,7 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
@@ -4583,7 +4589,7 @@ function planBit(html, key) {
 test("tip dx uses the effective-dated bill amount and a paid-late flag", function () {
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
-  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /banking\.js\?v=20260904eb/);
   assert.match(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
@@ -4880,7 +4886,7 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
 test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /banking\.js\?v=20260904eb/);
   assert.match(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
@@ -4966,7 +4972,7 @@ test("tip dy plan blocks follow the selected month", function () {
 
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
-  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /banking\.js\?v=20260904eb/);
   assert.match(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
@@ -5862,7 +5868,7 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 });
 
 test("banking assets use the eb cache bust", function () {
-  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /\/house\/js\/banking\.js\?v=20260904eb/);
   assert.match(page, /\/house\/banking\.css\?v=20260904eb/);
 });
