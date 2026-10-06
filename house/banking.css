@@ -1949,6 +1949,13 @@ span.bank-chip {
   font-weight: 650;
 }
 
+.bank-fund-lag {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 500;
+}
+
 .bank-fund-rows {
   list-style: none;
   margin: 0;

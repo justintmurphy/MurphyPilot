@@ -1142,6 +1142,8 @@ function bankMtdSpendRows(budget, snap, monthKey) {
   if (monthKey && budget && budget.mtd_actual_by_category_month != null && budget.mtd_actual_by_category_month !== "") {
     if (bankMonthKey(budget.mtd_actual_by_category_month) !== bankMonthKey(monthKey)) return [];
   }
+  var catWin = budget && (budget.mtd_actual_by_category_window || budget.mtd_window);
+  if (catWin && !bankCalendarBlockOk({ window: catWin }, bankMonthKey(monthKey))) return [];
   var mtd = budget && budget.mtd_actual_by_category;
   if (!mtd || typeof mtd !== "object" || Array.isArray(mtd)) return [];
   var list = [];
@@ -2812,7 +2814,7 @@ function bankOverflowHtml(tab, menuOpen) {
   var onEdits = tab === "edits";
   var open = !!menuOpen;
   return '<div class="bank-overflow"><button type="button" class="bank-gear' + (onEdits ? " on" : "") +
-    '" data-bank-overflow="1" aria-label="Edits" title="Edits" aria-haspopup="menu" aria-expanded="' +
+    '" data-bank-overflow="1" aria-label="More" title="More" aria-haspopup="menu" aria-expanded="' +
     (open ? "true" : "false") + '" aria-controls="bankOverflowMenu"' +
     (onEdits ? ' aria-current="true"' : "") + ">" + bankGearSvg() +
     (onEdits ? '<i class="bank-gear-mark" aria-hidden="true"></i>' : "") +
@@ -3117,8 +3119,42 @@ function bankAdjustHistMonth(month, budget, snap) {
   return copy;
 }
 
+/* current.month_window is the calendar month. Rolling lists are not monthly totals. */
+function bankDeclaredCalendarWindow(snap) {
+  var cur = snap && snap.current;
+  var w = cur && cur.month_window;
+  if (!w || typeof w !== "object" || Array.isArray(w)) return null;
+  var basis = String(w.basis || "").trim();
+  if (basis && basis !== "calendar_month") return null;
+  return {
+    start: bankDayKey(bankCopyDate(w.start)),
+    end: bankDayKey(bankCopyDate(w.end)),
+    through: bankDayKey(bankCopyDate(w.through_date)),
+    basis: basis || "calendar_month"
+  };
+}
+
+function bankCalendarBlockOk(block, key) {
+  if (!block || typeof block !== "object" || Array.isArray(block)) return true;
+  var w = block.window;
+  if (!w || typeof w !== "object" || Array.isArray(w)) return true;
+  var basis = String(w.basis || "").trim();
+  if (basis && basis !== "calendar_month") return false;
+  if (key && w.start && bankMonthKey(w.start) && bankMonthKey(w.start) !== key) return false;
+  return true;
+}
+
+function bankRollingListsBlocked(snap, ym) {
+  var win = bankDeclaredCalendarWindow(snap);
+  if (!win) return false;
+  var key = bankMonthKey(ym);
+  if (!key) return true;
+  if (win.start && bankMonthKey(win.start) && bankMonthKey(win.start) !== key) return false;
+  return true;
+}
+
 /* This month's inflows and outflows from the print. Internal moves between linked accounts are left out.
-   One-off rows stay off this bar. */
+   One-off rows stay off this bar. A declared calendar month does not sum rolling tx lists. */
 function bankMonthFlow(snap, ym) {
   var key = bankMonthKey(ym);
   if (!key) {
@@ -3126,13 +3162,14 @@ function bankMonthFlow(snap, ym) {
     key = bankYm(cal.year, cal.month);
   }
   var flow = snap && snap.current && snap.current.month_flow;
-  if (flow && typeof flow === "object" && !Array.isArray(flow) && bankMonthKey(flow.month) === key) {
+  if (flow && typeof flow === "object" && !Array.isArray(flow) && bankMonthKey(flow.month) === key && bankCalendarBlockOk(flow, key)) {
     var inn = bankNum(flow.money_in);
     if (inn == null) inn = bankNum(flow.income_received);
     var out = bankNum(flow.money_out);
     var any = (inn != null && inn !== 0) || (out != null && out !== 0);
     return { inSum: inn == null ? 0 : inn, outSum: out == null ? 0 : out, any: any, fromFlow: true };
   }
+  if (bankRollingListsBlocked(snap, key)) return { inSum: null, outSum: null, any: false };
   var accounts = bankAccountIdSet(snap);
   var seen = {};
   var inSum = 0;
@@ -3857,6 +3894,7 @@ function bankMtdSpend(budget, snap, ym) {
 
 function bankMtdTxLists(snap, ym) {
   var lists = [];
+  if (bankRollingListsBlocked(snap, ym)) return lists;
   var cur = snap && snap.current;
   if (cur) {
     if (Array.isArray(cur.edits_tx)) lists.push(cur.edits_tx);
@@ -3920,12 +3958,16 @@ function bankOtherIncomeMtd(snap, ym) {
   var budget = (snap && snap.budget) || {};
   var extra = bankRetagOtherIncome(snap, ym);
   var box = budget.other_income_mtd;
-  if (box && typeof box === "object" && !Array.isArray(box)) {
+  if (box && typeof box === "object" && !Array.isArray(box) && bankCalendarBlockOk(box, bankMonthKey(ym))) {
     var month = bankMonthKey(box.month);
     var total = bankNum(box.total);
     if (total != null && (!ym || !month || month === bankMonthKey(ym))) {
       return { month: month || bankMonthKey(ym), total: total + extra, count: bankNum(box.count), as_of: box.as_of || "" };
     }
+  }
+  if (bankRollingListsBlocked(snap, ym)) {
+    if (!(extra > 0)) return null;
+    return { month: bankMonthKey(ym), total: extra, count: 1, as_of: "" };
   }
   var rows = budget.other_income;
   if (!Array.isArray(rows) || !rows.length) {
@@ -3952,6 +3994,11 @@ function bankOtherIncomeMtd(snap, ym) {
 /* In-month income txs, else an open history row's income_total. Never income_monthly.
    Other income is added when the tx walk did not already count it. */
 function bankMtdIncome(snap, ym) {
+  if (bankRollingListsBlocked(snap, ym)) {
+    var blocked = bankOtherIncomeMtd(snap, ym);
+    if (blocked && blocked.total != null) return blocked.total;
+    return null;
+  }
   var overrides = bankOverrideMap(snap);
   var incomeObj = bankMtdIncomeObj(snap, ym);
   var seen = {};
@@ -4867,13 +4914,42 @@ function bankFundingPush(events, list, kind) {
       date: bankCopyDate(bankPickField(item, ["pay_date", "date", "on", "day", "when"])) || "",
       name: String(bankPickField(item, ["name", "label", "desc", "description"]) || (out ? "Out" : "In")),
       amount: Math.abs(amount),
-      kind: out ? "out" : "in"
+      kind: out ? "out" : "in",
+      balance_lag: bankTruthyFlag(item.balance_lag),
+      likely_unreflected: bankTruthyFlag(item.likely_unreflected)
     });
   });
 }
 
-function bankFundingAccount(row) {
+function bankDayKey(v) {
+  var m = String(v || "").match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : "";
+}
+
+function bankMonthLastDay(key) {
+  var p = bankParseYm(key);
+  if (!p) return "";
+  var dim = bankMonthDim(p.year, p.month);
+  return key + "-" + (dim < 10 ? "0" : "") + dim;
+}
+
+/* start_balance is the balance at 00:00 ET on the 1st. The projection seed is separate. */
+function bankFundingMirror(mirror, last4) {
+  if (!mirror || typeof mirror !== "object" || Array.isArray(mirror) || !last4) return null;
+  if (mirror[last4] != null && mirror[last4] !== "") return bankNum(mirror[last4]);
+  var found = null;
+  Object.keys(mirror).forEach(function (k) {
+    if (found != null) return;
+    var digits = String(k).replace(/\D/g, "");
+    if (digits.length > 4) digits = digits.slice(-4);
+    if (digits === last4) found = bankNum(mirror[k]);
+  });
+  return found;
+}
+
+function bankFundingAccount(row, opts) {
   if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+  opts = opts || {};
   var events = [];
   var printedRows = Array.isArray(row.rows) ? row.rows : null;
   if (printedRows && printedRows.length) {
@@ -4893,8 +4969,35 @@ function bankFundingAccount(row) {
     if (!b.date) return 1;
     return a.date < b.date ? -1 : 1;
   });
-  var start = bankNum(bankPickField(row, ["start_balance", "starting_balance", "start", "opening_balance", "open_balance"]));
-  var running = start == null ? 0 : start;
+  var bounds = opts.window;
+  if (bounds && (bounds.start || bounds.end)) {
+    events = events.filter(function (ev) {
+      var day = bankDayKey(ev.date);
+      if (!day) return true;
+      if (bounds.start && day < bounds.start) return false;
+      if (bounds.end && day > bounds.end) return false;
+      return true;
+    });
+  }
+  var nick = String(bankPickField(row, ["nickname", "name", "label"]) || "").trim();
+  var last = String(bankPickField(row, ["last4", "last_4", "mask"]) || "").replace(/\D/g, "");
+  if (last.length > 4) last = last.slice(-4);
+  var onFirst = bankNum(bankPickField(row, ["start_balance", "starting_balance", "start", "opening_balance", "open_balance"]));
+  var mirrored = false;
+  if (onFirst == null) {
+    onFirst = bankFundingMirror(opts.mirror, last);
+    mirrored = onFirst != null;
+  }
+  var firstDate = bankDayKey(bankCopyDate(row.start_balance_date));
+  var basis = String(row.start_balance_basis || "").trim().toLowerCase();
+  var projDate = bankDayKey(bankCopyDate(row.projection_start_asof));
+  var hasProjBal = row.projection_start_balance != null && row.projection_start_balance !== "";
+  var hasProj = hasProjBal || !!projDate;
+  var newShape = !!(firstDate || basis || hasProj || mirrored);
+  var seed = hasProjBal ? bankNum(row.projection_start_balance) : onFirst;
+  if (seed == null) seed = onFirst;
+  var seedDate = hasProj ? projDate : "";
+  var running = seed == null ? 0 : seed;
   var firstShort = "";
   var worst = 0;
   var usedPrinted = [];
@@ -4913,11 +5016,24 @@ function bankFundingAccount(row) {
       });
       if (src) printedBal = bankNum(bankPickField(src, ["running_balance", "balance"]));
     }
-    if (printedBal != null) running = printedBal;
-    else running += ev.kind === "out" ? -ev.amount : ev.amount;
-    if (running < -0.0001 && !firstShort) firstShort = ev.date;
-    if (running < worst) worst = running;
-    return { date: ev.date, name: ev.name, amount: ev.amount, kind: ev.kind, balance: running };
+    var day = bankDayKey(ev.date);
+    var beforeSeed = !!(seedDate && day && day < seedDate);
+    var balance;
+    if (printedBal != null) {
+      balance = printedBal;
+      if (!beforeSeed) running = printedBal;
+    } else if (beforeSeed) {
+      balance = null;
+    } else {
+      running += ev.kind === "out" ? -ev.amount : ev.amount;
+      balance = running;
+    }
+    if (balance != null && balance < -0.0001 && !firstShort) firstShort = ev.date;
+    if (balance != null && balance < worst) worst = balance;
+    var lag = "";
+    if (ev.balance_lag) lag = "lag";
+    else if (ev.likely_unreflected) lag = "unreflected";
+    return { date: ev.date, name: ev.name, amount: ev.amount, kind: ev.kind, balance: balance, lag: lag };
   });
   var inSum = 0;
   var outSum = 0;
@@ -4925,27 +5041,38 @@ function bankFundingAccount(row) {
     if (ev.kind === "out") outSum += ev.amount;
     else inSum += ev.amount;
   });
-  var nick = String(bankPickField(row, ["nickname", "name", "label"]) || "").trim();
-  var last = String(bankPickField(row, ["last4", "last_4", "mask"]) || "").replace(/\D/g, "");
-  if (last.length > 4) last = last.slice(-4);
-  var acct = { nickname: nick, last4: last };
+  var acctFace = { nickname: nick, last4: last };
   var shortBy = bankNum(bankPickField(row, ["short_by", "shortfall", "short"]));
   if (shortBy != null) shortBy = Math.abs(shortBy);
   if (shortBy == null && worst < 0) shortBy = Math.abs(worst);
   var shortDate = bankCopyDate(bankPickField(row, ["first_short_date", "short_date", "first_short"])) || firstShort;
   var end = bankNum(bankPickField(row, ["end_balance", "ending_balance", "end", "projected_end"]));
   if (end == null && rows.length) {
-    var lastBal = bankNum(rows[rows.length - 1].balance);
-    if (lastBal != null) end = lastBal;
+    var i;
+    for (i = rows.length - 1; i >= 0; i--) {
+      if (rows[i].balance != null) {
+        end = rows[i].balance;
+        break;
+      }
+    }
   }
-  if (end == null && start != null) end = start + inSum - outSum;
+  if (end == null && seed != null && !seedDate) end = seed + inSum - outSum;
+  if (end == null && seed != null && seedDate) end = running;
+  var labelDate = firstDate || (bounds && bankDayKey(bounds.start)) || "";
+  var labelShort = labelDate ? bankShortDate(labelDate) : "";
+  var startNote = "";
+  if (basis === "earliest_available" && labelShort) startNote = "start balance as of " + labelShort;
   return {
     nickname: nick,
     last4: last,
-    tag: bankAccountTag(acct),
-    account: acct,
-    start: start,
-    asof: bankCopyDate(bankPickField(row, ["start_asof", "asof", "as_of", "start_date"])) || "",
+    tag: bankAccountTag(acctFace),
+    account: acctFace,
+    start: seed,
+    onFirst: onFirst,
+    onFirstLabel: newShape && labelShort ? "Start (" + labelShort + ")" : "",
+    startNote: startNote,
+    seedDate: seedDate,
+    asof: newShape ? "" : (bankCopyDate(bankPickField(row, ["start_asof", "asof", "as_of", "start_date"])) || ""),
     rows: rows,
     end: end,
     ins: inSum,
@@ -4955,7 +5082,7 @@ function bankFundingAccount(row) {
   };
 }
 
-function bankFundingAccounts(budget) {
+function bankFundingAccounts(budget, opts) {
   var raw = budget && budget.account_funding;
   var list = [];
   if (Array.isArray(raw)) list = raw;
@@ -4969,7 +5096,7 @@ function bankFundingAccounts(budget) {
   }
   var out = [];
   list.forEach(function (row) {
-    var acct = bankFundingAccount(row);
+    var acct = bankFundingAccount(row, opts);
     if (acct) out.push(acct);
   });
   return out;
@@ -4994,10 +5121,17 @@ function bankFundingBasisText(budget) {
 function bankFundingBalanceOn(acct, iso) {
   if (!acct) return null;
   var bal = null;
-  if (acct.start != null && (!acct.asof || !iso || acct.asof <= iso)) bal = acct.start;
+  var seedDate = acct.seedDate || "";
+  var ask = bankDayKey(iso) || iso || "";
+  if (acct.start != null && (!seedDate || !ask || seedDate <= ask) && (!acct.asof || !ask || acct.asof <= ask)) bal = acct.start;
   (acct.rows || []).forEach(function (row) {
     if (!row) return;
-    if (iso && row.date && row.date > iso) return;
+    var day = bankDayKey(row.date);
+    if (seedDate && day && day < seedDate) {
+      if (row.balance != null && (!ask || day <= ask)) bal = row.balance;
+      return;
+    }
+    if (ask && day && day > ask) return;
     if (row.balance == null) return;
     bal = row.balance;
   });
@@ -5033,8 +5167,20 @@ function bankShortMoves(snap, around) {
   return moves;
 }
 
-function bankFundingHtml(budget) {
-  var accounts = bankFundingAccounts(budget);
+function bankFundingWindow(snap, month) {
+  var key = bankMonthKey(month);
+  var win = bankDeclaredCalendarWindow(snap);
+  if (win && win.start && (!key || !bankMonthKey(win.start) || bankMonthKey(win.start) === key)) {
+    return { start: win.start, end: win.end || bankMonthLastDay(key || bankMonthKey(win.start)) };
+  }
+  if (!key) return null;
+  return { start: key + "-01", end: bankMonthLastDay(key) };
+}
+
+function bankFundingHtml(budget, snap, month) {
+  var window = bankFundingWindow(snap, month);
+  var mirror = snap && snap.current && snap.current.accounts_balance_on_first;
+  var accounts = bankFundingAccounts(budget, { window: window, mirror: mirror });
   var basis = bankFundingBasisText(budget);
   if (!accounts.length && !basis) return "";
   var cards = accounts.map(function (acct) {
@@ -5043,13 +5189,16 @@ function bankFundingHtml(budget) {
       var when = acct.first_short_date ? bankShortDate(acct.first_short_date) || acct.first_short_date : "";
       flag = '<strong class="bank-fund-flag">Short ' + bankMoney(acct.short_by) + (when ? " starting " + bankEsc(when) : "") + "</strong>";
     }
-    var asof = acct.asof ? bankShortDate(acct.asof) || acct.asof : "";
-    var lines = '<li class="bank-fund-row"><span>Start</span> <b>' + bankMoney(acct.start) + "</b> <i>" +
-      bankEsc(asof ? "as of " + asof : "") + "</i></li>";
+    var label = acct.onFirstLabel || "Start";
+    var shown = acct.onFirst != null ? acct.onFirst : acct.start;
+    var note = acct.onFirstLabel ? (acct.startNote || "") : (acct.asof ? "as of " + (bankShortDate(acct.asof) || acct.asof) : "");
+    var lines = '<li class="bank-fund-row" data-fund-start="1"><span>' + bankEsc(label) + "</span> <b>" + bankMoney(shown) +
+      "</b> <i>" + bankEsc(note) + "</i></li>";
     lines += (acct.rows || []).map(function (row) {
       var cls = row.balance < 0 ? ' class="bank-fund-neg"' : "";
       var when = row.date ? bankShortDate(row.date) || row.date : "";
-      return "<li" + cls + '><span>' + bankEsc(when) + " " + bankEsc(row.name) + "</span> " +
+      var lag = row.lag ? ' <i class="bank-fund-lag">' + bankEsc(row.lag) + "</i>" : "";
+      return "<li" + cls + '><span>' + bankEsc(when) + " " + bankEsc(row.name) + lag + "</span> " +
         bankFlowAmt(row.amount, row.kind) + " <i>" + bankMoney(row.balance) + "</i></li>";
     }).join("");
     lines += '<li class="bank-fund-end"><span>End</span> <b>' + bankMoney(acct.end) + "</b> <i></i></li>";
@@ -5666,7 +5815,7 @@ function bankTierSpend(snap, monthKey) {
   var tagged = mtd && typeof mtd === "object" ? bankMonthKey(mtd.month) : "";
   /* A month tag from another month is ignored. An untagged bag still counts. */
   var mtdStale = !!(key && tagged && tagged !== key);
-  if (!mtdStale && mtd && typeof mtd === "object" && !Array.isArray(mtd) &&
+  if (!mtdStale && mtd && typeof mtd === "object" && !Array.isArray(mtd) && bankCalendarBlockOk(mtd, key) &&
       (mtd.required_spent != null || mtd.needs_spent != null || mtd.wants_spent != null)) {
     return {
       required: bankNum(mtd.required_spent) || 0,
@@ -5674,6 +5823,16 @@ function bankTierSpend(snap, monthKey) {
       wants: bankNum(mtd.wants_spent) || 0,
       unposted: Array.isArray(mtd.required_known_unposted) ? mtd.required_known_unposted : []
     };
+  }
+  if (bankRollingListsBlocked(snap, key)) {
+    var blockedSums = { required: 0, needs: 0, wants: 0 };
+    var blockedCtx = bankKindContext(snap);
+    bankMtdSpendRows(budget, snap, key).forEach(function (r) {
+      var tier = bankResolveTier(r.name, snap, blockedCtx, null);
+      if (tier !== "required" && tier !== "needs" && tier !== "wants") return;
+      blockedSums[tier] += r.amount;
+    });
+    return { required: blockedSums.required, needs: blockedSums.needs, wants: blockedSums.wants, unposted: [] };
   }
   var walkKey = key || bankAsofMonthKey(snap);
   var ctx = bankKindContext(snap);
@@ -6419,15 +6578,19 @@ function bankProjectSnapshot(snap, shot, monthKey) {
 }
 
 function bankActualBag(snap, monthKey) {
-  var bag = bankActualsMap(snap)[bankMonthKey(monthKey)];
+  var key = bankMonthKey(monthKey);
+  var bag = bankActualsMap(snap)[key];
   if (!bag || typeof bag !== "object" || Array.isArray(bag)) return null;
+  if (!bankCalendarBlockOk(bag, key)) return null;
   return bag;
 }
 
 function bankFlowMatchesMonth(snap, monthKey) {
   var flow = snap && snap.current && snap.current.month_flow;
   if (!flow || typeof flow !== "object" || Array.isArray(flow)) return null;
-  if (bankMonthKey(flow.month) !== bankMonthKey(monthKey)) return null;
+  var key = bankMonthKey(monthKey);
+  if (bankMonthKey(flow.month) !== key) return null;
+  if (!bankCalendarBlockOk(flow, key)) return null;
   return flow;
 }
 
@@ -6745,7 +6908,7 @@ function bankSharedLayout(snap, opts, mode, month) {
     bankPart("headline", mode, bankRenderHeadline(snap, opts, mode, month, planView, actuals, missing, shot)),
     bankPart("planbar", mode, bankRenderPlanBar(snap, opts, mode, month, planView, actuals, missing))
   ];
-  if (mode === "plan" || mode === "current") parts.push(bankFundingHtml((snap && snap.budget) || {}));
+  if (mode === "plan" || mode === "current") parts.push(bankFundingHtml((snap && snap.budget) || {}, snap, monthKey));
   parts.push(bankPart("wheel", mode, bankRenderWheel(planView, opts, mode, month, missing)));
   parts.push(bankPart("due", mode, bankRenderDueList(planView, opts, mode, month, missing)));
   parts.push(bankPart("calendar", mode, bankRenderCalendar(planView, opts, mode, month, missing)));
@@ -7021,10 +7184,15 @@ function bankBillStatusControls(b, ym, confirm) {
   var paidNow = paid && bankMonthKey(paid.month) === month && (paid.status === "paid" || paid.status === "paid_late");
   var merged = paidNow && String(paid.source || "").toLowerCase() === "bank";
   var marked = paidNow && (b.manual_paid || String(paid.source || "").toLowerCase() === "manual");
+  var rawName = b && b.name ? String(b.name) : key;
+  var ariaName = label;
+  if (rawName && bankBillKey(rawName) !== bankBillKey(label)) ariaName = label + " " + bankBillSlug(rawName);
   var paidControl = merged || marked
     ? '<span class="bank-paid-month">Paid this month \u2713</span>'
-    : '<button type="button" data-bank-paid-month="' + bankEsc(key) + '">Paid this month \u2713</button>';
-  var undo = (b.status_undo || b.manual_paid) ? ' <button type="button" data-bank-status-undo="' + bankEsc(key) + '">Undo</button>' : "";
+    : '<button type="button" data-bank-paid-month="' + bankEsc(key) + '" aria-label="Paid this month ' + bankEsc(ariaName) +
+      '">Paid this month \u2713</button>';
+  var undo = (b.status_undo || b.manual_paid) ? ' <button type="button" data-bank-status-undo="' + bankEsc(key) +
+    '" aria-label="Undo ' + bankEsc(ariaName) + '">Undo</button>' : "";
   var pending = confirm && String(confirm.key) === String(key) ? '<p class="bank-confirm" role="status">' + bankEsc(confirm.text) +
     ' <button type="button" data-bank-confirm="' + bankEsc(key) + '" data-bank-confirm-status="' + bankEsc(confirm.status) +
     '">Confirm</button></p>' : "";
@@ -7034,8 +7202,10 @@ function bankBillStatusControls(b, ym, confirm) {
     "</select></label> " +
     '<label>Cancelled from <input type="month" data-bank-cancel="' + bankEsc(key) +
     '" value="' + bankEsc(from) + '" aria-label="Cancelled from for ' + bankEsc(label) + '"></label> ' +
-    '<button type="button" data-bank-status-save="' + bankEsc(key) + '">Save</button> ' +
-    '<button type="button" data-bank-paidoff="' + bankEsc(key) + '">Paid off</button> ' +
+    '<button type="button" data-bank-status-save="' + bankEsc(key) + '" aria-label="Save ' + bankEsc(ariaName) +
+    '">Save</button> ' +
+    '<button type="button" data-bank-paidoff="' + bankEsc(key) + '" aria-label="Paid off ' + bankEsc(ariaName) +
+    '">Paid off</button> ' +
     paidControl + undo + "</span>" + pending;
 }
 
@@ -7080,7 +7250,8 @@ function bankPlanFieldHtml(snap, ym, key, label) {
   var fig = bankPlanNumbers(snap, ym, null);
   var value = fig && fig[key] != null ? String(fig[key]) : "";
   return '<label>' + bankEsc(label) + ' <input data-bank-plan-tier="' + key + '" inputmode="decimal" maxlength="12" max="1000000" aria-label="' +
-    bankEsc(label) + '" value="' + bankEsc(value) + '"></label> <button type="button" data-bank-plan-clear="' + key + '">Clear plan</button>';
+    bankEsc(label) + '" value="' + bankEsc(value) + '"></label> <button type="button" data-bank-plan-clear="' + key +
+    '" aria-label="Clear ' + bankEsc(label) + '">Clear plan</button>';
 }
 
 function bankBasisCaption(budget) {
@@ -7103,7 +7274,8 @@ function bankUnmatchedStatusHtml(snap) {
   });
   if (!rows.length) return "";
   return '<div class="bank-unmatched"><h4>Unmatched status entries</h4><ul>' + rows.map(function (key) {
-    return "<li><span>" + bankEsc(key) + '</span> <button type="button" data-bank-status-undo="' + bankEsc(key) + '">Undo</button></li>';
+    return "<li><span>" + bankEsc(key) + '</span> <button type="button" data-bank-status-undo="' + bankEsc(key) +
+      '" aria-label="Undo ' + bankEsc(key) + '">Undo</button></li>';
   }).join("") + "</ul></div>";
 }
 

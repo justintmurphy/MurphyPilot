@@ -7064,3 +7064,179 @@ test("tip ec3 current uses today's eastern month and ignores a stale print", fun
   assert.match(pay, /Moved from Tue, Oct 13 \(Sample Day\)/);
   assert.doesNotMatch(pay.slice(pay.indexOf('class="bank-next"'), pay.indexOf('class="bank-fit"')), /Next pay:[\s\S]{0,80}Oct 13/);
 });
+
+test("tip ec3 labels the 1st balance and seeds the projection from its own start", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  const cal = { start: "2026-10-01", end: "2026-10-31", through_date: "2026-10-06", basis: "calendar_month" };
+  fx.current.month_window = cal;
+  fx.current.accounts_balance_on_first = { "4444": 42 };
+  fx.budget.account_funding = [
+    {
+      nickname: "Bills",
+      last4: "2222",
+      start_balance: 100,
+      start_balance_date: "2026-10-01",
+      start_balance_basis: "balance_on_1st",
+      start_balance_confidence: "high",
+      projection_start_balance: 64,
+      projection_start_asof: "2026-10-05",
+      start_asof: "2026-10-05",
+      end_balance: 70,
+      short_by: 3,
+      rows: [
+        { date: "2026-09-30", name: "Prior", amount: 9, kind: "out" },
+        { date: "2026-10-02", name: "Early", amount: 5, kind: "out", likely_unreflected: true },
+        { date: "2026-10-06", name: "Rent", amount: 4, kind: "out", balance_lag: true },
+        { date: "2026-10-12", name: "Gift", amount: 2, kind: "in", running_balance: 77 },
+        { date: "2026-10-31", name: "Payroll", amount: 8, kind: "in" },
+        { date: "2026-11-01", name: "Next", amount: 20, kind: "out" }
+      ]
+    },
+    { nickname: "Share", last4: "4444", start_balance_basis: "balance_on_1st" },
+    {
+      nickname: "Old",
+      last4: "5555",
+      start_balance: 15,
+      start_balance_date: "2026-09-28",
+      start_balance_basis: "earliest_available",
+      start_asof: "2026-10-05"
+    },
+    {
+      nickname: "Legacy",
+      last4: "6666",
+      start_balance: 20,
+      start_asof: "2026-10-01",
+      outs: [{ date: "2026-10-03", name: "Fee", amount: 4 }]
+    }
+  ];
+  const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-06T12:00:00-04:00" });
+  function card(tag) {
+    const at = html.indexOf('data-fund="' + tag);
+    assert.ok(at >= 0, tag);
+    const next = html.indexOf('class="bank-fund-card"', at + 10);
+    return html.slice(at, next < 0 ? html.length : next);
+  }
+  const bills = card("Bills");
+  assert.match(bills, /data-fund-start="1"><span>Start \(Oct 1\)<\/span> <b>\$100\.00<\/b>/);
+  assert.doesNotMatch(bills.slice(0, bills.indexOf("Oct 2")), /Oct 5/);
+  assert.doesNotMatch(bills, /as of Oct 5/);
+  assert.doesNotMatch(bills, /Prior|Next/);
+  assert.match(bills, /Oct 2 Early <i class="bank-fund-lag">unreflected<\/i>/);
+  assert.match(bills, /Oct 6 Rent <i class="bank-fund-lag">lag<\/i>[\s\S]*?\$60\.00/);
+  assert.doesNotMatch(bills, /\$91\.00|\$96\.00/);
+  assert.match(bills, /Oct 12 Gift[\s\S]*?\$77\.00/);
+  assert.match(bills, /Oct 31 Payroll[\s\S]*?\$85\.00/);
+  assert.match(bills, /Short \$3\.00/);
+  assert.match(bills, /class="bank-fund-end"[\s\S]*?\$70\.00/);
+  const share = card("Share");
+  assert.match(share, /Start \(Oct 1\)<\/span> <b>\$42\.00<\/b>/);
+  const old = card("Old");
+  assert.match(old, /Start \(Sep 28\)<\/span> <b>\$15\.00<\/b>/);
+  assert.match(old, /start balance as of Sep 28/);
+  assert.doesNotMatch(old, /Oct 5/);
+  const legacy = card("Legacy");
+  assert.match(legacy, /<span>Start<\/span> <b>\$20\.00<\/b>/);
+  assert.match(legacy, /as of Oct 1/);
+  assert.match(legacy, /Oct 3 Fee[\s\S]*?\$16\.00/);
+});
+
+test("tip ec3 monthly totals stay on the calendar-month print", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  const cal = { start: "2026-10-01", end: "2026-10-31", through_date: "2026-10-06", basis: "calendar_month" };
+  fx.current.month_window = cal;
+  fx.current.month_flow = {
+    month: "2026-10",
+    money_in: 21,
+    money_out: 8,
+    income_received: 21,
+    required_spent: 5,
+    needs_spent: 2,
+    wants_spent: 1,
+    window: cal
+  };
+  fx.budget.tiers_mtd = { month: "2026-10", required_spent: 5, needs_spent: 2, wants_spent: 1, window: cal };
+  fx.budget.actuals_by_month = {
+    "2026-10": { required_spent: 90, needs_spent: 1, wants_spent: 1, income_received: 21, window: cal }
+  };
+  fx.current.edits_tx = [
+    { date: "2026-09-30", amount: 400, flow: "outflow", category: "Groceries", tx_key: "prior", desc: "Prior shop" },
+    { date: "2026-10-03", amount: 300, flow: "outflow", category: "Groceries", tx_key: "mid", desc: "Mid shop" },
+    { date: "2026-11-01", amount: 200, flow: "inflow", category: "Paycheck/Salary/Wages", tx_key: "next", desc: "Next pay" }
+  ];
+  fx.current.recent_tx = fx.current.edits_tx.slice();
+  const html = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-06T14:00:00Z" });
+  const io = html.slice(html.indexOf('class="bank-io"'), html.indexOf('class="bank-caps-block"'));
+  assert.match(io, /Incoming \$21\.00, outgoing \$8\.00/);
+  assert.doesNotMatch(io, /\$400|\$300|\$200/);
+  const head = html.slice(html.indexOf("Received vs spent"), html.indexOf('class="bank-plan-bar"'));
+  assert.match(head, /Received \$21\.00/);
+  assert.match(head, /Spent \$8\.00/);
+  assert.doesNotMatch(head, /\$400|\$300|\$200|\$90/);
+  assert.match(html, /data-tier="required"[\s\S]*?Spent \$5\.00/);
+  assert.doesNotMatch(html, /Spent \$90\.00/);
+  const pieAt = html.indexOf('data-bank-pie="current-actual"');
+  assert.ok(pieAt >= 0);
+  const pie = html.slice(pieAt, pieAt + 900);
+  assert.match(pie, /\$5\.00/);
+  assert.doesNotMatch(pie, /\$300|\$400|\$90/);
+
+  fx.current.month_flow.window = { start: "2026-09-15", end: "2026-10-15", through_date: "2026-10-06", basis: "pay_period" };
+  const blocked = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-06T14:00:00Z" });
+  const blockedIo = blocked.slice(blocked.indexOf('class="bank-io"'), blocked.indexOf('class="bank-caps-block"'));
+  assert.match(blockedIo, /No incoming or outgoing/);
+  assert.doesNotMatch(blockedIo, /\$21\.00|\$400|\$300|\$200/);
+  assert.match(blocked, /data-tier="required"[\s\S]*?Spent \$90\.00/);
+  assert.match(blocked, /Recent · actual[\s\S]*\$200\.00/);
+});
+
+function bankControlLabels(html) {
+  function decode(s) {
+    return String(s).replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  }
+  function labelOf(attrs, inner) {
+    const aria = /aria-label="([^"]*)"/.exec(attrs || "");
+    if (aria && aria[1].trim()) return decode(aria[1].trim());
+    return decode(String(inner || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+  }
+  const src = String(html).replace(/<div id="mpNav">[\s\S]*?<!--\/mpNav--><\/div>/, "").replace(/<nav\b[\s\S]*?<\/nav>/gi, "");
+  const labels = [];
+  const patterns = [
+    /<button\b([^>]*)>([\s\S]*?)<\/button>/gi,
+    /<div\b([^>]*\brole="button"[^>]*)>([\s\S]*?)<\/div>/gi,
+    /<a\b([^>]*)>([\s\S]*?)<\/a>/gi
+  ];
+  patterns.forEach(function (re) {
+    let m;
+    while ((m = re.exec(src))) {
+      if (re.source.indexOf("<a\\b") === 0) {
+        const attrs = m[1];
+        if (!/role="button"/.test(attrs) && !/\bclass="[^"]*\bbtn\b/.test(attrs)) continue;
+      }
+      const label = labelOf(m[1], m[2]);
+      if (label) labels.push(label);
+    }
+  });
+  return labels;
+}
+
+test("banking pages do not repeat a button label outside the site nav", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const nav = '<div id="mpNav"><nav id="tabs"><a class="mp-top-btn" href="/#budget">Budget</a>' +
+    '<a class="mp-top-btn" href="/#current">Current</a><a class="mp-top-btn" href="/#historical">Historical</a>' +
+    '<button type="button">Budget</button></nav><!--/mpNav--></div>';
+  const now = "2026-10-06T12:00:00-04:00";
+  ["budget", "current", "historical", "edits"].forEach(function (tab) {
+    const page = nav + ctx.bankPageHtml(fx, { tab: tab, planMonth: "2026-10", now: now, menuOpen: true });
+    const labels = bankControlLabels(page);
+    const counts = {};
+    labels.forEach(function (label) { counts[label] = (counts[label] || 0) + 1; });
+    const dups = Object.keys(counts).filter(function (label) { return counts[label] > 1; });
+    assert.deepEqual(dups, [], tab + " " + dups.join(", "));
+    assert.equal(counts.Budget, 1, tab);
+  });
+  const withNav = bankControlLabels(nav + '<button type="button">Budget</button>');
+  assert.deepEqual(withNav, ["Budget"]);
+});
