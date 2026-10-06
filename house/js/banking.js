@@ -21,7 +21,7 @@
    Historical spend drops one-off payoffs only when history.spend_includes_payoffs is true.
    Month-to-date rows drop them only when budget.mtd_includes_payoffs is true.
    budget.spend_includes_payoffs is the fallback when the specific flag is absent.
-   The main tabs run Budget, Current, Historical. An empty or unknown hash still opens Current.
+   Budget, Current, and Historical are site-nav pages. An empty or unknown hash still opens Current.
    Current is the live print. Budget is the plan, the due map, and progress against limits.
    Month-end balances stay off Current. The month-end spark helpers are gone.
    The recent tape keeps its print window and scrolls inside a pane about ten rows tall.
@@ -33,10 +33,10 @@
    Out counts tape flows. Spent so far counts category month-to-date. One line says so. The two figures are not forced to match.
    When some account balances are missing and total_cash is blank, Total cash is the sum of the known balances plus how many accounts are still pending.
    The live spent-versus-income block sits on Current. Historical keeps its own labels.
-   Edits is not a main tab. A gear menu beside Budget, Current, and Historical opens it.
-   An empty hash opens Budget. #current, #historical, and #edits stay explicit.
+   Edits stays in the gear menu labeled More. The page title names the view and the month on screen.
+   An empty hash opens Budget. #current, #historical, #historical=YYYY-MM, and #edits stay explicit.
    #edits still resolves through bankResolveTab and bankActivate.
-   A tab click writes that hash with pushState. Budget is the empty hash.
+   A view change writes that hash with pushState. Budget is the empty hash.
    hashchange and popstate read the hash and call bankActivate with fromHistory set.
    Budget stacks the bill calendar above Insights. Covers stay under the calendar.
    Live numbers come only from GET /data/banking.json (OTP cookie).
@@ -2801,15 +2801,6 @@ function bankGearSvg() {
     "</svg>";
 }
 
-function bankTabsHtml(tab) {
-  var items = [["budget", "Budget"], ["current", "Current"], ["historical", "Historical"]];
-  return '<div class="bank-tabs" role="tablist" aria-label="Banking">' + items.map(function (it) {
-    var on = it[0] === tab;
-    return '<button type="button" role="tab" data-bank-tab="' + it[0] + '" class="' + (on ? "on" : "") + '" aria-selected="' +
-      (on ? "true" : "false") + '">' + it[1] + "</button>";
-  }).join(" ") + "</div>";
-}
-
 function bankOverflowHtml(tab, menuOpen) {
   var onEdits = tab === "edits";
   var open = !!menuOpen;
@@ -2823,8 +2814,35 @@ function bankOverflowHtml(tab, menuOpen) {
     (onEdits ? ' class="on" aria-current="true"' : "") + ">Edits</button></div></div>";
 }
 
-function bankNavHtml(tab, menuOpen) {
-  return '<div class="bank-nav">' + bankTabsHtml(tab) + bankOverflowHtml(tab, menuOpen) + "</div>";
+function bankViewName(tab) {
+  if (tab === "current") return "Current";
+  if (tab === "historical") return "Historical";
+  if (tab === "edits") return "Edits";
+  return "Budget";
+}
+
+function bankViewMonth(tab, snap, opts) {
+  opts = opts || {};
+  if (tab === "edits") return null;
+  if (tab === "current") return bankTodayYmET(opts.now);
+  if (tab === "historical") {
+    var key = bankHistMonthKey(snap, opts);
+    return bankParseYm(key) || bankCalendarMonth(snap);
+  }
+  return bankScreenMonth(snap, opts);
+}
+
+function bankViewTitle(tab, snap, opts) {
+  var name = bankViewName(tab);
+  if (tab === "edits") return name;
+  var ym = bankViewMonth(tab, snap, opts);
+  var month = ym && ym.year ? bankMonthTitle(ym.year, ym.month) : "";
+  return month ? name + " \u00b7 " + month : name;
+}
+
+function bankNavHtml(tab, menuOpen, title) {
+  return '<div class="bank-nav"><h2 class="bank-view-title" id="bank-view-title">' + bankEsc(title || bankViewName(tab)) +
+    "</h2>" + bankOverflowHtml(tab, menuOpen) + "</div>";
 }
 
 function bankChipOptions(categories, current) {
@@ -7384,7 +7402,8 @@ function bankPageHtml(snap, opts) {
   else panel = bankCurrentHtml(snap || {}, opts);
   var hint = bankTabHint(tab);
   var hintHtml = hint ? '<p class="bank-tab-hint">' + bankEsc(hint) + "</p>" : "";
-  return bankNavHtml(tab, opts.menuOpen) + '<div class="bank-panel" data-panel="' + tab + '" role="tabpanel">' +
+  var title = bankViewTitle(tab, snap || {}, opts);
+  return bankNavHtml(tab, opts.menuOpen, title) + '<div class="bank-panel" data-panel="' + tab + '" aria-labelledby="bank-view-title">' +
     hintHtml + bankTierStaleHtml(snap) + panel + '<p class="hint bank-src">' + bankSrcLine(tab) + "</p></div>";
 }
 
@@ -7566,6 +7585,12 @@ var bankNavRoot = null;
 var bankNavBound = false;
 var bankNavLock = false;
 
+function bankSyncSectionNav() {
+  try {
+    if (typeof MPNav !== "undefined" && MPNav && typeof MPNav.syncBanking === "function") MPNav.syncBanking();
+  } catch (e) {}
+}
+
 function bankWriteTabHistory(tab) {
   if (bankNavLock) return;
   try {
@@ -7573,7 +7598,10 @@ function bankWriteTabHistory(tab) {
     var h = tab === "budget" ? "" : "#" + tab;
     var url = (location.pathname || "") + (location.search || "") + h;
     var now = (location.pathname || "") + (location.search || "") + (location.hash || "");
-    if (url === now) return;
+    if (url === now) {
+      bankSyncSectionNav();
+      return;
+    }
     bankNavLock = true;
     try {
       if (history.pushState) history.pushState({ bankTab: tab }, "", url);
@@ -7581,6 +7609,7 @@ function bankWriteTabHistory(tab) {
     } finally {
       bankNavLock = false;
     }
+    bankSyncSectionNav();
   } catch (e) {
     bankNavLock = false;
   }
@@ -7606,13 +7635,17 @@ function bankWriteHistHash(month) {
     var h = month ? "#historical=" + month : "#historical";
     var url = (location.pathname || "") + (location.search || "") + h;
     var now = (location.pathname || "") + (location.search || "") + (location.hash || "");
-    if (url === now) return;
+    if (url === now) {
+      bankSyncSectionNav();
+      return;
+    }
     bankNavLock = true;
     try {
       if (history.pushState) history.pushState({ bankTab: "historical", histMonth: month || "" }, "", url);
     } finally {
       bankNavLock = false;
     }
+    bankSyncSectionNav();
   } catch (e) {
     bankNavLock = false;
   }

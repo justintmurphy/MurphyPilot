@@ -42,10 +42,11 @@
   function forwardFor(pathname, hash, search) {
     var sec = /^\/investments(\/|$)/.test(pathname) ? "investments" : "banking";
     var h = (hash || "").replace(/^#/, "");
-    if (sec === "banking" && h && BANKING_HASHES.indexOf(h) < 0) {
+    var bankId = bankingHashId(hash);
+    if (sec === "banking" && h && !bankId) {
       return "/investments/" + (search || "") + (h === "combined" ? "#house" : hash);
     }
-    if (sec === "investments" && BANKING_HASHES.indexOf(h) >= 0) {
+    if (sec === "investments" && bankId) {
       return "/" + (search || "") + hash;
     }
     return "";
@@ -60,15 +61,20 @@
   var invActive = null;
   var mounted = false;
 
+  function bankingHashId(hash) {
+    var h = String(hash || "").replace(/^#/, "");
+    if (h === "budget" || h === "current" || h === "edits") return h;
+    if (h === "historical" || h.indexOf("historical=") === 0) return "historical";
+    return "";
+  }
   function bankingActive() {
-    var h = (location.hash || "").replace(/^#/, "");
-    return BANKING_HASHES.indexOf(h) >= 0 ? h : BANKING_DEFAULT;
+    return bankingHashId(location.hash) || BANKING_DEFAULT;
   }
   function itemsHtml() {
     var s = NAV.sections[section];
     var on = section === "banking" ? bankingActive() : invActive;
     return s.items.map(function (it) {
-      var a = it.id === on ? ' class="on" aria-current="true"' : "";
+      var a = it.id === on ? ' class="on" aria-current="page"' : "";
       return section === "banking"
         ? '<a href="' + it.href + '" data-nav-item="' + esc(it.id) + '"' + a + ">" + esc(it.label) + "</a>"
         : '<button type="button" data-tab="' + esc(it.id) + '" data-nav-item="' + esc(it.id) + '"' + a + ">" + esc(it.label) + "</button>";
