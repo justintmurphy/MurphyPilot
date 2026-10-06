@@ -32,12 +32,19 @@ function fileA(over) {
   return o;
 }
 
-function boot() {
+function boot(opts) {
+  opts = opts || {};
   const mem = new Map();
+  const sessionMem = opts.sessionMem || new Map();
   const localStorage = {
     getItem: function (k) { return mem.has(k) ? mem.get(k) : null; },
     setItem: function (k, v) { mem.set(k, String(v)); },
     removeItem: function (k) { mem.delete(k); }
+  };
+  const sessionStorage = {
+    getItem: function (k) { return sessionMem.has(k) ? sessionMem.get(k) : null; },
+    setItem: function (k, v) { sessionMem.set(k, String(v)); },
+    removeItem: function (k) { sessionMem.delete(k); }
   };
   const location = { hash: "", pathname: "/", search: "" };
   const history = {
@@ -46,8 +53,15 @@ function boot() {
       location._url = url;
     }
   };
+  const documentListeners = {};
+  const windowListeners = {};
   const document = {
-    addEventListener: function () {},
+    activeElement: null,
+    visibilityState: "visible",
+    addEventListener: function (type, fn) {
+      if (!documentListeners[type]) documentListeners[type] = [];
+      documentListeners[type].push(fn);
+    },
     removeEventListener: function () {},
     getElementById: function () { return null; },
     querySelector: function () { return null; },
@@ -55,6 +69,7 @@ function boot() {
   };
   const sandbox = {
     localStorage: localStorage,
+    sessionStorage: sessionStorage,
     document: document,
     location: location,
     history: history,
@@ -64,10 +79,15 @@ function boot() {
     fetch: function () { return new Promise(function () {}); },
     setInterval: function () { return 0; },
     clearInterval: function () {},
-    navigator: { userAgent: "node" }
+    navigator: { userAgent: "node" },
+    documentListeners: documentListeners,
+    windowListeners: windowListeners
   };
   sandbox.window = sandbox;
-  sandbox.addEventListener = function () {};
+  sandbox.addEventListener = function (type, fn) {
+    if (!windowListeners[type]) windowListeners[type] = [];
+    windowListeners[type].push(fn);
+  };
   sandbox.removeEventListener = function () {};
   sandbox.matchMedia = function () {
     return { addEventListener: function () {}, addListener: function () {} };
@@ -94,18 +114,31 @@ function seed(ctx, obj) {
 
 function fakeCard(vals) {
   const inputs = {};
-  Object.keys(vals).forEach(function (k) {
-    inputs[k] = { value: String(vals[k]), setAttribute: function () {}, style: {} };
-  });
-  return {
+  const card = {
+    inputs: inputs,
     querySelector: function (sel) {
       const m = /data-ret-in="([^"]+)"/.exec(sel);
       if (m) return inputs[m[1]] || { value: "" };
       return null;
     },
-    querySelectorAll: function () { return []; },
-    inputs: inputs
+    querySelectorAll: function () { return []; }
   };
+  Object.keys(vals).forEach(function (k) {
+    inputs[k] = {
+      value: String(vals[k]),
+      _selected: false,
+      style: {},
+      setAttribute: function () {},
+      getAttribute: function (name) { return name === "data-ret-in" ? k : null; },
+      select: function () { this._selected = true; },
+      closest: function (sel) { return sel === ".retirement-card" ? card : null; }
+    };
+  });
+  return card;
+}
+
+function fireDoc(ctx, type, event) {
+  (ctx.documentListeners[type] || []).forEach(function (fn) { fn(event); });
 }
 
 function cardFrom(state, over) {
@@ -166,7 +199,7 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.equal(ctx.retRemoteInit().credentials, "same-origin");
   assert.equal(ctx.retRemoteInit().cache, "no-store");
   const indexHtml = fs.readFileSync(path.join(root, "investments/index.html"), "utf8");
-  assert.match(indexHtml, /\/house\/js\/board-b\.js\?v=20261006ed/);
+  assert.match(indexHtml, /\/house\/js\/board-b\.js\?v=20261006eg/);
 });
 
 test("slider touch does not pin salary, so a later file salary shows without Reset", function () {
@@ -2213,7 +2246,8 @@ test("clearing salary posts null for that field only", async function () {
   await flushMicro();
   const posts = postBodies(calls);
   assert.equal(posts.length, 1);
-  assert.deepEqual(posts[0], { salary: null });
+  assert.deepEqual(posts[0], { salary: null, salary_year: null });
+  assert.equal(Object.prototype.hasOwnProperty.call(posts[0], "ssa67"), false);
 });
 
 test("filing and Part B stay blank until they are chosen", function () {
@@ -2226,16 +2260,19 @@ test("filing and Part B stay blank until they are chosen", function () {
   assert.equal(ctx.retPartBDefault(null), null);
   const html = ctx.retirementHtml();
   assert.match(html, /<option value="" selected>\u2014 choose \u2014<\/option>/);
-  [0, 1, 2, 3, 4].forEach(function (n) {
-    assert.match(html, new RegExp('data-ret-partb="' + n + '" aria-pressed="false"'));
-  });
-  assert.equal(html.indexOf('aria-pressed="true"'), -1);
+  assert.match(html, /<select id="ret-partb"[^>]*><option value="" selected>\u2014 choose \u2014<\/option>/);
   ctx.RET_TAX = ctx.retParseTax(taxRules());
   const card = textCard();
   ctx.retFill(card, state);
   assert.equal(card.els["take-sub"].textContent, "Pick filing status");
   assert.equal(card.els.take.textContent, "\u2014");
   assert.equal(ctx.retTakeHome(2000, 500, state, 10, 67), null);
+  state.filing = "mfj";
+  ctx.retSave(state);
+  const filed = ctx.retirementHtml();
+  assert.match(filed, /<select id="ret-partb"[^>]*><option value="" selected>\u2014 choose \u2014<\/option>/);
+  assert.equal(ctx.retPartBCount(state), 2);
+  assert.doesNotMatch(filed, /<select id="ret-partb"[^>]*>[\s\S]*<option value="2" selected>/);
 });
 
 test("blank 401k percents prompt instead of $0", function () {
@@ -2265,15 +2302,244 @@ test("clamping shows the field and the allowed range", function () {
   const ctx = boot();
   ctx.snap = { robinhood: { equity: 1000, label: "Robinhood" }, accounts: {}, combined: {} };
   const state = ctx.retBlank();
-  const card = cardFrom(state, { salary: "9000000", raise: "-3" });
+  const card = cardFrom(state, { salary: "9000000", raise: "-3", nominal: "140", ee: "150", match: "-1" });
   const read = ctx.retRead(card);
   assert.equal(read.salary, 2000000);
   assert.equal(read.raisePct, 0);
+  assert.equal(read.nominalPct, 100);
+  assert.equal(read.eePct, 100);
+  assert.equal(read.matchPct, 0);
   const note = ctx.retClampNote();
-  assert.match(note, /Adjusted salary to 2000000 \(allowed range 0\u20132000000\)/);
-  assert.match(note, /Adjusted raise_pct to 0 \(allowed range 0\u2013100\)/);
+  assert.match(note, /Adjusted Salary to \$2,000,000 \(allowed range \$0\u2013\$2,000,000\)/);
+  assert.match(note, /Adjusted Annual raise to 0 \(allowed range 0\u2013100\)/);
+  assert.match(note, /Adjusted Expected return to 100 \(allowed range 0\u2013100\)/);
+  assert.match(note, /Adjusted Your 401k % to 100 \(allowed range 0\u2013100\)/);
+  assert.match(note, /Adjusted Employer match to 0 \(allowed range 0\u2013100\)/);
+  assert.doesNotMatch(note, /emp_pct|nominal_return_pct|raise_pct/);
   const shown = textCard();
   ctx.retFill(shown, read);
-  assert.match(shown.els["save-state"].textContent, /Adjusted salary to 2000000 \(allowed range 0\u20132000000\)/);
+  assert.match(shown.els["save-state"].textContent, /Adjusted Salary to \$2,000,000 \(allowed range \$0\u2013\$2,000,000\)/);
   assert.equal(shown.els["save-state"].hidden, false);
+  ctx.RET_SAVE_STATE = "Saved";
+  ctx.retRead(cardFrom(ctx.retBlank()), { replaceNote: false });
+  ctx.retFill(shown, read);
+  const kept = shown.els["save-state"].textContent;
+  assert.match(kept, /Adjusted Salary to \$2,000,000/);
+  assert.match(kept, /Saved/);
+  assert.ok(kept.indexOf("Saved") > kept.indexOf("Salary"));
+  ctx.retRead(cardFrom(ctx.retBlank(), { salary: "10", raise: "1" }));
+  assert.equal(ctx.retClampNote(), "");
+  const ageCard = cardFrom(ctx.retBlank(), { retireAge: "99" });
+  const aged = ctx.retRead(ageCard);
+  assert.equal(aged.retireAge, 70);
+  assert.match(ctx.retClampNote(), /Adjusted Retirement age to 70 \(allowed range 62\u201370\)/);
+});
+
+test("a percent field can be cleared and typing replaces the value", function () {
+  const ctx = boot();
+  ctx.snap = { robinhood: { equity: 1000, label: "Robinhood" }, accounts: {}, combined: {} };
+  const posts = [];
+  ctx.fetch = function (_url, init) {
+    if (init && init.method === "POST") posts.push(JSON.parse(init.body));
+    const posted = init && init.body ? JSON.parse(init.body) : { inflation_pct: 4 };
+    return Promise.resolve(kvResponse({
+      schema: "retirement-inputs/v1",
+      inputs: posted,
+      updated_at: "t"
+    }));
+  };
+  ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: { inflation_pct: 4, nominal_return_pct: 7, raise_pct: 3, emp_pct: 6, match_pct: 5 },
+    updated_at: "t"
+  });
+  const card = cardFrom(ctx.retLoad(), { infl: "2.5" });
+  const infl = card.inputs.infl;
+  fireDoc(ctx, "focusin", { target: infl });
+  assert.equal(infl._selected, true);
+  infl.value = "";
+  ctx.document.activeElement = infl;
+  fireDoc(ctx, "input", { target: infl });
+  assert.equal(infl.value, "");
+  assert.equal(posts.length, 0);
+  const held = ctx.retRead(card, { replaceNote: false });
+  assert.equal(held.inflPct, null);
+  const calc = ctx.retView(held);
+  const fallback = ctx.retClone(held);
+  fallback.inflPct = 2.5;
+  assert.equal(calc.mid.today, ctx.retView(fallback).mid.today);
+  assert.equal(infl.value, "");
+  ctx.snap = null;
+  infl.value = "35";
+  fireDoc(ctx, "input", { target: infl });
+  assert.equal(infl.value, "35");
+  assert.equal(posts[posts.length - 1].inflation_pct, 20);
+  assert.notEqual(posts[posts.length - 1].inflation_pct, 2.535);
+  assert.match(ctx.retClampNote(), /Adjusted Inflation to 20/);
+  infl.value = "";
+  ctx.document.activeElement = null;
+  fireDoc(ctx, "focusout", { target: infl });
+  assert.equal(infl.value, "");
+  assert.equal(posts[posts.length - 1].inflation_pct, null);
+  ["nominal", "ee", "match", "raise"].forEach(function (name) {
+    const el = card.inputs[name];
+    el.value = "";
+    ctx.document.activeElement = el;
+    fireDoc(ctx, "input", { target: el });
+    assert.equal(el.value, "", name);
+    ctx.document.activeElement = null;
+    fireDoc(ctx, "focusout", { target: el });
+    assert.equal(el.value, "", name);
+  });
+  function postedNull(key) {
+    return posts.some(function (body) {
+      return Object.prototype.hasOwnProperty.call(body, key) && body[key] === null;
+    });
+  }
+  assert.equal(postedNull("nominal_return_pct"), true);
+  assert.equal(postedNull("emp_pct"), true);
+  assert.equal(postedNull("match_pct"), true);
+  assert.equal(postedNull("raise_pct"), true);
+  assert.equal(postedNull("inflation_pct"), true);
+});
+
+test("editing salary sets salary_year to this year and clearing nulls it", function () {
+  const ctx = boot();
+  const calls = [];
+  ctx.fetch = function (_url, init) {
+    calls.push({ method: (init && init.method) || "GET", body: init && init.body });
+    const posted = init && init.body ? JSON.parse(init.body) : {};
+    return Promise.resolve(kvResponse({
+      schema: "retirement-inputs/v1",
+      inputs: posted,
+      updated_at: "t"
+    }));
+  };
+  ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: { salary: 40000, salary_year: 2019, nominal_return_pct: 5 },
+    updated_at: "t"
+  });
+  const edited = ctx.retRead(cardFrom(ctx.retLoad(), { salary: "41000" }));
+  assert.equal(edited.salary, 41000);
+  assert.equal(edited.salaryYear, ctx.retTodayNy().year);
+  assert.notEqual(edited.salaryYear, 2019);
+  ctx.retSave(edited);
+  const cleared = ctx.retRead(cardFrom(ctx.retLoad(), { salary: "" }));
+  assert.equal(cleared.salary, null);
+  assert.equal(cleared.salaryYear, null);
+  ctx.retSave(cleared);
+  const posts = postBodies(calls);
+  assert.equal(posts[posts.length - 1].salary, null);
+  assert.equal(posts[posts.length - 1].salary_year, null);
+});
+
+test("take-home explains a missing birth month", function () {
+  const ctx = boot();
+  ctx.snap = { robinhood: { equity: 1000, label: "Robinhood" }, accounts: {}, combined: {} };
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const state = ctx.retBlank();
+  state.filing = "single";
+  state.birthMonth = null;
+  state.birthYear = null;
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els.take.textContent, "\u2014");
+  assert.equal(card.els["take-sub"].textContent, "Add birth month to see this");
+});
+
+test("a failed GET retries again after a later success and keeps the patch", async function () {
+  const sessionMem = new Map();
+  const ctx = boot({ sessionMem: sessionMem });
+  let mode = "fail";
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    const method = (init && init.method) || "GET";
+    calls.push({ url: String(url), method: method, body: init && init.body });
+    if (method === "POST") {
+      return Promise.resolve(kvResponse({
+        schema: "retirement-inputs/v1",
+        inputs: JSON.parse(init.body),
+        updated_at: "t"
+      }));
+    }
+    if (String(url).indexOf("/data/retirement.json") < 0) return Promise.resolve(kvResponse({}));
+    if (mode !== "ok") return Promise.resolve(kvResponse(null, false, 500));
+    return Promise.resolve(kvResponse({
+      schema: "retirement-inputs/v1",
+      inputs: { nominal_return_pct: 5 },
+      updated_at: "t"
+    }));
+  };
+  ctx.retFetchSaved();
+  await flushMicro();
+  await flushMicro();
+  let state = ctx.retLoad();
+  state.salary = 51000;
+  ctx.retSave(state);
+  await flushMicro();
+  await flushMicro();
+  assert.equal(postBodies(calls).length, 0);
+  const saved = ctx.sessionStorage.getItem("murphyHouseRetirementPending");
+  assert.equal(JSON.parse(saved).salary, 51000);
+  const sessionSnap = new Map(sessionMem);
+  const gets = function () {
+    return calls.filter(function (c) { return c.method === "GET" && c.url === "/data/retirement.json"; }).length;
+  };
+  const afterEdit = gets();
+  ctx.document.visibilityState = "visible";
+  (ctx.documentListeners.visibilitychange || []).forEach(function (fn) { fn(); });
+  await flushMicro();
+  assert.equal(gets(), afterEdit);
+  mode = "ok";
+  await ctx.retFetchRemote();
+  await flushMicro();
+  await flushMicro();
+  assert.ok(postBodies(calls).some(function (body) { return body.salary === 51000; }));
+  mode = "fail";
+  await ctx.retFetchRemote();
+  await flushMicro();
+  const beforeNext = gets();
+  state = ctx.retLoad();
+  state.ss67 = 1600;
+  ctx.retSave(state);
+  await flushMicro();
+  await flushMicro();
+  assert.equal(gets(), beforeNext + 1);
+  assert.equal(postBodies(calls).filter(function (body) { return body.ss67 === 1600; }).length, 0);
+
+  const ctx2 = boot({ sessionMem: sessionSnap });
+  const calls2 = [];
+  let sawGet = false;
+  ctx2.fetch = function (url, init) {
+    const method = (init && init.method) || "GET";
+    calls2.push({ url: String(url), method: method, body: init && init.body });
+    if (method === "POST") {
+      assert.equal(sawGet, true);
+      return Promise.resolve(kvResponse({
+        schema: "retirement-inputs/v1",
+        inputs: JSON.parse(init.body),
+        updated_at: "t"
+      }));
+    }
+    if (String(url).indexOf("/data/retirement.json") >= 0) {
+      sawGet = true;
+      return Promise.resolve(kvResponse({
+        schema: "retirement-inputs/v1",
+        inputs: null,
+        updated_at: null
+      }));
+    }
+    return Promise.resolve(kvResponse({}));
+  };
+  ctx2.retFetchSaved();
+  await flushMicro();
+  await flushMicro();
+  await flushMicro();
+  const reloaded = postBodies(calls2);
+  assert.ok(reloaded.length >= 1);
+  assert.equal(reloaded[0].salary, 51000);
+  const dataCalls = calls2.filter(function (c) { return c.url === "/data/retirement.json"; });
+  assert.equal(dataCalls[0].method, "GET");
+  assert.equal(dataCalls[1].method, "POST");
 });

@@ -888,14 +888,14 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   const houseCss = fs.readFileSync(path.join(root, "house/house.css"), "utf8");
   const bankCss = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   assert.match(index, /id="bankDesk"/);
-  assert.match(index, /\/js\/nav\.js\?v=20261006ed/);
+  assert.match(index, /\/js\/nav\.js\?v=20261006eg/);
   assert.match(index, /id="mpNav"/);
   assert.doesNotMatch(index, /href="\/house\/banking\/"/);
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(stub, /location\.replace/);
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
-  assert.match(investments, /\/house\/house\.css\?v=20261006ed/);
+  assert.match(investments, /\/house\/house\.css\?v=20261006eg/);
   assert.match(page, /\/house\/js\/banking\.js\?v=20261006ec/);
   assert.match(page, /\/house\/banking\.css\?v=20261006ec/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
@@ -948,7 +948,7 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.doesNotMatch(page, /banking\.css\?v=20260904dc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904db/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904db/);
-  assert.match(page, /\/house\/house\.css\?v=20261006ed/);
+  assert.match(page, /\/house\/house\.css\?v=20261006eg/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cp/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904cp/);

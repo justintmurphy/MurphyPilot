@@ -111,11 +111,13 @@
     slot.hidden = true;
     header.insertAdjacentElement("afterend", slot);
   }
-  function close() {
+  function close(returnFocus) {
     var menu = d.getElementById("deskMenu");
     var btn = d.getElementById("menuBtn");
+    var wasOpen = !!(menu && !menu.hidden);
     if (menu) menu.hidden = true;
     if (btn) btn.setAttribute("aria-expanded", "false");
+    if (returnFocus && wasOpen && btn && typeof btn.focus === "function") btn.focus();
   }
   function toggle() {
     var menu = d.getElementById("deskMenu");
@@ -134,10 +136,10 @@
     if (!el) return false;
     el.innerHTML = '<div class="mp-top" role="navigation" aria-label="Sections">' + NAV.order.map(function (id) {
       var t = NAV.sections[id];
-      return id === section
-        ? '<button type="button" id="menuBtn" class="mp-top-btn on" aria-current="page" aria-haspopup="true" aria-expanded="false" aria-controls="deskMenu">' + t.label + '<span class="mp-caret" aria-hidden="true"></span></button>'
-        : '<a class="mp-top-btn" href="' + t.href + '">' + t.label + "</a>";
-    }).join("") + "</div>" +
+      var on = id === section;
+      return '<a class="mp-top-btn' + (on ? " on" : "") + '" href="' + t.href + '"' + (on ? ' aria-current="page"' : "") + ">" + t.label + "</a>";
+    }).join("") +
+      '<button type="button" id="menuBtn" class="mp-menu-btn" aria-haspopup="true" aria-expanded="false" aria-controls="deskMenu" aria-label="Menu"><span class="mp-caret" aria-hidden="true"></span></button></div>' +
       '<div id="deskMenu" class="desk-menu mp-menu" hidden><nav id="tabs" aria-label="Section pages">' + itemsHtml() + "</nav>" +
       (NAV.sections[section].themeInMenu ? themeSwitchHtml() : "") + "</div>";
     mountFoot();
@@ -171,7 +173,7 @@
     if (t.closest("#deskMenu [data-nav-item]") || !t.closest(".mp-nav")) close();
     if (section === "banking" && t.closest("[data-bank-tab]")) w.setTimeout(w.MPNav.syncBanking, 0);
   });
-  d.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
+  d.addEventListener("keydown", function (e) { if (e && e.key === "Escape") close(true); });
   function onLocationChange() {
     var dest = forwardFor(location.pathname, location.hash, location.search);
     if (dest) { location.replace(dest); return; }

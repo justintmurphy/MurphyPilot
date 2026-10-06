@@ -80,7 +80,8 @@ function bootNav(opts) {
       },
       querySelector: function () { return null; },
       querySelectorAll: function () { return []; },
-      closest: function () { return null; }
+      closest: function () { return null; },
+      focus: function () { this._focused = (this._focused || 0) + 1; }
     };
     Object.defineProperty(el, "innerHTML", {
       get: function () { return this._html; },
@@ -317,11 +318,14 @@ test("top nav is two buttons and the open menu matches the section", function ()
   const bank = bootNav({ pathname: "/", hash: "" });
   const bankHtml = bank.elements.mpNav.innerHTML;
   assert.equal((bankHtml.match(/mp-top-btn/g) || []).length, 2);
-  const bankAt = bankHtml.indexOf(">BANKING<span");
+  const bankAt = bankHtml.indexOf(">BANKING</a>");
   const invLinkAt = bankHtml.indexOf(">INVESTMENTS</a>");
-  assert.ok(bankAt >= 0 && invLinkAt >= 0 && bankAt < invLinkAt);
-  assert.match(bankHtml, /<button type="button" id="menuBtn" class="mp-top-btn on" aria-current="page"[^>]*>BANKING<span class="mp-caret"/);
+  const menuBtnAt = bankHtml.indexOf('id="menuBtn"');
+  const menuAt = bankHtml.indexOf('id="deskMenu"');
+  assert.ok(bankAt >= 0 && invLinkAt > bankAt && menuBtnAt > invLinkAt && menuAt > menuBtnAt);
+  assert.match(bankHtml, /<a class="mp-top-btn on" href="\/" aria-current="page">BANKING<\/a>/);
   assert.match(bankHtml, /<a class="mp-top-btn" href="\/investments\/">INVESTMENTS<\/a>/);
+  assert.match(bankHtml, /<button type="button" id="menuBtn"[^>]*aria-controls="deskMenu"[^>]*aria-label="Menu"/);
   assert.doesNotMatch(bankHtml, />House<|>Docs<|>Manual<|>Setup<|>Edits</);
   const bankItems = bank.elements.tabs.innerHTML;
   assert.match(bankItems, /href="\/#budget"[^>]*data-nav-item="budget"[^>]*class="on"/);
@@ -334,10 +338,13 @@ test("top nav is two buttons and the open menu matches the section", function ()
   const invHtml = inv.elements.mpNav.innerHTML;
   assert.equal((invHtml.match(/mp-top-btn/g) || []).length, 2);
   const bankLinkAt = invHtml.indexOf(">BANKING</a>");
-  const invAt = invHtml.indexOf(">INVESTMENTS<span");
-  assert.ok(bankLinkAt >= 0 && invAt >= 0 && bankLinkAt < invAt);
+  const invAt = invHtml.indexOf(">INVESTMENTS</a>");
+  const invBtnAt = invHtml.indexOf('id="menuBtn"');
+  const invMenuAt = invHtml.indexOf('id="deskMenu"');
+  assert.ok(bankLinkAt >= 0 && invAt > bankLinkAt && invBtnAt > invAt && invMenuAt > invBtnAt);
   assert.match(invHtml, /href="\/">BANKING<\/a>/);
-  assert.match(invHtml, /aria-current="page"[^>]*>INVESTMENTS<span class="mp-caret"/);
+  assert.match(invHtml, /aria-current="page"[^>]*>INVESTMENTS<\/a>/);
+  assert.match(invHtml, /id="menuBtn"[^>]*aria-controls="deskMenu"/);
   assert.match(invHtml, /data-theme-choice="justin"/);
   assert.match(invHtml, /data-theme-choice="nina"/);
   inv.MPNav.setItems("investments", [
@@ -423,9 +430,16 @@ test("the menu toggles from the active button and closes around it", async funct
   fire(ctx, "click", { closest: function () { return null; } });
   assert.equal(ctx.elements.deskMenu.hidden, true);
   fire(ctx, "click", btn);
-  fire(ctx, "keydown", null, { key: "Escape" });
+  ctx.elements.menuBtn._focused = 0;
+  fire(ctx, "keydown", { closest: function () { return null; } }, { key: "Escape" });
   assert.equal(ctx.elements.deskMenu.hidden, true);
   assert.equal(ctx.elements.menuBtn.attrs["aria-expanded"], "false");
+  assert.equal(ctx.elements.menuBtn._focused, 1);
+  const closedFocus = ctx.elements.menuBtn._focused;
+  fire(ctx, "keydown", {
+    closest: function (sel) { return sel === "#deskMenu" ? {} : null; }
+  }, { key: "Escape" });
+  assert.equal(ctx.elements.menuBtn._focused, closedFocus);
   fire(ctx, "click", btn);
   ctx.windowListeners.pageshow.forEach(function (fn) { fn(); });
   assert.equal(ctx.elements.deskMenu.hidden, true);
@@ -535,19 +549,23 @@ test("nav source stays free of figures and institution names", function () {
   });
 });
 
-test("touched assets use the ed cache bust and banking uses ec", function () {
+test("touched assets use the eg cache bust and banking uses ec", function () {
   const bank = read("index.html");
   const inv = read("investments/index.html");
-  assert.match(bank, /\/js\/nav\.js\?v=20261006ed/);
-  assert.match(bank, /\/house\/house\.css\?v=20261006ed/);
+  assert.match(bank, /\/js\/nav\.js\?v=20261006eg/);
+  assert.match(bank, /\/house\/house\.css\?v=20261006eg/);
   assert.match(bank, /\/house\/js\/banking\.js\?v=20261006ec/);
   assert.match(bank, /\/house\/banking\.css\?v=20261006ec/);
   assert.match(bank, /id="mpNav" class="mp-nav" data-section="banking"/);
   assert.match(bank, /<a class="brand-block" href="\/">/);
+  assert.match(bank, /aria-label="Murphy Pilot"/);
+  assert.doesNotMatch(bank, /Murphy Pilot House/);
   assert.doesNotMatch(bank, /section-nav/);
-  assert.match(inv, /\/js\/nav\.js\?v=20261006ed/);
-  assert.match(inv, /\/house\/house\.css\?v=20261006ed/);
-  assert.match(inv, /\/house\/js\/board-b\.js\?v=20261006ed/);
+  assert.match(inv, /\/js\/nav\.js\?v=20261006eg/);
+  assert.match(inv, /\/house\/house\.css\?v=20261006eg/);
+  assert.match(inv, /\/house\/js\/board-b\.js\?v=20261006eg/);
+  assert.match(inv, /aria-label="Murphy Pilot"/);
+  assert.doesNotMatch(inv, /Murphy Pilot House/);
   assert.match(inv, /\/house\/js\/board-c\.js\?v=20261006ed/);
   assert.match(inv, /\/house\/js\/board-e\.js\?v=20261006ed/);
   assert.match(inv, /\/house\/js\/board-a\.js\?v=20260904cn/);
@@ -555,6 +573,14 @@ test("touched assets use the ed cache bust and banking uses ec", function () {
   assert.match(inv, /id="mpNav" class="mp-nav" data-section="investments"/);
   assert.match(inv, /<a class="brand-block" href="\/investments\/">/);
   assert.match(inv, /id="deskSub">INVESTMENTS</);
+  const css = read("house/house.css");
+  const bankCss = read("house/banking.css");
+  assert.doesNotMatch(css, /grid-column:\s*auto/);
+  assert.doesNotMatch(css, /grid-row:\s*auto/);
+  assert.match(css, /grid-template-areas:\s*"mark brand clock"\s*"end end end"/);
+  assert.doesNotMatch(bankCss, /grid-column:\s*auto/);
+  assert.doesNotMatch(bankCss, /grid-row:\s*auto/);
+  assert.match(bankCss, /grid-template-areas:\s*\n\s*"mark brand clock"\s*\n\s*"end end end"/);
   assert.doesNotMatch(inv, /menu-wrap|docs-foot|section-nav/);
   const header = inv.slice(inv.indexOf("<header>"), inv.indexOf("</header>"));
   assert.ok(header.indexOf('id="clock"') < header.indexOf('class="header-end"'));
