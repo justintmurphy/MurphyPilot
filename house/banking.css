@@ -544,6 +544,7 @@ body.bank-page > header .clock {
 }
 
 .bank-cal-nav {
+  position: relative;
   min-width: 28px;
   min-height: 28px;
   padding: 0 6px;
@@ -556,12 +557,28 @@ body.bank-page > header .clock {
   cursor: pointer;
 }
 
-.bank-bill-note {
+/* The face stays 28px. The hit target is 44px and does not change the flex layout. */
+.bank-cal-nav::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.bank-bill-note,
+.bank-bar-note {
   display: block;
   margin-top: 2px;
   color: var(--ink-soft);
   font-size: 11px;
   font-weight: 500;
+}
+
+.bank-bar-note {
+  margin: 0 0 8px;
 }
 
 .bank-plan-totals {
