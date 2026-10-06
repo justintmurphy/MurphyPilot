@@ -871,7 +871,7 @@ test("fetch failure paints a gate and does not invent balances", async function 
   assert.doesNotMatch(src, /banking-snapshot\.json/);
 });
 
-test("desk links Banking and banking assets are cache-busted at tip du", function () {
+test("desk links Banking and banking assets are cache-busted at tip dx", function () {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   const nav = fs.readFileSync(path.join(root, "house/js/board-b.js"), "utf8");
@@ -881,8 +881,10 @@ test("desk links Banking and banking assets are cache-busted at tip du", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904du/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904du/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dx/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dx/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904du/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dt/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dt/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ds/);
@@ -4098,7 +4100,8 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20260904du/);
+  assert.match(page, /banking\.js\?v=20260904dx/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dt/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ds/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dr/);
@@ -4252,8 +4255,10 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20260904du/);
-  assert.match(page, /banking\.css\?v=20260904du/);
+  assert.match(page, /banking\.js\?v=20260904dx/);
+  assert.match(page, /banking\.css\?v=20260904dx/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904du/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dt/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dt/);
   const internalFn = src.slice(src.indexOf("function bankIsInternalTransfer"), src.indexOf("function bankFlowSide"));
@@ -4396,8 +4401,9 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904du/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904du/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dx/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dx/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dt/);
   assert.doesNotMatch(src, /\+ 14|typical_day \+ 14/);
 
@@ -4522,4 +4528,318 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.match(hist, /2026-10 · in progress<\/td><td>\$50\.00/);
   assert.doesNotMatch(hist, /2026-10 · in progress<\/td><td>\$100\.00/);
   assert.match(hist, /2026-08<\/td><td>\$12\.34/);
+});
+
+function billLine(html, name) {
+  const listAt = html.indexOf('class="bank-bill-list"');
+  let start = listAt;
+  if (start < 0) {
+    const head = html.indexOf("<h3>Bills</h3>");
+    start = html.indexOf('class="bank-edit-list"', head);
+  }
+  assert.ok(start >= 0, "bill list");
+  const slice = html.slice(start);
+  const at = slice.indexOf(">" + name);
+  assert.ok(at >= 0, name);
+  const li = slice.lastIndexOf("<li", at);
+  return slice.slice(li >= 0 ? li : at, slice.indexOf("</li>", at));
+}
+
+function planBit(html, key) {
+  const i = html.indexOf('data-plan="' + key + '"');
+  assert.ok(i >= 0, key);
+  return html.slice(i, html.indexOf("</span>", i));
+}
+
+test("tip dx uses the effective-dated bill amount and a paid-late flag", function () {
+  const ctx = boot();
+  const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
+  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  assert.match(page, /banking\.js\?v=20260904dx/);
+  assert.match(page, /banking\.css\?v=20260904dx/);
+  assert.equal(typeof ctx.bankBillAmountForMonth, "function");
+  assert.equal(typeof ctx.bankMatchBillPayment, "undefined");
+  assert.doesNotMatch(src, /function bankMatchBill/);
+
+  assert.equal(ctx.bankBillAmountForMonth({ amount: 1200 }, "2026-09"), 1200);
+  assert.equal(ctx.bankBillAmountForMonth({ amount: 1200, prev_amount: 1000 }, "2026-09"), 1200);
+  assert.equal(ctx.bankBillAmountForMonth({ amount: 1200, effective_from: "2026-10-01" }, "2026-09"), 1200);
+  const dated = { amount: 1200, prev_amount: 1000, effective_from: "2026-10-01" };
+  assert.equal(ctx.bankBillAmountForMonth(dated, "2026-09"), 1000);
+  assert.equal(ctx.bankBillAmountForMonth(dated, "2026-10"), 1200);
+  assert.equal(ctx.bankBillAmountForMonth(dated, "2026-11"), 1200);
+  assert.equal(ctx.bankBillAmountForMonth(dated, { year: 2026, month: 9 }), 1000);
+
+  const merged = ctx.bankNormalizeBills({
+    bills: [{
+      name: "Mortgage",
+      amount: 1200,
+      typical_day: 1,
+      prev_amount: 1000,
+      effective_from: "2026-10-01",
+      amount_basis: "manual_override",
+      history_median: 1000
+    }],
+    bills_monthly: [
+      {
+        label: "Mortgage",
+        amount: 50,
+        due_day: 1,
+        prev_amount: 1000,
+        effective_from: "2026-10-01",
+        paid_current_month: {
+          month: "2026-10",
+          status: "paid_late",
+          paid_date: "2026-10-05",
+          due_date: "2026-10-01",
+          days_late: 4,
+          tx_key: null
+        }
+      },
+      {
+        label: "Home Loan",
+        amount: 1200,
+        due_day: 3,
+        prev_amount: 1000,
+        effective_from: "2026-10-01",
+        amount_basis: "manual_override",
+        history_median: 1000
+      }
+    ]
+  });
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].name, "Mortgage");
+  assert.equal(merged[0].amount, 1200);
+  assert.equal(merged[0].prev_amount, 1000);
+  assert.equal(merged[0].effective_from, "2026-10-01");
+  assert.equal(merged[0].amount_basis, "manual_override");
+  assert.equal(merged[0].history_median, 1000);
+  assert.equal(merged[0].paid_current_month.status, "paid_late");
+  assert.equal(merged[0].paid_current_month.tx_key, null);
+  assert.equal(merged[0].typical_day, 1);
+  assert.equal(merged[1].name, "Home Loan");
+  assert.equal(merged[1].prev_amount, 1000);
+  assert.equal(merged[1].effective_from, "2026-10-01");
+
+  const split = ctx.bankNormalizeBills({
+    bills: [{ name: "Mortgage", amount: 1200, typical_day: 1 }],
+    bills_monthly: [{
+      label: "Mortgage",
+      due_day: 1,
+      prev_amount: 1000,
+      effective_from: "2026-10-01",
+      amount_basis: "manual_override",
+      history_median: 1000,
+      paid_current_month: { month: "2026-10", status: "paid_late", paid_date: "2026-10-05", due_date: "2026-10-01", days_late: 4, tx_key: null }
+    }]
+  });
+  assert.equal(split.length, 1);
+  assert.equal(split[0].amount, 1200);
+  assert.equal(split[0].prev_amount, 1000);
+  assert.equal(split[0].effective_from, "2026-10-01");
+  assert.equal(split[0].amount_basis, "manual_override");
+  assert.equal(split[0].history_median, 1000);
+  assert.equal(split[0].paid_current_month.days_late, 4);
+
+  const over = ctx.bankNormalizeBills({
+    bills: [{ name: "Mortgage", amount: 1000, effective_from: "2026-10-01", typical_day: 1 }],
+    overrides: [{ match: "Mortgage", field: "amount", value: 1200 }]
+  })[0];
+  assert.equal(over.amount, 1000);
+  assert.equal(over.override_amount, 1200);
+  assert.equal(ctx.bankBillAmountForMonth(over, "2026-09"), 1000);
+  assert.equal(ctx.bankBillAmountForMonth(over, "2026-10"), 1200);
+  assert.equal(ctx.bankBillAmountForMonth(over, "2026-11"), 1200);
+
+  const overDated = ctx.bankNormalizeBills({
+    bills: [{ name: "Home Loan", amount: 1000, typical_day: 2 }],
+    overrides: [{ match: "Home Loan", field: "amount", value: 1200, effective_from: "2026-10-01" }]
+  })[0];
+  assert.equal(overDated.effective_from, "2026-10-01");
+  assert.equal(ctx.bankBillAmountForMonth(overDated, "2026-09"), 1000);
+  assert.equal(ctx.bankBillAmountForMonth(overDated, "2026-10"), 1200);
+
+  const fx = loadFixture();
+  fx.asof = "2026-10-05T12:00:00-04:00";
+  fx.budget.bills = [
+    {
+      name: "Mortgage",
+      amount: 1200,
+      typical_amount: 40,
+      prev_amount: 1000,
+      effective_from: "2026-10-01",
+      typical_day: 1,
+      amount_basis: "manual_override",
+      history_median: 1000,
+      paid_current_month: {
+        month: "2026-10",
+        status: "paid_late",
+        paid_date: "2026-10-05",
+        due_date: "2026-10-01",
+        days_late: 4,
+        tx_key: null
+      }
+    },
+    { name: "Electric", amount: 50, typical_day: 15 }
+  ];
+  fx.budget.bills_monthly = [{
+    label: "Mortgage",
+    amount: 1200,
+    due_day: 1,
+    prev_amount: 1000,
+    effective_from: "2026-10-01",
+    paid_current_month: {
+      month: "2026-10",
+      status: "paid_late",
+      paid_date: "2026-10-05",
+      due_date: "2026-10-01",
+      days_late: 4,
+      tx_key: null
+    }
+  }];
+  fx.budget.overrides = [];
+  fx.budget.bills_total = 1250;
+  fx.budget.must_pay_budget = 1250;
+  fx.budget.left_after_bills = 400;
+  fx.budget.calendar = [];
+  fx.current.recent_tx = [];
+  fx.current.edits_tx = [];
+
+  function monthHtml(plan) {
+    return ctx.bankPageHtml(fx, { tab: "budget", planMonth: plan });
+  }
+  const sep = monthHtml("2026-09");
+  const oct = monthHtml("2026-10");
+  const nov = monthHtml("2026-11");
+  assert.match(sep, /aria-label="September 2026"/);
+  assert.match(oct, /aria-label="October 2026"/);
+  assert.match(nov, /aria-label="November 2026"/);
+  assert.match(sep, /title="Mortgage \$1,000\.00"/);
+  assert.match(oct, /title="Mortgage \$1,200\.00"/);
+  assert.match(nov, /title="Mortgage \$1,200\.00"/);
+  assert.doesNotMatch(sep, /title="Mortgage \$1,200\.00"/);
+
+  const sepBill = billLine(sep, "Mortgage");
+  const octBill = billLine(oct, "Mortgage");
+  const novBill = billLine(nov, "Mortgage");
+  assert.match(sepBill, /\$1,000\.00/);
+  assert.doesNotMatch(sepBill, /\$1,200\.00|\$40\.00/);
+  assert.match(octBill, /\$1,200\.00/);
+  assert.doesNotMatch(octBill, /\$1,000\.00|\$40\.00/);
+  assert.match(novBill, /\$1,200\.00/);
+  assert.match(billLine(sep, "Electric"), /\$50\.00/);
+  assert.match(billLine(nov, "Electric"), /\$50\.00/);
+  const octList = oct.slice(oct.indexOf('class="bank-bill-list"'), oct.indexOf("</ul>", oct.indexOf('class="bank-bill-list"')));
+  assert.equal((octList.match(/Mortgage/g) || []).length, 1);
+
+  assert.match(octBill, /New amount from Oct 1/);
+  assert.match(octBill, /Paid late · Oct 5/);
+  assert.match(octBill, /data-paid="paid_late"/);
+  assert.doesNotMatch(sepBill, /New amount from|Paid late|data-paid/);
+  assert.doesNotMatch(novBill, /New amount from|Paid late|Paid ·/);
+
+  assert.match(planBit(oct, "dues"), /\$1,250\.00/);
+  assert.match(planBit(oct, "must-pay"), /\$1,250\.00/);
+  assert.match(planBit(oct, "left-after-bills"), /\$400\.00/);
+  assert.doesNotMatch(planBit(oct, "dues"), /\$1,450\.00/);
+  assert.match(planBit(sep, "dues"), /\$1,050\.00/);
+  assert.match(planBit(sep, "must-pay"), /\$1,050\.00/);
+  assert.match(planBit(sep, "left-after-bills"), /\$600\.00/);
+  assert.match(planBit(nov, "dues"), /\$1,250\.00/);
+  assert.match(planBit(nov, "left-after-bills"), /\$400\.00/);
+
+  const totalsOct = ctx.bankPlanTotals(fx, "2026-10");
+  assert.equal(totalsOct.bills_total, 1250);
+  assert.equal(totalsOct.must_pay, 1250);
+  assert.equal(totalsOct.left_after_bills, 400);
+  assert.equal(totalsOct.delta, 0);
+  const totalsSep = ctx.bankPlanTotals(fx, "2026-09");
+  assert.equal(totalsSep.delta, -200);
+  assert.equal(totalsSep.bills_total, 1050);
+  assert.equal(totalsSep.left_after_bills, 600);
+  assert.equal(ctx.bankCapRows(fx)[0].limit, 1250);
+  assert.equal(ctx.bankCapRows(fx, "2026-10")[0].limit, 1250);
+  assert.equal(ctx.bankCapRows(fx, "2026-09")[0].limit, 1050);
+  assert.equal(ctx.bankCapRows(fx, "2026-11")[0].limit, 1250);
+  const current = ctx.bankPageHtml(fx, { tab: "current" });
+  const meter = current.slice(current.indexOf('data-cap="bill"'), current.indexOf('data-cap="bill"') + 500);
+  assert.match(meter, /Limit \$1,250\.00/);
+  assert.doesNotMatch(meter, /\$1,450\.00|\$1,050\.00/);
+
+  const edits = { bills: { Mortgage: { amount: 1500 } } };
+  const userSep = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-09", edits: edits });
+  const userOct = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", edits: edits });
+  assert.match(billLine(userSep, "Mortgage"), /\$1,500\.00/);
+  assert.doesNotMatch(billLine(userSep, "Mortgage"), /\$1,000\.00/);
+  assert.match(userSep, /title="Mortgage \$1,500\.00"/);
+  assert.match(billLine(userOct, "Mortgage"), /\$1,500\.00/);
+  assert.doesNotMatch(billLine(userOct, "Mortgage"), /\$1,200\.00/);
+  assert.match(userOct, /title="Mortgage \$1,500\.00"/);
+  assert.equal(ctx.bankPlanTotals(fx, "2026-10").bills_total, 1250);
+
+  const editSep = ctx.bankPageHtml(fx, { tab: "edits", planMonth: "2026-09" });
+  const editOct = ctx.bankPageHtml(fx, { tab: "edits", planMonth: "2026-10" });
+  assert.match(billLine(editSep, "Mortgage"), /\$1,000\.00/);
+  assert.doesNotMatch(billLine(editSep, "Mortgage"), /Paid late/);
+  assert.match(billLine(editOct, "Mortgage"), /\$1,200\.00/);
+  assert.match(billLine(editOct, "Mortgage"), /New amount from Oct 1/);
+  assert.match(billLine(editOct, "Mortgage"), /Paid late · Oct 5/);
+  const editUser = ctx.bankPageHtml(fx, { tab: "edits", planMonth: "2026-11", edits: edits });
+  assert.match(billLine(editUser, "Mortgage"), /\$1,500\.00/);
+  assert.doesNotMatch(billLine(editUser, "Mortgage"), /\$1,200\.00/);
+
+  const onTimeFx = JSON.parse(JSON.stringify(fx));
+  onTimeFx.budget.bills[0].paid_current_month = {
+    month: "2026-10",
+    status: "paid",
+    paid_date: "2026-10-01",
+    due_date: "2026-10-01",
+    days_late: 0,
+    tx_key: null
+  };
+  const onTime = ctx.bankPageHtml(onTimeFx, { tab: "budget", planMonth: "2026-10" });
+  assert.match(billLine(onTime, "Mortgage"), /Paid · Oct 1/);
+  assert.doesNotMatch(billLine(onTime, "Mortgage"), /Paid late/);
+
+  const leakFx = JSON.parse(JSON.stringify(fx));
+  leakFx.budget.bills = [{ name: "Home Loan", amount: 1000, effective_from: "2026-10-01", typical_day: 1 }];
+  leakFx.budget.bills_monthly = [];
+  leakFx.budget.overrides = [{ match: "Home Loan", field: "amount", value: 1200 }];
+  leakFx.budget.bills_total = 1200;
+  leakFx.budget.must_pay_budget = 1200;
+  leakFx.budget.left_after_bills = 100;
+  const leakSep = ctx.bankPageHtml(leakFx, { tab: "budget", planMonth: "2026-09" });
+  const leakOct = ctx.bankPageHtml(leakFx, { tab: "budget", planMonth: "2026-10" });
+  assert.match(billLine(leakSep, "Home Loan"), /\$1,000\.00/);
+  assert.doesNotMatch(billLine(leakSep, "Home Loan"), /\$1,200\.00/);
+  assert.match(billLine(leakOct, "Home Loan"), /\$1,200\.00/);
+  assert.match(planBit(leakOct, "dues"), /\$1,200\.00/);
+  assert.doesNotMatch(planBit(leakOct, "dues"), /\$1,400\.00/);
+  assert.match(planBit(leakSep, "dues"), /\$1,000\.00/);
+  assert.match(planBit(leakSep, "left-after-bills"), /\$300\.00/);
+  assert.match(planBit(leakOct, "left-after-bills"), /\$100\.00/);
+
+  const el = mount(ctx, fx, { tab: "budget", now: "2026-10-05T18:00:00-04:00" });
+  assert.match(el.innerHTML, /aria-label="October 2026"/);
+  const next = {
+    getAttribute: function (name) { return name === "data-bank-plan" ? "1" : null; },
+    closest: function (sel) { return sel === "[data-bank-plan]" ? next : null; }
+  };
+  el.listeners.click({ target: next, preventDefault: function () {} });
+  assert.match(el.innerHTML, /aria-label="November 2026"/);
+  assert.match(billLine(el.innerHTML, "Mortgage"), /\$1,200\.00/);
+  assert.doesNotMatch(billLine(el.innerHTML, "Mortgage"), /New amount from/);
+  const prev = {
+    getAttribute: function (name) { return name === "data-bank-plan" ? "-1" : null; },
+    closest: function (sel) { return sel === "[data-bank-plan]" ? prev : null; }
+  };
+  el.listeners.click({ target: prev, preventDefault: function () {} });
+  el.listeners.click({ target: prev, preventDefault: function () {} });
+  assert.match(el.innerHTML, /aria-label="September 2026"/);
+  assert.match(billLine(el.innerHTML, "Mortgage"), /\$1,000\.00/);
+  assert.doesNotMatch(billLine(el.innerHTML, "Mortgage"), /Paid late/);
+
+  const hist = ctx.bankPageHtml(fx, { tab: "historical", year: "2026", month: "2026-09" });
+  assert.doesNotMatch(hist, /New amount from|Paid late|data-plan="dues"/);
+  assert.match(hist, /2026-09/);
 });
