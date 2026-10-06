@@ -9,9 +9,21 @@ body.bank-page > header .clock {
 }
 
 .bank-desk {
+  --bank-required: #2f6f4e;
+  --bank-left: #1f7a8c;
+  --bank-wants: #c47b2b;
+  --bank-other: #8d6a1f;
+  --bank-miss: #a15c12;
   padding: 12px 16px 36px;
   max-width: 1100px;
   margin: 0 auto;
+}
+
+.bank-desk h2,
+.bank-desk h3,
+.bank-desk h4 {
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .bank-nav {
@@ -1573,10 +1585,10 @@ span.bank-chip {
   font-weight: 650;
 }
 
-.bank-plan-seg.tier-required { background: var(--mix-b); }
+.bank-plan-seg.tier-required { background: var(--bank-required); }
 .bank-plan-seg.tier-needs { background: var(--mix-a); }
-.bank-plan-seg.tier-wants { background: var(--mix-c); }
-.bank-plan-seg.tier-left { background: var(--go); }
+.bank-plan-seg.tier-wants { background: var(--bank-wants); }
+.bank-plan-seg.tier-left { background: var(--bank-left); }
 .bank-plan-seg.tier-over { background: var(--stop); }
 
 .bank-plan-today,
@@ -1633,10 +1645,10 @@ span.bank-chip {
   border-radius: 2px;
 }
 
-.bank-plan-legend b.tier-required { background: var(--mix-b); }
+.bank-plan-legend b.tier-required { background: var(--bank-required); }
 .bank-plan-legend b.tier-needs { background: var(--mix-a); }
-.bank-plan-legend b.tier-wants { background: var(--mix-c); }
-.bank-plan-legend b.tier-left { background: var(--go); }
+.bank-plan-legend b.tier-wants { background: var(--bank-wants); }
+.bank-plan-legend b.tier-left { background: var(--bank-left); }
 .bank-plan-legend b.tier-over { background: var(--stop); }
 
 .bank-card-pay,
@@ -1960,4 +1972,215 @@ span.bank-chip {
   .bank-fund-rows li {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* tip ec — one stack on Budget, Current, and Historical. Meters stay readable without sideways scroll. */
+.bank-desk,
+.bank-panel,
+.bank-hist-pick,
+.bank-mom,
+.bank-tier-meters,
+.bank-plan-legend,
+.bank-month-pick {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bank-panel {
+  overflow-x: clip;
+}
+
+.bank-plan-seg {
+  position: relative;
+}
+
+.bank-plan-seg .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(8, 9, 11, 0.38);
+  pointer-events: none;
+}
+
+.bank-plan-seg .tick,
+.bank-tier-meters .tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--ink);
+  pointer-events: none;
+}
+
+.bank-plan-seg .tick {
+  background: var(--paper);
+  z-index: 1;
+}
+
+.bank-plan-label {
+  position: relative;
+  z-index: 1;
+}
+
+.bank-tier-meters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin: 16px 0;
+}
+
+.bank-tier-meters .bank-cap-k {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.bank-tier-meters .bank-cap-track {
+  position: relative;
+  height: 14px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.bank-over,
+.bank-delta.bad {
+  color: var(--stop);
+  font-weight: 700;
+}
+
+.bank-delta.good {
+  color: var(--go);
+  font-weight: 700;
+}
+
+.bank-other-inc {
+  color: var(--bank-other);
+  font-weight: 700;
+}
+
+.bank-paid-mark {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  color: var(--ink-soft);
+}
+
+.bank-thin,
+.bank-month-pick,
+.bank-mom h3,
+.bank-tier-meters h3 {
+  margin: 8px 0;
+}
+
+.bank-month-pick select,
+.bank-hist-pick select {
+  max-width: 100%;
+  min-height: 40px;
+}
+
+.bank-mom-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bank-mom-list li {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  min-width: 0;
+}
+
+.bank-mom-list p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 4px 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.bank-not-counted {
+  opacity: 0.75;
+}
+
+@media (min-width: 800px) {
+  .bank-tier-meters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 390px) {
+  .bank-tier-meters .bank-cap-k,
+  .bank-mom-list p {
+    font-size: 14px;
+  }
+
+  .bank-plan-legend li {
+    grid-template-columns: 10px minmax(0, 1fr);
+  }
+
+  .bank-due-list li,
+  .bank-bill-list li,
+  .bank-income-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bank-due-list li i,
+  .bank-due-list li b,
+  .bank-bill-list li i,
+  .bank-bill-list li b,
+  .bank-income-list li i,
+  .bank-income-list li b {
+    white-space: normal;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+}
+
+.bank-match-miss,
+.bank-match-conf {
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.bank-match-miss {
+  color: var(--bank-miss);
+  font-weight: 700;
+}
+
+.bank-match summary {
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.bank-day-note,
+.bank-print-asof,
+.bank-save-notice {
+  display: block;
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.bank-save-notice {
+  color: var(--stop);
+  font-weight: 700;
+}
+
+.bank-confirm {
+  margin: 6px 0;
+}
+
+.bank-unmatched {
+  margin: 8px 0;
+  padding: 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
 }

@@ -1,0 +1,26 @@
+/* Ten rows, then scroll inside the box. The page itself does not trap. */
+.list-cap {
+  --list-cap-rows: 10;
+  max-height: calc(var(--list-cap-rows) * 2.05rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  min-width: 0;
+}
+
+.list-cap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--paper, #fff);
+}
+
+.list-cap-note {
+  margin: 4px 0 0;
+  color: var(--ink-soft, #666);
+  font-size: 12px;
+}
+
+.bank-tape tbody tr {
+  height: 2.05rem;
+}
