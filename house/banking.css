@@ -747,6 +747,16 @@ body.bank-page > header .clock {
   align-items: center;
 }
 
+.bank-bill-list li.bank-bill-extra {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.bank-bill-list li.bank-bill-extra i {
+  grid-column: 1 / -1;
+  text-align: left;
+  white-space: normal;
+}
+
 .bank-bill-list li b,
 .bank-income-list li b {
   font-variant-numeric: tabular-nums;
