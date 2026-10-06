@@ -1,4 +1,4 @@
-/* tip dx — House Banking.
+/* tip dy — House Banking.
    The main tabs run Budget, Current, Historical. An empty or unknown hash still opens Current.
    Current is the live print. Budget is the plan, the due map, and progress against limits.
    Month-end balances stay off Current. The month-end spark helpers are gone.
@@ -55,14 +55,17 @@
    A print amount override is that new amount. It applies from the effective month on and does not replace earlier months. An Edits amount in localStorage still wins in every month.
    bills_total, must_pay_budget, and left_after_bills are the as-of month and are shown unchanged for that month. Another month shifts them by the difference between that month's amount and the as-of amount. Left after bills moves the other way. The Bill meter uses the same shift. The change is not added on top of the as-of print.
    When effective_from falls in the month on screen, the bill line says "New amount from" that day. paid_current_month marks the bill paid for that month when its status is paid or paid_late, even if tx_key is null. There is no transaction match for a bill payment.
+   A Z or numeric offset on effective_from, paid_date, or paid_current_month is the America/New_York calendar date. A plain YYYY-MM-DD stays that day. A plain YYYY-MM stays that month.
    The Bill list is those budget bills and due-day items from the print. Those names share the spend-category name space when Bill or Optional is tagged. It is not a second category system.
    The bill calendar is a Sun–Sat month grid for the as-of date in ET.
    Each pay or bill label keeps its full display name on title and aria-label.
    A day with two or more labels shows the first name and a +N chip at narrow widths, and two names on a wide screen. The full list stays on the day title and in the bill list.
    Budget Income and Bills are separate sections.
    The Budget month-to-date block shows spent so far and income received, with a bar for spend as a share of income. It does not invent income from income_monthly.
-   Budget pies, the ranked lists under those pies, and month-to-date category bars list a category only when its month-to-date spend is positive.
-   A plan, a missing amount, or a zero or non-positive amount does not keep that category on those surfaces, and it does not invent spend.
+   Budget pies and the ranked lists under them list a category when its month-to-date spend is positive. A month-dated bill (effective_from or a print amount override) is also listed at the selected month's plan amount, the same amount as its bill line.
+   Month-to-date category bars list a category only when its month-to-date spend is positive. A plan does not add a bar. The limit on a month-dated bill follows the selected month. Actuals stay the as-of print. When the calendar month is not that as-of month, the block says which month those actuals are from.
+   A missing amount, or a zero or non-positive amount, does not keep an undated category on those surfaces, and it does not invent spend.
+   The Budget month buttons keep a compact face and a 44 by 44 hit target.
    Edits still lists those empty categories so Bill versus Optional can be tagged.
    This file does not embed balances, last-4s, or named utilities. */
 
@@ -940,7 +943,24 @@ function bankMtdSpendRows(budget) {
   return bankSpendRows(list, null);
 }
 
-function bankKindPies(snap) {
+function bankNamesMatch(a, b) {
+  if (!bankBillKey(a) || !bankBillKey(b)) return false;
+  if (bankBillKey(a) === bankBillKey(b)) return true;
+  return bankBillNameMatch(a, b) || bankBillNameMatch(b, a);
+}
+
+/* effective_from or a print amount override. Undated bills stay on month-to-date. */
+function bankBillMonthDated(row) {
+  return !!(row && (row.effective_from || bankNum(row.override_amount) != null));
+}
+
+function bankPieAmount(n) {
+  if (n == null || !(n > 0)) return null;
+  if (Math.round(n * 100) <= 0) return null;
+  return n;
+}
+
+function bankKindPies(snap, ym, edits) {
   var ctx = bankKindContext(snap);
   var must = [];
   var optional = [];
@@ -954,9 +974,37 @@ function bankKindPies(snap) {
       optionalSum += r.amount;
     }
   });
-  var bills = must.slice();
-  if (optionalSum > 0) bills.push({ name: "Optional", amount: optionalSum });
-  return { bills: bills, optional: optional };
+  if (ym) {
+    var budget = (snap && snap.budget) || {};
+    bankSurfaceBills(bankNormalizeBills(budget), budget).forEach(function (b) {
+      if (!bankBillMonthDated(b) || bankSkipKindName(b.name, snap)) return;
+      var amount = bankPieAmount(bankBillShownAmount(b, ym, edits));
+      if (amount == null) return;
+      var hit = false;
+      function paint(list, isOpt) {
+        list.forEach(function (slice) {
+          var raw = slice.raw || slice.name;
+          if (!bankNamesMatch(raw, b.name)) return;
+          hit = true;
+          if (isOpt) optionalSum += amount - slice.amount;
+          slice.amount = amount;
+          slice.name = bankBillDisplayName(b.name);
+        });
+      }
+      paint(must, false);
+      paint(optional, true);
+      if (hit) return;
+      var row = { name: bankBillDisplayName(b.name), amount: amount, raw: b.name };
+      if (bankResolveKind(b.name, snap, ctx) === "must_pay") must.push(row);
+      else {
+        optional.push(row);
+        optionalSum += amount;
+      }
+    });
+  }
+  var billSlices = must.slice();
+  if (optionalSum > 0) billSlices.push({ name: "Optional", amount: optionalSum });
+  return { bills: billSlices, optional: optional };
 }
 
 function bankKindTargets(snap) {
@@ -1030,32 +1078,72 @@ function bankBillAmountOverride(budget, row) {
     if (!bankBillNameMatch(row && row.name, match)) return;
     var n = bankNum(o.value != null ? o.value : o.amount);
     if (n == null) return;
-    var eff = o.effective_from == null ? "" : String(o.effective_from).trim();
-    if (eff && !/^\d{4}-\d{2}-\d{2}/.test(eff)) eff = "";
-    found = { amount: n, effective_from: eff ? eff.slice(0, 10) : "" };
+    found = { amount: n, effective_from: bankEffectiveText(o.effective_from) };
   });
   return found;
 }
 
+/* A Z or a numeric UTC offset. Plain dates and month keys are not zoned. */
+function bankDateHasZone(v) {
+  var s = String(v == null ? "" : v);
+  return /[zZ]/.test(s) || /[+-]\d{2}:?\d{2}\s*$/.test(s);
+}
+
+/* Plain YYYY-MM-DD and YYYY-MM stay on that calendar. A zoned instant is the ET wall date. */
+function bankWallDate(v) {
+  var s = v == null ? "" : String(v).trim();
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}$/.test(s)) return s;
+  if (!/^\d{4}-\d{2}/.test(s)) return "";
+  if (!bankDateHasZone(s)) {
+    var plain = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    return plain ? plain[1] : "";
+  }
+  var et = bankEtYmd(s);
+  if (!et || !(et.day >= 1)) {
+    var fallback = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    return fallback ? fallback[1] : "";
+  }
+  return bankYm(et.year, et.month) + "-" + (et.day < 10 ? "0" : "") + String(et.day);
+}
+
+function bankCopyMonth(v) {
+  if (v == null || v === "") return "";
+  var s = String(v).trim();
+  if (!s) return "";
+  if (!bankDateHasZone(s)) return s;
+  var wall = bankWallDate(s);
+  if (/^\d{4}-\d{2}/.test(wall)) return wall.slice(0, 7);
+  return s;
+}
+
+function bankCopyDate(v) {
+  if (v == null || v === "") return "";
+  var s = String(v).trim();
+  if (!s) return "";
+  if (!bankDateHasZone(s)) return s;
+  return bankWallDate(s) || s;
+}
+
 function bankCopyPaid(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  var month = raw.month == null ? "" : String(raw.month).trim();
+  var month = bankCopyMonth(raw.month);
   var status = raw.status == null ? "" : String(raw.status).trim();
   if (!month && !status) return null;
   return {
     month: month,
     status: status,
-    paid_date: raw.paid_date == null ? "" : String(raw.paid_date),
-    due_date: raw.due_date == null ? "" : String(raw.due_date),
+    paid_date: bankCopyDate(raw.paid_date),
+    due_date: bankCopyDate(raw.due_date),
     days_late: bankNum(raw.days_late),
     tx_key: raw.tx_key == null || raw.tx_key === "" ? null : raw.tx_key
   };
 }
 
 function bankEffectiveText(v) {
-  var s = v == null ? "" : String(v).trim();
-  if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return "";
-  return s.slice(0, 10);
+  var wall = bankWallDate(v);
+  return /^\d{4}-\d{2}-\d{2}$/.test(wall) ? wall : "";
 }
 
 function bankNormalizeBills(budget, dueMap) {
@@ -1413,7 +1501,19 @@ function bankInsightText(row) {
   return name;
 }
 
-function bankBudgetBars(budget) {
+/* Limit for a month-dated bill on an existing bar. Undefined means leave the print target. */
+function bankBarPlanLimit(bills, name, ym, edits) {
+  var found = null;
+  (bills || []).some(function (b) {
+    if (!bankBillMonthDated(b) || !bankNamesMatch(b.name, name)) return false;
+    found = b;
+    return true;
+  });
+  if (!found) return undefined;
+  return bankBillShownAmount(found, ym, edits);
+}
+
+function bankBudgetBars(budget, ym, bills, edits) {
   var planned = (budget && budget.planned_by_category) || {};
   var targets = {};
   if (planned && typeof planned === "object" && !Array.isArray(planned)) {
@@ -1424,6 +1524,10 @@ function bankBudgetBars(budget) {
   return bankMtdSpendRows(budget).map(function (r) {
     var has = Object.prototype.hasOwnProperty.call(targets, r.name);
     var target = has ? targets[r.name] : null;
+    if (ym && bills) {
+      var plan = bankBarPlanLimit(bills, r.name, ym, edits);
+      if (plan !== undefined) target = plan;
+    }
     return {
       name: r.name,
       target: target,
@@ -2239,14 +2343,15 @@ function bankMtdCaption(asof) {
   return "Month to date \u00b7 day " + et.day + " of " + bankMonthDim(et.year, et.month);
 }
 
-function bankBarsHtml(rows) {
-  if (!rows.length) return '<p class="bank-empty">No category limits in this print.</p>';
+function bankBarsHtml(rows, note) {
+  var caption = note ? '<p class="bank-bar-note">' + bankEsc(note) + "</p>" : "";
+  if (!rows.length) return caption + '<p class="bank-empty">No category limits in this print.</p>';
   var max = 0;
   rows.forEach(function (r) {
     if (r.target != null) max = Math.max(max, r.target);
     if (r.actual != null) max = Math.max(max, r.actual);
   });
-  return rows.map(function (r) {
+  var body = rows.map(function (r) {
     var pct = r.actual == null || !(max > 0) ? 0 : Math.max(0, Math.min(100, (r.actual / max) * 100));
     var tick = r.target == null || !(max > 0) ? null : Math.max(0, Math.min(100, (r.target / max) * 100));
     var fill = r.actual == null ? "" : '<span class="fill" style="width:' + pct.toFixed(1) + '%"></span>';
@@ -2256,6 +2361,7 @@ function bankBarsHtml(rows) {
       "</b><i>Limit " + bankMoney(r.target) + "</i></div>" +
       '<div class="bank-bar-track" aria-hidden="true">' + fill + mark + "</div></div>";
   }).join("");
+  return caption + body;
 }
 
 function bankEtYmd(asof) {
@@ -2595,8 +2701,8 @@ function bankKindPieHtml(rows, heading, empty, key) {
     '</h3><div class="bank-split">' + bankPieHtml(rows, { aria: heading }) + bankRankHtml(rows) + "</div></section>";
 }
 
-function bankKindBlocks(snap) {
-  var pies = bankKindPies(snap);
+function bankKindBlocks(snap, ym, edits) {
+  var pies = bankKindPies(snap, ym, edits);
   return '<div class="bank-kind-pies">' +
     bankKindPieHtml(pies.bills, "Bill vs optional \u00b7 plan", "No bill spending this month.", "bills") +
     bankKindPieHtml(pies.optional, "Optional split \u00b7 plan", "No optional spending this month.", "optional") +
@@ -2620,6 +2726,10 @@ function bankMonthKey(ym) {
     return bankYm(Number(ym.year), Number(ym.month));
   }
   var s = String(ym).trim();
+  if (bankDateHasZone(s)) {
+    var wall = bankWallDate(s);
+    if (/^\d{4}-\d{2}/.test(wall)) return wall.slice(0, 7);
+  }
   var p = s.match(/^(\d{4})-(\d{2})/);
   if (!p) return "";
   var month = Number(p[2]);
@@ -2686,7 +2796,7 @@ function bankBillShownAmount(row, ym, edits) {
 }
 
 function bankShortDate(iso) {
-  var m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  var m = String(bankWallDate(iso) || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return "";
   var month = Number(m[2]);
   var day = Number(m[3]);
@@ -2911,14 +3021,19 @@ function bankBudgetHtml(snap, opts) {
       return '<li class="' + cls + '">' + bankEsc(bankInsightText(row)) + "</li>";
     }).join("") + "</ul>"
     : '<p class="bank-empty">No insights in this print.</p>';
-  var bars = bankBudgetBars(budget);
+  var bars = bankBudgetBars(budget, ym, bills, opts.edits);
+  var viewKey = bankMonthKey(ym);
+  var asofKey = bankAsofMonthKey(snap);
+  var barNote = viewKey && asofKey && viewKey !== asofKey
+    ? "Showing " + bankMonthLabel(asofKey) + " actuals"
+    : "";
   return '<div class="bank-budget-top"><section class="bank-cal"><h3>Due calendar \u00b7 plan</h3>' +
     bankCalendarHtml(cells, hasDays, ym, bankBillCalendarAmounts(bills, ym, opts.edits)) + bankCoversHtml(bankCheckGroups(bills, incomes)) +
     '</section><section class="bank-insight-block"><h3>Insights</h3>' + insightHtml + "</section></div>" +
-    bankKindBlocks(snap) +
+    bankKindBlocks(snap, ym, opts.edits) +
     bankIncomeListHtml(incomes) +
     bankBillListHtml(bills, ym, opts.edits, bankPlanTotalsHtml(snap, ym)) +
-    '<section class="bank-bars"><h3>Progress vs limits</h3>' + bankBarsHtml(bars) + "</section>";
+    '<section class="bank-bars"><h3>Progress vs limits</h3>' + bankBarsHtml(bars, barNote) + "</section>";
 }
 
 function bankHasDueNote(snap) {

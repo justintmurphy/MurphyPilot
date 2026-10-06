@@ -881,8 +881,10 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.doesNotMatch(index, /href="\/house\/banking"/);
   assert.match(index, /house\.css\?v=20260904cn/);
   assert.match(nav, /href="\/house\/banking\/">Banking</);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dx/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904dx/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dy/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dy/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904du/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dt/);
@@ -4100,7 +4102,8 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20260904dx/);
+  assert.match(page, /banking\.js\?v=20260904dy/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dt/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ds/);
@@ -4255,8 +4258,10 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20260904dx/);
-  assert.match(page, /banking\.css\?v=20260904dx/);
+  assert.match(page, /banking\.js\?v=20260904dy/);
+  assert.match(page, /banking\.css\?v=20260904dy/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904du/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dt/);
@@ -4401,8 +4406,10 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dx/);
-  assert.match(page, /\/house\/banking\.css\?v=20260904dx/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20260904dy/);
+  assert.match(page, /\/house\/banking\.css\?v=20260904dy/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dt/);
   assert.doesNotMatch(src, /\+ 14|typical_day \+ 14/);
@@ -4555,8 +4562,10 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20260904dx/);
-  assert.match(page, /banking\.css\?v=20260904dx/);
+  assert.match(page, /banking\.js\?v=20260904dy/);
+  assert.match(page, /banking\.css\?v=20260904dy/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dx/);
   assert.equal(typeof ctx.bankBillAmountForMonth, "function");
   assert.equal(typeof ctx.bankMatchBillPayment, "undefined");
   assert.doesNotMatch(src, /function bankMatchBill/);
@@ -4842,4 +4851,89 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const hist = ctx.bankPageHtml(fx, { tab: "historical", year: "2026", month: "2026-09" });
   assert.doesNotMatch(hist, /New amount from|Paid late|data-plan="dues"/);
   assert.match(hist, /2026-09/);
+});
+
+test("tip dy plan blocks follow the selected month", function () {
+  const ctx = boot();
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  const page = fs.readFileSync(path.join(root, "house/banking/index.html"), "utf8");
+  assert.match(page, /banking\.js\?v=20260904dy/);
+  assert.match(page, /banking\.css\?v=20260904dy/);
+  assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
+  assert.doesNotMatch(page, /banking\.css\?v=20260904dx/);
+
+  assert.equal(ctx.bankEffectiveText("2026-10-01"), "2026-10-01");
+  assert.equal(ctx.bankEffectiveText("2026-10-01T02:00Z"), "2026-09-30");
+  assert.equal(ctx.bankEffectiveText("2026-10-01T02:00:00+00:00"), "2026-09-30");
+  assert.equal(ctx.bankEffectiveText("2026-10-01T06:00:00-04:00"), "2026-10-01");
+  assert.equal(ctx.bankMonthKey("2026-10"), "2026-10");
+  assert.equal(ctx.bankMonthKey("2026-10-01"), "2026-10");
+  assert.equal(ctx.bankMonthKey("2026-10-01T02:00Z"), "2026-09");
+  assert.equal(ctx.bankShortDate("2026-10-01"), "Oct 1");
+  assert.equal(ctx.bankShortDate("2026-10-01T02:00Z"), "Sep 30");
+
+  const zoned = ctx.bankNormalizeBills({
+    bills: [{
+      name: "Mortgage",
+      amount: 1200,
+      prev_amount: 1000,
+      effective_from: "2026-10-01T02:00Z",
+      typical_day: 1,
+      paid_current_month: {
+        month: "2026-10-01T02:00Z",
+        status: "paid_late",
+        paid_date: "2026-10-01T02:00Z",
+        due_date: "2026-10-01T02:00Z",
+        days_late: 1,
+        tx_key: null
+      }
+    }]
+  })[0];
+  assert.equal(zoned.effective_from, "2026-09-30");
+  assert.equal(zoned.paid_current_month.month, "2026-09");
+  assert.equal(zoned.paid_current_month.paid_date, "2026-09-30");
+  assert.equal(zoned.paid_current_month.due_date, "2026-09-30");
+  assert.equal(ctx.bankBillAmountForMonth(zoned, "2026-08"), 1000);
+  assert.equal(ctx.bankBillAmountForMonth(zoned, "2026-09"), 1200);
+  assert.equal(ctx.bankShortDate(zoned.paid_current_month.paid_date), "Sep 30");
+
+  const fx = loadFixture();
+  fx.asof = "2026-10-05T12:00:00-04:00";
+  fx.budget.bills = [{
+    name: "Mortgage",
+    amount: 1200,
+    prev_amount: 1000,
+    effective_from: "2026-10-01",
+    typical_day: 1
+  }];
+  fx.budget.bills_monthly = [];
+  fx.budget.overrides = [];
+  fx.budget.mtd_actual_by_category = { Mortgage: 1200, Groceries: 30 };
+  fx.budget.planned_by_category = { Mortgage: 1200, Groceries: 12.34 };
+  const sep = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-09" });
+  const oct = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
+  const sepPie = pieBlock(sep, "bills");
+  const octPie = pieBlock(oct, "bills");
+  assert.match(sepPie, /Mortgage<\/span><b>\$1,000\.00<\/b>/);
+  assert.doesNotMatch(sepPie, /Mortgage<\/span><b>\$1,200\.00<\/b>/);
+  assert.match(octPie, /Mortgage<\/span><b>\$1,200\.00<\/b>/);
+  assert.match(billLine(sep, "Mortgage"), /\$1,000\.00/);
+  assert.match(pieBlock(sep, "optional"), /Groceries<\/span><b>\$30\.00<\/b>/);
+  const sepBars = sep.slice(sep.indexOf('class="bank-bars"'));
+  const octBars = oct.slice(oct.indexOf('class="bank-bars"'));
+  assert.match(sepBars, /<p class="bank-bar-note">Showing Oct actuals<\/p>/);
+  assert.match(sepBars, /data-bar="Mortgage"[\s\S]*?Actual \$1,200\.00[\s\S]*?Limit \$1,000\.00/);
+  assert.match(sepBars, /data-bar="Groceries"[\s\S]*?Actual \$30\.00[\s\S]*?Limit \$12\.34/);
+  assert.doesNotMatch(oct, /Showing Oct actuals/);
+  assert.doesNotMatch(oct, /bank-bar-note/);
+  assert.match(octBars, /data-bar="Mortgage"[\s\S]*?Actual \$1,200\.00[\s\S]*?Limit \$1,200\.00/);
+  assert.match(octBars, /<h3>Progress vs limits<\/h3>/);
+
+  const face = css.slice(css.indexOf(".bank-cal-nav {"), css.indexOf(".bank-cal-nav::before"));
+  assert.match(face, /min-width:\s*28px/);
+  assert.match(face, /min-height:\s*28px/);
+  const hit = css.slice(css.indexOf(".bank-cal-nav::before"), css.indexOf(".bank-cal-nav::before") + 320);
+  assert.match(hit, /width:\s*44px/);
+  assert.match(hit, /height:\s*44px/);
+  assert.match(hit, /position:\s*absolute/);
 });
