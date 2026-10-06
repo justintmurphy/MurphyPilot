@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Murphy Pilot · Banking</title>
+<title>Murphy Pilot · Investments</title>
 <meta name="theme-color" content="#08090B">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,31 +13,32 @@
 <script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k)||localStorage.getItem("murphyHouseTheme");if(t==="nina"||t==="purple")t="nina";else t="justin";document.documentElement.setAttribute("data-theme",t);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="nina"?"#1A0A24":"#08090B");}catch(e){document.documentElement.setAttribute("data-theme","justin");}})();</script>
 <script src="/js/nav.js?v=20261006ed"></script>
 <link rel="stylesheet" href="/house/house.css?v=20261006ed">
-<link rel="stylesheet" href="/house/banking.css?v=20260904eb">
 </head>
-<body class="bank-page">
+<body class="inv-page">
 <header>
   <a class="mark" href="/" aria-label="Murphy Pilot House">
     <img src="/house/logo.svg?v=20260904cn" width="52" height="52" alt="Murphy Pilot">
   </a>
-  <a class="brand-block" href="/">
+  <a class="brand-block" href="/investments/">
     <div class="brand">MURPHY PILOT</div>
-    <div class="sub">BANKING</div>
+    <div class="sub" id="deskSub">INVESTMENTS</div>
   </a>
   <div class="clock" id="clock"><div class="t">--:--:-- ET</div><div class="d"></div></div>
   <div class="header-end">
-    <div id="mpNav" class="mp-nav" data-section="banking"></div>
-    <div class="theme-switch" role="group" aria-label="Looks">
-      <button type="button" data-theme-choice="justin">Justin</button>
-      <button type="button" data-theme-choice="nina">Nina</button>
+    <div id="mpNav" class="mp-nav" data-section="investments"></div>
+    <div class="idx-strip" id="idxStrip" aria-label="Index levels">
+      <span class="idx" data-idx="spx"><abbr title="S&amp;P 500">S&amp;P</abbr> <b>—</b></span>
+      <span class="idx" data-idx="ndx"><abbr title="Nasdaq-100">Nasdaq</abbr> <b>—</b></span>
     </div>
   </div>
 </header>
 <div id="mp-ticker" class="mp-ticker-slot" hidden></div>
-<main class="desk bank-desk" id="bankDesk">
-  <p class="bank-gate">Loading banking…</p>
-</main>
-<noscript><p>Banking needs JavaScript to read the signed-in feed. Balances are not in this page.</p></noscript>
-<script src="/house/js/banking.js?v=20260904eb"></script>
+<div class="ticker" id="ticker" aria-label="Tracked names"><div class="ticker-track" id="tickerTrack"></div></div>
+<main class="desk" id="desk"></main>
+<script src="/house/js/board-a.js?v=20260904cn"></script>
+<script src="/house/js/board-b.js?v=20261006ed"></script>
+<script src="/house/js/board-c.js?v=20261006ed"></script>
+<script src="/house/js/board-d.js?v=20260904cn"></script>
+<script src="/house/js/board-e.js?v=20261006ed"></script>
 </body>
 </html>

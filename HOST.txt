@@ -7,8 +7,8 @@ The private repo is the site.
   cd MurphyPilot
   ./serve.sh          # Windows: serve.bat
 
-  Pilot  http://127.0.0.1:8765/
-  House  http://127.0.0.1:8765/house/
+  Banking       http://127.0.0.1:8765/
+  Investments   http://127.0.0.1:8765/investments/
 
 Update: git pull   then refresh the browser.
 Do not open file:// if you want the JSON snapshots to load.

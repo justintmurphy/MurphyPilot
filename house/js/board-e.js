@@ -64,15 +64,13 @@ function injectPack() {
   } catch (err) {}
 }
 function loadIndexes() {
-  var housePath = /\/house(\/|$)/.test(location.pathname);
-  fetch((housePath ? "indexes.json" : "house/indexes.json") + "?t=" + Date.now(), { cache: "no-store" })
+  fetch("/house/indexes.json?t=" + Date.now(), { cache: "no-store" })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(paintIndexes)
     .catch(function () {});
 }
 function loadPack() {
-  var housePath = /\/house(\/|$)/.test(location.pathname);
-  fetch((housePath ? "policy-pack.json" : "house/policy-pack.json") + "?t=" + Date.now(), { cache: "no-store" })
+  fetch("/house/policy-pack.json?t=" + Date.now(), { cache: "no-store" })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (data) {
       if (!data) return;
