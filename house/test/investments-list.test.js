@@ -480,14 +480,53 @@ test("a failed ticker fetch stays hidden and the desk still renders", async func
   assert.doesNotMatch(book, /class="list-cap"/);
 });
 
+test("investments ticker fields do not ellipsize and render full text", function () {
+  const ctx = boot();
+  ctx.FAKE_NOW = "2026-10-16T10:00:00-04:00";
+  ctx.INDEXES = {
+    spx: { last: 100, pct: 1.5 },
+    ndx: { last: 200, pct: -0.5 }
+  };
+  const el = { hidden: true, innerHTML: "", addEventListener: function () {} };
+  ctx.document.getElementById = function (id) {
+    if (id === "mpNav") return sectionNav("investments");
+    if (id === "mp-ticker") return el;
+    return null;
+  };
+  ctx.snap = deskSnap();
+  ctx.invPaintTicker(ctx.snap);
+  const fields = [];
+  const re = /<(span|b|i)\b[^>]*>([^<]*)<\/\1>/g;
+  let m;
+  while ((m = re.exec(el.innerHTML))) {
+    fields.push(m[2].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
+  }
+  assert.deepEqual(fields, [
+    "Portfolio", "$90.00", "+$10.00",
+    "S&P 500", "100.00", "+1.50%",
+    "Nasdaq", "200.00", "\u22120.50%",
+    "Fill", "BBB", "Sell", "15:01"
+  ]);
+  fields.forEach(function (text) {
+    assert.equal(text, text.trim());
+    assert.doesNotMatch(text, /\u2026|\.\.\.$/);
+  });
+  const css = fs.readFileSync(path.join(root, "house/ticker.css"), "utf8");
+  const rule = /\.mp-ticker\.mp-ticker-desk b,\s*\.mp-ticker\.mp-ticker-desk i,\s*\.mp-ticker\.mp-ticker-desk span\s*\{([^}]*)\}/.exec(css);
+  assert.ok(rule, "desk ticker fields need their own overflow rule");
+  assert.match(rule[1], /text-overflow:\s*clip/);
+  assert.doesNotMatch(rule[1], /ellipsis/);
+  assert.match(css, /\.mp-ticker b,\s*\.mp-ticker i,\s*\.mp-ticker span\s*\{[^}]*text-overflow:\s*ellipsis/);
+});
+
 test("investments page wires the shared list cap and ticker", function () {
   const page = fs.readFileSync(path.join(root, "investments/index.html"), "utf8");
   assert.equal((page.match(/id="mp-ticker"/g) || []).length, 1);
   assert.match(page, /<div id="mp-ticker" class="mp-ticker-slot" hidden><\/div>/);
   assert.match(page, /list-cap\.js\?v=20261006ec3/);
   assert.match(page, /list-cap\.css\?v=20261006ec3/);
-  assert.match(page, /ticker\.js\?v=20261007eo/);
-  assert.match(page, /ticker\.css\?v=20261007eo/);
+  assert.match(page, /ticker\.js\?v=20261007eo2/);
+  assert.match(page, /ticker\.css\?v=20261007eo2/);
   assert.doesNotMatch(page, /banking\.js/);
   const css = fs.readFileSync(path.join(root, "house/list-cap.css"), "utf8");
   assert.match(css, /overflow-y:\s*auto/);
