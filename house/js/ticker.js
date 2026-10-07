@@ -12,22 +12,6 @@
     return "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  function mask(last4) {
-    if (typeof root.bankAccountMask === "function") return root.bankAccountMask(last4);
-    var digits = String(last4 || "").replace(/\D/g, "");
-    if (digits.length > 4) digits = digits.slice(-4);
-    return digits ? "\u00b7\u00b7" + digits : "";
-  }
-
-  function face(account) {
-    if (typeof root.bankAccountFace === "function") return root.bankAccountFace(account);
-    if (!account) return "";
-    if (typeof account === "string") return account;
-    var nick = account.nickname || account.name || "";
-    var last = mask(account.last4 || account.last_4);
-    return nick && last ? nick + " " + last : (nick || last);
-  }
-
   function shortDate(iso) {
     if (typeof root.bankShortDate === "function") return root.bankShortDate(iso) || iso;
     return iso || "";
@@ -222,12 +206,10 @@
     var depName = deposit ? (deposit.kind || deposit.name || "Deposit") : "";
     var depAria = deposit ? ("Next deposit " + depName + (depWhen ? " " + depWhen : "") + " " + money(deposit.amount)) : "";
     var billAria = bill ? ("Next bill " + (bill.name || "") + (billWhen ? " " + billWhen : "") + " " + money(bill.amount)) : "";
-    var acct = deposit ? face(deposit.account) : "";
-    var acctBit = acct && !/\bTBD\b/.test(acct) ? " <i>" + esc(acct) + "</i>" : "";
     var left = deposit
       ? '<button type="button" data-mp-tick="in" title="' + esc(deposit.name || "Deposit") + '" aria-label="' + esc(depAria) + '">' +
         "<span>Next in</span> <b>" + esc(depName) + "</b> <b>" +
-        esc(depWhen) + "</b> <b>" + money(deposit.amount) + "</b>" + acctBit + "</button>"
+        esc(depWhen) + "</b> <b>" + money(deposit.amount) + "</b></button>"
       : '<span class="mp-tick-empty">Next in \u2014</span>';
     var more = bill && bill.more > 0 ? " +" + bill.more + " more" : "";
     var right = bill
@@ -267,18 +249,21 @@
     if (!mountEl || mountEl._mpTickerPainted) return;
     if (pageSection() !== "banking") return;
     var creds = { credentials: "same-origin" };
-    Promise.all([
-      fetch("/data/banking.json", creds).then(function (res) { return res && res.ok ? res.json() : null; }),
-      fetch("/data/banking/tiers.json", creds).then(function (res) { return res && res.ok ? res.json() : null; })
-    ]).then(function (pair) {
-      if (mountEl._mpTickerPainted) return;
-      if (!pair[0]) {
+    fetch("/data/banking.json", creds).then(function (res) {
+      return res && res.ok ? res.json() : null;
+    }).then(function (print) {
+      if (mountEl._mpTickerPainted) return null;
+      if (!print) {
         mountEl.hidden = true;
         mountEl.innerHTML = "";
-        return;
+        return null;
       }
-      mountEl._mpTickerPainted = true;
-      render(mountEl, pair[0], pair[1], null);
+      return fetch("/data/banking/tiers.json", creds).then(function (res) {
+        return res && res.ok ? res.json() : null;
+      }).catch(function () { return null; }).then(function (tiers) {
+        if (mountEl._mpTickerPainted) return;
+        render(mountEl, print, tiers, null);
+      });
     }).catch(function () {
       if (mountEl._mpTickerPainted) return;
       mountEl.hidden = true;

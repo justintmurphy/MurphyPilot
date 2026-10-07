@@ -448,7 +448,9 @@ test("banking ticker still shows the next deposit and the next bill", function (
   assert.match(el.innerHTML, /Oct 15/);
   assert.match(el.innerHTML, /Oct 20/);
   assert.match(el.innerHTML, /aria-label="Next deposit Payroll Oct 15 \$40\.00\. Next bill Rent Oct 20 \$22\.00"/);
-  assert.match(el.innerHTML, /··1111/);
+  assert.match(el.innerHTML, /aria-label="Next deposit Payroll Oct 15 \$40\.00"/);
+  assert.match(el.innerHTML, /aria-label="Next bill Rent Oct 20 \$22\.00"/);
+  assert.doesNotMatch(el.innerHTML, /··1111/);
 });
 
 test("a failed ticker fetch stays hidden and the desk still renders", async function () {
@@ -523,10 +525,11 @@ test("investments page wires the shared list cap and ticker", function () {
   const page = fs.readFileSync(path.join(root, "investments/index.html"), "utf8");
   assert.equal((page.match(/id="mp-ticker"/g) || []).length, 1);
   assert.match(page, /<div id="mp-ticker" class="mp-ticker-slot" hidden><\/div>/);
-  assert.match(page, /list-cap\.js\?v=20261006ec3/);
-  assert.match(page, /list-cap\.css\?v=20261006ec3/);
-  assert.match(page, /ticker\.js\?v=20261007eo2/);
-  assert.match(page, /ticker\.css\?v=20261007eo2/);
+  assert.match(page, /list-cap\.js\?v=20261007eh/);
+  assert.match(page, /list-cap\.css\?v=20261007eh/);
+  assert.match(page, /nav\.js\?v=20261007eh/);
+  assert.match(page, /ticker\.js\?v=20261007eh3/);
+  assert.match(page, /ticker\.css\?v=20261007eh4/);
   assert.doesNotMatch(page, /banking\.js/);
   const css = fs.readFileSync(path.join(root, "house/list-cap.css"), "utf8");
   assert.match(css, /overflow-y:\s*auto/);

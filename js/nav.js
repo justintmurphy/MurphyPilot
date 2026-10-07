@@ -8,7 +8,7 @@
       banking: {
         label: "BANKING",
         href: "/",
-        themeInMenu: false,
+        themeInMenu: true,
         items: [
           { id: "budget", label: "Budget", href: "/#budget" },
           { id: "current", label: "Current", href: "/#current" },

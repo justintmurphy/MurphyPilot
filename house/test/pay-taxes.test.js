@@ -785,23 +785,25 @@ test("pay and taxes load the stylesheet that defines .bank-view-title", function
   });
 });
 
-test("list cap is position relative and paydesk busts at 20261007en", function () {
+test("list cap is position relative and pages bust caches at 20261007eh", function () {
   const css = read("house/list-cap.css");
   assert.equal((css.match(/position:\s*relative/g) || []).length, 1);
   ["pay/index.html", "taxes/index.html"].forEach(function (rel) {
     const html = read(rel);
-    assert.match(html, /\/js\/nav\.js\?v=20261007em/);
+    assert.match(html, /\/js\/nav\.js\?v=20261007eh/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007em/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007em/);
     assert.match(html, /\/house\/js\/paydesk\.js\?v=20261007en/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
-    assert.match(html, /\/house\/js\/banking\.js\?v=20261007em/);
+    assert.match(html, /\/house\/js\/banking\.js\?v=20261007eh/);
+    assert.match(html, /\/house\/house\.css\?v=20261007eh/);
+    assert.match(html, /list-cap\.js\?v=20261007eh/);
     assert.match(html, /id="clock"/);
     assert.match(html, /id="mp-ticker"/);
     assert.match(html, /class="theme-switch"/);
     assert.doesNotMatch(html, /Agentic \/ AI WWIII only/);
   });
-  assert.match(read("investments/index.html"), /\/js\/nav\.js\?v=20261007em/);
+  assert.match(read("investments/index.html"), /\/js\/nav\.js\?v=20261007eh/);
   assert.match(read("js/nav.js"), /function tickClock/);
   assert.doesNotMatch(read("house/js/banking.js"), /function bankTickClock/);
 });
@@ -825,7 +827,7 @@ test("pay and taxes number and control rules stay off Investments", function () 
 });
 
 test("house.css and banking.js share one cache bust", function () {
-  const version = "20261007em";
+  const version = "20261007eh";
   const pages = ["index.html", "investments/index.html", "pay/index.html", "taxes/index.html"];
   const house = new Set();
   const banking = new Set();
@@ -844,7 +846,7 @@ test("house.css and banking.js share one cache bust", function () {
   assert.deepEqual(Array.from(house), [version]);
   assert.deepEqual(Array.from(banking), [version]);
   assert.match(read("house/house.css"), new RegExp("house-b\\.css\\?v=" + version));
-  assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261007em)/);
+  assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261007eh)/);
 });
 
 test("banking menu links Pay and Taxes on absolute paths", function () {

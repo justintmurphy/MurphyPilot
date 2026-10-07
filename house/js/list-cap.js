@@ -1,5 +1,6 @@
 /* Shared list cap. Ten rows stay visible. The rest scroll inside the box.
-   Height is the 10th row's offsetTop + offsetHeight. CSS max-height is the fallback. */
+   Height is the top of the first hidden row, so row 11 cannot peek through.
+   CSS max-height is the fallback until measure runs. */
 (function (root) {
   var MAX = 10;
 
@@ -18,6 +19,7 @@
     var max = opts.max || MAX;
     var count = Number(opts.count);
     if (!(count > max)) return inner || "";
+    if (String(inner || "").indexOf("list-cap") >= 0) return inner || "";
     var label = opts.label || "List";
     return '<div class="list-cap" style="--list-cap-rows:' + max + '" tabindex="0" role="region" aria-label="' +
       esc(label) + '">' + (inner || "") + '</div><p class="list-cap-note">' + noteText(max, count) + "</p>";
@@ -47,18 +49,50 @@
     });
   }
 
-  /* offsetTop walked up to the scrolling list, plus the row's own height. */
-  function rowEnd(row, list) {
+  /* Distance from the cap's border edge to a row edge. position:relative keeps offsetParent inside the cap. */
+  function rowMetric(row, list, edge) {
+    if (row && list && typeof row.getBoundingClientRect === "function" && typeof list.getBoundingClientRect === "function") {
+      var rowBox = row.getBoundingClientRect();
+      var listBox = list.getBoundingClientRect();
+      var boxHeight = rowBox.height || Number(row.offsetHeight) || 0;
+      if (boxHeight > 0 || rowBox.top || rowBox.bottom) {
+        var y = edge === "top" ? rowBox.top : rowBox.bottom;
+        return (y - listBox.top) + (Number(list.scrollTop) || 0);
+      }
+    }
     var top = Number(row && row.offsetTop) || 0;
     var height = Number(row && row.offsetHeight) || 0;
     var node = row && row.offsetParent;
     var guard = 0;
     while (node && node !== list && guard < 8) {
+      if (list && typeof list.contains === "function" && !list.contains(node)) break;
       top += Number(node.offsetTop) || 0;
       node = node.offsetParent;
       guard += 1;
     }
-    return top + height;
+    return edge === "top" ? top : top + height;
+  }
+
+  function rowEnd(row, list) {
+    return rowMetric(row, list, "bottom");
+  }
+
+  /* Rows whose top sits inside the cap. A row that only peeks by a pixel does not count. */
+  function countVisible(el, rows) {
+    if (!el || !rows || !el.getBoundingClientRect) return 0;
+    var limit = Number(el.clientHeight) || 0;
+    if (!(limit > 0)) return 0;
+    var host = el.getBoundingClientRect();
+    var n = 0;
+    var i;
+    for (i = 0; i < rows.length; i++) {
+      var box = rows[i].getBoundingClientRect ? rows[i].getBoundingClientRect() : null;
+      if (!box) continue;
+      var top = box.top - host.top;
+      if (top >= limit - 1) break;
+      if (box.height > 1 && top < limit - 1) n += 1;
+    }
+    return n;
   }
 
   function readMax(el, fallback) {
@@ -82,11 +116,31 @@
       if (el.removeAttribute) el.removeAttribute("data-list-cap-measured");
       return 0;
     }
-    var end = rowEnd(rows[max - 1], el);
-    if (!(end > 0)) return 0;
-    if (el.style) el.style.maxHeight = end + "px";
-    if (el.setAttribute) el.setAttribute("data-list-cap-measured", "1");
-    return end;
+    var saved = el.style ? el.style.maxHeight : "";
+    if (el.style) el.style.maxHeight = "none";
+    /* Clip at the top of the first hidden row so row max+1 stays out of view. */
+    var clip = rows[max] ? rowMetric(rows[max], el, "top") : 0;
+    if (!(clip > 0)) clip = rowEnd(rows[max - 1], el);
+    if (!(clip > 0)) {
+      if (el.style) el.style.maxHeight = saved;
+      return 0;
+    }
+    var height = Math.floor(clip);
+    if (height < 1) height = 1;
+    if (el.style) el.style.maxHeight = height + "px";
+    var shown = countVisible(el, rows);
+    var guard = 0;
+    while (shown > max && height > 8 && guard < 24) {
+      height -= 1;
+      if (el.style) el.style.maxHeight = height + "px";
+      shown = countVisible(el, rows);
+      guard += 1;
+    }
+    if (el.setAttribute) {
+      el.setAttribute("data-list-cap-measured", "1");
+      el.setAttribute("data-list-visible", String(shown));
+    }
+    return height;
   }
 
   function watch(el, max) {
@@ -114,9 +168,20 @@
     }
   }
 
+  function capOwner(el) {
+    var node = el && el.parentElement;
+    while (node) {
+      if (node.classList && node.classList.contains("list-cap")) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
   function apply(el, opts) {
     if (!el) return el;
     opts = opts || {};
+    if (capOwner(el)) return el;
+    if (el.querySelector && el.querySelector(".list-cap")) return el;
     var max = opts.max || MAX;
     var rows = listRows(el);
     var count = rows.length || (el.children ? el.children.length : 0);
@@ -135,14 +200,19 @@
     return el;
   }
 
+  /* One cap per list. A list already inside a cap, or one that wraps a cap, stays as it is. */
   function refresh(scope) {
     if (!scope || !scope.querySelectorAll) return;
-    var nodes = scope.querySelectorAll(".list-cap, ol.bank-rank");
+    var nodes = scope.querySelectorAll(".list-cap");
     Array.prototype.forEach.call(nodes, function (el) {
+      if (capOwner(el)) {
+        if (el.classList) el.classList.remove("list-cap");
+        if (el.style) el.style.maxHeight = "";
+        return;
+      }
       var rows = listRows(el);
       var max = readMax(el, MAX);
       if (rows.length > max) {
-        if (el.classList && !el.classList.contains("list-cap")) el.classList.add("list-cap");
         measure(el, max);
         watch(el, max);
       }
@@ -154,6 +224,7 @@
     capHtml: capHtml,
     measure: measure,
     refresh: refresh,
+    visibleCount: countVisible,
     max: MAX,
     note: noteText
   };
