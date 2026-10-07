@@ -785,22 +785,22 @@ test("pay and taxes load the stylesheet that defines .bank-view-title", function
   });
 });
 
-test("list cap is position relative and pages bust caches at 20261007eh", function () {
+test("list cap is position relative and pages bust caches together", function () {
   const css = read("house/list-cap.css");
   assert.equal((css.match(/position:\s*relative/g) || []).length, 1);
   ["pay/index.html", "taxes/index.html"].forEach(function (rel) {
     const html = read(rel);
     assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
-    assert.match(html, /\/house\/ticker\.css\?v=20261007em/);
-    assert.match(html, /\/house\/js\/ticker\.js\?v=20261007em/);
+    assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
+    assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
     assert.match(html, /\/house\/js\/paydesk\.js\?v=20261007en/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
     assert.match(html, /\/house\/js\/banking\.js\?v=20261007ep/);
-    assert.match(html, /\/house\/house\.css\?v=20261007eh/);
+    assert.match(html, /\/house\/house\.css\?v=20261007ei/);
     assert.match(html, /list-cap\.js\?v=20261007eh/);
     assert.match(html, /id="clock"/);
     assert.match(html, /id="mp-ticker"/);
-    assert.match(html, /class="theme-switch"/);
+    assert.doesNotMatch(html, /class="theme-switch"/);
     assert.doesNotMatch(html, /Agentic \/ AI WWIII only/);
   });
   assert.match(read("investments/index.html"), /\/js\/nav\.js\?v=20261007ep/);
@@ -827,7 +827,7 @@ test("pay and taxes number and control rules stay off Investments", function () 
 });
 
 test("house.css and banking.js share one cache bust", function () {
-  const houseVersion = "20261007eh";
+  const houseVersion = "20261007ei";
   const bankVersion = "20261007ep";
   const pages = ["index.html", "investments/index.html", "pay/index.html", "taxes/index.html"];
   const house = new Set();

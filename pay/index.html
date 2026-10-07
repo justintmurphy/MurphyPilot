@@ -10,12 +10,12 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/house/logo.svg?v=20260904cn" sizes="any">
 <link rel="apple-touch-icon" href="/house/logo.svg?v=20260904cn">
-<script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k)||localStorage.getItem("murphyHouseTheme");if(t==="nina"||t==="purple")t="nina";else t="justin";document.documentElement.setAttribute("data-theme",t);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="nina"?"#1A0A24":"#08090B");}catch(e){document.documentElement.setAttribute("data-theme","justin");}})();</script>
+<script>(function(){try{var who=localStorage.getItem("murphyPilotWho");if(who!=="justin"&&who!=="nina")who=null;var pick;var t;if(who){pick=localStorage.getItem("murphyPilotThemePick:"+who);t=(pick==="justin"||pick==="nina")?pick:who;}else{pick=localStorage.getItem("murphyPilotThemePick");t=(pick==="justin"||pick==="nina")?pick:"justin";}document.documentElement.setAttribute("data-theme",t);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="nina"?"#1A0A24":"#08090B");}catch(e){document.documentElement.setAttribute("data-theme","justin");}})();</script>
 <script src="/js/nav.js?v=20261007ep"></script>
-<link rel="stylesheet" href="/house/house.css?v=20261007eh">
-<link rel="stylesheet" href="/house/banking.css?v=20261007eh">
+<link rel="stylesheet" href="/house/house.css?v=20261007ei">
+<link rel="stylesheet" href="/house/banking.css?v=20261007ei">
 <link rel="stylesheet" href="/house/list-cap.css?v=20261007eh">
-<link rel="stylesheet" href="/house/ticker.css?v=20261007em">
+<link rel="stylesheet" href="/house/ticker.css?v=20261007ei">
 </head>
 <body class="inv-page">
 <header>
@@ -29,10 +29,6 @@
   <div class="clock" id="clock"><div class="t">--:--:-- ET</div><div class="d"></div></div>
   <div class="header-end">
     <div id="mpNav" class="mp-nav" data-section="banking"></div>
-    <div class="theme-switch" role="group" aria-label="Looks">
-      <button type="button" data-theme-choice="justin">Justin</button>
-      <button type="button" data-theme-choice="nina">Nina</button>
-    </div>
   </div>
 </header>
 <div id="mp-ticker" class="mp-ticker-slot" hidden></div>
@@ -42,7 +38,7 @@
 <noscript><p>Pay needs JavaScript to read the signed-in feed.</p></noscript>
 <script src="/house/js/list-cap.js?v=20261007eh"></script>
 <script src="/house/js/banking.js?v=20261007ep"></script>
-<script src="/house/js/ticker.js?v=20261007em"></script>
+<script src="/house/js/ticker.js?v=20261007ei"></script>
 <script src="/house/js/paydesk.js?v=20261007en"></script>
 </body>
 </html>

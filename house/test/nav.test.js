@@ -126,10 +126,13 @@ function bootNav(opts) {
   };
   const document = {
     readyState: opts.readyState || "complete",
-    documentElement: {
-      getAttribute: function () { return opts.theme || "justin"; },
-      setAttribute: function () {}
-    },
+    documentElement: (function () {
+      var attrs = { "data-theme": opts.theme || "justin" };
+      return {
+        getAttribute: function (k) { return Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null; },
+        setAttribute: function (k, v) { attrs[k] = String(v); }
+      };
+    })(),
     getElementById: function (id) { return elements[id] || null; },
     querySelector: function (sel) {
       if (sel === "main") return elements.main;
@@ -337,8 +340,10 @@ test("top nav is two buttons and the open menu matches the section", function ()
   assert.doesNotMatch(bankItems, /href="\/#current"|Current/);
   assert.match(bankItems, /href="\/#historical"/);
   assert.doesNotMatch(bankItems, /data-tab|edits|Overview/i);
-  assert.match(bankHtml, /data-theme-choice="justin"/);
-  assert.match(bankHtml, /data-theme-choice="nina"/);
+  assert.doesNotMatch(bankHtml, /data-theme-choice/);
+  assert.match(bank.elements.main._after, /class="book-nav-chips"/);
+  assert.match(bank.elements.main._after, /class="book-chip on"[^>]*data-theme-choice="justin"/);
+  assert.match(bank.elements.main._after, /data-theme-choice="nina"/);
 
   const inv = bootNav({ pathname: "/investments/", hash: "#house" });
   const invHtml = inv.elements.mpNav.innerHTML;
@@ -351,8 +356,9 @@ test("top nav is two buttons and the open menu matches the section", function ()
   assert.match(invHtml, /href="\/">BANKING<\/a>/);
   assert.match(invHtml, /aria-current="page"[^>]*>INVESTMENTS<\/a>/);
   assert.match(invHtml, /id="menuBtn"[^>]*aria-controls="deskMenu"/);
-  assert.match(invHtml, /data-theme-choice="justin"/);
-  assert.match(invHtml, /data-theme-choice="nina"/);
+  assert.doesNotMatch(invHtml, /data-theme-choice/);
+  assert.match(inv.elements.main._after, /data-theme-choice="justin"/);
+  assert.match(inv.elements.main._after, /data-theme-choice="nina"/);
   inv.MPNav.setItems("investments", [
     { id: "combined", label: "Overview" },
     { id: "robinhood", label: "Robinhood" },
@@ -419,14 +425,15 @@ test("the menu toggles from the active button and closes around it", async funct
   assert.equal(ctx.elements.deskMenu.hidden, false);
   assert.equal(ctx.elements.menuBtn.attrs["aria-expanded"], "true");
   const theme = {
+    getAttribute: function () { return "nina"; },
     closest: function (sel) {
-      if (sel === "#menuBtn" || sel === "#deskMenu [data-nav-item]") return null;
-      if (sel === ".mp-nav" || sel === "[data-theme-choice]") return theme;
+      if (sel === "#menuBtn" || sel === "#deskMenu [data-nav-item]" || sel === ".mp-nav") return null;
+      if (sel === "[data-theme-choice]" || sel === "nav.docs-foot") return theme;
       return null;
     }
   };
   fire(ctx, "click", theme);
-  assert.equal(ctx.elements.deskMenu.hidden, false);
+  assert.equal(ctx.elements.deskMenu.hidden, true);
   const item = {
     closest: function (sel) {
       if (sel === "#menuBtn") return null;
@@ -610,13 +617,13 @@ test("nav source stays free of figures and institution names", function () {
   });
 });
 
-test("touched assets use the eg cache bust and banking uses ec", function () {
+test("touched assets use the ei cache bust", function () {
   const bank = read("index.html");
   const inv = read("investments/index.html");
   assert.match(bank, /\/js\/nav\.js\?v=20261007ep/);
-  assert.match(bank, /\/house\/house\.css\?v=20261007eh/);
+  assert.match(bank, /\/house\/house\.css\?v=20261007ei/);
   assert.match(bank, /\/house\/js\/banking\.js\?v=20261007ep/);
-  assert.match(bank, /\/house\/banking\.css\?v=20261007eh/);
+  assert.match(bank, /\/house\/banking\.css\?v=20261007ei/);
   assert.match(bank, /id="mpNav" class="mp-nav" data-section="banking"/);
   assert.match(bank, /<a class="brand-block" href="\/">/);
   assert.match(bank, /aria-label="Murphy Pilot"/);
@@ -625,14 +632,14 @@ test("touched assets use the eg cache bust and banking uses ec", function () {
   assert.match(inv, /\/js\/nav\.js\?v=20261007ep/);
   assert.match(inv, /list-cap\.js\?v=20261007eh/);
   assert.match(inv, /list-cap\.css\?v=20261007eh/);
-  assert.match(inv, /\/house\/house\.css\?v=20261007eh/);
-  assert.match(inv, /\/house\/js\/board-b\.js\?v=20261007eo/);
+  assert.match(inv, /\/house\/house\.css\?v=20261007ei/);
+  assert.match(inv, /\/house\/js\/board-b\.js\?v=20261007ei/);
   assert.match(inv, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(inv, /Murphy Pilot House/);
-  assert.match(inv, /\/house\/js\/board-c\.js\?v=20261006ed/);
-  assert.match(inv, /\/house\/js\/board-e\.js\?v=20261006ed/);
-  assert.match(inv, /\/house\/js\/board-a\.js\?v=20260904cn/);
-  assert.match(inv, /\/house\/js\/board-d\.js\?v=20260904cn/);
+  assert.match(inv, /\/house\/js\/board-c\.js\?v=20261007ei/);
+  assert.match(inv, /\/house\/js\/board-e\.js\?v=20261007ei/);
+  assert.match(inv, /\/house\/js\/board-a\.js\?v=20261007ei/);
+  assert.match(inv, /\/house\/js\/board-d\.js\?v=20261007ei/);
   assert.match(inv, /id="mpNav" class="mp-nav" data-section="investments"/);
   assert.match(inv, /<a class="brand-block" href="\/investments\/">/);
   assert.match(inv, /id="deskSub">INVESTMENTS</);
@@ -647,4 +654,43 @@ test("touched assets use the eg cache bust and banking uses ec", function () {
   assert.doesNotMatch(inv, /menu-wrap|docs-foot|section-nav/);
   const header = inv.slice(inv.indexOf("<header>"), inv.indexOf("</header>"));
   assert.ok(header.indexOf('id="clock"') < header.indexOf('class="header-end"'));
+});
+
+test("each asset path has one cache bust across html pages", function () {
+  function walk(dir, out) {
+    fs.readdirSync(dir, { withFileTypes: true }).forEach(function (ent) {
+      if (ent.name === "node_modules" || ent.name === ".git") return;
+      const abs = path.join(dir, ent.name);
+      if (ent.isDirectory()) walk(abs, out);
+      else if (ent.name.endsWith(".html")) out.push(abs);
+    });
+  }
+  const files = [];
+  walk(root, files);
+  assert.ok(files.length >= 4);
+  const seen = new Map();
+  const re = /(?:src|href)\s*=\s*["']([^"'?#]+)\?v=([^"'#&]+)/g;
+  files.forEach(function (file) {
+    const html = fs.readFileSync(file, "utf8");
+    re.lastIndex = 0;
+    let found;
+    while ((found = re.exec(html))) {
+      const asset = found[1].replace(/^\//, "");
+      const ver = found[2];
+      const prev = seen.get(asset);
+      if (!prev) seen.set(asset, { ver: ver, file: file });
+      else assert.equal(ver, prev.ver, asset + " " + path.relative(root, file) + " vs " + path.relative(root, prev.file));
+    }
+  });
+  assert.ok(seen.has("js/nav.js"));
+  assert.equal(seen.get("js/nav.js").ver, "20261007ep");
+  assert.equal(seen.get("house/js/ticker.js").ver, "20261007ei");
+  assert.equal(seen.get("house/ticker.css").ver, "20261007ei");
+  assert.equal(seen.get("house/js/board-a.js").ver, "20261007ei");
+  assert.equal(seen.get("house/js/board-b.js").ver, "20261007ei");
+  assert.equal(seen.get("house/js/board-c.js").ver, "20261007ei");
+  assert.equal(seen.get("house/js/board-d.js").ver, "20261007ei");
+  assert.equal(seen.get("house/js/board-e.js").ver, "20261007ei");
+  assert.equal(seen.get("house/js/paydesk.js").ver, "20261007en");
+  assert.equal(seen.get("house/js/list-cap.js").ver, "20261007eh");
 });

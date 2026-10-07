@@ -3496,11 +3496,12 @@ function bankVsBarHtml(spent, plan) {
 
 function bankVsRowHtml(name, spent, plan, attrs) {
   var tone = bankVsTone(spent, plan);
+  var amtCls = tone === "stop" ? "mix-amt tone-stop" : "mix-amt";
   return '<li class="mix-leg"' + (attrs || "") + (tone ? ' data-tone="' + tone + '"' : "") + ">" +
     '<i style="background:' + bankVsColor(tone) + '"></i>' +
     '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(name) + "</span>" +
     bankVsBarHtml(spent, plan) + "</span> " +
-    '<span class="mix-leg-fig"><span class="mix-amt">' + bankEsc(bankOfText(spent, plan)) + "</span></span></li>";
+    '<span class="mix-leg-fig"><span class="' + amtCls + '">' + bankEsc(bankOfText(spent, plan)) + "</span></span></li>";
 }
 
 function bankBarsHtml(rows, note) {
@@ -9494,12 +9495,14 @@ function bankSrcLine(tab) {
 function bankPageHtml(snap, opts) {
   opts = opts || {};
   bankMergeLocalTiers(snap);
-  var tab = bankResolveTab(opts.tab || "budget");
+  var rawTab = String(opts.tab == null ? "" : opts.tab).replace(/^#/, "");
+  /* A direct current tab still renders that mode. Hashes and the menu open Budget. */
+  var tab = rawTab === "current" ? "current" : bankResolveTab(opts.tab || "budget");
   var panel = "";
   if (tab === "historical") panel = bankHistHtml(snap || {}, opts);
   else if (tab === "budget") panel = bankBudgetHtml(snap || {}, opts);
   else if (tab === "edits") panel = bankEditsPanelHtml(snap || {}, opts);
-  else panel = bankBudgetHtml(snap || {}, opts);
+  else panel = bankCurrentHtml(snap || {}, opts);
   var title = bankViewTitle(tab, snap || {}, opts);
   return bankNavHtml(tab, opts.menuOpen, title, snap || {}, opts) + '<div class="bank-panel" data-panel="' + tab + '" aria-labelledby="bank-view-title">' +
     bankTierStaleHtml(snap) + panel + "</div>";
@@ -11503,33 +11506,11 @@ function bankLoad(root, fetcher) {
   });
 }
 
-function bankApplyTheme(choice) {
-  var t = choice || "justin";
-  if (t === "nina" || t === "purple") t = "nina";
-  else t = "justin";
-  try { document.documentElement.setAttribute("data-theme", t); } catch (e) {}
-  try { localStorage.setItem("murphyPilotTheme", t); } catch (e2) {}
-  try {
-    document.querySelectorAll("[data-theme-choice]").forEach(function (b) {
-      b.classList.toggle("on", b.getAttribute("data-theme-choice") === t);
-    });
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", t === "nina" ? "#1A0A24" : "#08090B");
-  } catch (e3) {}
-}
-
 function bankBoot() {
   var root = null;
   try { root = document.getElementById("bankDesk"); } catch (e) { return; }
   if (!root) return;
   bankBindHistory(root);
-  try {
-    document.addEventListener("click", function (e) {
-      var b = e.target && e.target.closest && e.target.closest("[data-theme-choice]");
-      if (!b) return;
-      bankApplyTheme(b.getAttribute("data-theme-choice"));
-    });
-  } catch (e1) {}
   bankLoad(root);
 }
 

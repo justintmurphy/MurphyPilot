@@ -629,18 +629,6 @@ function invMountTicker() {
     fillsSellMoreOpen = false;
   }
 
-  function applyTheme(choice) {
-    var t = choice || document.documentElement.getAttribute("data-theme") || "justin";
-    if (t === "nina" || t === "purple") t = "nina";
-    else t = "justin";
-    document.documentElement.setAttribute("data-theme", t);
-    try { localStorage.setItem("murphyPilotTheme", t); } catch (err) {}
-    document.querySelectorAll("[data-theme-choice]").forEach(function (b) {
-      b.classList.toggle("on", b.getAttribute("data-theme-choice") === t);
-    });
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", t === "nina" ? "#1A0A24" : "#08090B");
-  }
   function closeDeskMenu() {
     var menu = document.getElementById("deskMenu");
     var btn = document.getElementById("menuBtn");
@@ -667,7 +655,6 @@ function invMountTicker() {
     var sub = document.getElementById("deskSub");
     if (sub) sub.textContent = tab === "combined" ? "INVESTMENTS" : (LABEL[tab] || "INVESTMENTS");
     document.title = "Murphy Pilot \u00b7 " + (tab === "combined" ? "Investments" : (LABEL[tab] || "Investments"));
-    applyTheme();
   }
 
   function cardsHtml() {
@@ -4261,6 +4248,7 @@ function invMountTicker() {
     document.getElementById("desk").innerHTML = html;
     retSync();
     syncOverlay();
+    paintPrintAge();
   }
 
   function syncOverlay() {
@@ -4309,11 +4297,6 @@ function invMountTicker() {
       return;
     }
     if (!e.target.closest(".menu-wrap, .mp-nav")) closeDeskMenu();
-    var theme = e.target.closest("[data-theme-choice]");
-    if (theme) {
-      applyTheme(theme.getAttribute("data-theme-choice"));
-      return;
-    }
     if (e.target.closest("[data-open-all-books]")) {
       overlayMode = "all";
       overlayOpen = true;
@@ -4453,26 +4436,29 @@ function invMountTicker() {
     if (mixMql.addEventListener) mixMql.addEventListener("change", onMixMql);
     else if (mixMql.addListener) mixMql.addListener(onMixMql);
   } catch (eMql) {}
-  function tickClock() {
-    var now = nyNow();
-    var el = document.getElementById("clock");
-    if (!el) return;
-    var tEl = el.querySelector(".t");
-    var dEl = el.querySelector(".d");
-    var asof = snap && snap.asof;
-    var info = asofAgeInfo(asof);
-    if (tEl) tEl.textContent = pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()) + " ET";
-    if (dEl) {
-      if (info.clockLabel) {
-        dEl.textContent = info.clockLabel + " print" + (info.ago ? (" · " + info.ago) : "");
-      } else {
-        dEl.textContent = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-      }
-      if (asofClockStale(info)) dEl.classList.add("asof-stale");
-      else dEl.classList.remove("asof-stale");
+  function paintPrintAge() {
+    var clock, el, asof, info;
+    try { clock = document.getElementById("clock"); } catch (e) { return; }
+    if (!clock) return;
+    try { el = document.getElementById("printAge"); } catch (e2) { el = null; }
+    if (!el) {
+      if (!document.createElement || !clock.appendChild) return;
+      el = document.createElement("div");
+      el.id = "printAge";
+      el.className = "d";
+      clock.appendChild(el);
+    }
+    asof = snap && snap.asof;
+    info = asofAgeInfo(asof);
+    if (info && info.clockLabel) el.textContent = info.clockLabel + " print" + (info.ago ? (" · " + info.ago) : "");
+    else if (asof) el.textContent = String(asof);
+    else el.textContent = "";
+    if (el.classList) {
+      if (asofClockStale(info)) el.classList.add("asof-stale");
+      else el.classList.remove("asof-stale");
     }
   }
-  tickClock();
-  setInterval(tickClock, 1000);
+  try { window.mpPaintPrintAge = paintPrintAge; } catch (eAge) {}
+  paintPrintAge();
   setInterval(function () { if (typeof load === "function") load(); }, 5 * 60 * 1000);
   invMountTicker();

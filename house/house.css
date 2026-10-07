@@ -1,6 +1,6 @@
-@import url("house-a.css?v=20260904cn");
-@import url("house-b.css?v=20261007eh");
-@import url("mix.css?v=20260904cn");
+@import url("house-a.css?v=20261007ei");
+@import url("house-b.css?v=20261007ei");
+@import url("mix.css?v=20261007ei");
 
 header .brand-block {
   min-width: 0;
@@ -107,24 +107,6 @@ header .header-end { grid-area: end; margin-left: 0; }
   opacity: 1;
   background: var(--row) !important;
   color: var(--ink);
-}
-.desk-menu .theme-switch {
-  display: flex !important;
-  width: 100%;
-  margin-top: 8px;
-  border-color: var(--rule);
-  border-radius: 999px;
-}
-.desk-menu .theme-switch button {
-  flex: 1;
-  min-height: 36px;
-  color: var(--ink);
-  opacity: 0.7;
-}
-.desk-menu .theme-switch button.on {
-  background: var(--header);
-  color: var(--header-fg);
-  opacity: 1;
 }
 .book-scroll { max-height: 38rem; overflow: auto; }
 .book-scroll thead th {
