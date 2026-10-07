@@ -940,43 +940,43 @@ test("fixture rows keep a printed percent on one source and sum full-precision P
   const one = lotRow("SYN", "Single", {
     account: "agentic",
     qty: 1,
-    value: 30.3453,
-    cost: 28.5966,
-    avg: 28.5966,
-    unrealized_pnl: 1.7487,
+    value: 42.446,
+    cost: 40,
+    avg: 40,
+    unrealized_pnl: 2.446,
     unrealized_pnl_pct: 6.11
   });
   const left = lotRow("MRG", "Merged", {
     account: "agentic",
     qty: 1,
-    value: 11.008,
-    cost: 10.004,
-    unrealized_pnl: 1.004,
-    unrealized_pnl_pct: 10
+    value: 21.223,
+    cost: 20,
+    unrealized_pnl: 1.223,
+    unrealized_pnl_pct: 6.11
   });
   const right = lotRow("MRG", "Merged", {
     account: "individual",
     qty: 1,
-    value: 11.008,
-    cost: 10.004,
-    unrealized_pnl: 1.004,
-    unrealized_pnl_pct: 10
+    value: 21.223,
+    cost: 20,
+    unrealized_pnl: 1.223,
+    unrealized_pnl_pct: 6.11
   });
   const bookHtml = ctx.tableHtml([one, left, right], true);
 
-  const ratioPct = (1.7487 / 28.5966) * 100;
-  const printedCell = ctx.money(1.7487) + " " + ctx.pct(6.11);
-  const roundedCell = ctx.money(1.7487) + " " + ctx.pct(ratioPct);
+  const ratioPct = (2.446 / 40) * 100;
+  const printedCell = ctx.money(2.446) + " " + ctx.pct(6.11);
+  const roundedCell = ctx.money(2.446) + " " + ctx.pct(ratioPct);
   assert.equal(ctx.pct(ratioPct), "+6.12%");
-  assert.equal(printedCell, "$1.75 +6.11%");
+  assert.equal(printedCell, "$2.45 +6.11%");
   assert.notEqual(printedCell, roundedCell);
   assert.equal(bookCellText(bookHtml, "SYN")[0][6], printedCell);
 
-  const summedPnl = 2.008;
-  const summedCost = 20.008;
+  const summedPnl = 2.446;
+  const summedCost = 40;
   const summedCell = ctx.money(summedPnl) + " " + ctx.pct((summedPnl / summedCost) * 100);
-  assert.equal(summedCell, "$2.01 +10.04%");
-  assert.notEqual(summedCell, ctx.money(summedPnl) + " " + ctx.pct(10));
+  assert.equal(summedCell, "$2.45 +6.12%");
+  assert.notEqual(summedCell, ctx.money(summedPnl) + " " + ctx.pct(6.11));
   assert.equal(bookCellText(bookHtml, "MRG")[0][6], summedCell);
 
   const row = tableRowHtml(bookHtml, "MRG");
