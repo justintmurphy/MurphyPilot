@@ -927,73 +927,135 @@ test("fixture keeps full-precision P&L, source labels, and a missing average", f
   assert.equal(hotelMissing[6].indexOf("$0.00"), -1);
 });
 
-test("live rows render the full-precision P&L sum rounded only at display", function () {
+test("fixture rows keep a printed percent on one source and sum full-precision P&L across sources", function () {
   const ctx = boot();
   vm.runInContext(fs.readFileSync(path.join(root, "house/js/board-d.js"), "utf8"), ctx, { filename: "board-d.js" });
-  const house = housePrint();
-  const print = fidelityPrint();
-  const snap = ctx.merge(house, null, print);
-  ctx.snap = snap;
-  ctx.tab = "combined";
-  const bookHtml = ctx.tableHtml(snap.combined.names, true);
-
-  function contributors(symbol) {
-    const rows = [];
-    ["agentic", "individual", "auto_grok", "joint"].forEach(function (id) {
-      (((house.accounts || {})[id] || {}).names || []).forEach(function (n) {
-        if (String(n.symbol || "").toUpperCase() === symbol) rows.push(Object.assign({ account: id }, n));
-      });
-    });
-    ((((print.accounts || {}).fidelity || {}).names) || []).forEach(function (n) {
-      if (String(n.symbol || "").toUpperCase() === symbol) rows.push(Object.assign({ account: "fidelity" }, n));
-    });
-    return rows.filter(function (n) { return ctx.knownRowCost(n) != null; });
-  }
-  function summed(rows) {
-    let pnl = 0;
-    let cost = 0;
-    rows.forEach(function (n) {
-      const lot = ctx.lotPnl(n);
-      pnl += lot.pnl;
-      cost += lot.cost;
-    });
-    return ctx.money(pnl) + " " + ctx.pct((pnl / cost) * 100);
-  }
-
-  const symbols = {};
-  ["agentic", "individual", "auto_grok", "joint"].forEach(function (id) {
-    (((house.accounts || {})[id] || {}).names || []).forEach(function (n) {
-      symbols[String(n.symbol || "").toUpperCase()] = true;
-    });
-  });
-  ((print.accounts.fidelity || {}).names || []).forEach(function (n) {
-    symbols[String(n.symbol || "").toUpperCase()] = true;
-  });
-
-  let checked = 0;
-  Object.keys(symbols).forEach(function (symbol) {
-    const rows = contributors(symbol);
-    if (!rows.length) return;
-    const shown = bookCellText(bookHtml, symbol);
-    if (shown.length !== 1) return;
-    assert.equal(shown[0][6], summed(rows));
-    checked += 1;
-  });
-  assert.ok(checked > 0);
-
-  const labs = bookHtml.match(/<span class="book-src-lab"[^>]*>[^<]*<\/span>/g) || [];
-  assert.ok(labs.length > 0);
-  labs.forEach(function (span) {
-    const row = "<tr><td></td><td>" + span + "</td></tr>";
-    const title = sourceLabAttr(row, "title");
-    const aria = sourceLabAttr(row, "aria-label");
-    const visible = span.replace(/<[^>]+>/g, "").trim();
-    assert.equal(aria, title);
-    if (/\+\d+$/.test(visible)) {
-      assert.notEqual(visible, title);
-      assert.equal(visible.indexOf("\u00b7\u00b7\u00b7"), -1);
+  ctx.snap = {
+    accounts: {
+      individual: { label: "Individual" },
+      agentic: { label: "AI WWIII" }
     }
+  };
+  ctx.tab = "combined";
+  const one = lotRow("SYN", "Single", {
+    account: "agentic",
+    qty: 1,
+    value: 30.3453,
+    cost: 28.5966,
+    avg: 28.5966,
+    unrealized_pnl: 1.7487,
+    unrealized_pnl_pct: 6.11
   });
+  const left = lotRow("MRG", "Merged", {
+    account: "agentic",
+    qty: 1,
+    value: 11.008,
+    cost: 10.004,
+    unrealized_pnl: 1.004,
+    unrealized_pnl_pct: 10
+  });
+  const right = lotRow("MRG", "Merged", {
+    account: "individual",
+    qty: 1,
+    value: 11.008,
+    cost: 10.004,
+    unrealized_pnl: 1.004,
+    unrealized_pnl_pct: 10
+  });
+  const bookHtml = ctx.tableHtml([one, left, right], true);
+
+  const ratioPct = (1.7487 / 28.5966) * 100;
+  const printedCell = ctx.money(1.7487) + " " + ctx.pct(6.11);
+  const roundedCell = ctx.money(1.7487) + " " + ctx.pct(ratioPct);
+  assert.equal(ctx.pct(ratioPct), "+6.12%");
+  assert.equal(printedCell, "$1.75 +6.11%");
+  assert.notEqual(printedCell, roundedCell);
+  assert.equal(bookCellText(bookHtml, "SYN")[0][6], printedCell);
+
+  const summedPnl = 2.008;
+  const summedCost = 20.008;
+  const summedCell = ctx.money(summedPnl) + " " + ctx.pct((summedPnl / summedCost) * 100);
+  assert.equal(summedCell, "$2.01 +10.04%");
+  assert.notEqual(summedCell, ctx.money(summedPnl) + " " + ctx.pct(10));
+  assert.equal(bookCellText(bookHtml, "MRG")[0][6], summedCell);
+
+  const row = tableRowHtml(bookHtml, "MRG");
+  const title = sourceLabAttr(row, "title");
+  assert.equal(sourceLabAttr(row, "aria-label"), title);
+  assert.equal(title, "AI WWIII \u00b7 Individual");
+});
+
+function closePrint(ymd, equity) {
+  return { t: ymd + "T16:00:00-04:00", equity: equity };
+}
+
+test("day week and month use trading-day anchors and dash when the tape day is missing", function () {
+  const ctx = boot();
+  const weekend = "2026-10-10T12:00:00-04:00";
+  const prints = [
+    closePrint("2026-09-30", 20),
+    closePrint("2026-10-02", 30),
+    closePrint("2026-10-08", 40),
+    closePrint("2026-10-09", 50)
+  ];
+  const day = ctx.vsLookback(prints, 55, 1, weekend);
+  const week = ctx.vsLookback(prints, 55, 7, weekend);
+  const month = ctx.vsLookback(prints, 55, 30, weekend);
+  assert.equal(day.prior, 40);
+  assert.notEqual(day.prior, 50);
+  assert.equal(day.delta, 15);
+  assert.equal(ctx.pct(day.pct), "+37.50%");
+  assert.equal(week.prior, 30);
+  assert.equal(week.delta, 25);
+  assert.equal(month.prior, 20);
+  assert.equal(month.delta, 35);
+
+  const gap = prints.filter(function (p) { return p.t.slice(0, 10) !== "2026-10-08"; });
+  assert.equal(ctx.vsLookback(gap, 55, 1, weekend), null);
+
+  const yearMiss = ctx.vsLookback([
+    closePrint("2025-10-09", 10),
+    closePrint("2026-10-09", 50)
+  ], 55, 365, weekend);
+  assert.equal(yearMiss, null);
+
+  ctx.snap = {
+    combined: { equity: 55 },
+    tape: { overall: prints },
+    truthifiFail: true
+  };
+  const strip = ctx.overallStripHtml(weekend);
+  assert.match(strip, /Day<\/span><b class="tone-go">\+\$15\.00<\/b>/);
+  assert.match(strip, /Week<\/span><b class="tone-go">\+\$25\.00<\/b>/);
+  assert.match(strip, /Month<\/span><b class="tone-go">\+\$35\.00<\/b>/);
+  assert.doesNotMatch(strip, /Day<\/span><b class="tone-go">\+\$5\.00<\/b>/);
+
+  const holiday = "2026-09-08T12:00:00-04:00";
+  const afterHoliday = ctx.vsLookback([
+    closePrint("2026-09-04", 40),
+    closePrint("2026-09-07", 99)
+  ], 50, 1, holiday);
+  assert.equal(afterHoliday.prior, 40);
+  assert.notEqual(afterHoliday.prior, 99);
+
+  const staleNow = "2026-10-07T12:00:00-04:00";
+  const stale = [closePrint("2026-09-02", 10), closePrint("2026-09-03", 12)];
+  assert.equal(ctx.vsLookback(stale, 80, 1, staleNow), null);
+  assert.equal(ctx.vsLookback(stale, 80, 7, staleNow), null);
+  assert.equal(ctx.vsLookback(stale, 80, 30, staleNow), null);
+  const lines = ctx.dodHtml(stale, 80, staleNow);
+  assert.match(lines, /Day \u2014/);
+  assert.match(lines, /Week \u2014/);
+  assert.match(lines, /Month \u2014/);
+  ctx.snap = {
+    combined: { equity: 80 },
+    tape: { overall: stale },
+    truthifiFail: true
+  };
+  const staleStrip = ctx.overallStripHtml(staleNow);
+  assert.match(staleStrip, /Day<\/span><b class="tone-flat">\u2014<\/b>/);
+  assert.match(staleStrip, /Week<\/span><b class="tone-flat">\u2014<\/b>/);
+  assert.match(staleStrip, /Month<\/span><b class="tone-flat">\u2014<\/b>/);
 });
 
 test("mix center sums full-precision parts and matches the book equity", function () {
