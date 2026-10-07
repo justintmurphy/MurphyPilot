@@ -448,6 +448,8 @@ test("banking ticker still shows the next deposit and the next bill", function (
   assert.match(el.innerHTML, /Oct 15/);
   assert.match(el.innerHTML, /Oct 20/);
   assert.match(el.innerHTML, /aria-label="Next deposit Payroll Oct 15 \$40\.00\. Next bill Rent Oct 20 \$22\.00"/);
+  assert.match(el.innerHTML, /aria-label="Next deposit Payroll Oct 15 \$40\.00"/);
+  assert.match(el.innerHTML, /aria-label="Next bill Rent Oct 20 \$22\.00"/);
   assert.doesNotMatch(el.innerHTML, /··1111/);
 });
 
