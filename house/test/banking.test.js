@@ -6784,11 +6784,8 @@ test("education keeps a childcare alias, and a frozen snapshot only relabels", a
   const frozen = hist.budget.snapshots["2026-08"].bills[0];
   const html = ctx.bankPageHtml(hist, { tab: "historical", histMonth: "2026-08" });
   const due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('class="bank-cal"'));
-  assert.match(due, /class="sym">Education</);
-  assert.match(due, /Education[\s\S]{0,180}not found/);
-  assert.doesNotMatch(due, /\$22\.00/);
-  assert.doesNotMatch(due, /Education[\s\S]{0,180}paid/);
-  assert.doesNotMatch(due, /Childcare/);
+  assert.match(due, /Nothing posted\./);
+  assert.doesNotMatch(due, /Education|Childcare|\$22\.00|not found/);
   assert.doesNotMatch(html, /\$48\.00/);
   assert.equal(frozen.name, "Childcare");
   assert.equal(frozen.amount, 22);
@@ -6869,8 +6866,7 @@ test("a past snapshot keeps a later-cancelled bill and notes it", function () {
   fx.tier_doc = { bill_status: { rent: { status: "cancelled", from: "2026-10" } }, plans: {}, rules: {} };
   const html = ctx.bankPageHtml(fx, { tab: "historical", histMonth: "2026-08" });
   const due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('class="bank-cal"'));
-  assert.match(due, /Rent/);
-  assert.match(due, /cancelled later/);
+  assert.doesNotMatch(due, /Rent|not found/);
   assert.match(html, /<small class="bank-day-note">cancelled later<\/small>/);
 });
 
@@ -6882,7 +6878,7 @@ test("lists cap at ten rows and a short list stays open", function () {
   fx.budget.bills = many;
   const longHtml = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-06T16:00:00Z" });
   assert.match(longHtml, /class="list-cap"[^>]*aria-label="Due this month"/);
-  assert.match(longHtml, /Showing 10 of 22, scroll for more/);
+  assert.match(longHtml, /Showing 10 of 23, scroll for more/);
   fx.budget.bills = many.slice(0, 5);
   const shortHtml = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
   assert.doesNotMatch(shortHtml, /aria-label="Due this month"/);
@@ -7162,13 +7158,14 @@ test("tip ec3 a frozen month before cancel still notes cancelled later", functio
   fx.budget.bills = [{ name: "Rent", bill_id: "rent", amount: 40, typical_day: 5, cadence: "monthly", status: "cancelled", status_from: "2026-10" }];
   let html = ctx.bankPageHtml(fx, { tab: "historical", histMonth: "2026-09" });
   let due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('class="bank-cal"'));
-  assert.match(due, /Rent/);
-  assert.match(due, /cancelled later/);
+  assert.doesNotMatch(due, /Rent|not found/);
+  assert.match(html, /<small class="bank-day-note">cancelled later<\/small>/);
   fx.budget.bills = [];
   fx.budget.bill_status_active = [{ name: "Rent", bill_id: "rent", status: "cancelled", from: "2026-10" }];
   html = ctx.bankPageHtml(fx, { tab: "historical", histMonth: "2026-09" });
   due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('class="bank-cal"'));
-  assert.match(due, /cancelled later/);
+  assert.doesNotMatch(due, /Rent|not found/);
+  assert.match(html, /cancelled later/);
   fx.budget.snapshots["2026-10"] = {
     month: "2026-10",
     income: { expected: 80 },
@@ -7806,8 +7803,9 @@ test("the dated list walks left-after to the funding month-end", function () {
   const every = due.indexOf("Remaining Needs");
   const end = due.indexOf("Month-end");
   assert.ok(every > 0 && end > every);
+  assert.match(due, /Remaining Required[\s\S]{0,160}−\$50\.00/);
   assert.match(due.slice(every, end), /−\$20\.00/);
-  assert.match(due.slice(end), /\$120\.00/);
+  assert.match(due.slice(end), /\$70\.00/);
   const red = blankBudget(loadFixture());
   red.budget.account_funding = [{ nickname: "Bills", last4: "2222", start_balance: 20, end_balance: -10 }];
   red.budget.bills = [{ name: "Rent", amount: 40, typical_day: 4, cadence: "monthly", tier: "required" }];
@@ -7815,7 +7813,8 @@ test("the dated list walks left-after to the funding month-end", function () {
   const lowDue = low.slice(low.indexOf('class="bank-due-month"'), low.indexOf('class="bank-cal"'));
   assert.doesNotMatch(lowDue, /sym">Rent/);
   assert.match(lowDue, /data-bank-today="1"[\s\S]{0,320}\$20\.00/);
-  assert.match(lowDue.slice(lowDue.indexOf("Month-end")), /\$20\.00/);
+  assert.match(lowDue, /Remaining Required[\s\S]{0,160}−\$40\.00/);
+  assert.match(lowDue.slice(lowDue.indexOf("Month-end")), /−\$20\.00/);
 });
 
 test("next pay prorates needs, splits a month boundary, and caps the bill rows", function () {
@@ -8228,11 +8227,8 @@ test("a closed month shows actuals and the same status word as Budget", function
   open.budget.actuals_by_month = { "2026-08": { deposits: [{ name: "Deposit", amount: 15, date: "2026-08-03" }] } };
   const bare = ctx.bankPageHtml(open, { tab: "historical", histMonth: "2026-08", now: "2026-10-16T16:00:00Z" });
   const bareDue = bare.slice(bare.indexOf('class="bank-due-month"'), bare.indexOf('class="bank-cal"'));
-  assert.doesNotMatch(bareDue, /Left after|Month-end|today|Remaining Needs|unpaid|>Unpaid|not counted/);
-  assert.match(bareDue, /Rent[\s\S]{0,180}not found/);
-  assert.doesNotMatch(bareDue, /−\$20\.00|Rent[\s\S]{0,180}paid/);
-  assert.match(bareDue, /Ghost Bill[\s\S]{0,160}not found/);
-  assert.doesNotMatch(bareDue, /Ghost Bill[\s\S]{0,240}\$[0-9]/);
+  assert.doesNotMatch(bareDue, /Left after|Month-end|today|Remaining Needs|unpaid|>Unpaid|not counted|not found|Rent|Ghost Bill|−\$20\.00/);
+  assert.match(bareDue, /Deposit[\s\S]{0,160}\+\$15\.00/);
   const live = blankBudget(loadFixture());
   live.budget.bills = [{ name: "Rent", amount: 10, typical_day: 20, cadence: "monthly", tier: "required" }];
   const budgetDue = dueSlice(ctx.bankPageHtml(live, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" }));
@@ -8625,7 +8621,27 @@ test("a recurring item already on account funding counts once", function () {
   assert.match(due.slice(due.indexOf("Month-end")), /\$85\.00/);
 });
 
-test("a closed month uses the posted sub amount or not found", function () {
+test("overspend on one required item does not shrink another item's remainder", function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.account_funding = [{ nickname: "Bills", last4: "2222", start_balance: 400 }];
+  fx.budget.tiers = { required_plan: 385, needs_plan: 0, wants_plan: 0 };
+  fx.budget.tiers_mtd = { month: "2026-10", required_spent: 115, needs_spent: 0, wants_spent: 0 };
+  fx.budget.mtd_actual_by_category = { "City Fuel": 115 };
+  fx.budget.mtd_actual_by_category_month = "2026-10";
+  fx.budget.bills = [
+    { name: "City Fuel", amount: 100, typical_day: 4, cadence: "monthly", tier: "required" },
+    { name: "Town Power", amount: 285, kind: "set_aside", tier: "required" }
+  ];
+  const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  const due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('class="bank-cal"'));
+  assert.doesNotMatch(due, /Town Power|City Fuel/);
+  assert.match(due, /Remaining Required[\s\S]{0,180}−\$285\.00/);
+  assert.doesNotMatch(due, /−\$270\.00|−\$269\.79/);
+  assert.match(due.slice(due.indexOf("Month-end")), /\$115\.00/);
+});
+
+test("a closed month shows a matched posted debit and hides the rest", function () {
   const ctx = boot();
   const fx = blankBudget(loadFixture());
   fx.budget.snapshots = {
@@ -8649,11 +8665,20 @@ test("a closed month uses the posted sub amount or not found", function () {
   };
   const html = ctx.bankPageHtml(fx, { tab: "historical", histMonth: "2026-09", now: "2026-10-16T16:00:00Z" });
   const due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('class="bank-cal"'));
-  assert.match(due, /Rent[\s\S]{0,160}not found/);
-  assert.doesNotMatch(due, /−\$40\.00|\$9\.00|\$4\.00|Old Loan|not counted|unpaid/);
-  assert.match(due, /Stream Club[\s\S]{0,160}not found/);
+  assert.doesNotMatch(due, /Rent|Stream Club|−\$40\.00|\$9\.00|\$4\.00|Old Loan|not counted|not found|unpaid/);
   assert.match(due, /Town Paper[\s\S]{0,200}−\$3\.00/);
   assert.match(due, /Town Paper[\s\S]{0,220}bank-paid-mark">paid/);
+  const empty = blankBudget(loadFixture());
+  empty.budget.snapshots = {
+    "2026-08": {
+      month: "2026-08",
+      bills: [{ name: "Rent", amount: 20, due_day: 2, counted: true, tier: "required" }]
+    }
+  };
+  const bare = ctx.bankPageHtml(empty, { tab: "historical", histMonth: "2026-08", now: "2026-10-16T16:00:00Z" });
+  const bareDue = bare.slice(bare.indexOf('class="bank-due-month"'), bare.indexOf('class="bank-cal"'));
+  assert.match(bareDue, /<p class="bank-empty">Nothing posted\.<\/p>/);
+  assert.doesNotMatch(bareDue, /Rent|not found|−\$20\.00/);
 });
 
 test("every print bill and the education recurring row appear once", function () {

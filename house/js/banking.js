@@ -5440,29 +5440,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
         if (spentActual != null || !nm) return;
         spentActual = bankCategoryActual(actualBag, nm);
       });
-      if (!(spentActual > 0)) {
-        var face = bankLedgerFace(snap, bankBillDisplayName(b.name, b.display_label));
-        var missKey = "nf|" + bankTierKey(face);
-        if (!seenRow[missKey]) {
-          seenRow[missKey] = true;
-          var missPhrase = "not found";
-          if (b.cancelled_later) missPhrase += " \u00b7 cancelled later";
-          rows.push({
-            date: "",
-            name: face,
-            amount: null,
-            kind: "out",
-            phrase: missPhrase,
-            marker: "",
-            chip: "",
-            counted: false,
-            pending: true,
-            undated: true,
-            notFound: true
-          });
-        }
-        return;
-      }
+      if (!(spentActual > 0)) return;
       actual = spentActual;
       paidFlag = true;
     }
@@ -5542,25 +5520,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
         if (subActual != null || !nm) return;
         subActual = bankCategoryActual(subBag, nm);
       });
-      if (!(subActual > 0)) {
-        var subMiss = "nf|" + bankTierKey(subFace);
-        if (seenRow[subMiss]) return;
-        seenRow[subMiss] = true;
-        rows.push({
-          date: "",
-          name: subFace,
-          amount: null,
-          kind: "out",
-          phrase: "not found",
-          marker: "",
-          chip: "",
-          counted: false,
-          pending: true,
-          undated: true,
-          notFound: true
-        });
-        return;
-      }
+      if (!(subActual > 0)) return;
       rows.push({
         date: s.typical_day == null ? "" : (bankParseYm(monthKey) ? bankDateKey(bankParseYm(monthKey).year, bankParseYm(monthKey).month, s.typical_day) : ""),
         name: subFace,
@@ -5664,7 +5624,6 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
   else if (books.start != null) anchor = books.start;
   var balance = anchor;
   var datedNet = 0;
-  var requiredListed = 0;
   var needsListed = 0;
   var wantsListed = 0;
   function applyRow(row) {
@@ -5680,7 +5639,6 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     datedNet += signed;
     balance = bankRoundCents(balance + signed);
     row.left = balance;
-    if (!closed && row.kind === "out" && !row.rollup && row.tier === "required") requiredListed += row.amount;
     if (!closed && row.kind === "out" && !row.rollup && row.tier === "needs") needsListed += row.amount;
     if (!closed && row.kind === "out" && !row.rollup && row.tier === "wants") wantsListed += row.amount;
   }
@@ -5716,11 +5674,53 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     if (needsPlan == null) needsPlan = fig && fig.needs != null ? fig.needs : 0;
     if (wantsPlan == null) wantsPlan = fig && fig.wants != null ? fig.wants : 0;
     var spentTiers = bankTierSpend(snap, monthKey) || {};
-    var requiredPlan = explicitTierPlan("required");
     function tierRemain(plan, spent, listed) {
       return bankRoundCents(Math.max(0, (plan || 0) - (spent || 0) - (listed || 0)));
     }
-    [["Required", tierRemain(requiredPlan, spentTiers.required, requiredListed)], ["Needs", tierRemain(needsPlan, spentTiers.needs, needsListed)], ["Wants", tierRemain(wantsPlan, spentTiers.wants, wantsListed)]].forEach(function (pair) {
+    var listedRequired = {};
+    bodyRows.forEach(function (row) {
+      if (!row || row.kind !== "out" || row.rollup || row.tier !== "required" || row.amount == null) return;
+      listedRequired[bankTierKey(row.name)] = true;
+      listedRequired[bankBillKey(row.name)] = true;
+    });
+    function unlistedRequiredRemain() {
+      var sum = 0;
+      function paidMtd(name) {
+        var paid = bankCategorySpendActual(snap, name, monthKey) || 0;
+        (books.accounts || []).forEach(function (acct) {
+          (acct.rows || []).forEach(function (row) {
+            if (!row || row.kind === "in" || !(row.amount > 0)) return;
+            var day = bankDayKey(row.date);
+            if (todayIso && day && day > todayIso) return;
+            if (bankTierKey(row.name) !== bankTierKey(name) && bankBillKey(row.name) !== bankBillKey(name)) return;
+            if (row.amount > paid) paid = row.amount;
+          });
+        });
+        return paid;
+      }
+      function take(name, plan, row) {
+        if (!name || !(plan > 0)) return;
+        var face = bankLedgerFace(snap, bankBillDisplayName(name, row && row.display_label));
+        if (listedRequired[bankTierKey(name)] || listedRequired[bankTierKey(face)] || listedRequired[bankBillKey(name)]) return;
+        var paid = paidMtd(name);
+        if (face && face !== name) paid = Math.max(paid, paidMtd(face));
+        var status = row && row.paid_current_month ? bankBillPaidStatus(row, ym) : "";
+        if (row && bankTrustPaidStatus(snap, row, ym, opts) && (status === "paid" || status === "paid_late") && plan > paid) paid = plan;
+        sum += Math.max(0, plan - (paid || 0));
+      }
+      (bills || []).forEach(function (b) {
+        if (!b || bankBillRetired(b, ym) || !bankBillCounted(b) || ledgerTier(b) !== "required") return;
+        var plan = bankIsSetAside(b) || bankIsTwiceBill(b) ? bankBillMonthPlan(b, ym, edits) : bankBillLineAmount(b, ym, edits);
+        take(b.name, plan, b);
+      });
+      bankMerchantRecurringRows(snap, bills).forEach(function (extra) {
+        var name = extra.name || extra.label || extra.merchant || "";
+        if (bankResolveTier(name, snap, tierCtx, extra) !== "required") return;
+        take(name, bankNum(extra.amount != null ? extra.amount : extra.typical_amount), extra);
+      });
+      return bankRoundCents(sum);
+    }
+    [["Required", unlistedRequiredRemain()], ["Needs", tierRemain(needsPlan, spentTiers.needs, needsListed)], ["Wants", tierRemain(wantsPlan, spentTiers.wants, wantsListed)]].forEach(function (pair) {
       var remain = pair[1];
       if (!(remain > 0.004)) return;
       if (balance != null) balance = bankRoundCents(balance - remain);
@@ -5751,7 +5751,11 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       closing: true
     });
   } else if (showBalance) {
-    bodyRows.push({
+    var postedRows = bodyRows.filter(function (row) {
+      return row && row.amount != null && !row.notFound && !row.closing;
+    });
+    if (!postedRows.length) bodyRows = [];
+    else bodyRows.push({
       date: "",
       name: "Month-end",
       amount: null,
@@ -5769,7 +5773,8 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
   }
   var listTitle = opts.listTitle || "Due this month";
   if (!bodyRows.length) {
-    return '<section class="bank-due-month">' + bankDueHeading(listTitle) + '<p class="bank-empty">Nothing due in this month.</p></section>';
+    var emptyLine = closed ? "Nothing posted." : "Nothing due in this month.";
+    return '<section class="bank-due-month">' + bankDueHeading(listTitle) + '<p class="bank-empty">' + emptyLine + "</p></section>";
   }
   var trs = bodyRows.map(function (row) {
     var metaBits = [];
