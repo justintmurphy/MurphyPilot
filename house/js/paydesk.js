@@ -838,16 +838,21 @@ function estimateCard(doc) {
   scenarios.forEach(function (row) {
     if (row && row.refund_or_owed != null && isFinite(Number(row.refund_or_owed))) nets.push(Number(row.refund_or_owed));
   });
+  var showRange = false;
   var range = "";
-  if (nets.length) {
+  if (nets.length >= 2) {
     var hi = Math.max.apply(null, nets);
     var lo = Math.min.apply(null, nets);
-    range = "Range " + wholeMoney(lo) + " to " + wholeMoney(hi) + " across scenarios. ";
+    if (lo !== hi) {
+      showRange = true;
+      range = "Range " + wholeMoney(lo) + " to " + wholeMoney(hi) + " across scenarios. ";
+    }
   }
   var extra = fed.extra_per_check_to_break_even;
-  var extraText = extra != null && isFinite(Number(extra)) && Number(extra) !== 0
+  var extraNeeded = extra != null && isFinite(Number(extra)) && Number(extra) !== 0;
+  var extraText = extraNeeded
     ? "Base: extra per check " + moneyText(extra, "plain").text + "."
-    : "Base: no extra needed.";
+    : (showRange ? "Base: no extra needed." : "No extra needed.");
   var extraLine = hint(range + extraText);
   var withheld = est.stub_adjustment && est.stub_adjustment.withholding_projected;
   function row(label, cell) {
