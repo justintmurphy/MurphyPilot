@@ -1,4 +1,8 @@
-/* tip eh — House Banking.
+/* tip ep — House Banking.
+   Budget and Current are one page, built on Budget. Spent versus plan sits on each tier and category row.
+   The thin bar is green under 75 percent, amber from 75 through 100, and red over 100. It uses the shared meter.
+   The due list says paid or due with the date on the row. #current and /current/ open Budget.
+   tip eh — House Banking.
    Budget, Current, and Historical share one stack: Next pay, headline, plan bar, tier wheel, due list, calendar, meters.
    Each block is one render function with a mode (plan, current, or historical) and a month. Markup is not forked.
    Budget is the static plan. It has no actual fills. A paid due item only gets a small secondary marker.
@@ -527,7 +531,9 @@ function bankParseHash(hash) {
   var h = String(hash || "").replace(/^#/, "");
   var hist = h.match(/^historical(?:=(\d{4}-\d{2}))?$/);
   if (hist) return { tab: "historical", histMonth: hist[1] || "" };
-  if (h === "budget" || h === "current" || h === "edits") return { tab: h, histMonth: "" };
+  /* Old Current links open the merged Budget page. */
+  if (h === "current") return { tab: "budget", histMonth: "" };
+  if (h === "budget" || h === "edits") return { tab: h, histMonth: "" };
   return { tab: "budget", histMonth: "" };
 }
 
@@ -3450,24 +3456,61 @@ function bankMtdCaption(asof) {
   return "Month to date \u00b7 day " + et.day + " of " + bankMonthDim(et.year, et.month);
 }
 
+/* Spent as a percent of plan. A missing side or a non-positive plan stays blank. */
+function bankVsPct(spent, plan) {
+  var s = bankNum(spent);
+  var p = bankNum(plan);
+  if (s == null || p == null || !(p > 0)) return null;
+  return (s / p) * 100;
+}
+
+function bankVsTone(spent, plan) {
+  var pct = bankVsPct(spent, plan);
+  if (pct == null) return "";
+  if (pct > 100) return "stop";
+  if (pct >= 75) return "warn";
+  return "go";
+}
+
+function bankVsColor(tone) {
+  if (tone === "stop") return "var(--stop)";
+  if (tone === "warn") return "var(--warn)";
+  if (tone === "go") return "var(--go)";
+  return "var(--rule)";
+}
+
+function bankOfText(spent, plan) {
+  if (bankNum(spent) == null && bankNum(plan) == null) return "\u2014";
+  return bankMoney(spent) + " of " + bankMoney(plan);
+}
+
+function bankVsBarHtml(spent, plan) {
+  var pct = bankVsPct(spent, plan);
+  var tone = bankVsTone(spent, plan);
+  var width = pct == null ? 0 : Math.max(0, Math.min(100, pct));
+  var toneAttr = tone ? ' data-tone="' + tone + '"' : "";
+  var pctAttr = pct == null ? "" : ' data-pct="' + pct.toFixed(1) + '"';
+  return '<span class="mix-bar"' + toneAttr + pctAttr + '><span style="width:' +
+    width.toFixed(1) + "%;background:" + bankVsColor(tone) + '"></span></span>';
+}
+
+function bankVsRowHtml(name, spent, plan, attrs) {
+  var tone = bankVsTone(spent, plan);
+  return '<li class="mix-leg"' + (attrs || "") + (tone ? ' data-tone="' + tone + '"' : "") + ">" +
+    '<i style="background:' + bankVsColor(tone) + '"></i>' +
+    '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(name) + "</span>" +
+    bankVsBarHtml(spent, plan) + "</span> " +
+    '<span class="mix-leg-fig"><span class="mix-amt">' + bankEsc(bankOfText(spent, plan)) + "</span></span></li>";
+}
+
 function bankBarsHtml(rows, note) {
   var caption = note ? '<p class="bank-bar-note">' + bankEsc(note) + "</p>" : "";
   if (!rows.length) return caption + '<p class="bank-empty">No category limits in this print.</p>';
-  var max = 0;
-  rows.forEach(function (r) {
-    if (r.target != null) max = Math.max(max, r.target);
-    if (r.actual != null) max = Math.max(max, r.actual);
-  });
-  var body = rows.map(function (r) {
-    var tick = r.target == null || !(max > 0) ? null : Math.max(0, Math.min(100, (r.target / max) * 100));
-    /* Budget bars keep the printed actual as text. The track does not fill, so the plan tab has no actual fills. */
-    var mark = tick == null ? "" : '<i class="tick" style="left:' + tick.toFixed(1) + '%"></i>';
-    return '<div class="bank-bar' + (r.over ? " over" : "") + '" data-bar="' + bankEsc(r.name) + '">' +
-      '<div class="bank-bar-k"><span>' + bankEsc(bankBillDisplayName(r.name, r.display_label)) + "</span> <b>Actual " + bankMoney(r.actual) +
-      "</b> <i>Limit " + bankMoney(r.target) + "</i></div>" +
-      '<div class="bank-bar-track" aria-hidden="true">' + mark + "</div></div>";
+  var items = rows.map(function (r) {
+    var name = bankBillDisplayName(r.name, r.display_label);
+    return bankVsRowHtml(name, r.actual, r.target, ' data-bar="' + bankEsc(r.name) + '"');
   }).join("");
-  return caption + body;
+  return caption + bankCapList('<ul class="mix-legend">' + items + "</ul>", rows.length, "Progress vs limits");
 }
 
 function bankEtYmd(asof) {
@@ -4975,6 +5018,19 @@ function bankDueDayPhrase(days) {
   return "due days " + list.join(" and ");
 }
 
+/* Inline due status. The date sits in the phrase. There is no status column. */
+function bankDueInlineStatus(paid, late, paidDate, day, ymObj) {
+  if (paid) {
+    var when = bankShortDate(paidDate);
+    if (late) return when ? "paid late " + when : "paid late";
+    return when ? "paid " + when : "paid";
+  }
+  if (day != null && ymObj && ymObj.month >= 1 && ymObj.month <= 12) {
+    return "due " + BANK_MONTHS[ymObj.month - 1] + " " + String(day);
+  }
+  return "due";
+}
+
 function bankScreenToday(snap, opts) {
   opts = opts || {};
   var et = null;
@@ -5453,22 +5509,20 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     }
     var ymObj = bankParseYm(monthKey);
     function phraseFor(day) {
-      var phrase = day != null ? bankDueDayPhrase([day]) : "";
-      var marker = "";
       var word = bankLedgerStatusWord(status);
       var paid = paidFlag || word === "paid" || (status && status.indexOf("Paid") === 0);
       if (mode === "historical") {
         var spentHit = bankCategoryActual(bankActualsMap(snap)[monthKey], b.name);
         if (spentHit != null && spentHit > 0) paid = true;
       }
+      var late = !!(status && status.indexOf("Paid late") === 0);
+      var paidOn = (b.paid_current_month && b.paid_current_month.paid_date) || b.paid_date || "";
+      var phrase = "";
       if (!counted) phrase = "not counted";
-      else if (paid && status && status.indexOf("Paid late") === 0) {
-        phrase = phrase ? phrase + " \u00b7 " + bankLedgerStatusWord(status) : bankLedgerStatusWord(status);
-      } else if (paid) marker = '<small class="bank-paid-mark">paid</small>';
-      else phrase = phrase ? phrase + " \u00b7 " + bankLedgerStatusWord("Unpaid") : bankLedgerStatusWord("Unpaid");
+      else phrase = bankDueInlineStatus(paid, late, paidOn, day, ymObj);
       if (b.cancelled_later) phrase = (phrase ? phrase + " \u00b7 " : "") + "cancelled later";
       if (phrase === "day \u2014" || phrase === "due day \u2014") phrase = "";
-      return { phrase: phrase, marker: marker };
+      return { phrase: phrase, marker: "" };
     }
     if (!dueDays.length) {
       var bare = phraseFor(null);
@@ -5500,7 +5554,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       name: name,
       amount: amount,
       kind: "out",
-      phrase: day != null ? bankDueDayPhrase([day]) : "",
+      phrase: day != null ? bankDueInlineStatus(false, false, "", day, ymObj) : "",
       marker: "",
       chip: "",
       tier: tier,
@@ -5521,13 +5575,15 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
         subActual = bankCategoryActual(subBag, nm);
       });
       if (!(subActual > 0)) return;
+      var subYm = bankParseYm(monthKey);
+      var subDate = s.typical_day == null || !subYm ? "" : bankDateKey(subYm.year, subYm.month, s.typical_day);
       rows.push({
-        date: s.typical_day == null ? "" : (bankParseYm(monthKey) ? bankDateKey(bankParseYm(monthKey).year, bankParseYm(monthKey).month, s.typical_day) : ""),
+        date: subDate,
         name: subFace,
-        marker: '<small class="bank-paid-mark">paid</small>',
+        marker: "",
         amount: subActual,
         kind: "out",
-        phrase: "Subscription",
+        phrase: "Subscription \u00b7 " + bankDueInlineStatus(true, false, subDate, s.typical_day, subYm),
         chip: "",
         tier: bankResolveTier(s.name, snap, tierCtx, s),
         counted: true,
@@ -5541,17 +5597,15 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     var due = ymObj ? bankDateKey(ymObj.year, ymObj.month, s.typical_day) : "";
     var trust = bankTrustPaidStatus(snap, s, ym, opts);
     var status = bankPayStatusText(s, ym, today, trust);
-    var phrase = bankDueDayPhrase([s.typical_day]);
-    var subMarker = "";
     var subWord = bankLedgerStatusWord(status);
     var subPaid = (trust && bankDueIsPaid(snap, s.name, ym, mode, status)) || subWord === "paid";
-    if (subPaid && status && status.indexOf("Paid late") === 0) phrase = phrase + " \u00b7 " + bankLedgerStatusWord(status);
-    else if (subPaid) subMarker = '<small class="bank-paid-mark">paid</small>';
-    else phrase = phrase + " \u00b7 " + bankLedgerStatusWord("Unpaid");
+    var subLate = !!(status && status.indexOf("Paid late") === 0);
+    var subPaidOn = (s.paid_current_month && s.paid_current_month.paid_date) || s.paid_date || "";
+    var phrase = bankDueInlineStatus(subPaid, subLate, subPaidOn, s.typical_day, ymObj);
     rows.push({
       date: due || "9999-99-99",
       name: subFace,
-      marker: subMarker,
+      marker: "",
       amount: s.amount,
       kind: "out",
       phrase: "Subscription \u00b7 " + phrase,
@@ -5594,8 +5648,8 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
         name: bankLedgerFace(snap, dep.name || dep.kind || "Deposit"),
         amount: amount,
         kind: "in",
-        phrase: when ? (bankShortDate(when) || when) : "",
-        marker: '<small class="bank-paid-mark">paid</small>',
+        phrase: when ? ("paid " + (bankShortDate(when) || when)) : "paid",
+        marker: "",
         chip: "",
         counted: true,
         pending: false,
@@ -8390,19 +8444,13 @@ function bankTierSummaryHtml(snap, opts, mode, month, view, actuals, missing, sh
   if (!spentBag) {
     try { spentBag = bankTierActuals(snap, bankMonthKey(month), "current"); } catch (e) { spentBag = null; }
   }
-  var head = "<tr><th>Tier</th><th class=\"num\">Plan</th><th class=\"num\">Spent</th><th class=\"num\">Left</th></tr>";
   var body = ["required", "needs", "wants"].map(function (key) {
     var plan = bankPrintedTierPlan(snap, month, key);
     var spent = spentBag ? spentBag[key] : null;
-    var left = plan == null || spent == null ? null : bankRoundCents(plan - spent);
-    var leftCls = left != null && left < -0.0001 ? "num tone-stop" : "num";
-    return '<tr data-tier="' + key + '"><td><span class="sym">' + bankTierLabel(key) + "</span></td>" +
-      '<td class="num">' + bankEsc(bankMoney(plan)) + "</td>" +
-      '<td class="num">' + bankEsc(bankMoney(spent)) + "</td>" +
-      '<td class="' + leftCls + '">' + bankEsc(bankMoney(left)) + "</td></tr>";
+    return bankVsRowHtml(bankTierLabel(key), spent, plan, ' data-tier="' + key + '"');
   }).join("");
-  return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span"><table class="book"><thead>' +
-    head + "</thead><tbody>" + body + "</tbody></table></div></section>";
+  return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span"><ul class="mix-legend">' +
+    body + "</ul></div></section>";
 }
 
 function bankMoreDetailsHtml(snap, opts, mode, month, view, actuals, missing) {
@@ -9451,7 +9499,7 @@ function bankPageHtml(snap, opts) {
   if (tab === "historical") panel = bankHistHtml(snap || {}, opts);
   else if (tab === "budget") panel = bankBudgetHtml(snap || {}, opts);
   else if (tab === "edits") panel = bankEditsPanelHtml(snap || {}, opts);
-  else panel = bankCurrentHtml(snap || {}, opts);
+  else panel = bankBudgetHtml(snap || {}, opts);
   var title = bankViewTitle(tab, snap || {}, opts);
   return bankNavHtml(tab, opts.menuOpen, title, snap || {}, opts) + '<div class="bank-panel" data-panel="' + tab + '" aria-labelledby="bank-view-title">' +
     bankTierStaleHtml(snap) + panel + "</div>";
