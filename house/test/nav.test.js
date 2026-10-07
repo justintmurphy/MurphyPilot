@@ -607,8 +607,8 @@ test("touched assets use the eg cache bust and banking uses ec", function () {
   const inv = read("investments/index.html");
   assert.match(bank, /\/js\/nav\.js\?v=20261007em/);
   assert.match(bank, /\/house\/house\.css\?v=20261007em/);
-  assert.match(bank, /\/house\/js\/banking\.js\?v=20261007eh3/);
-  assert.match(bank, /\/house\/banking\.css\?v=20261007eh3/);
+  assert.match(bank, /\/house\/js\/banking\.js\?v=20261007eh4/);
+  assert.match(bank, /\/house\/banking\.css\?v=20261007eh4/);
   assert.match(bank, /id="mpNav" class="mp-nav" data-section="banking"/);
   assert.match(bank, /<a class="brand-block" href="\/">/);
   assert.match(bank, /aria-label="Murphy Pilot"/);

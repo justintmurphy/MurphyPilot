@@ -34,6 +34,15 @@ body.bank-page > header .clock {
   overflow-wrap: anywhere;
 }
 
+[data-bank-part="more"] h2 {
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
 .bank-overflow {
   position: relative;
   flex: 0 0 auto;
@@ -670,6 +679,12 @@ body.bank-page > header .clock {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.bank-day .pay {
+  color: var(--go);
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .bank-day span,
@@ -1862,6 +1877,7 @@ span.bank-chip {
   .bank-panel {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    grid-auto-flow: dense;
     gap: 0 16px;
     align-items: start;
   }
@@ -1915,6 +1931,10 @@ span.bank-chip {
     margin: 2px auto 0;
     border-radius: 50%;
     background: var(--ink);
+  }
+
+  .bank-day.has.bank-day-pay::after {
+    background: var(--go);
   }
 
   .bank-day-dialog,
