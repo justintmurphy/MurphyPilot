@@ -308,6 +308,56 @@ function collapseHouseNames(list) {
   });
 }
 
+/* Thin delegate. Markup and the ten-row scroll live in MPListCap, same as Banking. */
+function capInvestList(html, count, label) {
+  var max = 10;
+  if (!(count > max)) return html;
+  if (typeof MPListCap !== "undefined" && MPListCap && MPListCap.capHtml) {
+    return MPListCap.capHtml(html, { count: count, max: max, label: label || "List" });
+  }
+  return html;
+}
+function investDateKey(item) {
+  if (item == null || item === "") return "";
+  var raw;
+  if (typeof item !== "object") raw = item;
+  else raw = item.date || item.due || item.ts || item.asof || item.t || "";
+  raw = String(raw == null ? "" : raw).trim();
+  if (!raw || raw === "\u2014" || raw === "—") return "";
+  return raw;
+}
+/* Dated rows soonest-first. Rows with no date stay after every dated row. */
+function investSortSoonest(list) {
+  return (list || []).slice().sort(function (a, b) {
+    var da = investDateKey(a);
+    var db = investDateKey(b);
+    if (da && !db) return -1;
+    if (!da && db) return 1;
+    if (da < db) return -1;
+    if (da > db) return 1;
+    return 0;
+  });
+}
+function invPaintTicker(snap, opts) {
+  var el = typeof document !== "undefined" && document.getElementById ? document.getElementById("mp-ticker") : null;
+  if (!el || typeof MPTicker === "undefined" || !MPTicker.render) return;
+  try {
+    var tiers = (typeof bankTierDoc === "function") ? bankTierDoc(snap) : null;
+    var today = (typeof bankScreenToday === "function") ? bankScreenToday(snap, opts || {}) : null;
+    MPTicker.render(el, snap, tiers, today);
+  } catch (e) {
+    el.hidden = true;
+    el.innerHTML = "";
+  }
+}
+function invMountTicker() {
+  var el = typeof document !== "undefined" && document.getElementById ? document.getElementById("mp-ticker") : null;
+  if (!el || el._mpTickerPainted || typeof MPTicker === "undefined" || !MPTicker.load) return;
+  try { MPTicker.load(el); } catch (e) {
+    el.hidden = true;
+    el.innerHTML = "";
+  }
+}
 
   function nameUnrealized(n) {
     var lot = (typeof lotPnl === "function") ? lotPnl(n) : { pnl: null, pct: null };
@@ -504,9 +554,10 @@ function collapseHouseNames(list) {
     var head = "<tr><th>When</th><th>Name</th><th>Book</th><th class=\"num\">Qty</th><th class=\"num\">Px</th>" +
       (isSell ? '<th class="num">P&L</th>' : "") + "</tr>";
     var rows = list.map(function (f) { return fillRowHtml(f, isSell); }).join("");
-    return '<div class="fills-pane"><table class="book fills-tape"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
+    var table = '<table class="book fills-tape"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table>";
+    return '<div class="fills-pane">' + capInvestList(table, list.length, isSell ? "Sells" : "Buys") + "</div>";
   }
-  /* Newest hidden fill. Symbol + side only — buys never carry a P&L figure (tip bf). */
+  /* Next hidden fill after the glance. Symbol + side only — buys never carry a P&L figure (tip bf). */
   function fillsMoreLabel(rest, isSell) {
     var n = rest.length;
     var last = rest[0] || {};
@@ -542,8 +593,7 @@ function collapseHouseNames(list) {
     var hasKey = book && Object.prototype.hasOwnProperty.call(book, "fills");
     if (!required && !hasKey) return "";
     var fills = (book && Array.isArray(book.fills)) ? book.fills.slice() : [];
-    fills = fills.filter(function (f) { return f && f.symbol; });
-    fills.sort(function (a, b) { return String(b.ts || "").localeCompare(String(a.ts || "")); });
+    fills = investSortSoonest(fills.filter(function (f) { return f && f.symbol; }));
     var buys = [], sells = [];
     fills.forEach(function (f) {
       var side = String(f.side || "").toLowerCase();
@@ -651,17 +701,22 @@ function collapseHouseNames(list) {
     return Math.round((Date.UTC(pb[0], pb[1] - 1, pb[2]) - Date.UTC(pa[0], pa[1] - 1, pa[2])) / 86400000);
   }
   /* tip bl — print freshness from existing asof / holdings dates only; never invent equity */
-  function nyYmdNow() {
+  function nyYmd(now) {
+    var dt = now == null ? new Date() : new Date(now);
+    if (!isFinite(dt.getTime())) dt = new Date();
     try {
       return new Intl.DateTimeFormat("en-CA", {
         timeZone: "America/New_York",
         year: "numeric",
         month: "2-digit",
         day: "2-digit"
-      }).format(new Date());
+      }).format(dt);
     } catch (e) {
-      return new Date().toISOString().slice(0, 10);
+      return dt.toISOString().slice(0, 10);
     }
+  }
+  function nyYmdNow() {
+    return nyYmd();
   }
   function asofAgeInfo(raw) {
     var info = { mins: null, ago: "", clockLabel: "", ymd: "", days: null, hasTime: false };
@@ -903,14 +958,96 @@ function collapseHouseNames(list) {
     });
     return Object.keys(by).sort().map(function (d) { return by[d]; });
   }
-  function vsLookback(prints, currentEq, days) {
+  /* Full-day NYSE closures (observed). Weekends are closed in nyseOpen. Early closes stay open. */
+  var NYSE_CLOSED = {
+    "2025-01-01": 1, "2025-01-20": 1, "2025-02-17": 1, "2025-04-18": 1, "2025-05-26": 1,
+    "2025-06-19": 1, "2025-07-04": 1, "2025-09-01": 1, "2025-11-27": 1, "2025-12-25": 1,
+    "2026-01-01": 1, "2026-01-19": 1, "2026-02-16": 1, "2026-04-03": 1, "2026-05-25": 1,
+    "2026-06-19": 1, "2026-07-03": 1, "2026-09-07": 1, "2026-11-26": 1, "2026-12-25": 1,
+    "2027-01-01": 1, "2027-01-18": 1, "2027-02-15": 1, "2027-03-26": 1, "2027-05-31": 1,
+    "2027-06-18": 1, "2027-07-05": 1, "2027-09-06": 1, "2027-11-25": 1, "2027-12-24": 1
+  };
+  function ymdDow(ymd) {
+    var p = String(ymd || "").split("-").map(Number);
+    if (p.length < 3 || !p[0]) return -1;
+    return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
+  }
+  function nyseOpen(ymd) {
+    var dow = ymdDow(ymd);
+    if (dow <= 0 || dow === 6) return false;
+    return !NYSE_CLOSED[ymd];
+  }
+  function prevOpenDay(ymd) {
+    var d = ymd;
+    var i;
+    for (i = 0; i < 12; i++) {
+      d = ymdAdd(d, -1);
+      if (nyseOpen(d)) return d;
+    }
+    return "";
+  }
+  function nyMinutes(now) {
+    var dt = now == null ? new Date() : new Date(now);
+    if (!isFinite(dt.getTime())) dt = new Date();
+    try {
+      var parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        minute: "numeric",
+        hourCycle: "h23"
+      }).formatToParts(dt);
+      var hour = 0, minute = 0;
+      parts.forEach(function (p) {
+        if (p.type === "hour") hour = Number(p.value);
+        if (p.type === "minute") minute = Number(p.value);
+      });
+      if (hour === 24) hour = 0;
+      return hour * 60 + minute;
+    } catch (e) {
+      return 12 * 60;
+    }
+  }
+  function tapeHasDay(prints, ymd) {
+    var hit = false;
+    lastByDay(prints).forEach(function (row) { if (row.day === ymd) hit = true; });
+    return hit;
+  }
+  /* Today counts only at or after 9:30 ET, or when the tape already has that day. A closed day snaps to the prior session. */
+  function sessionDay(ymd, now, prints) {
+    if (!nyseOpen(ymd)) return prevOpenDay(ymd);
+    if (now != null && nyYmd(now) === ymd) {
+      if (tapeHasDay(prints, ymd) || nyMinutes(now) >= 9 * 60 + 30) return ymd;
+      return prevOpenDay(ymd);
+    }
+    return ymd;
+  }
+  function tradingDaysBefore(session, n) {
+    var d = session;
+    var i;
+    for (i = 0; i < n; i++) d = prevOpenDay(d);
+    return d;
+  }
+  /* Day is the prior session, week is five sessions back, month is the prior month's last session. Other spans snap a calendar day back onto the prior session. Exact tape day or null — never the newest row and never an older stand-in. */
+  function lookbackAnchor(days, now, prints) {
+    if (now == null) now = Date.now();
+    var today = nyYmd(now);
+    var session = sessionDay(today, now, prints);
+    if (days === 1) return tradingDaysBefore(session, 1);
+    if (days === 7) return tradingDaysBefore(session, 5);
+    if (days === 30) {
+      var parts = String(today).split("-");
+      if (parts.length < 3 || !parts[0]) return "";
+      return prevOpenDay(parts[0] + "-" + parts[1] + "-01");
+    }
+    return sessionDay(ymdAdd(today, -days));
+  }
+  function vsLookback(prints, currentEq, days, now) {
     var rows = lastByDay(prints);
     if (!rows.length) return null;
-    var lastDay = rows[rows.length - 1].day;
-    var target = ymdAdd(lastDay, -days);
+    var anchor = lookbackAnchor(days, now, prints);
+    if (!anchor) return null;
     var prior = null;
-    rows.forEach(function (row) { if (row.day <= target) prior = row; });
-    if (!prior && days > 1 && ymdDiff(rows[0].day, lastDay) >= days - 2) prior = rows[0];
+    rows.forEach(function (row) { if (row.day === anchor) prior = row; });
     if (!prior) return null;
     var cur = isFinite(Number(currentEq)) ? Number(currentEq) : rows[rows.length - 1].equity;
     var delta = cur - prior.equity;
@@ -929,65 +1066,73 @@ function collapseHouseNames(list) {
     return { delta: delta, pct: prior.equity ? (delta / prior.equity) * 100 : null, prior: prior.equity };
   }
   function improveLine(tag, d) {
-    if (!d) return '<small class="dod tone-flat">' + tag + " \u2014</small>";
+    if (!d) return "";
     return '<small class="dod tone-' + tone(d.delta) + '">' + tag + " " + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</small>";
   }
-  function dodHtml(prints, currentEq) {
-    return improveLine("Day", vsLookback(prints, currentEq, 1)) +
-      improveLine("Week", vsLookback(prints, currentEq, 7)) +
-      improveLine("Month", vsLookback(prints, currentEq, 30));
+  function dodHtml(prints, currentEq, now) {
+    return [improveLine("Day", vsLookback(prints, currentEq, 1, now)),
+      improveLine("Week", vsLookback(prints, currentEq, 7, now)),
+      improveLine("Month", vsLookback(prints, currentEq, 30, now))].filter(Boolean).join(" ");
   }
   function improveCell(label, d) {
-    if (!d) return "<div><span>" + label + "</span><b class=\"tone-flat\">\u2014</b></div>";
-    return "<div><span>" + label + "</span><b class=\"tone-" + tone(d.delta) + "\">" + (d.delta > 0 ? "+" : "") + money(d.delta) + "</b>" +
+    if (!d) return "";
+    return "<div><span>" + label + "</span> <b class=\"tone-" + tone(d.delta) + "\">" + (d.delta > 0 ? "+" : "") + money(d.delta) + "</b> " +
       '<small class="dod tone-' + tone(d.delta) + '">' + pct(d.pct) + "</small></div>";
   }
-  function improveKpis(prints, currentEq) {
-    return improveCell("Day", vsLookback(prints, currentEq, 1)) +
-      improveCell("Week", vsLookback(prints, currentEq, 7)) +
-      improveCell("Month", vsLookback(prints, currentEq, 30));
+  function improveKpis(prints, currentEq, now) {
+    return [improveCell("Day", vsLookback(prints, currentEq, 1, now)),
+      improveCell("Week", vsLookback(prints, currentEq, 7, now)),
+      improveCell("Month", vsLookback(prints, currentEq, 30, now))].filter(Boolean).join("");
   }
   function growChip(label, d) {
-    if (!d) return '<div class="ov-chip"><span>' + label + '</span><b class="tone-flat">\u2014</b></div>';
-    return '<div class="ov-chip"><span>' + label + '</span><b class="tone-' + tone(d.delta) + '">' +
-      (d.delta > 0 ? "+" : "") + money(d.delta) + '</b><i class="tone-' + tone(d.delta) + '">' + pct(d.pct) + "</i></div>";
+    if (!d) return "";
+    return '<div class="ov-chip"><span>' + label + '</span> <b class="tone-' + tone(d.delta) + '">' +
+      (d.delta > 0 ? "+" : "") + money(d.delta) + '</b> <i class="tone-' + tone(d.delta) + '">' + pct(d.pct) + "</i></div>";
   }
 
-  function overallStripHtml() {
+  function overallStripHtml(now) {
     var c = (snap && snap.combined) || {};
     var prints = dodTape("combined");
     var eq = Number(c.equity) || 0;
     var asof = c.outside_asof || c.overall_asof || "";
     return '<div class="card span overall-strip tape-open" data-open-all-books="1">' +
-      '<div class="ov-hero"><span>Overall \u00b7 last close</span><b>' + money(eq) + "</b></div>" +
+      '<div class="ov-hero"><span>Overall \u00b7 last close</span> <b>' + money(eq) + "</b></div>" +
       '<div class="ov-chips">' +
-      growChip("Day", vsLookback(prints, eq, 1)) +
-      growChip("Week", vsLookback(prints, eq, 7)) +
-      growChip("Month", vsLookback(prints, eq, 30)) +
-      growChip("YTD", vsYtd(prints, eq)) +
-      growChip("Year", vsLookback(prints, eq, 365)) +
+      growChip("Day", vsLookback(prints, eq, 1, now)) +
+      growChip("Week", vsLookback(prints, eq, 7, now)) +
+      growChip("Month", vsLookback(prints, eq, 30, now)) +
+      (function () { var ytd = vsYtd(prints, eq); return ytd ? growChip("YTD", ytd) : ""; })() +
+      (function () { var year = vsLookback(prints, eq, 365, now); return year ? growChip("Year", year) : ""; })() +
       "</div>" +
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" +
-      '<p class="hint">Click for every book. Live (Robinhood + Fidelity) ' + money(c.live_equity) + " \u00b7 Voya EOD " + ((snap && snap.truthifiFail && !snap.truthifiHeld) ? "\u2014" : money(c.custodial_equity)) + "." +
-      (asof ? " Holdings " + esc(String(asof).slice(0, 10)) + "." : "") + "</p></div>";
+      '<p class="hint">Click for every book.</p>' +
+      '<details class="tape-more"><summary><span class="tape-sum">Sources</span></summary>' +
+      '<p class="hint">' + overallSourceLine(c, asof) + "</p></details></div>";
+  }
+  function overallSourceLine(c, asof) {
+    var eodMissing = snap && snap.truthifiFail && !snap.truthifiHeld;
+    var eod = eodMissing ? "\u2014" : money(c && c.custodial_equity);
+    var bits = ["Live " + money(c && c.live_equity), "EOD " + eod];
+    if (asof) bits.push("Holdings " + esc(String(asof).slice(0, 10)));
+    return bits.join(" \u00b7 ") + ".";
   }
 
-  function stateHtml(b, title) {
+  function stateHtml(b, title, now) {
     var cells = [];
     if (tab === "combined") {
-      cells.push("<div><span>Cash</span><b>" + moneyOrDash(b.cash) + "</b></div>");
-      cells.push("<div><span>Buying power</span><b>" + moneyOrDash(b.buying_power) + "</b></div>");
-      cells.push("<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
-      cells.push("<div><span>Names</span><b>" + (b.names || []).length + "</b></div>");
+      cells.push("<div><span>Cash</span> <b>" + moneyOrDash(b.cash) + "</b></div>");
+      cells.push("<div><span>Buying power</span> <b>" + moneyOrDash(b.buying_power) + "</b></div>");
+      cells.push("<div><span>Invested</span> <b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
+      cells.push("<div><span>Names</span> <b>" + (b.names || []).length + "</b></div>");
     } else {
-      cells.push("<div><span>Equity</span><b>" + moneyOrDash(b.equity) + "</b>" + dodHtml(dodTape(tab), b.equity) + "</div>");
-      cells.push("<div><span>Cash</span><b>" + moneyOrDash(b.cash) + "</b></div>");
-      cells.push("<div><span>Buying power</span><b>" + moneyOrDash(b.buying_power) + "</b></div>");
-      cells.push("<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
+      cells.push("<div><span>Equity</span> <b>" + moneyOrDash(b.equity) + "</b> " + dodHtml(dodTape(tab), b.equity, now) + "</div>");
+      cells.push("<div><span>Cash</span> <b>" + moneyOrDash(b.cash) + "</b></div>");
+      cells.push("<div><span>Buying power</span> <b>" + moneyOrDash(b.buying_power) + "</b></div>");
+      cells.push("<div><span>Invested</span> <b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
     }
     if (typeof nameStats === "function" && typeof pnlKpiText === "function") {
       var ns = nameStats(b.names);
-      cells.push("<div><span>P&L</span><b class=\"tone-" + tone(ns.pnl) + "\">" + pnlKpiText(ns) + "</b></div>");
+      cells.push("<div><span>P&L</span> <b class=\"tone-" + tone(ns.pnl) + "\">" + pnlKpiText(ns) + "</b></div>");
     }
     var digChip = "";
     if (tab === "individual" || tab === "auto_grok" || tab === "joint") digChip = claudeAsofChipHtml(rhBookAsof(b));
@@ -1000,7 +1145,7 @@ function collapseHouseNames(list) {
       (b.asof || (snap && snap.asof) ? " \u00b7 asof " + esc(String(b.asof || snap.asof)) : "") + "</p></div>";
   }
 
-  function tapeHtml(key, title, clickable) {
+  function tapeHtml(key, title, clickable, now) {
     var src = (snap.tape && snap.tape[key]) || [];
     if (key === "robinhood") src = (snap.tape && (snap.tape.robinhood || snap.tape.combined)) || [];
     if (key === "combined" && snap.tape && snap.tape.live && snap.tape.live.length) src = src.concat(snap.tape.live);
@@ -1019,8 +1164,8 @@ function collapseHouseNames(list) {
     else hint = '<p class="hint">Day / week / month vs this book\u2019s last print.</p>';
     var liveTitle = title === "House" ? "Robinhood + Fidelity" : title;
     return "<h2>Live equity \u00b7 " + esc(liveTitle) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
-      '<div class="tape-kpis"><div><span>Now</span><b>' + money(last) + "</b></div>" +
-      improveKpis(prints, last) + "</div>" +
+      '<div class="tape-kpis"><div><span>Now</span> <b>' + money(last) + "</b></div>" +
+      improveKpis(prints, last, now) + "</div>" +
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" + hint + "</div>";
   }
 
@@ -1074,9 +1219,10 @@ function collapseHouseNames(list) {
         '<td class="num">' + (n.last == null ? "\u2014" : money(n.last)) + "</td>" +
         '<td class="num">' + moneyOrDash(n.value) + '</td><td class="num tone-' + tone(u.pnl) + '">' + uHtml + "</td></tr>";
     }).join("");
+    var table = '<table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table>";
+    var capped = capInvestList(table, names.length, showBook ? "Book" : "Holdings");
     var wrap = (showBook || names.length > 10) ? "card book-scroll" : "card";
-    var table = '<div class="' + wrap + '"><table class="book"><thead>' + head + "</thead><tbody>" + rows + "</tbody></table></div>";
-    return bookPhoneDisclosure(table, names, 8);
+    return bookPhoneDisclosure('<div class="' + wrap + '">' + capped + "</div>", names, 8);
   }
   /* tip by — phone book disclosure. Wide viewports return the table unchanged. */
   function bookValueCell(n) {
@@ -1184,14 +1330,16 @@ function collapseHouseNames(list) {
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div></button>";
   }
   function overlaySheet(domId, mode, title, hint) {
-    var rows = overlayIds(mode).map(function (id) { return overlayChartCard(id, mode); }).join("");
+    var ids = overlayIds(mode);
+    var rows = ids.map(function (id) { return overlayChartCard(id, mode); }).join("");
     var on = overlayOpen && overlayMode === mode;
+    var grid = capInvestList('<div class="ov-grid ov-charts">' + rows + "</div>", ids.length, mode === "all" ? "All books" : "Live books");
     return '<div class="books-overlay' + (on ? " on" : "") + '" id="' + domId + '"' + (on ? "" : " hidden") + '>' +
       '<div class="books-sheet" role="dialog" aria-label="' + esc(title) + '">' +
       '<div class="books-head"><h2 style="margin:0">' + esc(title) + "</h2>" +
       '<button type="button" class="ov-close" data-close-books="1">Close</button></div>' +
       '<p class="hint" style="margin:8px 0 10px">' + esc(hint) + "</p>" +
-      '<div class="ov-grid ov-charts">' + rows + "</div></div></div>";
+      grid + "</div></div>";
   }
   function overlayHtml() {
     if (!snap) return "";
@@ -4330,3 +4478,4 @@ function collapseHouseNames(list) {
   tickClock();
   setInterval(tickClock, 1000);
   setInterval(function () { if (typeof load === "function") load(); }, 5 * 60 * 1000);
+  invMountTicker();

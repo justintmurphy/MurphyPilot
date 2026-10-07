@@ -155,6 +155,8 @@ mixHtml = function (bookObj, t) {
       '<span class="mix-bar"><span style="width:' + Math.max(p.pct, 2).toFixed(1) + "%;background:" + p.color + '"></span></span></span>' +
       "<b>" + p.pct.toFixed(0) + "% \u00b7 " + money(p.value) + "</b></button>";
   }).join("");
+  var legendHtml = '<div class="mix-legend">' + legend + "</div>";
+  if (typeof capInvestList === "function") legendHtml = capInvestList(legendHtml, paths.length, "Mix");
 
   var detailSrc;
   if (houseMix) {
@@ -215,10 +217,12 @@ mixHtml = function (bookObj, t) {
   var hint = '<p class="mix-hint-click">' + (t === "combined"
     ? "Tap to expand: Rob books + Fid sleeves (Day/Week on Fid · all / Voya / Rob only — sleeve tapes not kept) + growth $ above %."
     : "Tap for Day / Week / Month / Year vs this book\u2019s tape.") + "</p>";
-  return '<div class="card mix-card"><div class="mix-compact">' + svg + '<div class="mix-legend">' + legend + "</div></div>" +
+  var detailTable = '<table><thead><tr><th>Book</th><th class="num">Now</th><th class="num">Day</th><th class="num">Week</th><th class="num">Month</th><th class="num">Year</th></tr></thead><tbody>' +
+    detailRows + "</tbody></table>";
+  if (typeof capInvestList === "function") detailTable = capInvestList(detailTable, detailSrc.length, "Where it sits");
+  return '<div class="card mix-card"><div class="mix-compact">' + svg + legendHtml + "</div>" +
     hint +
-    '<div class="mix-detail"><table><thead><tr><th>Book</th><th class="num">Now</th><th class="num">Day</th><th class="num">Week</th><th class="num">Month</th><th class="num">Year</th></tr></thead><tbody>' +
-    detailRows + "</tbody></table></div></div>";
+    '<div class="mix-detail">' + detailTable + "</div></div>";
 };
 
 (function () {

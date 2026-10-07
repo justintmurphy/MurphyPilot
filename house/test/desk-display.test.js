@@ -551,7 +551,7 @@ function assertMissingCostDash(html, symbol) {
 
 function kpiValue(html, label) {
   const esc = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const m = html.match(new RegExp("<span>" + esc + "</span><b[^>]*>([\\s\\S]*?)</b>"));
+  const m = html.match(new RegExp("<span>" + esc + "</span>\\s*<b[^>]*>([\\s\\S]*?)</b>"));
   assert.ok(m);
   return m[1].replace(/<[^>]+>/g, "").trim();
 }
@@ -927,73 +927,459 @@ test("fixture keeps full-precision P&L, source labels, and a missing average", f
   assert.equal(hotelMissing[6].indexOf("$0.00"), -1);
 });
 
-test("live rows render the full-precision P&L sum rounded only at display", function () {
+test("fixture rows keep a printed percent on one source and sum full-precision P&L across sources", function () {
   const ctx = boot();
   vm.runInContext(fs.readFileSync(path.join(root, "house/js/board-d.js"), "utf8"), ctx, { filename: "board-d.js" });
-  const house = housePrint();
-  const print = fidelityPrint();
-  const snap = ctx.merge(house, null, print);
-  ctx.snap = snap;
-  ctx.tab = "combined";
-  const bookHtml = ctx.tableHtml(snap.combined.names, true);
-
-  function contributors(symbol) {
-    const rows = [];
-    ["agentic", "individual", "auto_grok", "joint"].forEach(function (id) {
-      (((house.accounts || {})[id] || {}).names || []).forEach(function (n) {
-        if (String(n.symbol || "").toUpperCase() === symbol) rows.push(Object.assign({ account: id }, n));
-      });
-    });
-    ((((print.accounts || {}).fidelity || {}).names) || []).forEach(function (n) {
-      if (String(n.symbol || "").toUpperCase() === symbol) rows.push(Object.assign({ account: "fidelity" }, n));
-    });
-    return rows.filter(function (n) { return ctx.knownRowCost(n) != null; });
-  }
-  function summed(rows) {
-    let pnl = 0;
-    let cost = 0;
-    rows.forEach(function (n) {
-      const lot = ctx.lotPnl(n);
-      pnl += lot.pnl;
-      cost += lot.cost;
-    });
-    return ctx.money(pnl) + " " + ctx.pct((pnl / cost) * 100);
-  }
-
-  const symbols = {};
-  ["agentic", "individual", "auto_grok", "joint"].forEach(function (id) {
-    (((house.accounts || {})[id] || {}).names || []).forEach(function (n) {
-      symbols[String(n.symbol || "").toUpperCase()] = true;
-    });
-  });
-  ((print.accounts.fidelity || {}).names || []).forEach(function (n) {
-    symbols[String(n.symbol || "").toUpperCase()] = true;
-  });
-
-  let checked = 0;
-  Object.keys(symbols).forEach(function (symbol) {
-    const rows = contributors(symbol);
-    if (!rows.length) return;
-    const shown = bookCellText(bookHtml, symbol);
-    if (shown.length !== 1) return;
-    assert.equal(shown[0][6], summed(rows));
-    checked += 1;
-  });
-  assert.ok(checked > 0);
-
-  const labs = bookHtml.match(/<span class="book-src-lab"[^>]*>[^<]*<\/span>/g) || [];
-  assert.ok(labs.length > 0);
-  labs.forEach(function (span) {
-    const row = "<tr><td></td><td>" + span + "</td></tr>";
-    const title = sourceLabAttr(row, "title");
-    const aria = sourceLabAttr(row, "aria-label");
-    const visible = span.replace(/<[^>]+>/g, "").trim();
-    assert.equal(aria, title);
-    if (/\+\d+$/.test(visible)) {
-      assert.notEqual(visible, title);
-      assert.equal(visible.indexOf("\u00b7\u00b7\u00b7"), -1);
+  ctx.snap = {
+    accounts: {
+      individual: { label: "Individual" },
+      agentic: { label: "AI WWIII" }
     }
+  };
+  ctx.tab = "combined";
+  const one = lotRow("SYN", "Single", {
+    account: "agentic",
+    qty: 1,
+    value: 42.446,
+    cost: 40,
+    avg: 40,
+    unrealized_pnl: 2.446,
+    unrealized_pnl_pct: 6.11
   });
+  const left = lotRow("MRG", "Merged", {
+    account: "agentic",
+    qty: 1,
+    value: 21.223,
+    cost: 20,
+    unrealized_pnl: 1.223,
+    unrealized_pnl_pct: 6.11
+  });
+  const right = lotRow("MRG", "Merged", {
+    account: "individual",
+    qty: 1,
+    value: 21.223,
+    cost: 20,
+    unrealized_pnl: 1.223,
+    unrealized_pnl_pct: 6.11
+  });
+  const bookHtml = ctx.tableHtml([one, left, right], true);
+
+  const ratioPct = (2.446 / 40) * 100;
+  const printedCell = ctx.money(2.446) + " " + ctx.pct(6.11);
+  const roundedCell = ctx.money(2.446) + " " + ctx.pct(ratioPct);
+  assert.equal(ctx.pct(ratioPct), "+6.12%");
+  assert.equal(printedCell, "$2.45 +6.11%");
+  assert.notEqual(printedCell, roundedCell);
+  assert.equal(bookCellText(bookHtml, "SYN")[0][6], printedCell);
+
+  const summedPnl = 2.446;
+  const summedCost = 40;
+  const summedCell = ctx.money(summedPnl) + " " + ctx.pct((summedPnl / summedCost) * 100);
+  assert.equal(summedCell, "$2.45 +6.12%");
+  assert.notEqual(summedCell, ctx.money(summedPnl) + " " + ctx.pct(6.11));
+  assert.equal(bookCellText(bookHtml, "MRG")[0][6], summedCell);
+
+  const row = tableRowHtml(bookHtml, "MRG");
+  const title = sourceLabAttr(row, "title");
+  assert.equal(sourceLabAttr(row, "aria-label"), title);
+  assert.equal(title, "AI WWIII \u00b7 Individual");
+});
+
+function closePrint(ymd, equity) {
+  return { t: ymd + "T16:00:00-04:00", equity: equity };
+}
+
+test("day week and month use trading-day anchors and hide when the tape day is missing", function () {
+  const ctx = boot();
+  const weekend = "2026-10-10T12:00:00-04:00";
+  const prints = [
+    closePrint("2026-09-30", 20),
+    closePrint("2026-10-02", 30),
+    closePrint("2026-10-08", 40),
+    closePrint("2026-10-09", 50)
+  ];
+  const day = ctx.vsLookback(prints, 55, 1, weekend);
+  const week = ctx.vsLookback(prints, 55, 7, weekend);
+  const month = ctx.vsLookback(prints, 55, 30, weekend);
+  assert.equal(day.prior, 40);
+  assert.notEqual(day.prior, 50);
+  assert.equal(day.delta, 15);
+  assert.equal(ctx.pct(day.pct), "+37.50%");
+  assert.equal(week.prior, 30);
+  assert.equal(week.delta, 25);
+  assert.equal(month.prior, 20);
+  assert.equal(month.delta, 35);
+
+  const gap = prints.filter(function (p) { return p.t.slice(0, 10) !== "2026-10-08"; });
+  assert.equal(ctx.vsLookback(gap, 55, 1, weekend), null);
+
+  const yearMiss = ctx.vsLookback([
+    closePrint("2025-10-09", 10),
+    closePrint("2026-10-09", 50)
+  ], 55, 365, weekend);
+  assert.equal(yearMiss, null);
+
+  ctx.snap = {
+    combined: { equity: 55 },
+    tape: { overall: prints },
+    truthifiFail: true
+  };
+  const strip = ctx.overallStripHtml(weekend);
+  assert.match(strip, /Day<\/span> <b class="tone-go">\+\$15\.00<\/b>/);
+  assert.match(strip, /Week<\/span> <b class="tone-go">\+\$25\.00<\/b>/);
+  assert.match(strip, /Month<\/span> <b class="tone-go">\+\$35\.00<\/b>/);
+  assert.doesNotMatch(strip, /Day<\/span> <b class="tone-go">\+\$5\.00<\/b>/);
+
+  const holiday = "2026-09-08T12:00:00-04:00";
+  const afterHoliday = ctx.vsLookback([
+    closePrint("2026-09-04", 40),
+    closePrint("2026-09-07", 99)
+  ], 50, 1, holiday);
+  assert.equal(afterHoliday.prior, 40);
+  assert.notEqual(afterHoliday.prior, 99);
+
+  const staleNow = "2026-10-07T12:00:00-04:00";
+  const stale = [closePrint("2026-09-02", 10), closePrint("2026-09-03", 12)];
+  assert.equal(ctx.vsLookback(stale, 80, 1, staleNow), null);
+  assert.equal(ctx.vsLookback(stale, 80, 7, staleNow), null);
+  assert.equal(ctx.vsLookback(stale, 80, 30, staleNow), null);
+  const lines = ctx.dodHtml(stale, 80, staleNow);
+  assert.equal(lines, "");
+  ctx.snap = {
+    combined: { equity: 80 },
+    tape: { overall: stale },
+    truthifiFail: true
+  };
+  const staleStrip = ctx.overallStripHtml(staleNow);
+  assert.doesNotMatch(staleStrip, /<span>Day<\/span>/);
+  assert.doesNotMatch(staleStrip, /<span>Week<\/span>/);
+  assert.doesNotMatch(staleStrip, /<span>Month<\/span>/);
+  assert.doesNotMatch(staleStrip, /tone-flat">\u2014<\/b>/);
+});
+
+function pinClock(ctx, iso) {
+  const RealDate = ctx.Date;
+  const fixedMs = new RealDate(iso).getTime();
+  function PinnedDate(...args) {
+    if (!new.target) return args.length ? RealDate(...args) : new RealDate(fixedMs).toString();
+    if (args.length === 0) return new RealDate(fixedMs);
+    return new RealDate(...args);
+  }
+  PinnedDate.prototype = RealDate.prototype;
+  PinnedDate.now = function () { return fixedMs; };
+  PinnedDate.parse = RealDate.parse.bind(RealDate);
+  PinnedDate.UTC = RealDate.UTC.bind(RealDate);
+  ctx.Date = PinnedDate;
+}
+
+test("a stale chart day does not set Day, and each window uses its own session close", function () {
+  const ctx = boot();
+  const now = "2026-10-16T12:00:00-04:00";
+  pinClock(ctx, now);
+  const prints = [
+    closePrint("2026-09-30", 100),
+    closePrint("2026-10-09", 200),
+    closePrint("2026-10-10", 50),
+    closePrint("2026-10-13", 400),
+    closePrint("2026-10-15", 80)
+  ];
+  const day = ctx.vsLookback(prints, 60, 1);
+  const week = ctx.vsLookback(prints, 60, 7);
+  const month = ctx.vsLookback(prints, 60, 30);
+  assert.equal(day.prior, 80);
+  assert.equal(day.delta, -20);
+  assert.notEqual(day.prior, 400);
+  assert.notEqual(day.prior, 50);
+  assert.equal(week.prior, 200);
+  assert.equal(week.delta, -140);
+  assert.equal(month.prior, 100);
+  assert.equal(month.delta, -40);
+  assert.notEqual(day.delta, week.delta);
+  assert.notEqual(week.delta, month.delta);
+  assert.notEqual(day.delta, month.delta);
+
+  const wed = "2026-10-07T12:00:00-04:00";
+  const wedTape = [
+    closePrint("2026-09-30", 300),
+    closePrint("2026-10-03", 500),
+    closePrint("2026-10-06", 400)
+  ];
+  const wedDay = ctx.vsLookback(wedTape, 380, 1, wed);
+  assert.equal(wedDay.prior, 400);
+  assert.equal(wedDay.delta, -20);
+  assert.notEqual(wedDay.prior, 500);
+
+  ctx.snap = {
+    accounts: {
+      individual: {
+        id: "individual",
+        label: "Individual",
+        equity: 60,
+        cash: 1,
+        buying_power: 1,
+        invested_pct: 10,
+        names: []
+      }
+    },
+    combined: { equity: 60, live_equity: 60 },
+    tape: { overall: prints, individual: prints.slice() },
+    truthifiFail: true
+  };
+  ctx.tab = "combined";
+  const strip = ctx.overallStripHtml();
+  assert.match(strip, /Day<\/span> <b class="tone-stop">-\$20\.00<\/b>/);
+  assert.match(strip, /Week<\/span> <b class="tone-stop">-\$140\.00<\/b>/);
+  assert.match(strip, /Month<\/span> <b class="tone-stop">-\$40\.00<\/b>/);
+  assert.doesNotMatch(strip, /Day<\/span> <b class="tone-stop">-\$340\.00<\/b>/);
+
+  ctx.tab = "individual";
+  const book = ctx.stateHtml(ctx.snap.accounts.individual, "Individual");
+  assert.match(book, /Day -\$20\.00/);
+  assert.match(book, /Week -\$140\.00/);
+  assert.match(book, /Month -\$40\.00/);
+  const kpis = ctx.improveKpis(prints, 60);
+  assert.match(kpis, /Day<\/span> <b class="tone-stop">-\$20\.00<\/b>/);
+  assert.match(kpis, /Week<\/span> <b class="tone-stop">-\$140\.00<\/b>/);
+  assert.match(kpis, /Month<\/span> <b class="tone-stop">-\$40\.00<\/b>/);
+});
+
+test("book day hides without a prior session, and empty YTD and Year tiles stay off the strip", function () {
+  const ctx = boot();
+  const now = "2026-10-16T12:00:00-04:00";
+  pinClock(ctx, now);
+  const prior = closePrint("2026-10-15", 80);
+  const stale = closePrint("2026-10-13", 70);
+  ctx.snap = {
+    accounts: {
+      fidelity: {
+        live: false,
+        sleeves: [{ id: "desk", label: "Brokerage", equity: 90 }]
+      }
+    },
+    tape: { "fid-desk": [stale, prior] }
+  };
+  const shown = ctx.fidelityBooksHtml(ctx.snap.accounts.fidelity);
+  assert.match(shown, /Brokerage · EOD/);
+  assert.match(shown, /<div class="m"><span class="tone-go">\+\$10\.00 · \+12\.50%<\/span><\/div>/);
+  assert.doesNotMatch(shown, /Day —/);
+  assert.doesNotMatch(shown, /\+\$20\.00/);
+
+  ctx.snap.tape["fid-desk"] = [stale];
+  const hidden = ctx.bookCardHtml("fid-desk", "Brokerage", 90, "EOD", null);
+  assert.match(hidden, /Brokerage · EOD/);
+  assert.match(hidden, />\$90\.00</);
+  assert.doesNotMatch(hidden, /Day —/);
+  assert.doesNotMatch(hidden, /<div class="m">/);
+  assert.doesNotMatch(hidden, /\+\$20\.00/);
+
+  ctx.snap.tape = {};
+  const empty = ctx.bookCardHtml("fid-desk", "Brokerage", 90, "EOD", null);
+  assert.doesNotMatch(empty, /Day —/);
+  assert.doesNotMatch(empty, /<div class="m">/);
+
+  ctx.snap.tape.deskbook = [prior];
+  const house = ctx.bookCardHtml("deskbook", "Desk", 90, "EOD", "deskbook");
+  assert.match(house, /\+\$10\.00 · \+12\.50%/);
+  assert.doesNotMatch(house, /Day —/);
+  ctx.snap.tape.deskbook = [stale];
+  const houseHidden = ctx.bookCardHtml("deskbook", "Desk", 90, "EOD", "deskbook");
+  assert.doesNotMatch(houseHidden, /Day —/);
+  assert.doesNotMatch(houseHidden, /<div class="m">/);
+
+  const bare = [
+    closePrint("2026-10-13", 70),
+    closePrint("2026-10-15", 80)
+  ];
+  ctx.snap = {
+    combined: {
+      equity: 90,
+      live_equity: 30,
+      custodial_equity: 60,
+      outside_asof: "2026-10-09"
+    },
+    tape: { overall: bare },
+    truthifiFail: true
+  };
+  const strip = ctx.overallStripHtml();
+  assert.match(strip, /<p class="hint">Click for every book\.<\/p>/);
+  assert.doesNotMatch(strip, /Click for every book\.[^<]/);
+  assert.doesNotMatch(strip, /<span>YTD<\/span>/);
+  assert.doesNotMatch(strip, /<span>Year<\/span>/);
+  assert.match(strip, /<span>Day<\/span>/);
+  const detailsAt = strip.indexOf('<details class="tape-more">');
+  const liveAt = strip.indexOf("Live ");
+  assert.ok(detailsAt > 0 && liveAt > detailsAt);
+  assert.match(strip, /<summary><span class="tape-sum">Sources<\/span><\/summary>/);
+  assert.match(strip, /Live \$30\.00 · EOD — · Holdings 2026-10-09\./);
+  assert.doesNotMatch(strip, /tape-more" open/);
+
+  const fullPrints = bare.concat([
+    closePrint("2025-10-16", 40),
+    closePrint("2025-12-31", 50)
+  ]);
+  ctx.snap.tape.overall = fullPrints;
+  ctx.snap.truthifiFail = false;
+  const full = ctx.overallStripHtml();
+  assert.match(full, /<span>YTD<\/span> <b class="tone-go">\+\$40\.00<\/b>/);
+  assert.match(full, /<span>Year<\/span> <b class="tone-go">\+\$50\.00<\/b>/);
+  assert.match(full, /Live \$30\.00 · EOD \$60\.00 · Holdings 2026-10-09\./);
+  assert.doesNotMatch(full, /YTD<\/span> <b class="tone-flat">/);
+  assert.doesNotMatch(full, /Year<\/span> <b class="tone-flat">/);
+
+  const card = ctx.overallCardHtml();
+  assert.match(card, /<p class="hint">Click for every book\.<\/p>/);
+  assert.match(card, /<details class="tape-more">/);
+  assert.match(card, /Live \$30\.00 · EOD \$60\.00 · Holdings 2026-10-09\./);
+  assert.doesNotMatch(card, /Click for every book\. Live/);
+});
+
+test("before the open today is not a session, and a missing anchor hides every chip", function () {
+  const ctx = boot();
+  const prints = [
+    closePrint("2026-09-30", 50),
+    closePrint("2026-10-08", 200),
+    closePrint("2026-10-09", 300),
+    closePrint("2026-10-14", 100),
+    closePrint("2026-10-15", 80)
+  ];
+  const early = "2026-10-16T08:00:00-04:00";
+  const late = "2026-10-16T10:00:00-04:00";
+  assert.equal(ctx.sessionDay("2026-10-16", early, prints), "2026-10-15");
+  const earlyDay = ctx.vsLookback(prints, 80, 1, early);
+  const earlyWeek = ctx.vsLookback(prints, 80, 7, early);
+  assert.equal(earlyDay.prior, 100);
+  assert.equal(earlyDay.delta, -20);
+  assert.notEqual(earlyDay.delta, 0);
+  assert.equal(earlyWeek.prior, 200);
+  assert.notEqual(earlyWeek.prior, 300);
+
+  assert.equal(ctx.sessionDay("2026-10-16", late, prints), "2026-10-16");
+  const lateDay = ctx.vsLookback(prints, 90, 1, late);
+  const lateWeek = ctx.vsLookback(prints, 90, 7, late);
+  assert.equal(lateDay.prior, 80);
+  assert.equal(lateDay.delta, 10);
+  assert.equal(lateWeek.prior, 300);
+  assert.notEqual(lateWeek.prior, 200);
+
+  const withToday = prints.concat([closePrint("2026-10-16", 70)]);
+  assert.equal(ctx.sessionDay("2026-10-16", early, withToday), "2026-10-16");
+  const openedEarly = ctx.vsLookback(withToday, 95, 1, early);
+  assert.equal(openedEarly.prior, 80);
+  assert.equal(openedEarly.delta, 15);
+
+  ctx.snap = {
+    accounts: {
+      desk: {
+        id: "desk",
+        equity: 80,
+        cash: 1,
+        buying_power: 1,
+        invested_pct: 10,
+        names: [],
+        pending_deposits: 0
+      }
+    },
+    combined: { equity: 80, live_equity: 80 },
+    tape: { overall: prints, desk: prints.slice() },
+    truthifiFail: true
+  };
+  const earlyStrip = ctx.overallStripHtml(early);
+  assert.match(earlyStrip, /Day<\/span> <b class="tone-stop">-\$20\.00<\/b>/);
+  assert.match(earlyStrip, /Week<\/span> <b class="tone-stop">-\$120\.00<\/b>/);
+  assert.doesNotMatch(earlyStrip, /\$0\.00<\/b>/);
+
+  ctx.snap.combined.equity = 90;
+  ctx.snap.accounts.desk.equity = 90;
+  ctx.tab = "desk";
+  const lateBook = ctx.stateHtml(ctx.snap.accounts.desk, "Desk", late);
+  assert.match(lateBook, /Day \+\$10\.00/);
+  assert.match(lateBook, /Week -\$210\.00/);
+  const lateTape = ctx.tapeHtml("desk", "Desk", false, late);
+  assert.match(lateTape, /Day<\/span> <b class="tone-go">\+\$10\.00<\/b>/);
+  assert.match(lateTape, /Week<\/span> <b class="tone-stop">-\$210\.00<\/b>/);
+  const earlyBook = ctx.stateHtml(ctx.snap.accounts.desk, "Desk", early);
+  assert.match(earlyBook, /Day -\$10\.00/);
+  assert.doesNotMatch(earlyBook, /Day \+\$10\.00/);
+
+  const stale = [closePrint("2026-09-02", 10), closePrint("2026-09-03", 12)];
+  const noon = "2026-10-07T12:00:00-04:00";
+  ctx.snap.combined.equity = 80;
+  ctx.snap.accounts.desk.equity = 80;
+  ctx.snap.tape = { overall: stale, desk: stale.slice() };
+  const hiddenBook = ctx.stateHtml(ctx.snap.accounts.desk, "Desk", noon);
+  assert.match(hiddenBook, />\$80\.00</);
+  assert.doesNotMatch(hiddenBook, /Day —/);
+  assert.doesNotMatch(hiddenBook, /Week —/);
+  assert.doesNotMatch(hiddenBook, /Month —/);
+  assert.doesNotMatch(hiddenBook, /<small class="dod/);
+  const hiddenTape = ctx.tapeHtml("desk", "Desk", false, noon);
+  assert.match(hiddenTape, /<span>Now<\/span>/);
+  assert.doesNotMatch(hiddenTape, /<span>Day<\/span>/);
+  assert.doesNotMatch(hiddenTape, /<span>Week<\/span>/);
+  assert.doesNotMatch(hiddenTape, /<span>Month<\/span>/);
+  const hiddenStrip = ctx.overallStripHtml(noon);
+  assert.doesNotMatch(hiddenStrip, /<span>Day<\/span>/);
+  assert.doesNotMatch(hiddenStrip, /<span>Week<\/span>/);
+  assert.doesNotMatch(hiddenStrip, /<span>Month<\/span>/);
+
+  const sun = "2026-10-18T12:00:00-04:00";
+  assert.equal(ctx.ymdAdd("2026-10-18", -365), "2025-10-18");
+  assert.equal(ctx.sessionDay("2025-10-18"), "2025-10-17");
+  const year = ctx.vsLookback([
+    closePrint("2025-10-17", 40),
+    closePrint("2025-10-18", 99),
+    closePrint("2026-10-16", 80)
+  ], 90, 365, sun);
+  assert.equal(year.prior, 40);
+  assert.equal(year.delta, 50);
+  assert.notEqual(year.prior, 99);
+  const holidayNow = ctx.ymdAdd("2026-04-03", 365) + "T12:00:00-04:00";
+  assert.equal(ctx.sessionDay("2026-04-03"), "2026-04-02");
+  const holidayYear = ctx.vsLookback([
+    closePrint("2026-04-02", 40),
+    closePrint("2026-04-03", 99)
+  ], 70, 365, holidayNow);
+  assert.equal(holidayYear.prior, 40);
+  assert.notEqual(holidayYear.prior, 99);
+});
+
+test("callers that omit now still skip today before the open", function () {
+  const ctx = boot();
+  pinClock(ctx, "2026-10-16T08:00:00-04:00");
+  const prints = [
+    closePrint("2026-10-08", 200),
+    closePrint("2026-10-09", 300),
+    closePrint("2026-10-14", 100),
+    closePrint("2026-10-15", 80)
+  ];
+  ctx.snap = {
+    accounts: {
+      desk: {
+        id: "desk",
+        equity: 80,
+        cash: 1,
+        buying_power: 1,
+        invested_pct: 10,
+        names: [],
+        pending_deposits: 0
+      }
+    },
+    combined: { equity: 80, live_equity: 80 },
+    tape: { overall: prints, desk: prints.slice() },
+    truthifiFail: true
+  };
+  ctx.tab = "desk";
+  const strip = ctx.overallStripHtml();
+  const book = ctx.stateHtml(ctx.snap.accounts.desk, "Desk");
+  const tape = ctx.tapeHtml("desk", "Desk", false);
+  assert.match(strip, /Day<\/span> <b class="tone-stop">-\$20\.00<\/b>/);
+  assert.match(strip, /Week<\/span> <b class="tone-stop">-\$120\.00<\/b>/);
+  assert.match(book, /Day -\$20\.00/);
+  assert.match(book, /Week -\$120\.00/);
+  assert.match(tape, /Day<\/span> <b class="tone-stop">-\$20\.00<\/b>/);
+  assert.match(tape, /Week<\/span> <b class="tone-stop">-\$120\.00<\/b>/);
+  assert.doesNotMatch(strip + book + tape, /Day[^<]{0,40}\$0\.00/);
+  assert.doesNotMatch(strip + tape, /Week<\/span> <b class="tone-stop">-\$220\.00<\/b>/);
 });
 
 test("mix center sums full-precision parts and matches the book equity", function () {
@@ -1653,8 +2039,8 @@ test("phone fills cap Buys and Sells separately and the desk stays open", functi
   assert.equal((sells.split("</summary>")[1].match(/<tr>/g) || []).length, 1 + (5 - cap));
   const buySum = buys.match(/<summary>[\s\S]*?<\/summary>/)[0];
   const sellSum = sells.match(/<summary>[\s\S]*?<\/summary>/)[0];
-  assert.match(buySum, new RegExp((8 - cap) + " more · B" + cap + " buy"));
-  assert.match(sellSum, new RegExp((5 - cap) + " more · S" + cap + " sell"));
+  assert.match(buySum, /5 more · B4 buy/);
+  assert.match(sellSum, /2 more · S1 sell/);
   assert.match(buySum, /cf-chev/);
   assert.match(buySum, />Show</);
   assert.doesNotMatch(buySum, /\$/);

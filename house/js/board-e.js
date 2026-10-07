@@ -24,7 +24,7 @@ function safeEsc(s) {
 var PACK = null;
 function packHtml() {
   if (!PACK) return "";
-  var items = PACK.items || [];
+  var items = (typeof investSortSoonest === "function") ? investSortSoonest(PACK.items || []) : (PACK.items || []);
   function rowsFor(tag) {
     return items.filter(function (i) {
       return String(i.tag || "").toLowerCase().indexOf(tag) >= 0;
@@ -47,13 +47,16 @@ function packHtml() {
   var rows = (wh ? "<p class=\"hint\">White House</p>" + wh : "") +
     (cal ? "<p class=\"hint\">Coming official prints</p>" + cal : "") +
     other;
+  var rowCount = items.length;
+  var block = "<div class=\"pack-rows\">" +
+    (rows || "<p class=\"hint\" style=\"margin:0\">No pack items.</p>") +
+    "</div>";
+  if (typeof capInvestList === "function") block = capInvestList(block, rowCount, "Overnight pack");
   return "<h2>Overnight pack</h2><div class=\"card pack-card\">" +
     "<p class=\"hint\">" + safeEsc(PACK.subject || "Agentic policy pack") +
     (PACK.asof ? " \u00b7 " + safeEsc(PACK.asof) : "") +
     (PACK.expiry ? " \u00b7 expires " + safeEsc(PACK.expiry) : "") + "</p>" +
-    "<div class=\"pack-scroll\">" +
-    (rows || "<p class=\"hint\" style=\"margin:0\">No pack items.</p>") +
-    "</div>" +
+    block +
     (PACK.sectors ? "<p class=\"hint\">Sectors \u00b7 " + safeEsc(PACK.sectors) + "</p>" : "") +
     "</div>";
 }

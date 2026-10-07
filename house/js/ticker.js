@@ -57,19 +57,24 @@
       return;
     }
     mountEl.hidden = false;
+    var depWhen = deposit ? shortDate(deposit.date) : "";
+    var billWhen = bill ? shortDate(bill.due) : "";
+    var depName = deposit ? (deposit.kind || deposit.name || "Deposit") : "";
+    var depAria = deposit ? ("Next deposit " + depName + (depWhen ? " " + depWhen : "") + " " + money(deposit.amount)) : "";
+    var billAria = bill ? ("Next bill " + (bill.name || "") + (billWhen ? " " + billWhen : "") + " " + money(bill.amount)) : "";
     var left = deposit
-      ? '<button type="button" data-mp-tick="in" title="' + esc(deposit.name || "Deposit") + '">' +
-        "<span>Next in</span> <b>" + esc(deposit.kind || deposit.name || "Deposit") + "</b> <b>" +
-        esc(shortDate(deposit.date)) + "</b> <b>" + money(deposit.amount) + "</b> <i>" + esc(face(deposit.account)) + "</i></button>"
+      ? '<button type="button" data-mp-tick="in" title="' + esc(deposit.name || "Deposit") + '" aria-label="' + esc(depAria) + '">' +
+        "<span>Next in</span> <b>" + esc(depName) + "</b> <b>" +
+        esc(depWhen) + "</b> <b>" + money(deposit.amount) + "</b> <i>" + esc(face(deposit.account)) + "</i></button>"
       : '<span class="mp-tick-empty">Next in \u2014</span>';
     var more = bill && bill.more > 0 ? " +" + bill.more + " more" : "";
     var right = bill
-      ? '<button type="button" data-mp-tick="out" title="' + esc(bill.name) + '">' +
-        "<span>Next out</span> <b>" + esc(bill.name) + more + "</b> <b>" + esc(shortDate(bill.due)) + "</b> <b>" +
+      ? '<button type="button" data-mp-tick="out" title="' + esc(bill.name) + '" aria-label="' + esc(billAria) + '">' +
+        "<span>Next out</span> <b>" + esc(bill.name) + more + "</b> <b>" + esc(billWhen) + "</b> <b>" +
         money(bill.amount) + "</b></button>"
       : '<span class="mp-tick-empty">Next out \u2014</span>';
-    var label = "Next deposit " + (deposit ? (deposit.kind || deposit.name || "") + " " + money(deposit.amount) : "none") +
-      ". Next bill " + (bill ? bill.name + " " + money(bill.amount) : "none");
+    var label = "Next deposit " + (deposit ? (depName + (depWhen ? " " + depWhen : "") + " " + money(deposit.amount)) : "none") +
+      ". Next bill " + (bill ? ((bill.name || "") + (billWhen ? " " + billWhen : "") + " " + money(bill.amount)) : "none");
     mountEl.innerHTML = '<div class="mp-ticker" role="region" aria-label="' + esc(label) + '">' + left + " " + right + "</div>";
     if (!mountEl._mpTickBound) {
       mountEl._mpTickBound = true;
