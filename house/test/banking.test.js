@@ -1554,8 +1554,8 @@ test("edits dig-in lists a history-only merchant in a planned category", functio
   const ctx = boot();
   const fx = loadFixture();
   const careKey = "2026-03-14|acct-check|12.34|Day Program";
-  assert.equal(fx.current.edits_tx.some(function (r) { return r.desc === "Day Program" || r.category === "Childcare"; }), false);
-  assert.equal(fx.budget.planned_by_category.Childcare, 12.34);
+  assert.equal(fx.current.edits_tx.some(function (r) { return r.desc === "Day Program" || r.category === "Education"; }), false);
+  assert.equal(fx.budget.planned_by_category.Education, 12.34);
   assert.equal(fx.budget.planned_by_category.Tuition, 12.34);
   const lists = ctx.bankEditSourceLists(fx);
   assert.equal(lists[0], fx.current.edits_tx);
@@ -1573,20 +1573,20 @@ test("edits dig-in lists a history-only merchant in a planned category", functio
 
   const care = ctx.bankEditRows(fx).filter(function (r) { return r.desc === "Day Program"; });
   assert.equal(care.length, 1);
-  assert.equal(care[0].category, "Childcare");
+  assert.equal(care[0].category, "Education");
   assert.equal(care[0].key, careKey);
   const known = ctx.bankKnownCategories(fx);
-  assert.ok(known.indexOf("Childcare") >= 0);
+  assert.ok(known.indexOf("Education") >= 0);
   assert.ok(known.indexOf("Tuition") >= 0);
-  const dig = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Childcare" });
+  const dig = ctx.bankPageHtml(fx, { tab: "edits", editCat: "Education" });
   assert.match(dig, /Day Program<\/span> <span class="bank-edit-meta">2026-03-14/);
   assert.doesNotMatch(dig, /No items in this category/);
   const pick = dig.match(/<select data-bank-cat[\s\S]*?<\/select>/);
   const chip = dig.match(/<select class="bank-chip" data-bank-tx="[\s\S]*?<\/select>/);
   assert.ok(pick && chip);
-  assert.match(pick[0], /value="Childcare"/);
+  assert.match(pick[0], /value="Education"/);
   assert.match(pick[0], /value="Tuition"/);
-  assert.match(chip[0], /value="Childcare" selected/);
+  assert.match(chip[0], /value="Education" selected/);
   assert.match(chip[0], /value="Tuition"/);
   assert.deepEqual(bankAssignOptionValues(chip[0], ctx.BANK_ROW_ADD), bankOptionValues(pick[0]));
 
@@ -1601,7 +1601,7 @@ test("edits dig-in lists a history-only merchant in a planned category", functio
   assert.match(current, /Corner Market/);
   assert.doesNotMatch(current, /Day Program/);
   const budget = ctx.bankPageHtml(fx, { tab: "budget" });
-  assert.doesNotMatch(budget, /data-bar="Childcare"/);
+  assert.doesNotMatch(budget, /data-bar="Education"/);
   assert.doesNotMatch(budget, /data-bar="Tuition"/);
   assert.match(budget, /data-bar="Groceries"/);
   assert.match(budget, /data-bar="Shopping"/);
@@ -1613,7 +1613,7 @@ test("budget hides empty categories from pies, ranks, and month-to-date bars", f
   fx.budget.planned_by_category = {
     Groceries: 12.34,
     Shopping: 24,
-    Childcare: 40,
+    Education: 40,
     Tuition: 50,
     Health: 8,
     Parking: 3
@@ -1644,11 +1644,11 @@ test("budget hides empty categories from pies, ranks, and month-to-date bars", f
   const budget = ctx.bankPageHtml(fx, { tab: "budget" });
   const bills = pieBlock(budget, "bills");
   const optional = pieBlock(budget, "optional");
-  ["Childcare", "Tuition", "Health", "Parking", "Transit", "Refunds", "Dust", "Paycheck", "Transfer"].forEach(function (name) {
+  ["Education", "Tuition", "Health", "Parking", "Transit", "Refunds", "Dust", "Paycheck", "Transfer"].forEach(function (name) {
     assert.doesNotMatch(bills, new RegExp(name));
     assert.doesNotMatch(optional, new RegExp(name));
   });
-  ["Childcare", "Tuition", "Health", "Parking", "Transit", "Refunds", "Dust", "Paycheck/Salary/Wages", "Transfer"].forEach(function (name) {
+  ["Education", "Tuition", "Health", "Parking", "Transit", "Refunds", "Dust", "Paycheck/Salary/Wages", "Transfer"].forEach(function (name) {
     assert.doesNotMatch(budget, new RegExp('data-bar="' + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '"'));
   });
   assert.match(optional, /Groceries<\/span> <b>\$30\.00<\/b>/);
@@ -1660,7 +1660,7 @@ test("budget hides empty categories from pies, ranks, and month-to-date bars", f
   assert.doesNotMatch(budget, /Actual \u2014/);
 
   const edits = ctx.bankPageHtml(fx, { tab: "edits" });
-  assert.match(edits, /data-bank-kind="Childcare"[\s\S]*?value="needs" selected/);
+  assert.match(edits, /data-bank-kind="Education"[\s\S]*?value="needs" selected/);
   assert.match(edits, /data-bank-kind="Tuition"[\s\S]*?value="required" selected/);
   assert.match(edits, /data-bank-kind="Health"/);
   assert.match(edits, /data-bank-kind="Parking"/);
@@ -1673,8 +1673,8 @@ test("budget hides empty categories from pies, ranks, and month-to-date bars", f
   assert.doesNotMatch(budget, /data-bank-kind/);
 
   const quiet = JSON.parse(JSON.stringify(fx));
-  quiet.budget.mtd_actual_by_category = { Childcare: 0, Tuition: null, Health: "0", Shopping: -1 };
-  quiet.budget.planned_by_category = { Childcare: 12.34, Tuition: 40, Shopping: 9 };
+  quiet.budget.mtd_actual_by_category = { Education: 0, Tuition: null, Health: "0", Shopping: -1 };
+  quiet.budget.planned_by_category = { Education: 12.34, Tuition: 40, Shopping: 9 };
   const quietHtml = ctx.bankPageHtml(quiet, { tab: "budget" });
   assert.match(quietHtml, /No category limits in this print/);
   assert.doesNotMatch(quietHtml, /data-bar=/);
@@ -1683,7 +1683,7 @@ test("budget hides empty categories from pies, ranks, and month-to-date bars", f
   assert.doesNotMatch(pieBlock(quietHtml, "bills"), /<path /);
   assert.doesNotMatch(pieBlock(quietHtml, "optional"), /<path /);
   const quietEdits = ctx.bankPageHtml(quiet, { tab: "edits" });
-  assert.match(quietEdits, /data-bank-kind="Childcare"/);
+  assert.match(quietEdits, /data-bank-kind="Education"/);
   assert.match(quietEdits, /data-bank-kind="Tuition"[\s\S]*?value="required" selected/);
   assert.match(quietEdits, /data-bank-kind="Shopping"/);
 });
@@ -3172,7 +3172,7 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
   assert.equal(ctx.bankResolveKind("Mortgage", fx), "must_pay");
   assert.equal(ctx.bankResolveKind("Groceries", fx), "elective");
   assert.equal(ctx.bankResolveKind("Shopping", fx), "elective");
-  assert.equal(ctx.bankResolveKind("Childcare", fx), "elective");
+  assert.equal(ctx.bankResolveKind("Education", fx), "elective");
   assert.equal(ctx.bankResolveKind("Tuition", fx), "must_pay");
   assert.equal(ctx.bankResolveKind("Streaming", fx), "elective");
 
@@ -5458,7 +5458,7 @@ test("the plan headline and bar use printed tier totals", function () {
     required_card_payments: 7
   };
   fx.budget.plan_dedupe = [{ name: "Groceries", amount: 3 }];
-  const fit = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
+  const fit = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-06T12:00:00-04:00" });
   assert.match(fit, /Expected income \$100\.00\. Plan \$80\.00 leaves \$20\.00/);
   assert.doesNotMatch(fit, /leaves \$20\.00[\s\S]{0,40}Plan \$30\.00|Plan \$30\.00 leaves/);
   assert.match(fit, /class="bank-plan-seg tier-required"/);
@@ -5473,7 +5473,7 @@ test("the plan headline and bar use printed tier totals", function () {
   fx.budget.income_monthly = [{ label: "Payroll", amount: 65, monthly_amount: 65, cadence: "monthly", typical_day: 15 }];
   fx.budget.tiers.plan_total_tiers = 80;
   fx.budget.tiers.left_after_tiers = -15;
-  const over = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
+  const over = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-06T12:00:00-04:00" });
   assert.match(over, /Expected income \$65\.00\. Plan \$80\.00 is over by \$15\.00/);
   assert.match(over, /class="bank-plan-seg tier-over"/);
   assert.match(over, /Over income<\/span> <em>\$15\.00/);
@@ -6578,6 +6578,149 @@ test("bill_id joins status, and a prev_key alias is cleared on save", async func
   assert.equal(bag.Phone, undefined);
 });
 
+test("education keeps a childcare alias, and a frozen snapshot only relabels", async function () {
+  const ctx = boot();
+  assert.equal(ctx.bankDisplayName("Example Education"), "Education");
+  assert.equal(ctx.bankDisplayName("Education"), "Education");
+  assert.equal(ctx.bankDisplayName("Example Childcare"), "Childcare");
+  assert.equal(ctx.bankDisplayName("Childcare"), "Childcare");
+  const fx = blankBudget(loadFixture());
+  fx.budget.bills = [{
+    name: "Education",
+    bill_id: "education",
+    prev_key: "childcare",
+    amount: 48,
+    typical_day: 6,
+    cadence: "monthly",
+    tier: "required"
+  }];
+  fx.tier_doc = {
+    plans: {},
+    rules: {},
+    bill_status: {
+      childcare: { status: "cancelled", from: "2026-10" },
+      Childcare: { status: "cancelled", from: "2026-10" }
+    },
+    manual_paid: {
+      childcare: { month: "2026-10", paid_date: "2026-10-04" },
+      Childcare: { month: "2026-10", paid_date: "2026-10-04" }
+    }
+  };
+  const edits = ctx.bankPageHtml(fx, { tab: "edits", planMonth: "2026-10" });
+  assert.match(edits, /class="bank-merchant">Education/);
+  assert.match(edits, /Paid ✓ \(marked\)/);
+  assert.match(edits, /data-bank-cancel="education"/);
+  assert.match(edits, /value="cancelled" selected/);
+  assert.match(edits, /Paid this month/);
+  assert.match(edits, /data-bank-status-undo="education"/);
+  assert.doesNotMatch(edits, /Unmatched status entries/);
+  assert.doesNotMatch(edits, />childcare</);
+  assert.doesNotMatch(edits, />Childcare</);
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
+    calls.push({ url: String(url), body: init && init.body });
+    return Promise.resolve({ ok: true, status: 200, type: "basic", json: function () { return Promise.resolve({}); } });
+  };
+  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { tab: "edits", planMonth: "2026-10" });
+  await el._bank.prune;
+  await el.listeners.change({
+    target: {
+      value: "2026-10",
+      getAttribute: function (name) { return name === "data-bank-cancel" ? "education" : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  await el.listeners.click({
+    target: {
+      closest: function (sel) {
+        return sel === "[data-bank-status-save]" ? { getAttribute: function () { return "education"; } } : null;
+      },
+      getAttribute: function () { return null; }
+    },
+    preventDefault: function () {}
+  });
+  await el.listeners.click({
+    target: {
+      closest: function (sel) {
+        return sel === "[data-bank-confirm]" ? { getAttribute: function () { return "education"; } } : null;
+      },
+      getAttribute: function () { return null; }
+    },
+    preventDefault: function () {}
+  });
+  const saved = JSON.parse(calls[0].body).bill_status;
+  assert.deepEqual(saved.education, { status: "cancelled", from: "2026-10" });
+  assert.equal(saved.childcare, null);
+  assert.equal(saved.Childcare, null);
+  assert.equal(saved.Education, undefined);
+  calls.length = 0;
+  await el.listeners.click({
+    target: {
+      closest: function (sel) {
+        return sel === "[data-bank-paid-month]" ? { getAttribute: function () { return "education"; } } : null;
+      },
+      getAttribute: function () { return null; }
+    },
+    preventDefault: function () {}
+  });
+  const paid = JSON.parse(calls[0].body).manual_paid;
+  assert.equal(paid.education.month, "2026-10");
+  assert.equal(paid.childcare, null);
+  assert.equal(paid.Childcare, null);
+  assert.equal(paid.Education, undefined);
+  calls.length = 0;
+  await el.listeners.click({
+    target: {
+      closest: function (sel) {
+        return sel === "[data-bank-status-undo]" ? { getAttribute: function () { return "education"; } } : null;
+      },
+      getAttribute: function () { return null; }
+    },
+    preventDefault: function () {}
+  });
+  const undone = JSON.parse(calls[0].body);
+  assert.equal(undone.bill_status.education, null);
+  assert.equal(undone.bill_status.childcare, null);
+  assert.equal(undone.manual_paid.education, null);
+  assert.equal(undone.manual_paid.childcare, null);
+  assert.doesNotMatch(el.innerHTML, /data-bank-status-undo="education"/);
+  assert.match(el.innerHTML, /data-bank-paid-month="education"/);
+
+  const hist = blankBudget(loadFixture());
+  hist.asof = "2026-10-06T12:00:00-04:00";
+  hist.budget.bills = [{
+    name: "Education",
+    bill_id: "education",
+    prev_key: "childcare",
+    amount: 48,
+    typical_day: 6,
+    cadence: "monthly",
+    tier: "required"
+  }];
+  hist.budget.snapshots = {
+    "2026-08": {
+      month: "2026-08",
+      frozen_at: "2026-08-01",
+      source: "month_start",
+      income: { expected: 80 },
+      tiers: { required_total: 30, needs_plan: 0, wants_plan: 0, plan_total_tiers: 30, left_after_tiers: 50 },
+      bills: [{ name: "Childcare", amount: 22, due_day: 6, counted: true }]
+    }
+  };
+  const frozen = hist.budget.snapshots["2026-08"].bills[0];
+  const html = ctx.bankPageHtml(hist, { tab: "historical", histMonth: "2026-08" });
+  const due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('class="bank-cal"'));
+  assert.match(due, /<span>Education<\/span> <b>\$22\.00<\/b>/);
+  assert.doesNotMatch(due, /Childcare/);
+  assert.doesNotMatch(html, /\$48\.00/);
+  assert.equal(frozen.name, "Childcare");
+  assert.equal(frozen.amount, 22);
+  assert.equal(frozen.bill_id, undefined);
+  assert.equal(Object.prototype.hasOwnProperty.call(frozen, "display_label"), false);
+});
+
 test("bank_match confidence, misses, and basis captions", function () {
   const ctx = boot();
   const fx = blankBudget(loadFixture());
@@ -6839,7 +6982,7 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.match(html, /class="mp-in">\+\$40\.00/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261006ec4/);
+  assert.match(page, /banking\.js\?v=20261006ec2/);
   assert.match(page, /banking\.css\?v=20261006ec4/);
   assert.match(page, /list-cap\.js\?v=20261006ec3/);
   assert.match(page, /list-cap\.css\?v=20261006ec3/);

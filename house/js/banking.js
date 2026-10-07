@@ -1,4 +1,4 @@
-/* tip ec — House Banking.
+/* tip ec2 — House Banking.
    Budget, Current, and Historical share one stack: Next pay, headline, plan bar, tier wheel, due list, calendar, meters.
    Each block is one render function with a mode (plan, current, or historical) and a month. Markup is not forked.
    Budget is the static plan. It has no actual fills. A paid due item only gets a small secondary marker.
@@ -118,6 +118,7 @@ var BANK_DISPLAY_TAILS = [
   "mortgage",
   "utilities",
   "tuition",
+  "education",
   "electric",
   "phone",
   "water",
@@ -6541,6 +6542,30 @@ function bankPrintStatusMap(snap) {
   return bag;
 }
 
+/* A frozen bill with no id keeps its amount. If its name is a live prev_key, the label is the current bill. */
+function bankSnapshotAliasFace(liveBudget, name) {
+  var rawName = String(name == null ? "" : name).trim();
+  if (!rawName) return "";
+  var bills = [];
+  if (liveBudget && Array.isArray(liveBudget.bills)) bills = bills.concat(liveBudget.bills);
+  if (liveBudget && Array.isArray(liveBudget.bills_monthly)) bills = bills.concat(liveBudget.bills_monthly);
+  var face = "";
+  bills.forEach(function (live) {
+    if (face || !live || typeof live !== "object") return;
+    var liveName = String(live.name || live.label || "").trim();
+    if (!liveName || bankKeysMatch(liveName, rawName)) return;
+    var aliases = bankCollectAliasKeys(live);
+    var i;
+    for (i = 0; i < aliases.length; i++) {
+      if (bankKeysMatch(aliases[i], rawName)) {
+        face = liveName;
+        return;
+      }
+    }
+  });
+  return face;
+}
+
 function bankProjectSnapshot(snap, shot, monthKey) {
   var tiers = shot.tiers && typeof shot.tiers === "object" ? shot.tiers : {};
   var income = shot.income && typeof shot.income === "object" ? shot.income : {};
@@ -6570,7 +6595,14 @@ function bankProjectSnapshot(snap, shot, monthKey) {
       plan_dedupe_total: shot.plan_dedupe_total != null ? shot.plan_dedupe_total : tiers.plan_dedupe_total,
       required_card_payments: tiers.required_card_payments
     },
-    bills: (Array.isArray(shot.bills) ? shot.bills : []).map(bankSnapshotBillRaw),
+    bills: (Array.isArray(shot.bills) ? shot.bills : []).map(function (raw) {
+      var row = bankSnapshotBillRaw(raw);
+      if (!row.bill_id && !row.display_label) {
+        var face = bankSnapshotAliasFace(liveBudget, row.name);
+        if (face) row.display_label = face;
+      }
+      return row;
+    }),
     bills_monthly: [],
     subscriptions: Array.isArray(shot.subs) ? shot.subs : (Array.isArray(shot.subscriptions) ? shot.subscriptions : []),
     planned_by_category: shot.planned_by_category && typeof shot.planned_by_category === "object" ? shot.planned_by_category : {},
@@ -8207,7 +8239,7 @@ function bankPostTierPatch(root, body, applyLocal) {
   });
 }
 
-function bankStatusPostBag(snap, key, entry) {
+function bankTierPostBag(snap, key, entry, field) {
   var row = null;
   bankPreparedBills(snap, undefined).forEach(function (b) {
     if (row) return;
@@ -8221,10 +8253,14 @@ function bankStatusPostBag(snap, key, entry) {
       if (!oldKey || bankKeysMatch(oldKey, id)) return;
       if (bag[oldKey] === undefined) bag[oldKey] = null;
     });
-    var doc = bankTierDoc(snap).bill_status || {};
-    Object.keys(doc).forEach(function (stored) {
-      if (bankKeysMatch(stored, id)) return;
-      if (bankBillMatchesKey(row, stored)) bag[stored] = null;
+    var fields = field ? [field] : ["bill_status", "manual_paid"];
+    fields.forEach(function (name) {
+      var doc = bankTierDoc(snap)[name] || {};
+      Object.keys(doc).forEach(function (stored) {
+        if (!doc[stored] && doc[stored] !== 0) return;
+        if (bankKeysMatch(stored, id)) return;
+        if (bankBillMatchesKey(row, stored)) bag[stored] = null;
+      });
     });
   }
   return { id: id, bag: bag, row: row };
@@ -8232,7 +8268,7 @@ function bankStatusPostBag(snap, key, entry) {
 
 function bankSaveBillStatus(root, key, entry) {
   if (!root || !root._bank || !key) return Promise.resolve(false);
-  var posted = bankStatusPostBag(root._bank.data, key, entry);
+  var posted = bankTierPostBag(root._bank.data, key, entry, "bill_status");
   return bankPostTierPatch(root, { bill_status: posted.bag }, function (snap, local) {
     var doc = bankEnsureTierBags(snap);
     if (!doc) return;
@@ -8246,46 +8282,42 @@ function bankSaveBillStatus(root, key, entry) {
 
 function bankSaveManualPaid(root, key, entry) {
   if (!root || !root._bank || !key) return Promise.resolve(false);
-  var name = bankBillNameFromKey(root._bank.data, key);
-  var bag = {};
-  bag[name] = entry;
-  return bankPostTierPatch(root, { manual_paid: bag }, function (snap, local) {
+  var posted = bankTierPostBag(root._bank.data, key, entry, "manual_paid");
+  return bankPostTierPatch(root, { manual_paid: posted.bag }, function (snap, local) {
     var doc = bankEnsureTierBags(snap);
     if (!doc) return;
-    bankWriteTierBag(doc, "manual_paid", name, entry);
-    bankMarkLocalKey(snap, "manual_paid", name, !!local && entry != null);
+    Object.keys(posted.bag).forEach(function (k) {
+      if (posted.bag[k] == null) bankWriteTierBag(doc, "manual_paid", k, null);
+    });
+    bankWriteTierBag(doc, "manual_paid", posted.id, entry);
+    bankMarkLocalKey(snap, "manual_paid", posted.id, !!local && entry != null);
   });
 }
 
 function bankUndoBillDesk(root, key) {
   if (!root || !root._bank || !key) return Promise.resolve(false);
-  var name = bankBillNameFromKey(root._bank.data, key);
-  var row = null;
-  bankPreparedBills(root._bank.data, undefined).forEach(function (b) {
-    if (bankBillKey(b.name) === bankBillKey(name)) row = b;
-  });
+  var posted = bankTierPostBag(root._bank.data, key, null);
+  var row = posted.row;
+  var id = posted.id;
+  var nullBag = posted.bag;
   var body = {};
-  if (row && row.status_undo) {
-    body.bill_status = {};
-    body.bill_status[name] = null;
+  var clearStatus = !row || !!row.status_undo;
+  var clearPaid = !row || !!row.manual_paid;
+  if (!clearStatus && !clearPaid) {
+    clearStatus = true;
+    clearPaid = true;
   }
-  if (row && row.manual_paid) {
-    body.manual_paid = {};
-    body.manual_paid[name] = null;
-  }
-  if (!body.bill_status && !body.manual_paid) {
-    body.bill_status = {};
-    body.bill_status[name] = null;
-    body.manual_paid = {};
-    body.manual_paid[name] = null;
-  }
+  if (clearStatus) body.bill_status = nullBag;
+  if (clearPaid) body.manual_paid = nullBag;
   return bankPostTierPatch(root, body, function (snap) {
     var doc = bankEnsureTierBags(snap);
     if (!doc) return;
-    if (body.bill_status) bankWriteTierBag(doc, "bill_status", name, null);
-    if (body.manual_paid) bankWriteTierBag(doc, "manual_paid", name, null);
-    bankMarkLocalKey(snap, "bill_status", name, false);
-    bankMarkLocalKey(snap, "manual_paid", name, false);
+    Object.keys(nullBag).forEach(function (k) {
+      if (body.bill_status) bankWriteTierBag(doc, "bill_status", k, null);
+      if (body.manual_paid) bankWriteTierBag(doc, "manual_paid", k, null);
+    });
+    bankMarkLocalKey(snap, "bill_status", id, false);
+    bankMarkLocalKey(snap, "manual_paid", id, false);
   });
 }
 
