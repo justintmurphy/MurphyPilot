@@ -364,6 +364,9 @@ test("top nav is two buttons and the open menu matches the section", function ()
   assert.match(inv.elements.main._after, /href="\/Murphy_Pilot_Setup\.html"/);
   assert.match(inv.elements.main._after, /href="\/Murphy_Pilot_Desk\.html"/);
   assert.match(inv.elements.main._after, /Agentic \/ AI WWIII only/);
+  assert.match(inv.elements.main._after, /<a href="\/Murphy_Pilot_Manual\.html">Docs<\/a>/);
+  assert.doesNotMatch(bank.elements.main._after, /Agentic \/ AI WWIII only/);
+  assert.match(bank.elements.main._after, /<a href="\/Murphy_Pilot_Manual\.html">Docs<\/a>/);
 
   const edits = bootNav({ pathname: "/", hash: "#edits" });
   assert.doesNotMatch(edits.elements.tabs.innerHTML, /class="on"/);
@@ -608,7 +611,7 @@ test("touched assets use the eg cache bust and banking uses ec", function () {
   assert.match(bank, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(bank, /Murphy Pilot House/);
   assert.doesNotMatch(bank, /section-nav/);
-  assert.match(inv, /\/js\/nav\.js\?v=20261006ec4/);
+  assert.match(inv, /\/js\/nav\.js\?v=20261007em/);
   assert.match(inv, /\/house\/house\.css\?v=20261006ec4/);
   assert.match(inv, /\/house\/js\/board-b\.js\?v=20261007eo/);
   assert.match(inv, /aria-label="Murphy Pilot"/);

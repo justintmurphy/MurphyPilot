@@ -1,18 +1,12 @@
 /* Pay and Taxes desk.
    GET /data/pay and GET /data/taxes, each once per page load, kept on this module.
-   Summary cards render first. A check's lines render only after that row is tapped. */
+   Summary charts render first. Check lines render only after that row is tapped. */
 var PAY_URL = "/data/pay";
 var TAX_URL = "/data/taxes";
 var PAY_SCHEMA = "pay/v1";
 var TAX_SCHEMA = "taxes/v1";
 var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-var SECTION = {
-  earnings: "Earnings",
-  taxes: "Tax",
-  pretax: "Pre-tax",
-  posttax: "Post-tax",
-  employer: "Employer"
-};
+var MIX = ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--go)"];
 var mem = { pay: null, taxes: null };
 var flight = { pay: null, taxes: null };
 var epoch = 0;
@@ -36,19 +30,19 @@ function moneyText(n, mode) {
   var body = grouped(v);
   if (mode === "out") {
     if (v === 0) return { text: "$0.00", tone: "tone-flat" };
-    return { text: "-$" + body, tone: "tone-stop" };
+    return { text: "\u2212$" + body, tone: "tone-stop" };
   }
   if (mode === "in") {
     if (v === 0) return { text: "$0.00", tone: "tone-flat" };
-    if (v < 0) return { text: "-$" + body, tone: "tone-stop" };
+    if (v < 0) return { text: "\u2212$" + body, tone: "tone-stop" };
     return { text: "+$" + body, tone: "tone-go" };
   }
   if (mode === "signed") {
-    if (v < 0) return { text: "-$" + body, tone: "tone-stop" };
+    if (v < 0) return { text: "\u2212$" + body, tone: "tone-stop" };
     if (v > 0) return { text: "+$" + body, tone: "tone-go" };
     return { text: "$0.00", tone: "tone-flat" };
   }
-  if (v < 0) return { text: "-$" + body, tone: "tone-flat" };
+  if (v < 0) return { text: "\u2212$" + body, tone: "tone-flat" };
   return { text: "$" + body, tone: "tone-flat" };
 }
 
@@ -61,17 +55,12 @@ function dashTd() {
   return '<td class="num tone-flat">\u2014</td>';
 }
 
-function nullableMoneyTd(n, mode) {
-  if (n == null || n === "") return dashTd();
-  return moneyTd(n, mode);
-}
-
 function pctText(n, signed) {
   if (n == null || n === "" || !isFinite(Number(n))) return "\u2014";
   var v = Number(n);
   var abs = Math.abs(v).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
   var text = abs;
-  if (v < 0) text = "-" + abs;
+  if (v < 0) text = "\u2212" + abs;
   else if (signed && v > 0) text = "+" + abs;
   return text + "%";
 }
@@ -83,11 +72,6 @@ function deltaExtra(pct, invert) {
   if (v > 0) tone = invert ? "tone-stop" : "tone-go";
   else if (v < 0) tone = invert ? "tone-go" : "tone-stop";
   return { text: pctText(v, true), tone: tone };
-}
-
-function pctTd(n, invert) {
-  var extra = deltaExtra(n, !!invert);
-  return '<td class="num ' + extra.tone + '">' + extra.text + "</td>";
 }
 
 function textKpi(label, text) {
@@ -123,14 +107,9 @@ function checkYear(c) {
 }
 
 function typeLabel(type) {
-  var map = {
-    regular: "Regular",
-    regular_bonus: "Regular bonus",
-    bonus: "Bonus",
-    noncash: "Noncash",
-    other: "Other"
-  };
-  return map[type] || "Other";
+  var raw = String(type || "").replace(/_/g, " ");
+  if (!raw) return "\u2014";
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 function yearsOf(rows) {
@@ -145,26 +124,12 @@ function yearsOf(rows) {
   return out;
 }
 
-function pickYear(years, wanted, asof) {
-  if (wanted != null && wanted !== "" && years.indexOf(Number(wanted)) >= 0) return Number(wanted);
-  if (years.length) return years[years.length - 1];
-  var y = Number(String(asof || "").slice(0, 4));
-  return isFinite(y) ? y : "";
-}
-
-function titleRow(kind, year, years) {
-  var name = kind === "taxes" ? "Taxes" : "Pay";
-  var shown = year === "" || year == null ? "\u2014" : String(year);
-  var title = name + " \u00b7 " + shown;
-  var pick = "";
-  if (years.length) {
-    var opts = years.map(function (y) {
-      var sel = Number(y) === Number(year) ? " selected" : "";
-      return '<option value="' + esc(y) + '"' + sel + ">" + esc(y) + "</option>";
-    }).join("");
-    pick = '<label>Year <select data-year-pick="' + (kind === "taxes" ? "taxes" : "pay") + '">' + opts + "</select></label>";
+function findYearRow(rows, year) {
+  var i;
+  for (i = 0; i < (rows || []).length; i++) {
+    if (Number(rows[i].year) === Number(year)) return rows[i];
   }
-  return '<div class="row2"><h2>' + esc(title) + "</h2>" + pick + "</div>";
+  return null;
 }
 
 function capWrap(inner, count, label) {
@@ -181,6 +146,16 @@ function moreBlock(inner, open) {
     inner + "</details>";
 }
 
+function yearPick(kind, year, years) {
+  if (!years.length) return "";
+  var opts = years.map(function (y) {
+    var sel = Number(y) === Number(year) ? " selected" : "";
+    return '<option value="' + esc(y) + '"' + sel + ">" + esc(y) + "</option>";
+  }).join("");
+  return '<div class="card span" data-card="year"><label>Year <select data-year-pick="' + esc(kind) + '">' +
+    opts + "</select></label></div>";
+}
+
 function checksForYear(doc, year) {
   return (doc.checks || []).filter(function (c) {
     return checkYear(c) === Number(year);
@@ -191,207 +166,434 @@ function checksForYear(doc, year) {
   });
 }
 
-function summaryYear(doc, year) {
-  var ytd = doc.ytd || {};
-  var cur = ytd.this_year;
-  if (cur && Number(cur.year) === Number(year)) {
-    return {
-      gross: cur.gross,
-      taxes: cur.taxes,
-      k401: cur.k401 && cur.k401.employee_total,
-      net: cur.net,
-      delta: ytd.delta || null,
-      samePoint: true
-    };
-  }
-  var rows = doc.by_year || [];
-  var i;
-  for (i = 0; i < rows.length; i++) {
-    if (Number(rows[i].year) === Number(year)) {
-      return {
-        gross: rows[i].gross,
-        taxes: rows[i].taxes,
-        k401: rows[i].k401 && rows[i].k401.employee_total,
-        net: rows[i].net,
-        delta: null,
-        samePoint: false
-      };
-    }
-  }
-  return null;
+function sortedChecks(doc) {
+  return (doc.checks || []).slice().sort(function (a, b) {
+    return String(a.pay_date || "").localeCompare(String(b.pay_date || ""));
+  });
 }
 
-function k401ForYear(doc, year) {
+function moneyForYear(doc, year) {
+  var stub = doc.ytd && doc.ytd.this_year;
+  var row = findYearRow(doc.by_year, year);
+  if (stub && Number(stub.year) === Number(year)) {
+    return {
+      gross: stub.gross,
+      taxes: stub.taxes,
+      k401: stub.k401 && stub.k401.employee_total,
+      net: stub.net,
+      basis: "stub",
+      checks: stub.checks,
+      through: stub.through,
+      onFile: row && row.checks != null ? row.checks : stub.checks,
+      pretax: stub.pretax,
+      posttax: stub.posttax,
+      k401split: stub.k401 || null,
+      partial: true
+    };
+  }
+  if (!row) return null;
+  return {
+    gross: row.gross,
+    taxes: row.taxes,
+    k401: row.k401 && row.k401.employee_total,
+    net: row.net,
+    basis: "file",
+    checks: row.checks,
+    through: row.last_pay_date,
+    onFile: row.checks,
+    buckets: row.buckets || null,
+    partial: true,
+    lastPay: row.last_pay_date
+  };
+}
+
+function scalePair(valsList) {
+  var flat = [];
+  valsList.forEach(function (vals) {
+    vals.forEach(function (v) { if (isFinite(v)) flat.push(v); });
+  });
+  if (!flat.length) return { mn: 0, mx: 1 };
+  var mn = Math.min.apply(null, flat);
+  var mx = Math.max.apply(null, flat);
+  if (mx === mn) {
+    var pad = Math.max(Math.abs(mx) * 0.01, 0.5);
+    mn -= pad;
+    mx += pad;
+  }
+  return { mn: mn, mx: mx };
+}
+
+function polyPoints(vals, box, scale) {
+  var span = scale.mx - scale.mn || 1;
+  return vals.map(function (v, i) {
+    var x = box.pL + i * (box.w - box.pL - box.pR) / Math.max(vals.length - 1, 1);
+    var y = box.pT + (box.h - box.pT - box.pB) * (1 - (v - scale.mn) / span);
+    return x.toFixed(1) + "," + y.toFixed(1);
+  }).join(" ");
+}
+
+function trendChart(checks) {
+  var rows = sortedChecks({ checks: checks }).slice(-24);
+  if (!rows.length) return hint("No checks for this chart.");
+  var gross = rows.map(function (c) { return Number(c.gross) || 0; });
+  var net = rows.map(function (c) { return Number(c.net) || 0; });
+  var box = { w: 640, h: 88, pL: 8, pR: 8, pT: 8, pB: 8 };
+  var scale = scalePair([gross, net]);
+  return '<div class="tape-plot"><svg class="ov-line-svg" viewBox="0 0 ' + box.w + " " + box.h +
+    '" preserveAspectRatio="none" role="img" aria-label="Net and gross per check">' +
+    '<polyline fill="none" stroke="var(--ink-soft)" stroke-opacity="0.35" stroke-width="2" points="' +
+    polyPoints(gross, box, scale) + '"></polyline>' +
+    '<polyline fill="none" stroke="var(--go)" stroke-width="2" points="' +
+    polyPoints(net, box, scale) + '"></polyline></svg></div>';
+}
+
+function stepChart(history) {
+  history = history || [];
+  if (!history.length) return "";
+  var vals = history.map(function (row) { return Number(row.annual) || 0; });
+  var box = { w: 640, h: 88, pL: 8, pR: 8, pT: 18, pB: 8 };
+  var scale = scalePair([vals]);
+  var span = scale.mx - scale.mn || 1;
+  var n = history.length;
+  var d = "";
+  var labels = "";
+  history.forEach(function (row, i) {
+    var v = Number(row.annual) || 0;
+    var x0 = box.pL + i * (box.w - box.pL - box.pR) / Math.max(n, 1);
+    var x1 = box.pL + (i + 1) * (box.w - box.pL - box.pR) / Math.max(n, 1);
+    var y = box.pT + (box.h - box.pT - box.pB) * (1 - (v - scale.mn) / span);
+    d += (i ? " L" : "M") + x0.toFixed(1) + " " + y.toFixed(1) + " L" + x1.toFixed(1) + " " + y.toFixed(1);
+    if (row.change_pct != null && isFinite(Number(row.change_pct))) {
+      labels += '<text x="' + x0.toFixed(1) + '" y="' + Math.max(y - 6, 12).toFixed(1) +
+        '" fill="var(--ink-soft)" font-size="12">' + esc(pctText(row.change_pct, true)) + "</text>";
+    }
+  });
+  return '<div class="tape-plot"><svg class="axis-svg" viewBox="0 0 ' + box.w + " " + box.h +
+    '" preserveAspectRatio="none" role="img" aria-label="Salary by year">' +
+    '<path d="' + d + '" fill="none" stroke="var(--mix-a)" stroke-width="2"></path>' + labels + "</svg></div>";
+}
+
+function donutPath(cx, cy, r0, r1, a0, a1) {
+  var large = a1 - a0 > Math.PI ? 1 : 0;
+  function p(r, a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+  var p0 = p(r1, a0), p1 = p(r1, a1), p2 = p(r0, a1), p3 = p(r0, a0);
+  return "M" + p0[0].toFixed(2) + " " + p0[1].toFixed(2) + " A" + r1 + " " + r1 + " 0 " + large + " 1 " +
+    p1[0].toFixed(2) + " " + p1[1].toFixed(2) + " L" + p2[0].toFixed(2) + " " + p2[1].toFixed(2) +
+    " A" + r0 + " " + r0 + " 0 " + large + " 0 " + p3[0].toFixed(2) + " " + p3[1].toFixed(2) + " Z";
+}
+
+function payParts(doc, year) {
+  var sum = moneyForYear(doc, year);
+  if (!sum) return [];
+  var parts = [];
+  function add(key, label, value, color, mode) {
+    var n = Number(value);
+    if (!isFinite(n) || n === 0) return;
+    parts.push({ key: key, label: label, value: Math.abs(n), color: color, mode: mode });
+  }
+  if (sum.basis === "stub") {
+    var k = sum.k401split || {};
+    add("taxes", "Taxes", sum.taxes, MIX[0], "out");
+    add("k401", "401(k)", sum.k401, MIX[1], "out");
+    add("insurance", "Insurance/HSA", Number(sum.pretax) - Number(k.pretax || 0), MIX[2], "out");
+    add("loan", "Loan", Number(sum.posttax) - Number(k.roth || 0) - Number(k.aftertax || 0), MIX[3], "out");
+    add("net", "Net", sum.net, MIX[5], "in");
+    return parts;
+  }
+  var b = sum.buckets || {};
+  add("taxes", "Taxes", sum.taxes, MIX[0], "out");
+  add("k401", "401(k)", sum.k401, MIX[1], "out");
+  add("insurance", "Insurance/HSA", b.insurance_hsa, MIX[2], "out");
+  add("loan", "Loan", b.loan_401k, MIX[3], "out");
+  add("net", "Net", sum.net, MIX[5], "in");
+  return parts;
+}
+
+function groupLines(check, key) {
+  return ((check && check.lines) || []).filter(function (line) {
+    if (line == null || line.current == null || Number(line.current) === 0) return false;
+    if (key === "taxes") return line.section === "taxes";
+    if (key === "k401") return line.bucket === "k401_pretax" || line.bucket === "k401_roth" || line.bucket === "k401_aftertax";
+    if (key === "insurance") return line.bucket === "insurance_hsa" && line.section !== "employer";
+    if (key === "loan") return line.bucket === "loan_401k" || line.code === "loan_401k";
+    return false;
+  });
+}
+
+function lineRows(lines, mode) {
+  return lines.map(function (line) {
+    var use = mode || (line.section === "taxes" || line.section === "pretax" || line.section === "posttax" ? "out" : "plain");
+    if (line.section === "earnings" && line.cash !== false) use = "in";
+    return "<tr><td><span class=\"sym\">" + esc(line.label || "Line") + "</span></td>" + moneyTd(line.current, use) + "</tr>";
+  }).join("");
+}
+
+function whereCard(doc, year, checks, openGroup) {
+  var parts = payParts(doc, year);
+  if (!parts.length) return card("Where your pay goes", "where", hint("No year totals."));
+  var total = 0;
+  parts.forEach(function (p) { total += p.value; });
+  var a = -Math.PI / 2;
+  var paths = parts.map(function (p) {
+    var da = total ? (p.value / total) * Math.PI * 2 : 0;
+    var span = Math.max(da - 0.02, 0.02);
+    var d = donutPath(70, 70, 38, 64, a + 0.01, a + 0.01 + span);
+    a += da;
+    p.pct = total ? (p.value / total) * 100 : 0;
+    p.d = d;
+    return p;
+  });
+  var top = paths.slice().sort(function (x, y) { return y.value - x.value; })[0];
+  var svg = '<div class="mix-ring"><svg class="mix-svg" viewBox="0 0 140 140" aria-hidden="true">' +
+    paths.map(function (p) {
+      return '<path d="' + p.d + '" fill="' + p.color + '"></path>';
+    }).join("") +
+    '</svg><div class="mix-center"><b>' + top.pct.toFixed(0) + '%</b><span>' + esc(top.label) + "</span></div></div>";
+  var latest = checks[0] || null;
+  var legend = paths.map(function (p) {
+    var on = openGroup === p.key;
+    var m = moneyText(p.mode === "in" ? p.value : p.value, p.mode);
+    return '<button type="button" class="mix-leg' + (on ? " on" : "") + '" data-pay-group="' + esc(p.key) + '">' +
+      '<i style="background:' + p.color + '"></i>' +
+      '<span class="mix-leg-meta"><span class="mix-leg-name">' + esc(p.label) + "</span>" +
+      '<span class="mix-bar"><span style="width:' + Math.max(p.pct, 2).toFixed(1) + "%;background:" + p.color + '"></span></span></span> ' +
+      "<b>" + p.pct.toFixed(0) + "% \u00b7 " + '<span class="' + m.tone + '">' + m.text + "</span></b></button>";
+  }).join("");
+  var lines = "";
+  if (openGroup && latest) {
+    var got = groupLines(latest, openGroup);
+    if (got.length) {
+      lines = '<table class="book"><thead><tr><th>Line</th><th class="num">Amount</th></tr></thead><tbody>' +
+        lineRows(got) + "</tbody></table>";
+    }
+  }
+  return card("Where your pay goes", "where", '<div class="mix-compact">' + svg +
+    '<div class="mix-legend">' + legend + "</div></div>" + lines);
+}
+
+function salaryHero(doc) {
+  var salary = doc.salary || {};
+  var hist = salary.history || [];
+  var lastRaise = null;
+  hist.forEach(function (row) {
+    if (row && row.change_pct != null && isFinite(Number(row.change_pct))) lastRaise = row.change_pct;
+  });
+  var kpis = '<div class="kpi">' +
+    moneyKpi("Annual", salary.current_annual, "plain") +
+    textKpi("Last raise", pctText(lastRaise, true)) +
+    "</div>";
+  return card("Salary", "salary", kpis + stepChart(hist));
+}
+
+function ytdCard(doc, year) {
+  var sum = moneyForYear(doc, year);
+  if (!sum) return card("Year to date", "ytd", hint("No year totals."));
+  var same = doc.ytd && doc.ytd.last_year_same_point;
+  var delta = doc.ytd && doc.ytd.delta;
+  var comparable = sum.basis === "stub" && same && Number(same.checks) === Number(sum.checks) && delta;
+  function cell(label, value, mode, pct, invert) {
+    return moneyKpi(label, value, mode, comparable ? deltaExtra(pct, invert) : null);
+  }
+  var kpis = '<div class="kpi" data-basis="' + sum.basis + '">' +
+    cell("Gross", sum.gross, "in", delta && delta.gross_pct, false) +
+    cell("Taxes", sum.taxes, "out", delta && delta.taxes_pct, true) +
+    moneyKpi("401(k)", sum.k401, "out") +
+    cell("Net", sum.net, "in", delta && delta.net_pct, false) +
+    "</div>";
+  var line = "";
+  if (sum.basis === "stub") {
+    line = "Stub through " + fmtDate(sum.through) + ".";
+    if (comparable) line += " Versus " + sum.checks + " checks through " + fmtDate(same.through) + ".";
+  } else {
+    line = "partial \u00b7 " + sum.onFile + " checks on file.";
+    if (sum.lastPay) line += " Last check of " + String(year) + ".";
+  }
+  return card("Year to date", "ytd", kpis + hint(line));
+}
+
+function k401Row(doc, year) {
   var rows = (doc.k401 && doc.k401.by_year) || [];
   var i;
   for (i = 0; i < rows.length; i++) {
     if (Number(rows[i].year) === Number(year)) return rows[i];
   }
-  var cur = doc.ytd && doc.ytd.this_year;
-  if (cur && Number(cur.year) === Number(year)) return cur.k401 || null;
   return null;
 }
 
-function latestCard(check) {
-  if (!check) return card("Latest check", "latest", hint("No check for this year."));
-  var kpis = '<div class="kpi">' +
-    textKpi("Date", fmtDate(check.pay_date)) +
-    textKpi("Type", typeLabel(check.type)) +
-    moneyKpi("Gross", check.gross, "in") +
-    moneyKpi("Net", check.net, "in") +
-    "</div>";
-  var rows = [
-    ["Federal", "federal"],
-    ["Social Security", "fica_ss"],
-    ["Medicare", "medicare"],
-    ["State", "state"],
-    ["Local", "local"],
-    ["401(k) pre-tax", "k401_pretax"],
-    ["401(k) after-tax", "k401_aftertax"],
-    ["401(k) Roth", "k401_roth"],
-    ["Insurance / HSA", "insurance_hsa"],
-    ["401(k) loan", "loan_401k"],
-    ["Other", "other"]
-  ];
-  var buckets = check.buckets || {};
-  var body = rows.map(function (pair) {
-    return "<tr><td>" + pair[0] + "</td>" + moneyTd(buckets[pair[1]], "out") + "</tr>";
-  }).join("");
-  var table = '<table class="book"><thead><tr><th>Where it went</th><th class="num">Amount</th></tr></thead><tbody>' +
-    body + "</tbody></table>";
-  var note = check.reconciles === false ? hint("This check does not add up to gross.") : "";
-  return card("Latest check", "latest", kpis + table + note);
+function electedHint(pct) {
+  pct = pct || {};
+  var bits = [];
+  if (pct.pretax != null && isFinite(Number(pct.pretax))) bits.push(pctText(pct.pretax, false) + " pre-tax");
+  if (pct.roth != null && isFinite(Number(pct.roth))) bits.push(pctText(pct.roth, false) + " Roth");
+  if (pct.aftertax != null && isFinite(Number(pct.aftertax)) && Number(pct.aftertax) !== 0) bits.push(pctText(pct.aftertax, false) + " after-tax");
+  if (!bits.length) return "";
+  return hint("Elected " + bits.join(" \u00b7 "));
 }
 
-function ytdCard(doc, year) {
-  var sum = summaryYear(doc, year);
-  if (!sum) return card("Year to date", "ytd", hint("No year totals."));
-  var delta = sum.delta || {};
-  function cell(label, value, mode, pct, invert) {
-    return moneyKpi(label, value, mode, sum.samePoint ? deltaExtra(pct, invert) : null);
-  }
-  var kpis = '<div class="kpi">' +
-    cell("Gross", sum.gross, "in", delta.gross_pct, false) +
-    cell("Taxes", sum.taxes, "out", delta.taxes_pct, true) +
-    moneyKpi("401(k)", sum.k401, "out") +
-    cell("Net", sum.net, "in", delta.net_pct, false) +
-    "</div>";
-  var line = sum.samePoint ? "Versus the same calendar point last year." : "Full-year totals for the selected year.";
-  return card(sum.samePoint ? "Year to date" : "Full year", "ytd", kpis + hint(line));
+function electedTotal(pct) {
+  pct = pct || {};
+  var n = 0;
+  var any = false;
+  ["pretax", "roth", "aftertax"].forEach(function (key) {
+    if (pct[key] == null || !isFinite(Number(pct[key]))) return;
+    any = true;
+    n += Number(pct[key]);
+  });
+  return any ? n : null;
 }
 
 function k401Card(doc, year, latest) {
-  var elected = (latest && latest.k401_elected_pct) || {};
-  var row = k401ForYear(doc, year) || {};
+  var elected = (doc.k401 && doc.k401.current_elected_pct) || (latest && latest.k401_elected_pct) || {};
+  var row = k401Row(doc, year) || {};
+  var sum = moneyForYear(doc, year);
+  var split = (sum && sum.basis === "stub" && sum.k401split) ? sum.k401split : row;
   var match = row.employer_match_on_stub;
-  var elect = '<p class="mix-hint">Elected</p><div class="kpi">' +
-    textKpi("Pre-tax", pctText(elected.pretax, false)) +
-    textKpi("Roth", pctText(elected.roth, false)) +
-    textKpi("After-tax", pctText(elected.aftertax, false)) +
-    "</div>";
-  var put = '<p class="mix-hint">Contributions</p><div class="kpi">' +
-    moneyKpi("Pre-tax", row.pretax, "out") +
-    moneyKpi("Roth", row.roth, "out") +
-    moneyKpi("After-tax", row.aftertax, "out") +
-    moneyKpi("Match on stub", match, match ? "in" : "plain") +
-    "</div>";
-  return card("401(k)", "k401", elect + put + hint("On stub understates the match."));
+  var showMatch = match != null && isFinite(Number(match)) && Number(match) !== 0;
+  var tiles;
+  if (showMatch) {
+    tiles = moneyKpi("Pre-tax", split.pretax, "out") +
+      moneyKpi("Roth", split.roth, "out") +
+      moneyKpi("YTD", split.employee_total, "out") +
+      moneyKpi("Match", match, "in");
+  } else {
+    tiles = textKpi("Elected %", pctText(electedTotal(elected), false)) +
+      moneyKpi("YTD", split.employee_total != null ? split.employee_total : sum && sum.k401, "out") +
+      moneyKpi("Pre-tax", split.pretax, "out") +
+      moneyKpi("Roth", split.roth, "out");
+  }
+  var note = electedHint(elected);
+  if (!showMatch) note += hint("No employer match shows on recent stubs");
+  return card("401(k)", "k401", note + '<div class="kpi">' + tiles + "</div>");
 }
 
-function lineMode(line) {
-  var section = line && line.section;
-  if (section === "taxes" || section === "pretax" || section === "posttax") return "out";
-  if (section === "earnings" && line.cash !== false) return "in";
-  return "plain";
-}
-
-function linesTable(check) {
-  var lines = (check && check.lines) || [];
-  var body = lines.map(function (line) {
-    var section = SECTION[line.section] || "Line";
-    return '<tr><td><span class="sym">' + esc(line.label || "Line") + '</span> <span class="sub">' + esc(section) + "</span></td>" +
-      moneyTd(line.current, lineMode(line)) + "</tr>";
+function flagsBlock(flags, max) {
+  flags = flags || [];
+  var shown = max == null ? flags : flags.slice(0, max);
+  if (!shown.length) return card("Flags", "flags", hint("No flags."));
+  var body = shown.map(function (flag) {
+    var when = flag.date ? fmtDate(flag.date) : (flag.year != null ? String(flag.year) : "\u2014");
+    return "<tr><td>" + esc(when) + "</td><td>" + esc(flag.text || "") + "</td></tr>";
   }).join("");
-  var table = '<table class="book"><thead><tr><th>Line</th><th class="num">Amount</th></tr></thead><tbody>' +
-    body + "</tbody></table>";
-  return capWrap(table, lines.length, "Check lines");
+  var table = '<table class="book"><thead><tr><th>When</th><th>Note</th></tr></thead><tbody>' + body + "</tbody></table>";
+  return card("Flags", "flags", capWrap(table, shown.length, "Flags"));
 }
 
-function checksCard(checks, latest, openId) {
+function sectionOf(line) {
+  if (!line) return "";
+  if (line.bucket === "loan_401k" || line.code === "loan_401k") return "posttax";
+  if (line.section === "pretax" || line.section === "taxes" || line.section === "posttax") return line.section;
+  return "";
+}
+
+function groupedLines(check) {
+  var order = [
+    ["pretax", "Pre-tax"],
+    ["taxes", "Taxes"],
+    ["posttax", "Post-tax"]
+  ];
+  var lines = ((check && check.lines) || []).filter(function (line) {
+    return line && line.current != null && Number(line.current) !== 0 && sectionOf(line);
+  });
+  return order.map(function (pair) {
+    var rows = lines.filter(function (line) { return sectionOf(line) === pair[0]; });
+    if (!rows.length) return "";
+    return '<p class="mix-hint">' + pair[1] + '</p><table class="book"><thead><tr><th>Line</th><th class="num">Amount</th></tr></thead><tbody>' +
+      lineRows(rows, "out") + "</tbody></table>";
+  }).join("");
+}
+
+function latestDetail(check) {
+  if (!check) return card("Latest check", "latest", hint("No check for this year."));
+  var title = "Latest check \u00b7 " + fmtDate(check.pay_date) + " \u00b7 " + typeLabel(check.type);
+  var kpis = '<div class="kpi">' + moneyKpi("Gross", check.gross, "in") + moneyKpi("Net", check.net, "in") + "</div>";
+  var note = check.reconciles === false ? hint("This check does not add up to gross.") : "";
+  return card(title, "latest", kpis + groupedLines(check) + note);
+}
+
+function checksCard(checks, latestId, openId) {
   if (!checks.length) return card("Checks", "checks", hint("No checks for this year."));
+  var open = null;
   var body = checks.map(function (c) {
-    var onCard = !!(latest && c.id === latest.id);
-    var gross = onCard ? '<td class="num"><span class="sub">On the card</span></td>' : moneyTd(c.gross, "in");
-    var net = onCard ? '<td class="num"><span class="sub">On the card</span></td>' : moneyTd(c.net, "in");
-    var expanded = c.id === openId;
-    var row = '<tr data-check-id="' + esc(c.id) + '" tabindex="0" role="button" aria-expanded="' +
-      (expanded ? "true" : "false") + '"><td>' + esc(fmtDate(c.pay_date)) + "</td><td>" + esc(typeLabel(c.type)) +
-      "</td>" + gross + net + "</tr>";
-    if (!expanded) return row;
-    return row + '<tr data-check-lines="' + esc(c.id) + '"><td colspan="4">' + linesTable(c) + "</td></tr>";
+    var on = c.id === openId;
+    if (on) open = c;
+    var chip = c.id === latestId ? ' <span class="sub">Latest</span>' : "";
+    return '<tr data-check-id="' + esc(c.id) + '"' + (on ? ' class="on"' : "") +
+      ' tabindex="0" role="button" aria-expanded="' + (on ? "true" : "false") + '"><td>' +
+      esc(fmtDate(c.pay_date)) + chip + "</td><td>" + esc(typeLabel(c.type)) + "</td>" +
+      moneyTd(c.gross, "in") + moneyTd(c.net, "in") + "</tr>";
   }).join("");
   var table = '<table class="book"><thead><tr><th>Date</th><th>Type</th><th class="num">Gross</th><th class="num">Net</th></tr></thead><tbody>' +
     body + "</tbody></table>";
-  return card("Checks", "checks", capWrap(table, checks.length, "Checks") + hint("Tap a row for its lines."));
+  var lines = "";
+  if (open) {
+    lines = '<div data-check-lines="' + esc(open.id) + '">' + groupedLines(open) + "</div>";
+  }
+  return card("Checks", "checks", capWrap(table, checks.length, "Checks") + lines + hint("Tap a row for its lines."));
 }
 
-function salaryCard(doc) {
+function salaryTable(doc) {
   var hist = (doc.salary && doc.salary.history) || [];
-  if (!hist.length) return card("Salary", "salary", hint("No salary history."));
+  if (!hist.length) return card("Salary history", "salary-table", hint("No salary history."));
   var body = hist.map(function (row) {
+    var pct = row.change_pct == null ? dashTd() : '<td class="num">' + esc(pctText(row.change_pct, true)) + "</td>";
     return "<tr><td>" + esc(fmtDate(row.effective)) + "</td><td>" + esc(fmtDate(row.first_pay_date)) + "</td>" +
-      moneyTd(row.annual, "plain") + pctTd(row.change_pct, false) + "</tr>";
+      moneyTd(row.annual, "plain") + pct + "</tr>";
   }).join("");
   var table = '<table class="book"><thead><tr><th>Effective</th><th>First pay</th><th class="num">Annual</th><th class="num">Change</th></tr></thead><tbody>' +
     body + "</tbody></table>";
-  return card("Salary", "salary", table);
+  return card("Salary history", "salary-table", table);
 }
 
 function byYearCard(doc, selected) {
   var rows = (doc.by_year || []).slice().sort(function (a, b) { return Number(a.year) - Number(b.year); });
-  var stub = doc.ytd && doc.ytd.this_year ? Number(doc.ytd.this_year.year) : NaN;
   var body = rows.map(function (row) {
-    var hide = Number(row.year) === Number(selected) && Number(selected) !== stub;
-    return '<tr><td><span class="sym">' + esc(row.year) + '</span></td><td class="num">' + esc(row.checks) + "</td>" +
-      (hide ? dashTd() : moneyTd(row.gross, "in")) +
-      (hide ? dashTd() : moneyTd(row.taxes, "out")) +
-      (hide ? dashTd() : moneyTd(row.net, "in")) + "</tr>";
+    var sum = moneyForYear(doc, row.year) || {};
+    var mark = "partial \u00b7 " + (sum.onFile != null ? sum.onFile : row.checks) + " checks on file";
+    var last = "";
+    if (sum.basis !== "stub" && row.last_pay_date) last = ' <span class="sub">Last check of ' + esc(row.year) + "</span>";
+    return '<tr data-year="' + esc(row.year) + '"><td><span class="sym">' + esc(row.year) + '</span> <span class="sub">' +
+      esc(mark) + "</span>" + last + "</td><td class=\"num\">" + esc(sum.onFile != null ? sum.onFile : row.checks) + "</td>" +
+      moneyTd(sum.gross, "in") + moneyTd(sum.taxes, "out") + moneyTd(sum.net, "in") + "</tr>";
   }).join("");
   var table = '<table class="book"><thead><tr><th>Year</th><th class="num">Checks</th><th class="num">Gross</th><th class="num">Taxes</th><th class="num">Net</th></tr></thead><tbody>' +
     body + "</tbody></table>";
   return card("By year", "by-year", capWrap(table, rows.length, "Years"));
 }
 
-function flagsCard(flags, mode) {
-  flags = flags || [];
-  if (!flags.length) return card("Flags", "flags", hint("No flags."));
-  var head = mode === "tax" ? "Year" : "Date";
-  var body = flags.map(function (flag) {
-    var when = mode === "tax" ? (flag.year != null ? String(flag.year) : "\u2014") : fmtDate(flag.date);
-    return "<tr><td>" + esc(when) + "</td><td>" + esc(flag.text || "") + "</td></tr>";
-  }).join("");
-  var table = '<table class="book"><thead><tr><th>' + head + "</th><th>Note</th></tr></thead><tbody>" + body + "</tbody></table>";
-  return card("Flags", "flags", table);
-}
-
 function payHtml(doc, state) {
+  state = state || {};
   var years = yearsOf(doc.by_year);
-  var year = pickYear(years, state.year, doc.asof);
+  var year = state.year != null && years.indexOf(Number(state.year)) >= 0 ? Number(state.year) : (years.length ? years[years.length - 1] : "");
   var checks = checksForYear(doc, year);
   var latest = checks[0] || null;
-  var openId = "";
-  if (state.openCheckId && checks.some(function (c) { return c.id === state.openCheckId; })) openId = state.openCheckId;
-  return titleRow("pay", year, years) +
-    latestCard(latest) +
+  var openId = state.openCheckId && checks.some(function (c) { return c.id === state.openCheckId; }) ? state.openCheckId : "";
+  var flags = doc.flags || [];
+  var extraFlags = flags.length > 3 ? flagsBlock(flags.slice(3), 10) : "";
+  return "<h2>Pay</h2>" +
+    salaryHero(doc) +
+    card("Take-home trend", "trend", trendChart(sortedChecks(doc).slice(-24)) + hint("Net per check, gross behind.")) +
+    whereCard(doc, year, checks, state.openGroup) +
     ytdCard(doc, year) +
-    '<div class="split-two"><div>' + k401Card(doc, year, latest) + "</div><div>" +
-    checksCard(checks, latest, openId) + "</div></div>" +
-    moreBlock(salaryCard(doc) + byYearCard(doc, year) + flagsCard(doc.flags, "pay"), !!state.detailsOpen);
+    flagsBlock(flags, 3) +
+    k401Card(doc, year, latest) +
+    moreBlock(
+      yearPick("pay", year, years) +
+      latestDetail(latest) +
+      checksCard(checks, latest && latest.id, openId) +
+      salaryTable(doc) +
+      byYearCard(doc, year) +
+      extraFlags,
+      !!state.detailsOpen
+    );
 }
 
-function methodLine(method) {
-  if (method === "projection_adjusted_by_stubs") return "Projection adjusted by stubs.";
-  return "Estimate.";
+function baseScenario(doc) {
+  var rows = (doc.estimate && doc.estimate.scenarios) || [];
+  var i;
+  for (i = 0; i < rows.length; i++) {
+    if (rows[i] && rows[i].is_base) return rows[i];
+  }
+  return null;
 }
 
 function estimateCard(doc) {
@@ -399,54 +601,164 @@ function estimateCard(doc) {
   var fed = est.federal || {};
   var state = est.state || {};
   var local = est.local || {};
+  var total = Number(fed.refund_or_owed || 0) + Number(state.refund_or_owed || 0) + Number(local.refund_or_owed || 0);
+  if (!isFinite(total)) total = fed.refund_or_owed;
+  var big = moneyText(total, "signed");
+  var word = Number(total) < 0 ? "Owed" : "Refund";
+  var hero = '<div class="kpi"><div><span>' + word + '</span> <b class="' + big.tone + '">' + big.text + "</b></div></div>";
+  var extra = fed.extra_per_check_to_break_even;
+  var extraLine = extra != null && isFinite(Number(extra)) && Number(extra) !== 0
+    ? hint("Extra per check needed: " + moneyText(extra, "plain").text + ".")
+    : "";
+  var withheld = est.stub_adjustment && est.stub_adjustment.withholding_projected;
+  var owe = Number(total) < 0;
+  var resultLabel = owe ? "Owe" : "Refund";
+  var resultMoney = moneyText(Math.abs(Number(total)), owe ? "out" : "in");
+  var per = "";
+  if (owe && extra != null && isFinite(Number(extra)) && Number(extra) !== 0) {
+    per = " \u00b7 " + moneyText(extra, "plain").text + "/check";
+  }
+  function row(label, cell) {
+    return "<tr><td><span class=\"sym\">" + esc(label) + "</span></td>" + cell + "</tr>";
+  }
+  var body = row("Projected tax", moneyTd(fed.total_tax, "out")) +
+    row("Withheld", moneyTd(withheld, "plain")) +
+    row(resultLabel, '<td class="num ' + resultMoney.tone + '">' + resultMoney.text + per + "</td>") +
+    row("Federal", moneyTd(fed.refund_or_owed, "signed")) +
+    row("State", moneyTd(state.refund_or_owed, "signed")) +
+    row("Local", moneyTd(local.refund_or_owed, "signed"));
+  var table = '<table class="book"><thead><tr><th>Piece</th><th class="num">Amount</th></tr></thead><tbody>' + body + "</tbody></table>";
   var heading = "Estimate";
-  if (est.year != null) heading += " \u00b7 " + est.year;
-  var kpis = '<div class="kpi">' +
-    moneyKpi("Federal", fed.refund_or_owed, "signed") +
-    moneyKpi("State", state.refund_or_owed, "signed") +
-    moneyKpi("Local", local.refund_or_owed, "signed") +
-    "</div>";
-  var body = (est.scenarios || []).map(function (row) {
-    return '<tr><td><span class="sym">' + esc(row.label || "Scenario") + "</span></td>" +
-      moneyTd(row.refund_or_owed, "signed") +
-      moneyTd(row.extra_per_check_to_break_even, "plain") + "</tr>";
-  }).join("");
-  var table = '<table class="book"><thead><tr><th>Scenario</th><th class="num">Refund / owed</th><th class="num">Extra per check</th></tr></thead><tbody>' +
-    body + "</tbody></table>";
-  return card(heading, "estimate", kpis + table + hint(methodLine(est.method)));
+  if (est.year != null) heading = String(est.year) + " estimate";
+  return card(heading, "estimate", hero + extraLine + table);
 }
 
-function yearsCard(doc, selected) {
-  var rows = (doc.years || []).slice().sort(function (a, b) { return Number(a.year) - Number(b.year); });
+function scenariosCard(doc) {
+  var base = baseScenario(doc);
+  var rows = ((doc.estimate && doc.estimate.scenarios) || []).filter(function (row) {
+    return row && !row.is_base;
+  });
+  if (!rows.length) return "";
   var body = rows.map(function (row) {
-    var net = row.net != null ? row.net : (Number(row.refund) || 0) - (Number(row.owed) || 0);
-    var mark = Number(row.year) === Number(selected) ? ' <span class="sub">Selected</span>' : "";
-    return '<tr><td><span class="sym">' + esc(row.year) + "</span>" + mark + "</td>" +
-      moneyTd(row.agi, "plain") + moneyTd(row.total_tax, "out") + moneyTd(net, "signed") + "</tr>";
+    var change = base && row.refund_or_owed != null && base.refund_or_owed != null
+      ? Number(row.refund_or_owed) - Number(base.refund_or_owed)
+      : null;
+    return "<tr><td><span class=\"sym\">" + esc(row.label || "") + "</span></td>" +
+      moneyTd(row.agi, "plain") + moneyTd(row.total_tax, "out") + moneyTd(row.withholding, "plain") +
+      moneyTd(change, "signed") + "</tr>";
   }).join("");
-  var table = '<table class="book"><thead><tr><th>Year</th><th class="num">AGI</th><th class="num">Total tax</th><th class="num">Refund / owed</th></tr></thead><tbody>' +
+  var table = '<table class="book"><thead><tr><th>Scenario</th><th class="num">AGI</th><th class="num">Tax</th><th class="num">Withheld</th><th class="num">Versus base</th></tr></thead><tbody>' +
     body + "</tbody></table>";
-  return card("Years", "years", capWrap(table, rows.length, "Tax years"));
+  return card("Scenarios", "scenarios", table);
+}
+
+function yearBars(rows) {
+  if (!rows.length) return "";
+  var w = 640, h = 120, pL = 8, pR = 8, pT = 12, pB = 22;
+  var nets = rows.map(function (row) { return Number(row.net) || 0; });
+  var maxAbs = Math.max.apply(null, nets.map(function (n) { return Math.abs(n); }).concat([1]));
+  var mid = pT + (h - pT - pB) / 2;
+  var slot = (w - pL - pR) / Math.max(rows.length, 1);
+  var barW = Math.min(36, slot * 0.5);
+  var parts = ['<line x1="' + pL + '" y1="' + mid + '" x2="' + (w - pR) + '" y2="' + mid + '" stroke="var(--rule)"></line>'];
+  var rates = [];
+  rows.forEach(function (row) {
+    if (row.effective_rate_pct != null && isFinite(Number(row.effective_rate_pct))) rates.push(Number(row.effective_rate_pct));
+  });
+  var rmin = rates.length ? Math.min.apply(null, rates) : 0;
+  var rmax = rates.length ? Math.max.apply(null, rates) : 1;
+  if (rmax === rmin) { rmin -= 1; rmax += 1; }
+  var rspan = rmax - rmin || 1;
+  var pts = [];
+  rows.forEach(function (row, i) {
+    var net = Number(row.net) || 0;
+    var cx = pL + slot * i + slot / 2;
+    var bh = (Math.abs(net) / maxAbs) * ((h - pT - pB) / 2 - 4);
+    var y = net >= 0 ? mid - bh : mid;
+    var fill = net < 0 ? "var(--stop)" : "var(--go)";
+    parts.push('<rect x="' + (cx - barW / 2).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) +
+      '" height="' + Math.max(bh, 1).toFixed(1) + '" fill="' + fill + '"></rect>');
+    parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" fill="var(--ink-soft)" font-size="11">' +
+      esc(row.year) + "</text>");
+    if (row.effective_rate_pct != null && isFinite(Number(row.effective_rate_pct))) {
+      var ry = pT + (h - pT - pB) * (1 - (Number(row.effective_rate_pct) - rmin) / rspan);
+      pts.push(cx.toFixed(1) + "," + ry.toFixed(1));
+    }
+  });
+  if (pts.length) parts.push('<polyline fill="none" stroke="var(--mix-c)" stroke-width="2" points="' + pts.join(" ") + '"></polyline>');
+  return '<div class="tape-plot"><svg class="axis-svg" viewBox="0 0 ' + w + " " + h +
+    '" role="img" aria-label="Refund or owed by year">' + parts.join("") + "</svg></div>";
+}
+
+function barsCard(doc) {
+  var rows = (doc.years || []).slice().sort(function (a, b) { return Number(a.year) - Number(b.year); });
+  return card("Refund or owed", "bars", yearBars(rows) + hint("Green refund, red owed, and the effective rate."));
 }
 
 function energyCard(doc) {
   var credits = doc.credits || {};
-  var used = (credits.energy_used_by_year || []).slice().sort(function (a, b) { return Number(a.year) - Number(b.year); });
-  var body = used.map(function (row) {
-    return "<tr><td>" + esc(row.year) + "</td>" + nullableMoneyTd(row.amount, "in") + "</tr>";
+  var year = doc.estimate && doc.estimate.year;
+  var title = "Energy credit left";
+  if (year != null) title = "Energy credit left for " + year;
+  var amount = credits.energy_carryforward_remaining;
+  return card(title, "energy", '<div class="kpi">' + moneyKpi("Remaining", amount, "in") + "</div>");
+}
+
+function amendedNote(doc, year) {
+  var notes = [];
+  (doc.flags || []).forEach(function (flag) {
+    if (!flag || Number(flag.year) !== Number(year)) return;
+    if (flag.kind === "amended" && flag.text) notes.push(flag.text);
+  });
+  return notes.join(" ");
+}
+
+function yearsTable(doc, selected) {
+  var rows = (doc.years || []).slice().sort(function (a, b) { return Number(a.year) - Number(b.year); });
+  var body = rows.map(function (row) {
+    var net = row.net != null ? row.net : (Number(row.refund) || 0) - (Number(row.owed) || 0);
+    var withheld = row.payments && row.payments.withholding;
+    var mark = amendedNote(doc, row.year);
+    var sub = mark ? ' <span class="sub">' + esc(mark) + "</span>" : "";
+    var picked = Number(row.year) === Number(selected) ? ' <span class="sub">Selected</span>' : "";
+    return '<tr data-tax-year="' + esc(row.year) + '"><td><span class="sym">' + esc(row.year) + "</span>" + picked + sub +
+      "</td>" + moneyTd(row.agi, "plain") + moneyTd(row.total_tax, "out") + moneyTd(withheld, "plain") +
+      moneyTd(net, "signed") + "</tr>";
   }).join("");
-  body += '<tr data-carry="used-next"><td>Used next</td>' + nullableMoneyTd(credits.energy_carryforward_used_next, "in") + "</tr>";
-  body += '<tr data-carry="remaining"><td>Remaining</td>' + nullableMoneyTd(credits.energy_carryforward_remaining, "in") + "</tr>";
-  var table = '<table class="book"><thead><tr><th>Year</th><th class="num">Amount</th></tr></thead><tbody>' + body + "</tbody></table>";
-  return card("Energy credit", "energy", table);
+  var table = '<table class="book"><thead><tr><th>Year</th><th class="num">AGI</th><th class="num">Total tax</th><th class="num">Withheld</th><th class="num">Refund / owed</th></tr></thead><tbody>' +
+    body + "</tbody></table>";
+  return card("Years", "years", capWrap(table, rows.length, "Tax years"));
+}
+
+function yearLines(doc, year) {
+  var row = findYearRow(doc.years, year);
+  if (!row) return "";
+  var lines = (row.lines || []).filter(function (line) { return line && line.label; });
+  if (!lines.length) return "";
+  var body = lines.map(function (line) {
+    var mode = Number(line.amount) < 0 ? "out" : "plain";
+    return "<tr><td><span class=\"sym\">" + esc(line.label) + "</span></td>" + moneyTd(line.amount, mode) + "</tr>";
+  }).join("");
+  var table = '<table class="book"><thead><tr><th>Line</th><th class="num">Amount</th></tr></thead><tbody>' + body + "</tbody></table>";
+  return card(String(year) + " lines", "year-lines", capWrap(table, lines.length, "Year lines"));
 }
 
 function taxesHtml(doc, state) {
+  state = state || {};
   var years = yearsOf(doc.years);
-  var year = pickYear(years, state.year, doc.asof);
-  return titleRow("taxes", year, years) +
-    '<div class="split-two"><div>' + estimateCard(doc) + "</div><div>" + yearsCard(doc, year) + "</div></div>" +
-    moreBlock(energyCard(doc) + flagsCard(doc.flags, "tax"), !!state.detailsOpen);
+  var year = state.year != null && years.indexOf(Number(state.year)) >= 0 ? Number(state.year) : (years.length ? years[years.length - 1] : "");
+  return "<h2>Taxes</h2>" +
+    estimateCard(doc) +
+    scenariosCard(doc) +
+    barsCard(doc) +
+    energyCard(doc) +
+    moreBlock(
+      yearPick("taxes", year, years) +
+      yearsTable(doc, year) +
+      yearLines(doc, year) +
+      flagsBlock(doc.flags, null),
+      !!state.detailsOpen
+    );
 }
 
 function pageHtml(kind, doc, state) {
@@ -548,11 +860,8 @@ function paint(root, kind, result) {
   var state = root._paydeskState || (root._paydeskState = {});
   var html = result && result.ok ? pageHtml(kind, result.doc, state) : gateHtml(kind, result && result.gate);
   root.innerHTML = html;
-  var year = "";
-  var title = root.querySelector ? root.querySelector("h2") : null;
-  if (title && title.textContent) year = title.textContent;
   try {
-    if (typeof document !== "undefined" && document && year) document.title = year;
+    if (typeof document !== "undefined" && document) document.title = kind === "taxes" ? "Taxes" : "Pay";
   } catch (e) {}
   afterLayout(root);
 }
@@ -564,6 +873,14 @@ function bind(root, kind) {
   root.addEventListener("click", function (e) {
     var target = e.target;
     if (!target || !target.closest) return;
+    var group = target.closest("[data-pay-group]");
+    if (group && (!root.contains || root.contains(group))) {
+      var key = group.getAttribute("data-pay-group");
+      var gstate = root._paydeskState;
+      gstate.openGroup = gstate.openGroup === key ? "" : key;
+      if (mem[kind]) paint(root, kind, { ok: true, doc: mem[kind] });
+      return;
+    }
     var row = target.closest("tr[data-check-id]");
     if (!row || (root.contains && !root.contains(row))) return;
     var id = row.getAttribute("data-check-id");
@@ -587,6 +904,7 @@ function bind(root, kind) {
     var state = root._paydeskState;
     state.year = Number(sel.value);
     state.openCheckId = "";
+    state.openGroup = "";
     if (!mem[kind]) return;
     paint(root, kind, { ok: true, doc: mem[kind] });
   });

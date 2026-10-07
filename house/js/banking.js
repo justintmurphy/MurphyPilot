@@ -9250,36 +9250,6 @@ function bankApplyTheme(choice) {
   } catch (e3) {}
 }
 
-function bankTickClock() {
-  var el;
-  try { el = document.getElementById("clock"); } catch (e) { return; }
-  if (!el) return;
-  var tEl = el.querySelector ? el.querySelector(".t") : null;
-  var dEl = el.querySelector ? el.querySelector(".d") : null;
-  var now = new Date();
-  var clock = "";
-  var date = "";
-  try {
-    clock = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/New_York",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false
-    }).format(now) + " ET";
-    date = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/New_York",
-      weekday: "short",
-      month: "short",
-      day: "numeric"
-    }).format(now);
-  } catch (e2) {
-    clock = "--:--:-- ET";
-  }
-  if (tEl) tEl.textContent = clock;
-  if (dEl) dEl.textContent = date;
-}
-
 function bankBoot() {
   var root = null;
   try { root = document.getElementById("bankDesk"); } catch (e) { return; }
@@ -9292,8 +9262,6 @@ function bankBoot() {
       bankApplyTheme(b.getAttribute("data-theme-choice"));
     });
   } catch (e1) {}
-  bankTickClock();
-  try { setInterval(bankTickClock, 1000); } catch (e2) {}
   bankLoad(root);
 }
 

@@ -10,19 +10,19 @@
     "salary_changes": 1
   },
   "salary": {
-    "current_annual": 104000.0,
+    "current_annual": 104000,
     "basis": "annual",
     "history": [
       {
         "effective": "2025-09-08",
         "first_pay_date": "2025-09-26",
-        "annual": 97500.0,
+        "annual": 97500,
         "change_pct": null
       },
       {
         "effective": "2025-12-15",
         "first_pay_date": "2026-01-02",
-        "annual": 104000.0,
+        "annual": 104000,
         "change_pct": 6.67
       }
     ]
@@ -35,44 +35,44 @@
       "period_start": "2025-09-08",
       "period_end": "2025-09-21",
       "type": "regular",
-      "gross": 3750.0,
-      "gross_incl_imputed": 3760.0,
-      "taxes_total": 813.88,
-      "net": 2411.12,
-      "deposit_total": 2411.12,
+      "gross": 3750,
+      "gross_incl_imputed": 3760,
+      "taxes_total": 802.4,
+      "net": 2422.6,
+      "deposit_total": 2422.6,
       "deposit_count": 1,
       "buckets": {
-        "federal": 375.0,
-        "fica_ss": 232.5,
-        "medicare": 54.38,
+        "federal": 375,
+        "fica_ss": 223.2,
+        "medicare": 52.2,
         "state": 112.5,
         "local": 39.5,
         "k401_pretax": 187.5,
-        "k401_aftertax": 0.0,
+        "k401_aftertax": 0,
         "k401_roth": 187.5,
-        "insurance_hsa": 150.0,
-        "loan_401k": 0.0,
-        "other": 0.0,
-        "net": 2411.12
+        "insurance_hsa": 150,
+        "loan_401k": 0,
+        "other": 0,
+        "net": 2422.6
       },
       "employer": {
-        "k401_match": 0.0,
-        "hsa": 25.0,
-        "health": 0.0,
-        "other": 0.0
+        "k401_match": 0,
+        "hsa": 25,
+        "health": 0,
+        "other": 0
       },
       "fed_withholding_rate_pct": 10.99,
       "reconciles": true,
       "ytd": {
-        "gross": 71250.0,
+        "gross": 71250,
         "taxes": 15463.72,
         "pretax": 6412.5,
         "posttax": 3562.5,
         "net": 45811.28
       },
       "k401_elected_pct": {
-        "pretax": 5.0,
-        "roth": 5.0,
+        "pretax": 5,
+        "roth": 5,
         "aftertax": null
       },
       "lines": [
@@ -82,8 +82,8 @@
           "label": "Salary",
           "bucket": null,
           "cash": true,
-          "current": 3750.0,
-          "ytd": 71250.0
+          "current": 3750,
+          "ytd": 71250
         },
         {
           "section": "earnings",
@@ -91,23 +91,23 @@
           "label": "Life insurance (imputed)",
           "bucket": null,
           "cash": false,
-          "current": 10.0,
-          "ytd": 190.0
+          "current": 10,
+          "ytd": 190
         },
         {
           "section": "taxes",
           "code": "fed_income",
           "label": "Federal income tax",
           "bucket": "federal",
-          "current": 375.0,
-          "ytd": 7125.0
+          "current": 375,
+          "ytd": 7125
         },
         {
           "section": "taxes",
           "code": "social_security",
           "label": "Social Security",
           "bucket": "fica_ss",
-          "current": 232.5,
+          "current": 223.2,
           "ytd": 4417.5
         },
         {
@@ -115,7 +115,7 @@
           "code": "medicare",
           "label": "Medicare",
           "bucket": "medicare",
-          "current": 54.38,
+          "current": 52.2,
           "ytd": 1033.22
         },
         {
@@ -139,8 +139,8 @@
           "code": "local_services_tax",
           "label": "Local services tax",
           "bucket": "local",
-          "current": 2.0,
-          "ytd": 38.0
+          "current": 2,
+          "ytd": 38
         },
         {
           "section": "pretax",
@@ -155,16 +155,16 @@
           "code": "medical",
           "label": "Medical/dental premiums",
           "bucket": "insurance_hsa",
-          "current": 100.0,
-          "ytd": 1900.0
+          "current": 100,
+          "ytd": 1900
         },
         {
           "section": "pretax",
           "code": "hsa",
           "label": "HSA",
           "bucket": "insurance_hsa",
-          "current": 50.0,
-          "ytd": 950.0
+          "current": 50,
+          "ytd": 950
         },
         {
           "section": "posttax",
@@ -179,8 +179,8 @@
           "code": "hsa",
           "label": "HSA employer contribution",
           "bucket": null,
-          "current": 25.0,
-          "ytd": 475.0
+          "current": 25,
+          "ytd": 475
         }
       ]
     },
@@ -190,44 +190,44 @@
       "period_start": "2025-09-22",
       "period_end": "2025-10-05",
       "type": "regular",
-      "gross": 3750.0,
-      "gross_incl_imputed": 3760.0,
-      "taxes_total": 813.88,
-      "net": 2411.12,
-      "deposit_total": 2411.12,
+      "gross": 3750,
+      "gross_incl_imputed": 3760,
+      "taxes_total": 802.4,
+      "net": 2422.6,
+      "deposit_total": 2422.6,
       "deposit_count": 1,
       "buckets": {
-        "federal": 375.0,
-        "fica_ss": 232.5,
-        "medicare": 54.38,
+        "federal": 375,
+        "fica_ss": 223.2,
+        "medicare": 52.2,
         "state": 112.5,
         "local": 39.5,
         "k401_pretax": 187.5,
-        "k401_aftertax": 0.0,
+        "k401_aftertax": 0,
         "k401_roth": 187.5,
-        "insurance_hsa": 150.0,
-        "loan_401k": 0.0,
-        "other": 0.0,
-        "net": 2411.12
+        "insurance_hsa": 150,
+        "loan_401k": 0,
+        "other": 0,
+        "net": 2422.6
       },
       "employer": {
-        "k401_match": 0.0,
-        "hsa": 25.0,
-        "health": 0.0,
-        "other": 0.0
+        "k401_match": 0,
+        "hsa": 25,
+        "health": 0,
+        "other": 0
       },
       "fed_withholding_rate_pct": 10.99,
       "reconciles": true,
       "ytd": {
-        "gross": 75000.0,
+        "gross": 75000,
         "taxes": 16277.6,
-        "pretax": 6750.0,
-        "posttax": 3750.0,
+        "pretax": 6750,
+        "posttax": 3750,
         "net": 48222.4
       },
       "k401_elected_pct": {
-        "pretax": 5.0,
-        "roth": 5.0,
+        "pretax": 5,
+        "roth": 5,
         "aftertax": null
       },
       "lines": [
@@ -237,8 +237,8 @@
           "label": "Salary",
           "bucket": null,
           "cash": true,
-          "current": 3750.0,
-          "ytd": 75000.0
+          "current": 3750,
+          "ytd": 75000
         },
         {
           "section": "earnings",
@@ -246,31 +246,31 @@
           "label": "Life insurance (imputed)",
           "bucket": null,
           "cash": false,
-          "current": 10.0,
-          "ytd": 200.0
+          "current": 10,
+          "ytd": 200
         },
         {
           "section": "taxes",
           "code": "fed_income",
           "label": "Federal income tax",
           "bucket": "federal",
-          "current": 375.0,
-          "ytd": 7500.0
+          "current": 375,
+          "ytd": 7500
         },
         {
           "section": "taxes",
           "code": "social_security",
           "label": "Social Security",
           "bucket": "fica_ss",
-          "current": 232.5,
-          "ytd": 4650.0
+          "current": 223.2,
+          "ytd": 4650
         },
         {
           "section": "taxes",
           "code": "medicare",
           "label": "Medicare",
           "bucket": "medicare",
-          "current": 54.38,
+          "current": 52.2,
           "ytd": 1087.6
         },
         {
@@ -279,7 +279,7 @@
           "label": "State income tax",
           "bucket": "state",
           "current": 112.5,
-          "ytd": 2250.0
+          "ytd": 2250
         },
         {
           "section": "taxes",
@@ -287,15 +287,15 @@
           "label": "Local earned income tax",
           "bucket": "local",
           "current": 37.5,
-          "ytd": 750.0
+          "ytd": 750
         },
         {
           "section": "taxes",
           "code": "local_services_tax",
           "label": "Local services tax",
           "bucket": "local",
-          "current": 2.0,
-          "ytd": 40.0
+          "current": 2,
+          "ytd": 40
         },
         {
           "section": "pretax",
@@ -303,23 +303,23 @@
           "label": "401(k) pre-tax",
           "bucket": "k401_pretax",
           "current": 187.5,
-          "ytd": 3750.0
+          "ytd": 3750
         },
         {
           "section": "pretax",
           "code": "medical",
           "label": "Medical/dental premiums",
           "bucket": "insurance_hsa",
-          "current": 100.0,
-          "ytd": 2000.0
+          "current": 100,
+          "ytd": 2000
         },
         {
           "section": "pretax",
           "code": "hsa",
           "label": "HSA",
           "bucket": "insurance_hsa",
-          "current": 50.0,
-          "ytd": 1000.0
+          "current": 50,
+          "ytd": 1000
         },
         {
           "section": "posttax",
@@ -327,15 +327,15 @@
           "label": "401(k) Roth",
           "bucket": "k401_roth",
           "current": 187.5,
-          "ytd": 3750.0
+          "ytd": 3750
         },
         {
           "section": "employer",
           "code": "hsa",
           "label": "HSA employer contribution",
           "bucket": null,
-          "current": 25.0,
-          "ytd": 500.0
+          "current": 25,
+          "ytd": 500
         }
       ]
     },
@@ -345,44 +345,44 @@
       "period_start": "2025-12-15",
       "period_end": "2025-12-28",
       "type": "regular",
-      "gross": 4000.0,
-      "gross_incl_imputed": 4010.0,
-      "taxes_total": 868.0,
-      "net": 2582.0,
-      "deposit_total": 2582.0,
+      "gross": 4000,
+      "gross_incl_imputed": 4010,
+      "taxes_total": 856.53,
+      "net": 2593.47,
+      "deposit_total": 2593.47,
       "deposit_count": 1,
       "buckets": {
-        "federal": 400.0,
-        "fica_ss": 248.0,
-        "medicare": 58.0,
-        "state": 120.0,
-        "local": 42.0,
-        "k401_pretax": 200.0,
-        "k401_aftertax": 0.0,
-        "k401_roth": 200.0,
-        "insurance_hsa": 150.0,
-        "loan_401k": 0.0,
-        "other": 0.0,
-        "net": 2582.0
+        "federal": 400,
+        "fica_ss": 238.7,
+        "medicare": 55.83,
+        "state": 120,
+        "local": 42,
+        "k401_pretax": 200,
+        "k401_aftertax": 0,
+        "k401_roth": 200,
+        "insurance_hsa": 150,
+        "loan_401k": 0,
+        "other": 0,
+        "net": 2593.47
       },
       "employer": {
-        "k401_match": 0.0,
-        "hsa": 25.0,
-        "health": 0.0,
-        "other": 0.0
+        "k401_match": 0,
+        "hsa": 25,
+        "health": 0,
+        "other": 0
       },
       "fed_withholding_rate_pct": 10.96,
       "reconciles": true,
       "ytd": {
-        "gross": 4000.0,
-        "taxes": 868.0,
-        "pretax": 350.0,
-        "posttax": 200.0,
-        "net": 2582.0
+        "gross": 4000,
+        "taxes": 868,
+        "pretax": 350,
+        "posttax": 200,
+        "net": 2582
       },
       "k401_elected_pct": {
-        "pretax": 5.0,
-        "roth": 5.0,
+        "pretax": 5,
+        "roth": 5,
         "aftertax": null
       },
       "lines": [
@@ -392,8 +392,8 @@
           "label": "Salary",
           "bucket": null,
           "cash": true,
-          "current": 4000.0,
-          "ytd": 4000.0
+          "current": 4000,
+          "ytd": 4000
         },
         {
           "section": "earnings",
@@ -401,96 +401,96 @@
           "label": "Life insurance (imputed)",
           "bucket": null,
           "cash": false,
-          "current": 10.0,
-          "ytd": 10.0
+          "current": 10,
+          "ytd": 10
         },
         {
           "section": "taxes",
           "code": "fed_income",
           "label": "Federal income tax",
           "bucket": "federal",
-          "current": 400.0,
-          "ytd": 400.0
+          "current": 400,
+          "ytd": 400
         },
         {
           "section": "taxes",
           "code": "social_security",
           "label": "Social Security",
           "bucket": "fica_ss",
-          "current": 248.0,
-          "ytd": 248.0
+          "current": 238.7,
+          "ytd": 248
         },
         {
           "section": "taxes",
           "code": "medicare",
           "label": "Medicare",
           "bucket": "medicare",
-          "current": 58.0,
-          "ytd": 58.0
+          "current": 55.83,
+          "ytd": 58
         },
         {
           "section": "taxes",
           "code": "state_income",
           "label": "State income tax",
           "bucket": "state",
-          "current": 120.0,
-          "ytd": 120.0
+          "current": 120,
+          "ytd": 120
         },
         {
           "section": "taxes",
           "code": "local_income_tax",
           "label": "Local earned income tax",
           "bucket": "local",
-          "current": 40.0,
-          "ytd": 40.0
+          "current": 40,
+          "ytd": 40
         },
         {
           "section": "taxes",
           "code": "local_services_tax",
           "label": "Local services tax",
           "bucket": "local",
-          "current": 2.0,
-          "ytd": 2.0
+          "current": 2,
+          "ytd": 2
         },
         {
           "section": "pretax",
           "code": "k401_pretax",
           "label": "401(k) pre-tax",
           "bucket": "k401_pretax",
-          "current": 200.0,
-          "ytd": 200.0
+          "current": 200,
+          "ytd": 200
         },
         {
           "section": "pretax",
           "code": "medical",
           "label": "Medical/dental premiums",
           "bucket": "insurance_hsa",
-          "current": 100.0,
-          "ytd": 100.0
+          "current": 100,
+          "ytd": 100
         },
         {
           "section": "pretax",
           "code": "hsa",
           "label": "HSA",
           "bucket": "insurance_hsa",
-          "current": 50.0,
-          "ytd": 50.0
+          "current": 50,
+          "ytd": 50
         },
         {
           "section": "posttax",
           "code": "k401_roth",
           "label": "401(k) Roth",
           "bucket": "k401_roth",
-          "current": 200.0,
-          "ytd": 200.0
+          "current": 200,
+          "ytd": 200
         },
         {
           "section": "employer",
           "code": "hsa",
           "label": "HSA employer contribution",
           "bucket": null,
-          "current": 25.0,
-          "ytd": 25.0
+          "current": 25,
+          "ytd": 25
         }
       ]
     },
@@ -500,44 +500,44 @@
       "period_start": "2026-09-07",
       "period_end": "2026-09-20",
       "type": "regular",
-      "gross": 4000.0,
-      "gross_incl_imputed": 4010.0,
-      "taxes_total": 868.0,
-      "net": 2582.0,
-      "deposit_total": 2582.0,
+      "gross": 4000,
+      "gross_incl_imputed": 4010,
+      "taxes_total": 856.53,
+      "net": 2593.47,
+      "deposit_total": 2593.47,
       "deposit_count": 1,
       "buckets": {
-        "federal": 400.0,
-        "fica_ss": 248.0,
-        "medicare": 58.0,
-        "state": 120.0,
-        "local": 42.0,
-        "k401_pretax": 200.0,
-        "k401_aftertax": 0.0,
-        "k401_roth": 200.0,
-        "insurance_hsa": 150.0,
-        "loan_401k": 0.0,
-        "other": 0.0,
-        "net": 2582.0
+        "federal": 400,
+        "fica_ss": 238.7,
+        "medicare": 55.83,
+        "state": 120,
+        "local": 42,
+        "k401_pretax": 200,
+        "k401_aftertax": 0,
+        "k401_roth": 200,
+        "insurance_hsa": 150,
+        "loan_401k": 0,
+        "other": 0,
+        "net": 2593.47
       },
       "employer": {
-        "k401_match": 0.0,
-        "hsa": 25.0,
-        "health": 0.0,
-        "other": 0.0
+        "k401_match": 0,
+        "hsa": 25,
+        "health": 0,
+        "other": 0
       },
       "fed_withholding_rate_pct": 10.96,
       "reconciles": true,
       "ytd": {
-        "gross": 76000.0,
-        "taxes": 16492.0,
-        "pretax": 6650.0,
-        "posttax": 3800.0,
-        "net": 49058.0
+        "gross": 76000,
+        "taxes": 16492,
+        "pretax": 6650,
+        "posttax": 3800,
+        "net": 49058
       },
       "k401_elected_pct": {
-        "pretax": 5.0,
-        "roth": 5.0,
+        "pretax": 5,
+        "roth": 5,
         "aftertax": null
       },
       "lines": [
@@ -547,8 +547,8 @@
           "label": "Salary",
           "bucket": null,
           "cash": true,
-          "current": 4000.0,
-          "ytd": 76000.0
+          "current": 4000,
+          "ytd": 76000
         },
         {
           "section": "earnings",
@@ -556,96 +556,96 @@
           "label": "Life insurance (imputed)",
           "bucket": null,
           "cash": false,
-          "current": 10.0,
-          "ytd": 190.0
+          "current": 10,
+          "ytd": 190
         },
         {
           "section": "taxes",
           "code": "fed_income",
           "label": "Federal income tax",
           "bucket": "federal",
-          "current": 400.0,
-          "ytd": 7600.0
+          "current": 400,
+          "ytd": 7600
         },
         {
           "section": "taxes",
           "code": "social_security",
           "label": "Social Security",
           "bucket": "fica_ss",
-          "current": 248.0,
-          "ytd": 4712.0
+          "current": 238.7,
+          "ytd": 4712
         },
         {
           "section": "taxes",
           "code": "medicare",
           "label": "Medicare",
           "bucket": "medicare",
-          "current": 58.0,
-          "ytd": 1102.0
+          "current": 55.83,
+          "ytd": 1102
         },
         {
           "section": "taxes",
           "code": "state_income",
           "label": "State income tax",
           "bucket": "state",
-          "current": 120.0,
-          "ytd": 2280.0
+          "current": 120,
+          "ytd": 2280
         },
         {
           "section": "taxes",
           "code": "local_income_tax",
           "label": "Local earned income tax",
           "bucket": "local",
-          "current": 40.0,
-          "ytd": 760.0
+          "current": 40,
+          "ytd": 760
         },
         {
           "section": "taxes",
           "code": "local_services_tax",
           "label": "Local services tax",
           "bucket": "local",
-          "current": 2.0,
-          "ytd": 38.0
+          "current": 2,
+          "ytd": 38
         },
         {
           "section": "pretax",
           "code": "k401_pretax",
           "label": "401(k) pre-tax",
           "bucket": "k401_pretax",
-          "current": 200.0,
-          "ytd": 3800.0
+          "current": 200,
+          "ytd": 3800
         },
         {
           "section": "pretax",
           "code": "medical",
           "label": "Medical/dental premiums",
           "bucket": "insurance_hsa",
-          "current": 100.0,
-          "ytd": 1900.0
+          "current": 100,
+          "ytd": 1900
         },
         {
           "section": "pretax",
           "code": "hsa",
           "label": "HSA",
           "bucket": "insurance_hsa",
-          "current": 50.0,
-          "ytd": 950.0
+          "current": 50,
+          "ytd": 950
         },
         {
           "section": "posttax",
           "code": "k401_roth",
           "label": "401(k) Roth",
           "bucket": "k401_roth",
-          "current": 200.0,
-          "ytd": 3800.0
+          "current": 200,
+          "ytd": 3800
         },
         {
           "section": "employer",
           "code": "hsa",
           "label": "HSA employer contribution",
           "bucket": null,
-          "current": 25.0,
-          "ytd": 475.0
+          "current": 25,
+          "ytd": 475
         }
       ]
     },
@@ -655,44 +655,44 @@
       "period_start": "2026-09-21",
       "period_end": "2026-10-04",
       "type": "regular",
-      "gross": 4000.0,
-      "gross_incl_imputed": 4010.0,
-      "taxes_total": 868.0,
-      "net": 2482.0,
-      "deposit_total": 2482.0,
+      "gross": 4000,
+      "gross_incl_imputed": 4010,
+      "taxes_total": 856.53,
+      "net": 2493.47,
+      "deposit_total": 2493.47,
       "deposit_count": 1,
       "buckets": {
-        "federal": 400.0,
-        "fica_ss": 248.0,
-        "medicare": 58.0,
-        "state": 120.0,
-        "local": 42.0,
-        "k401_pretax": 200.0,
-        "k401_aftertax": 0.0,
-        "k401_roth": 200.0,
-        "insurance_hsa": 150.0,
-        "loan_401k": 100.0,
-        "other": 0.0,
-        "net": 2482.0
+        "federal": 400,
+        "fica_ss": 238.7,
+        "medicare": 55.83,
+        "state": 120,
+        "local": 42,
+        "k401_pretax": 200,
+        "k401_aftertax": 0,
+        "k401_roth": 200,
+        "insurance_hsa": 150,
+        "loan_401k": 100,
+        "other": 0,
+        "net": 2493.47
       },
       "employer": {
-        "k401_match": 0.0,
-        "hsa": 25.0,
-        "health": 0.0,
-        "other": 0.0
+        "k401_match": 0,
+        "hsa": 25,
+        "health": 0,
+        "other": 0
       },
       "fed_withholding_rate_pct": 10.96,
       "reconciles": true,
       "ytd": {
-        "gross": 80000.0,
-        "taxes": 17360.0,
-        "pretax": 7000.0,
-        "posttax": 6000.0,
-        "net": 49640.0
+        "gross": 80000,
+        "taxes": 17360,
+        "pretax": 7000,
+        "posttax": 6000,
+        "net": 49640
       },
       "k401_elected_pct": {
-        "pretax": 5.0,
-        "roth": 5.0,
+        "pretax": 5,
+        "roth": 5,
         "aftertax": null
       },
       "lines": [
@@ -702,8 +702,8 @@
           "label": "Salary",
           "bucket": null,
           "cash": true,
-          "current": 4000.0,
-          "ytd": 80000.0
+          "current": 4000,
+          "ytd": 80000
         },
         {
           "section": "earnings",
@@ -711,104 +711,104 @@
           "label": "Life insurance (imputed)",
           "bucket": null,
           "cash": false,
-          "current": 10.0,
-          "ytd": 200.0
+          "current": 10,
+          "ytd": 200
         },
         {
           "section": "taxes",
           "code": "fed_income",
           "label": "Federal income tax",
           "bucket": "federal",
-          "current": 400.0,
-          "ytd": 8000.0
+          "current": 400,
+          "ytd": 8000
         },
         {
           "section": "taxes",
           "code": "social_security",
           "label": "Social Security",
           "bucket": "fica_ss",
-          "current": 248.0,
-          "ytd": 4960.0
+          "current": 238.7,
+          "ytd": 4960
         },
         {
           "section": "taxes",
           "code": "medicare",
           "label": "Medicare",
           "bucket": "medicare",
-          "current": 58.0,
-          "ytd": 1160.0
+          "current": 55.83,
+          "ytd": 1160
         },
         {
           "section": "taxes",
           "code": "state_income",
           "label": "State income tax",
           "bucket": "state",
-          "current": 120.0,
-          "ytd": 2400.0
+          "current": 120,
+          "ytd": 2400
         },
         {
           "section": "taxes",
           "code": "local_income_tax",
           "label": "Local earned income tax",
           "bucket": "local",
-          "current": 40.0,
-          "ytd": 800.0
+          "current": 40,
+          "ytd": 800
         },
         {
           "section": "taxes",
           "code": "local_services_tax",
           "label": "Local services tax",
           "bucket": "local",
-          "current": 2.0,
-          "ytd": 40.0
+          "current": 2,
+          "ytd": 40
         },
         {
           "section": "pretax",
           "code": "k401_pretax",
           "label": "401(k) pre-tax",
           "bucket": "k401_pretax",
-          "current": 200.0,
-          "ytd": 4000.0
+          "current": 200,
+          "ytd": 4000
         },
         {
           "section": "pretax",
           "code": "medical",
           "label": "Medical/dental premiums",
           "bucket": "insurance_hsa",
-          "current": 100.0,
-          "ytd": 2000.0
+          "current": 100,
+          "ytd": 2000
         },
         {
           "section": "pretax",
           "code": "hsa",
           "label": "HSA",
           "bucket": "insurance_hsa",
-          "current": 50.0,
-          "ytd": 1000.0
+          "current": 50,
+          "ytd": 1000
         },
         {
           "section": "posttax",
           "code": "k401_roth",
           "label": "401(k) Roth",
           "bucket": "k401_roth",
-          "current": 200.0,
-          "ytd": 4000.0
+          "current": 200,
+          "ytd": 4000
         },
         {
           "section": "posttax",
           "code": "loan_401k",
           "label": "401(k) loan repayment",
           "bucket": "loan_401k",
-          "current": 100.0,
-          "ytd": 2000.0
+          "current": 100,
+          "ytd": 100
         },
         {
           "section": "employer",
           "code": "hsa",
           "label": "HSA employer contribution",
           "bucket": null,
-          "current": 25.0,
-          "ytd": 500.0
+          "current": 25,
+          "ytd": 500
         }
       ]
     }
@@ -818,68 +818,68 @@
       "year": 2025,
       "checks": 2,
       "regular_checks": 2,
-      "gross": 7500.0,
+      "gross": 7500,
       "taxes": 1627.76,
       "net": 4822.24,
       "buckets": {
-        "federal": 750.0,
-        "fica_ss": 465.0,
+        "federal": 750,
+        "fica_ss": 465,
         "medicare": 108.76,
-        "state": 225.0,
-        "local": 79.0,
-        "k401_pretax": 375.0,
-        "k401_aftertax": 0.0,
-        "k401_roth": 375.0,
-        "insurance_hsa": 300.0,
-        "loan_401k": 0.0,
-        "other": 0.0
+        "state": 225,
+        "local": 79,
+        "k401_pretax": 375,
+        "k401_aftertax": 0,
+        "k401_roth": 375,
+        "insurance_hsa": 300,
+        "loan_401k": 0,
+        "other": 0
       },
       "k401": {
-        "pretax": 375.0,
-        "roth": 375.0,
-        "aftertax": 0.0,
-        "employer_match_on_stub": 0.0,
-        "loan_repayment": 0.0,
-        "employee_total": 750.0
+        "pretax": 375,
+        "roth": 375,
+        "aftertax": 0,
+        "employer_match_on_stub": 0,
+        "loan_repayment": 0,
+        "employee_total": 750
       },
       "first_pay_date": "2025-09-26",
       "last_pay_date": "2025-10-10",
-      "annual_salary_start": 97500.0,
-      "annual_salary_end": 97500.0,
+      "annual_salary_start": 97500,
+      "annual_salary_end": 97500,
       "salary_change_pct": null
     },
     {
       "year": 2026,
-      "checks": 3,
-      "regular_checks": 3,
-      "gross": 12000.0,
-      "taxes": 2604.0,
-      "net": 7646.0,
+      "checks": 25,
+      "regular_checks": 25,
+      "gross": 100000,
+      "taxes": 21413.25,
+      "net": 64736.75,
       "buckets": {
-        "federal": 1200.0,
-        "fica_ss": 744.0,
-        "medicare": 174.0,
-        "state": 360.0,
-        "local": 126.0,
-        "k401_pretax": 600.0,
-        "k401_aftertax": 0.0,
-        "k401_roth": 600.0,
-        "insurance_hsa": 450.0,
-        "loan_401k": 100.0,
-        "other": 0.0
+        "federal": 1200,
+        "fica_ss": 744,
+        "medicare": 174,
+        "state": 360,
+        "local": 126,
+        "k401_pretax": 600,
+        "k401_aftertax": 0,
+        "k401_roth": 600,
+        "insurance_hsa": 450,
+        "loan_401k": 100,
+        "other": 0
       },
       "k401": {
-        "pretax": 600.0,
-        "roth": 600.0,
-        "aftertax": 0.0,
-        "employer_match_on_stub": 0.0,
-        "loan_repayment": 100.0,
-        "employee_total": 1200.0
+        "pretax": 5000,
+        "roth": 5000,
+        "aftertax": 0,
+        "employer_match_on_stub": 0,
+        "loan_repayment": 100,
+        "employee_total": 10000
       },
       "first_pay_date": "2026-01-02",
       "last_pay_date": "2026-10-09",
-      "annual_salary_start": 104000.0,
-      "annual_salary_end": 104000.0,
+      "annual_salary_start": 104000,
+      "annual_salary_end": 104000,
       "salary_change_pct": 6.67
     }
   ],
@@ -887,65 +887,65 @@
     "this_year": {
       "year": 2026,
       "through": "2026-10-09",
-      "checks": 3,
-      "gross": 80000.0,
-      "taxes": 17360.0,
-      "pretax": 7000.0,
-      "posttax": 6000.0,
-      "net": 49640.0,
+      "checks": 21,
+      "gross": 84000,
+      "taxes": 17987.13,
+      "pretax": 7350,
+      "posttax": 4300,
+      "net": 54362.87,
       "k401": {
-        "pretax": 600.0,
-        "roth": 600.0,
-        "aftertax": 0.0,
-        "employee_total": 1200.0
+        "pretax": 4200,
+        "roth": 4200,
+        "aftertax": 0,
+        "employee_total": 8400
       }
     },
     "last_year_same_point": {
       "year": 2025,
-      "through": "2025-09-26",
-      "checks": 1,
-      "gross": 71250.0,
-      "taxes": 15463.72,
-      "pretax": 6412.5,
-      "posttax": 3562.5,
-      "net": 45811.28,
+      "through": "2025-10-10",
+      "checks": 21,
+      "gross": 78750,
+      "taxes": 16850.4,
+      "pretax": 7087.5,
+      "posttax": 3937.5,
+      "net": 50874.6,
       "k401": {
-        "pretax": 187.5,
-        "roth": 187.5,
-        "aftertax": 0.0,
-        "employee_total": 375.0
+        "pretax": 3937.5,
+        "roth": 3937.5,
+        "aftertax": 0,
+        "employee_total": 7875
       }
     },
     "delta": {
-      "gross_pct": 12.28,
-      "taxes_pct": 12.26,
-      "net_pct": 8.36
+      "gross_pct": 6.67,
+      "taxes_pct": 6.75,
+      "net_pct": 6.86
     }
   },
   "k401": {
     "current_elected_pct": {
-      "pretax": 5.0,
-      "roth": 5.0,
+      "pretax": 5,
+      "roth": 5,
       "aftertax": null
     },
     "by_year": [
       {
         "year": 2025,
-        "pretax": 375.0,
-        "roth": 375.0,
-        "aftertax": 0.0,
-        "employer_match_on_stub": 0.0,
-        "loan_repayment": 0.0,
-        "employee_total": 750.0
+        "pretax": 375,
+        "roth": 375,
+        "aftertax": 0,
+        "employer_match_on_stub": 0,
+        "loan_repayment": 0,
+        "employee_total": 750
       },
       {
         "year": 2026,
-        "pretax": 600.0,
-        "roth": 600.0,
-        "aftertax": 0.0,
-        "employer_match_on_stub": 0.0,
-        "loan_repayment": 100.0,
-        "employee_total": 1200.0
+        "pretax": 600,
+        "roth": 600,
+        "aftertax": 0,
+        "employer_match_on_stub": 0,
+        "loan_repayment": 100,
+        "employee_total": 1200
       }
     ],
     "cumulative": [
@@ -953,36 +953,36 @@
         "pay_date": "2025-09-26",
         "pretax": 187.5,
         "roth": 187.5,
-        "aftertax": 0.0,
-        "employee_total": 375.0
+        "aftertax": 0,
+        "employee_total": 375
       },
       {
         "pay_date": "2025-10-10",
-        "pretax": 375.0,
-        "roth": 375.0,
-        "aftertax": 0.0,
-        "employee_total": 750.0
+        "pretax": 375,
+        "roth": 375,
+        "aftertax": 0,
+        "employee_total": 750
       },
       {
         "pay_date": "2026-01-02",
-        "pretax": 575.0,
-        "roth": 575.0,
-        "aftertax": 0.0,
-        "employee_total": 1150.0
+        "pretax": 575,
+        "roth": 575,
+        "aftertax": 0,
+        "employee_total": 1150
       },
       {
         "pay_date": "2026-09-25",
-        "pretax": 775.0,
-        "roth": 775.0,
-        "aftertax": 0.0,
-        "employee_total": 1550.0
+        "pretax": 775,
+        "roth": 775,
+        "aftertax": 0,
+        "employee_total": 1550
       },
       {
         "pay_date": "2026-10-09",
-        "pretax": 975.0,
-        "roth": 975.0,
-        "aftertax": 0.0,
-        "employee_total": 1950.0
+        "pretax": 975,
+        "roth": 975,
+        "aftertax": 0,
+        "employee_total": 1950
       }
     ],
     "match_on_stub_checks": 0

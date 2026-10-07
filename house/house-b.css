@@ -57,11 +57,13 @@ button.tape-row b {
   font-size: 13px;
   font-weight: 700;
 }
-button.tape-row.on {
+button.tape-row.on,
+tr[data-check-id].on {
   background: var(--paper);
   border-color: var(--rule);
   box-shadow: inset 3px 0 0 var(--ink);
 }
+tr[data-check-id] { cursor: pointer; }
 details.tape-more {
   margin-top: 4px;
 }
@@ -240,7 +242,8 @@ label {
   margin: 8px 0 3px;
 }
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   font: 15px/1.35 "Segoe UI", system-ui, sans-serif;
   color: var(--ink);
@@ -248,6 +251,7 @@ textarea {
   border: 1px solid var(--rule);
   border-radius: 4px;
   padding: 8px 10px;
+  min-height: 44px;
 }
 textarea {
   min-height: 88px;
@@ -506,7 +510,8 @@ button.mix-leg,
 }
 button.mix-leg:hover,
 .mix-leg:hover,
-.mix-leg.on {
+.mix-leg.on,
+tr[data-check-id].on {
   border-color: var(--nav-line);
   background: var(--row);
 }

@@ -599,7 +599,7 @@
       }
     ],
     "energy_carryforward_used_next": 500,
-    "energy_carryforward_remaining": null
+    "energy_carryforward_remaining": 300
   },
   "estimate": {
     "year": 2026,

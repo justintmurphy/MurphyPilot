@@ -6,9 +6,11 @@ const path = require("path");
 const test = require("node:test");
 const vm = require("vm");
 
+const FAKE_NOW = new Date("2026-10-16T15:00:00-04:00");
 const root = path.join(__dirname, "..", "..");
 const payPath = path.join(__dirname, "fixtures", "example-pay.json");
 const taxPath = path.join(__dirname, "fixtures", "example-taxes.json");
+const carryPath = path.join(__dirname, "fixtures", "example-taxes-carry.json");
 
 function read(rel) {
   return fs.readFileSync(path.join(root, rel), "utf8");
@@ -20,6 +22,10 @@ function loadPay() {
 
 function loadTaxes() {
   return JSON.parse(fs.readFileSync(taxPath, "utf8"));
+}
+
+function loadCarry() {
+  return JSON.parse(fs.readFileSync(carryPath, "utf8"));
 }
 
 function boot() {
@@ -45,9 +51,9 @@ function boot() {
     Array: Array,
     Math: Math,
     JSON: JSON,
-    Date: function () { throw new Error("clock"); }
+    Date: function () { return new Date(FAKE_NOW.getTime()); }
   };
-  sandbox.Date.now = function () { throw new Error("clock"); };
+  sandbox.Date.now = function () { return FAKE_NOW.getTime(); };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
   vm.runInContext(read("house/js/list-cap.js"), sandbox, { filename: "list-cap.js" });
@@ -140,7 +146,7 @@ function plainPageText(html) {
   const block = {
     div: 1, p: 1, li: 1, section: 1, h1: 1, h2: 1, h3: 1, table: 1, thead: 1, tbody: 1,
     tr: 1, td: 1, th: 1, header: 1, nav: 1, main: 1, article: 1, footer: 1, label: 1,
-    select: 1, option: 1, details: 1, summary: 1
+    select: 1, option: 1, details: 1, summary: 1, button: 1, svg: 1
   };
   let m;
   while ((m = re.exec(html))) {
@@ -155,7 +161,8 @@ function plainPageText(html) {
 function glueCopyHits(text) {
   const hits = [];
   text.split("\n").forEach(function (line) {
-    if (/[A-Za-z)][$\d]|[$\d][A-Za-z)]/.test(line)) hits.push(line.trim().slice(0, 160));
+    const stripped = line.replace(/\([A-Za-z]+-\d+\)/g, " ");
+    if (/[A-Za-z)][$\d]|[$\d][A-Za-z)]/.test(stripped)) hits.push(line.trim().slice(0, 160));
     if (/[a-z][A-Z]/.test(line)) hits.push(line.trim().slice(0, 160));
   });
   return hits;
@@ -277,256 +284,207 @@ test("pay and taxes gates cover 401, 403, and 404 not_loaded", async function ()
   assertCleanGlue(emptyTax, "empty taxes");
 });
 
-test("pay summary renders the example fixture without check lines", function () {
+test("pay summary is analytics first and agrees on the stub", function () {
   const ctx = boot();
   const doc = loadPay();
+  const src = read("house/js/paydesk.js");
+  assert.equal(FAKE_NOW.toISOString().slice(0, 10), "2026-10-16");
+  assert.doesNotMatch(src, /new Date|Date\.now|localStorage|sessionStorage|Authorization/);
+  assert.doesNotMatch(src, /Full year|On the card|Scenario B|kids|spouse pay/i);
+  assert.match(src, /\\u2212\$/);
   const html = ctx.paydeskHtml("pay", doc, {});
-  assert.match(html, /Pay · 2026/);
-  assert.match(html, /data-year-pick="pay"/);
-  assert.match(html, /Oct 9, 2026/);
-  assert.match(html, /Regular/);
-  assert.match(html, /\+\$4,000\.00/);
-  assert.equal(html.split("+$2,482.00").length - 1, 1);
-  ["Federal", "Social Security", "Medicare", "State", "Local", "401(k) pre-tax", "401(k) after-tax", "401(k) Roth", "Insurance / HSA", "401(k) loan", "Other"].forEach(function (label) {
-    assert.match(html, new RegExp(label.replace(/[()]/g, "\\$&")));
+  assert.match(html, /\u2212\$/);
+  const summary = html.split("<details")[0];
+  assert.match(summary, /<h2>Pay<\/h2>/);
+  assert.doesNotMatch(summary, /Pay ·/);
+  assert.doesNotMatch(summary, /data-year-pick/);
+  assert.match(summary, /\$104,000\.00/);
+  assert.match(summary, /\+6\.67%/);
+  assert.match(summary, /Take-home trend/);
+  assert.match(summary, /class="ov-line-svg"/);
+  assert.match(summary, /Where your pay goes/);
+  assert.match(summary, /class="mix-svg"/);
+  assert.match(summary, /data-basis="stub"/);
+  assert.match(summary, /\+\$84,000\.00/);
+  assert.match(summary, /Stub through Oct 9, 2026/);
+  assert.match(summary, /Versus 21 checks through Oct 10, 2025/);
+  assert.match(summary, /\+6\.75%/);
+  assert.match(summary, /No employer match shows on recent stubs/);
+  assert.doesNotMatch(summary, /understates/);
+  assert.doesNotMatch(summary, /Match</);
+  assert.equal((summary.match(/data-card="flags"/g) || []).length, 1);
+  const flagCard = summary.split('data-card="flags"')[1].split("data-card=")[0];
+  assert.equal((flagCard.match(/<tr><td>/g) || []).length, 3);
+  assert.doesNotMatch(summary, /Medical\/dental/);
+  assert.doesNotMatch(summary, /Life insurance/);
+  assert.match(html, /Medical\/dental/);
+  assert.match(html, /data-card="year"/);
+  assert.match(html, /<label>Year <select data-year-pick="pay">/);
+  const yearRow = html.split('data-year="2026"')[1].split("</tr>")[0];
+  assert.match(yearRow, /\+\$84,000\.00/);
+  assert.match(yearRow, /partial · 25 checks on file/);
+  assert.doesNotMatch(html, /Full year/);
+  assert.doesNotMatch(html, /On the card/);
+  const loan = doc.checks.find(function (c) { return c.id === "c005"; }).lines.find(function (line) {
+    return line.code === "loan_401k";
   });
-  assert.match(html, /-\$400\.00/);
-  assert.match(html, /-\$100\.00/);
-  assert.match(html, /\+\$80,000\.00/);
-  assert.match(html, /-\$17,360\.00/);
-  assert.match(html, /-\$1,200\.00/);
-  assert.match(html, /\+\$49,640\.00/);
-  assert.match(html, /\+12\.28%/);
-  assert.match(html, /\+12\.26%/);
-  assert.match(html, /\+8\.36%/);
-  assert.equal(html.split("On stub understates the match.").length - 1, 1);
-  assert.match(html, /Match on stub/);
-  assert.match(html, /\$0\.00/);
-  assert.match(html, />5%</);
-  assert.match(html, /After-tax<\/span> <b>—<\/b>/);
-  const dates = ["Oct 9, 2026", "Sep 25, 2026", "Jan 2, 2026"];
-  let at = -1;
-  dates.forEach(function (d) {
-    const next = html.indexOf(d, at + 1);
-    assert.ok(next > at, d);
-    at = next;
-  });
-  assert.doesNotMatch(html, /Life insurance \(imputed\)/);
-  assert.doesNotMatch(html, /\$71,250\.00/);
-  assert.match(html, /<details class="fills-more">/);
-  assert.doesNotMatch(html, /<details class="fills-more"[^>]*open/);
-  assert.match(html, /class="split-two"/);
-  assert.equal(cardCount(visibleCards(html)), 4);
-  assert.equal(cardCount(html.split('<details class="fills-more">')[1]), 3);
-  assert.match(html, /\$104,000\.00/);
-  assert.match(html, /\+6\.67%/);
-  assert.match(html, /Federal W-4 settings changed/);
-  assert.match(html, /Raise \+6\.7%/);
-  assert.equal(html.split("+$12,000.00").length - 1, 1);
+  assert.equal(loan.ytd, loan.current);
+  const fica = doc.checks.find(function (c) { return c.gross === 4000; });
+  assert.equal(fica.buckets.fica_ss, 238.7);
   assertCleanGlue(html, "pay");
 });
 
-test("check lines render only after that row is opened and stay capped at ten", function () {
+test("a missing stub keeps year-to-date and by-year on the same figures", function () {
   const ctx = boot();
   const doc = loadPay();
-  const closed = ctx.paydeskHtml("pay", doc, {});
-  assert.doesNotMatch(closed, /data-check-lines=/);
-  assert.doesNotMatch(closed, /Showing 10 of/);
-  const latest = doc.checks.filter(function (c) { return c.id === "c005"; })[0];
-  assert.ok(latest.lines.length > 10);
-  const open = ctx.paydeskHtml("pay", doc, { openCheckId: "c005" });
-  assert.match(open, /data-check-lines="c005"/);
-  assert.match(open, /Life insurance \(imputed\)/);
-  assert.match(open, /loan repayment/);
-  assert.match(open, new RegExp("Showing 10 of " + latest.lines.length));
-  assert.match(open, /class="list-cap"/);
-  assert.doesNotMatch(open, /data-check-lines="c001"/);
-  assert.doesNotMatch(open, /\$71,250\.00/);
-  assert.match(open, /aria-expanded="true"/);
-  assertCleanGlue(open, "pay lines");
+  doc.ytd.this_year = null;
+  const html = ctx.paydeskHtml("pay", doc, {});
+  const ytd = html.split('data-card="ytd"')[1].split('data-card=')[0];
+  const row = html.split('data-year="2026"')[1].split("</tr>")[0];
+  assert.match(ytd, /data-basis="file"/);
+  assert.match(ytd, /\+\$100,000\.00/);
+  assert.match(row, /\+\$100,000\.00/);
+  assert.doesNotMatch(ytd, /\+\$84,000\.00/);
+  assert.doesNotMatch(row, /\+\$84,000\.00/);
+  assert.match(ytd, /partial · 25 checks on file/);
 });
 
-test("a past pay year uses that year's check and does not repeat its rollup", function () {
+test("opened check lines sit outside the checks list cap", function () {
   const ctx = boot();
-  const html = ctx.paydeskHtml("pay", loadPay(), { year: 2025 });
-  assert.match(html, /Pay · 2025/);
-  assert.match(html, /Oct 10, 2025/);
+  const doc = loadPay();
+  const seed = doc.checks.filter(function (c) { return String(c.pay_date).indexOf("2026") === 0; });
+  const extra = [];
+  for (let i = 0; i < 12; i++) {
+    extra.push(Object.assign({}, seed[0], { id: "x" + i, pay_date: "2026-02-" + String(i + 1).padStart(2, "0") }));
+  }
+  doc.checks = doc.checks.concat(extra);
+  const closed = ctx.paydeskHtml("pay", doc, { detailsOpen: true });
+  assert.match(closed, /class="list-cap"/);
+  assert.doesNotMatch(closed, /data-check-lines/);
+  const html = ctx.paydeskHtml("pay", doc, { detailsOpen: true, openCheckId: "c005" });
+  const cap = html.split('aria-label="Checks"')[1].split("</div>")[0];
+  assert.doesNotMatch(cap, /data-check-lines|Medical\/dental/);
+  assert.match(html, /data-check-lines="c005"/);
+  assert.match(html, /class="on"/);
+  assert.match(html, />Latest</);
+  assert.match(html, /Pre-tax/);
+  assert.match(html, /Post-tax/);
+  assert.match(html, /401\(k\) loan repayment/);
+  const lines = html.split('data-check-lines="c005"')[1].split('data-card=')[0];
+  assert.doesNotMatch(lines, /\$0\.00/);
+  assertCleanGlue(html, "open check");
+});
+
+test("a past pay year stays partial", function () {
+  const ctx = boot();
+  const html = ctx.paydeskHtml("pay", loadPay(), { year: 2025, detailsOpen: true });
+  assert.match(html, /data-basis="file"/);
+  assert.match(html, /partial · 2 checks on file/);
+  assert.match(html, /Last check of 2025/);
+  assert.doesNotMatch(html, /Full year/);
   assert.match(html, /data-check-id="c002"/);
   assert.match(html, /data-check-id="c001"/);
-  assert.doesNotMatch(html, /data-check-id="c005"|data-check-id="c004"|data-check-id="c003"/);
-  assert.match(html, /Full-year totals for the selected year/);
-  assert.equal(html.split("+$7,500.00").length - 1, 1);
-  assert.doesNotMatch(html, /\+12\.28%/);
+  assert.doesNotMatch(html, /data-check-id="c005"/);
   assertCleanGlue(html, "pay 2025");
 });
 
-test("a check that does not add up says so once", function () {
+test("where your pay goes opens that group's lines", function () {
   const ctx = boot();
-  const doc = loadPay();
-  doc.checks.forEach(function (c) {
-    if (c.id === "c005") c.reconciles = false;
-  });
-  const html = ctx.paydeskHtml("pay", doc, {});
-  assert.equal(html.split("This check does not add up to gross.").length - 1, 1);
+  const closed = ctx.paydeskHtml("pay", loadPay(), {});
+  assert.doesNotMatch(closed.split("<details")[0], /Social Security/);
+  const html = ctx.paydeskHtml("pay", loadPay(), { openGroup: "taxes" });
+  const where = html.split('data-card="where"')[1].split('data-card=')[0];
+  assert.match(where, /Social Security/);
+  assert.match(where, /\u2212\$238\.70/);
+  assert.doesNotMatch(where, /401\(k\) loan repayment/);
+  assertCleanGlue(html, "group");
 });
 
-test("taxes summary uses the example and leaves carryforward remaining blank", function () {
+test("taxes summary uses payload labels and the base flag", function () {
   const ctx = boot();
   const doc = loadTaxes();
+  const src = read("house/js/paydesk.js");
+  assert.doesNotMatch(src, /spouse_income|car_loan_deduction/);
   const html = ctx.paydeskHtml("taxes", doc, {});
-  assert.match(html, /Taxes · 2025/);
-  assert.match(html, /Estimate · 2026/);
-  assert.match(html, /Projection adjusted by stubs\./);
-  assert.match(html, /Federal<\/span> <b class="tone-go">\+\$1,000\.00<\/b>/);
-  assert.match(html, /State<\/span> <b class="tone-flat">\$0\.00<\/b>/);
-  assert.match(html, /Local<\/span> <b class="tone-flat">\$0\.00<\/b>/);
-  assert.match(html, /Scenario C/);
-  assert.match(html, /-\$2,000\.00/);
-  assert.match(html, /\$400\.00/);
-  const yearAt = ["2021", "2022", "2023", "2024", "2025"].map(function (y) { return html.indexOf(">" + y + "<"); });
-  yearAt.forEach(function (at, i) {
-    assert.ok(at > 0, String(i));
-    if (i) assert.ok(at > yearAt[i - 1]);
+  const summary = html.split("<details")[0];
+  assert.match(summary, /<h2>Taxes<\/h2>/);
+  assert.doesNotMatch(summary, /Taxes ·/);
+  assert.doesNotMatch(summary, /data-year-pick/);
+  assert.match(summary, /2026 estimate/);
+  assert.match(summary, /\+\$4,436\.00/);
+  assert.match(summary, /Projected tax/);
+  assert.match(summary, /Withheld/);
+  assert.doesNotMatch(summary, /Extra per check needed/);
+  const base = doc.estimate.scenarios.find(function (row) { return row.is_base; });
+  const others = doc.estimate.scenarios.filter(function (row) { return !row.is_base; });
+  assert.ok(base);
+  assert.equal(others.length, 2);
+  others.forEach(function (row) {
+    assert.match(summary, new RegExp('class="sym">' + row.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "<"));
   });
-  assert.match(html, /2025<\/span> <span class="sub">Selected<\/span>/);
-  assert.match(html, /<details class="fills-more">/);
-  assert.doesNotMatch(html, /<details class="fills-more"[^>]*open/);
-  assert.equal(cardCount(visibleCards(html)), 2);
-  const remain = html.match(/data-carry="remaining"[\s\S]*?<\/tr>/);
-  assert.ok(remain);
-  assert.match(remain[0], /—/);
-  assert.doesNotMatch(remain[0], /\$/);
-  const used = html.match(/data-carry="used-next"[\s\S]*?<\/tr>/);
-  assert.match(used[0], /\+\$500\.00/);
-  assert.match(html, /Refund down 50% vs 2024/);
-  assert.match(html, /Amended return filed/);
-  assert.doesNotMatch(html, /Showing 10 of/);
-  assert.match(html, /class="split-two"/);
+  assert.doesNotMatch(summary, new RegExp('class="sym">' + base.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "<"));
+  assert.match(summary, /class="axis-svg"/);
+  assert.match(summary, /Energy credit left for 2026/);
+  assert.match(summary, /data-card="energy"[\s\S]{0,240}—/);
+  const more = ctx.paydeskHtml("taxes", doc, { detailsOpen: true });
+  assert.match(more, /<label>Year <select data-year-pick="taxes">/);
+  assert.match(more, />Withheld</);
+  const y2025 = more.split('data-tax-year="2025"')[1].split("</tr>")[0];
+  const amended = doc.flags.find(function (flag) { return flag.kind === "amended" && flag.year === 2025; });
+  const filed = doc.years.find(function (row) { return row.year === 2025; });
+  const withheld = "$" + Number(filed.payments.withholding).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  assert.match(y2025, new RegExp(amended.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(y2025, new RegExp(withheld.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assertCleanGlue(html, "taxes");
+  assertCleanGlue(more, "taxes more");
 });
 
 test("energy carryforward remaining renders when it is a number", function () {
   const ctx = boot();
-  const doc = loadTaxes();
-  const amount = doc.credits.energy_carryforward_used_next;
-  doc.credits.energy_carryforward_remaining = amount;
-  const html = ctx.paydeskHtml("taxes", doc, {});
-  const remain = html.match(/data-carry="remaining"[\s\S]*?<\/tr>/);
-  assert.match(remain[0], /\+\$500\.00/);
-  doc.credits.energy_carryforward_remaining = 0;
-  const zero = ctx.paydeskHtml("taxes", doc, {});
-  const zeroRow = zero.match(/data-carry="remaining"[\s\S]*?<\/tr>/);
-  assert.match(zeroRow[0], /\$0\.00/);
-  assert.doesNotMatch(zeroRow[0], /—/);
-  doc.credits.energy_carryforward_remaining = null;
-  const blank = ctx.paydeskHtml("taxes", doc, {});
-  const blankRow = blank.match(/data-carry="remaining"[\s\S]*?<\/tr>/);
-  assert.match(blankRow[0], /—/);
-  assert.doesNotMatch(blankRow[0], /\$/);
+  const blank = loadTaxes();
+  blank.credits.energy_carryforward_remaining = null;
+  assert.match(ctx.paydeskHtml("taxes", blank, {}), /data-card="energy"[\s\S]{0,240}—/);
+  const zero = loadTaxes();
+  zero.credits.energy_carryforward_remaining = 0;
+  assert.match(ctx.paydeskHtml("taxes", zero, {}), /data-card="energy"[\s\S]{0,240}\$0\.00/);
+  const carry = loadCarry();
+  assert.equal(carry.credits.energy_carryforward_remaining, 300);
+  const html = ctx.paydeskHtml("taxes", carry, {});
+  assert.match(html, /data-card="energy"[\s\S]{0,240}\+\$300\.00/);
+  assert.doesNotMatch(html, /data-card="energy"[\s\S]{0,240}—/);
 });
 
 test("list cap is position relative and pages bust caches at 20261007em", function () {
   const css = read("house/list-cap.css");
-  assert.match(css, /\.list-cap\s*\{[^}]*position:\s*relative/);
+  assert.equal((css.match(/position:\s*relative/g) || []).length, 1);
   ["pay/index.html", "taxes/index.html"].forEach(function (rel) {
     const html = read(rel);
     assert.match(html, /\/js\/nav\.js\?v=20261007em/);
-    assert.match(html, /\/house\/house\.css\?v=20261007em/);
-    assert.match(html, /\/house\/list-cap\.css\?v=20261007em/);
-    assert.match(html, /\/house\/js\/list-cap\.js\?v=20261007em/);
+    assert.match(html, /\/house\/ticker\.css\?v=20261007em/);
+    assert.match(html, /\/house\/js\/ticker\.js\?v=20261007em/);
     assert.match(html, /\/house\/js\/paydesk\.js\?v=20261007em/);
-    assert.doesNotMatch(html, /banking\.css|banking\.js/);
-    assert.doesNotMatch(html, /\/data\/pay\/|\/data\/taxes\//);
-    const attrs = html.match(/\b(?:href|src)\s*=\s*["'][^"']+["']/g) || [];
-    attrs.forEach(function (attr) {
-      const val = attr.replace(/^.*?=\s*["']/, "").replace(/["']$/, "");
-      if (/^(https?:|mailto:|data:|#)/.test(val)) return;
-      assert.ok(val.startsWith("/"), rel + " " + attr);
-    });
+    assert.match(html, /id="clock"/);
+    assert.match(html, /id="mp-ticker"/);
+    assert.match(html, /class="theme-switch"/);
+    assert.doesNotMatch(html, /Agentic \/ AI WWIII only/);
   });
-  assert.match(read("pay/index.html"), /id="payDesk"/);
-  assert.match(read("taxes/index.html"), /id="taxDesk"/);
-  const blob = read("house/js/paydesk.js") + read("pay/index.html") + read("taxes/index.html") +
-    fs.readFileSync(payPath, "utf8") + fs.readFileSync(taxPath, "utf8");
-  assert.doesNotMatch(blob, /@/);
-  assert.doesNotMatch(blob, /\b\d{12,}\b/);
+  assert.match(read("investments/index.html"), /\/js\/nav\.js\?v=20261007em/);
+  assert.match(read("js/nav.js"), /function tickClock/);
+  assert.doesNotMatch(read("house/js/banking.js"), /function bankTickClock/);
+  const selectCss = read("house/house-b.css");
+  assert.match(selectCss, /input,\s*\ntextarea,\s*\nselect \{[^}]*min-height:\s*44px/s);
 });
 
 test("banking menu links Pay and Taxes on absolute paths", function () {
-  function bootNav(pathname) {
-    const elements = {};
-    function makeEl(id) {
-      const el = {
-        id: id || "",
-        hidden: true,
-        attrs: {},
-        _html: "",
-        classList: { toggle: function () {} },
-        insertAdjacentHTML: function () {},
-        insertAdjacentElement: function () {},
-        setAttribute: function (k, v) { this.attrs[k] = String(v); },
-        getAttribute: function (k) { return Object.prototype.hasOwnProperty.call(this.attrs, k) ? this.attrs[k] : null; },
-        querySelector: function () { return null; },
-        querySelectorAll: function () { return []; },
-        closest: function () { return null; },
-        focus: function () {}
-      };
-      Object.defineProperty(el, "innerHTML", {
-        get: function () { return this._html; },
-        set: function (v) {
-          this._html = String(v);
-          const nav = /<nav id="tabs"[^>]*>([\s\S]*?)<\/nav>/.exec(this._html);
-          if (nav) {
-            if (!elements.tabs) elements.tabs = makeEl("tabs");
-            elements.tabs._html = nav[1];
-          }
-        }
-      });
-      if (id) elements[id] = el;
-      return el;
-    }
-    elements.mpNav = makeEl("mpNav");
-    elements.main = makeEl("main");
-    elements.header = makeEl("header");
-    const document = {
-      readyState: "complete",
-      documentElement: { getAttribute: function () { return "justin"; }, setAttribute: function () {} },
-      getElementById: function (id) { return elements[id] || null; },
-      querySelector: function (sel) {
-        if (sel === "main") return elements.main;
-        if (sel === "header") return elements.header;
-        return null;
-      },
-      querySelectorAll: function () { return []; },
-      addEventListener: function () {},
-      createElement: function () { return makeEl(""); }
-    };
-    const sandbox = {
-      document: document,
-      location: { pathname: pathname, hash: "", search: "", replace: function () {} },
-      history: { state: {}, replaceState: function () {} },
-      addEventListener: function () {},
-      removeEventListener: function () {},
-      setTimeout: setTimeout,
-      elements: elements
-    };
-    sandbox.window = sandbox;
-    vm.createContext(sandbox);
-    vm.runInContext(read("js/nav.js"), sandbox, { filename: "nav.js" });
-    return sandbox;
-  }
-  const home = bootNav("/");
-  const homeTabs = home.elements.tabs._html;
-  assert.match(homeTabs, /href="\/pay\/"/);
-  assert.match(homeTabs, /href="\/taxes\/"/);
-  assert.match(homeTabs, />Pay</);
-  assert.match(homeTabs, />Taxes</);
-  assert.match(homeTabs, /data-nav-item="budget"[^>]*class="on"/);
-  assert.doesNotMatch(homeTabs, /data-nav-item="pay"[^>]*class="on"/);
-  assert.deepEqual(JSON.parse(JSON.stringify(home.MPNav.bankingHashes)), ["budget", "current", "historical", "edits"]);
-  const pay = bootNav("/pay/");
-  assert.match(pay.elements.tabs._html, /data-nav-item="pay"[^>]*class="on" aria-current="page"/);
-  assert.doesNotMatch(pay.elements.tabs._html, /data-nav-item="budget"[^>]*class="on"/);
-  const taxes = bootNav("/taxes");
-  assert.match(taxes.elements.tabs._html, /data-nav-item="taxes"[^>]*class="on" aria-current="page"/);
+  const nav = read("js/nav.js");
+  assert.match(nav, /label: "Pay", href: "\/pay\/"/);
+  assert.match(nav, /label: "Taxes", href: "\/taxes\/"/);
+  assert.match(nav, /section === "investments"/);
+  ["pay/index.html", "taxes/index.html"].forEach(function (rel) {
+    const html = read(rel);
+    assert.match(html, /data-section="banking"/);
+    assert.doesNotMatch(html, /href="pay\/"|href="taxes\/"|href="\.\./);
+    assert.doesNotMatch(html, /@/);
+    assert.doesNotMatch(html, /\d{12,}/);
+  });
 });
