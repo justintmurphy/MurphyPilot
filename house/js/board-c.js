@@ -687,7 +687,7 @@ cardsHtml = function () {
   function houseSourceCard(id, html) {
     var line = (typeof sourceAsofMicroHtml === "function") ? sourceAsofMicroHtml(id) : "";
     if (!line) return html;
-    return html.replace(/<\/button>$/, line + "</button>");
+    return html.replace(/<\/button>$/, " " + line + "</button>");
   }
   return "<h2>Books</h2><div class=\"acct-grid\">" +
     houseSourceCard("robinhood", bookCardHtml("robinhood", "Robinhood", rh.equity != null ? rh.equity : 0, "live", "robinhood")) +
