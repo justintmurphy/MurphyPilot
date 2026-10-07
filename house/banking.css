@@ -25,7 +25,6 @@ body.bank-page > header .clock {
   min-width: 0;
   margin: 0;
   font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  font-weight: 400;
   font-size: 12px;
   line-height: 1.2;
   letter-spacing: 1.4px;
@@ -36,7 +35,6 @@ body.bank-page > header .clock {
 
 [data-bank-part="more"] h2 {
   font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  font-weight: 400;
   font-size: 12px;
   letter-spacing: 1.4px;
   text-transform: uppercase;
@@ -150,40 +148,6 @@ body.bank-page > header .clock {
   color: var(--warn);
   font-weight: 700;
   letter-spacing: 0.3px;
-}
-
-.bank-tiles {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.bank-tile {
-  background: var(--paper);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius);
-  padding: 8px 10px;
-  min-width: 0;
-}
-
-.bank-tile .k,
-.bank-tile .mask {
-  display: block;
-  color: var(--ink-soft);
-  font-size: 11px;
-  letter-spacing: 0.3px;
-}
-
-.bank-tile b {
-  display: block;
-  margin-top: 4px;
-  font-size: 18px;
-  font-variant-numeric: tabular-nums;
-}
-
-.bank-tile.bank-total {
-  box-shadow: inset 3px 0 0 var(--brand-fg);
 }
 
 .bank-total-pending {
@@ -314,12 +278,6 @@ body.bank-page > header .clock {
   max-width: 100%;
 }
 
-.bank-rank {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
 .bank-bill-list i,
 .bank-kpi i.partial {
   color: var(--ink-soft);
@@ -392,24 +350,18 @@ body.bank-page > header .clock {
 
 .bank-hist-controls {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
+  min-width: 0;
 }
 
-.bank-hist-controls label {
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-
-.bank-hist-controls select {
-  margin-left: 4px;
-  background: var(--paper);
-  color: var(--ink);
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  min-height: 36px;
+.bank-hist-controls select,
+.bank-hist-controls button {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
 }
 
 .bank-months {
@@ -914,12 +866,17 @@ body.bank-page > header .clock {
   color: var(--ink);
   font-size: 13px;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .bank-kind-name {
   color: var(--ink);
   font-size: 13px;
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bank-chip {
@@ -946,14 +903,18 @@ span.bank-chip {
 
 .bank-desk select,
 .bank-edit-list select.bank-chip,
-.bank-hist-select {
+.bank-hist-select,
+.bank-cat-pick select,
+.bank-month-pick select,
+.bank-hist-pick select,
+.bank-hist-controls select {
   width: auto;
-  max-width: 100%;
+  max-width: 10rem;
   min-height: 44px;
   padding: 8px 10px;
   border-radius: 4px;
   border: 1px solid var(--rule);
-  background: var(--cream);
+  background: var(--paper);
   color: var(--ink);
   font: 16px/1.35 "Segoe UI", system-ui, sans-serif;
 }
@@ -966,19 +927,6 @@ span.bank-chip {
   margin: 0 0 8px;
   color: var(--ink-soft);
   font-size: 12px;
-}
-
-.bank-cat-pick select {
-  margin: 0;
-  min-height: 36px;
-  max-width: 16rem;
-  flex: 1 1 auto;
-  border-radius: 4px;
-  border: 1px solid var(--rule);
-  background: var(--paper);
-  color: var(--ink);
-  font: 600 13px/1.2 "Segoe UI", system-ui, sans-serif;
-  box-shadow: inset 3px 0 0 var(--brand-fg);
 }
 
 .bank-add-cat {
@@ -1146,7 +1094,6 @@ span.bank-chip {
 .bank-gate h2 {
   margin: 0 0 8px;
   font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  font-weight: 400;
   font-size: 12px;
   letter-spacing: 1.4px;
   text-transform: uppercase;
@@ -1181,11 +1128,20 @@ span.bank-chip {
 
 .bank-tier-plans input {
   width: 4.5rem;
-  min-height: 36px;
+  min-height: 44px;
   background: var(--paper);
   color: var(--ink);
   border: 1px solid var(--rule);
   border-radius: 4px;
+}
+
+.bank-tier-plans button.act {
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 12px;
+  flex: 0 0 auto;
 }
 
 .bank-tx-search input[type="search"] {
@@ -1219,7 +1175,6 @@ span.bank-chip {
   body.bank-page > header .section-nav a[aria-current="page"] {
     display: none;
   }
-  body.bank-page > header .theme-switch { display: inline-flex !important; }
   body.bank-page > header .mark,
   body.bank-page > header .mark img {
     width: 32px;
@@ -1240,8 +1195,6 @@ span.bank-chip {
   .bank-overflow-menu button {
     min-height: 44px;
   }
-  .bank-cat-pick select,
-  .bank-edit-list select,
   .bank-add-cat input,
   .bank-add-cat button,
   .bank-row-add input,
@@ -1249,7 +1202,6 @@ span.bank-chip {
     min-height: 44px;
     max-width: 100%;
   }
-  .bank-tiles,
   .bank-kpi,
   .bank-split,
   .bank-edit-grid {
@@ -1258,16 +1210,12 @@ span.bank-chip {
   .bank-budget-top {
     grid-template-columns: minmax(0, 1fr);
   }
-  .bank-tile.bank-total,
   .bank-split,
   .bank-budget-top {
     grid-column: 1 / -1;
   }
   .bank-split {
     grid-template-columns: 1fr;
-  }
-  .bank-tile b {
-    font-size: 16px;
   }
   .bank-mtd-fig b {
     font-size: 22px;
@@ -1344,12 +1292,8 @@ span.bank-chip {
   .bank-day.has.multi {
     min-height: 40px;
   }
-  .bank-kpi,
-  .bank-tiles {
+  .bank-kpi {
     gap: 6px;
-  }
-  .bank-tile {
-    padding: 6px 8px;
   }
   .bank-chip {
     max-width: 100%;
@@ -1512,32 +1456,6 @@ span.bank-chip {
   .bank-caps {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-}
-
-.bank-tier-legend,
-.bank-tier-list {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-}
-
-.bank-tier-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-}
-
-.bank-tier-legend li,
-.bank-tier-list li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  align-items: baseline;
-  min-width: 0;
-}
-
-.bank-tier-rows {
-  margin-top: 12px;
 }
 
 .bank-next-acct h4,
@@ -1772,23 +1690,6 @@ span.bank-chip {
   min-width: 0;
 }
 
-.bank-fund-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 4px;
-}
-
-.bank-fund-rows li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  column-gap: 10px;
-  align-items: baseline;
-  min-width: 0;
-  line-height: 1.35;
-}
-
 .bank-fund-neg,
 .bank-fund-neg b,
 .bank-fund-neg i {
@@ -1828,12 +1729,6 @@ span.bank-chip {
 .bank-mix-seg.mix-rest { background: var(--mix-b); }
 .bank-mix-seg.mix-other,
 .bank-mix-legend b.mix-other { background: var(--mix-c); }
-
-@media (max-width: 640px) {
-  .bank-fund-rows li {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 
 /* tip ec — one stack on Budget, Current, and Historical. Meters stay readable without sideways scroll. */
 .bank-desk,
@@ -1907,9 +1802,11 @@ span.bank-chip {
     max-width: 560px;
   }
 
-  .bank-fund-flow td.num,
-  .bank-fund-flow th.num {
-    white-space: nowrap;
+}
+
+@media (min-width: 1024px) {
+  .bank-panel[data-panel="edits"] {
+    max-width: none;
   }
 }
 
@@ -1972,12 +1869,6 @@ span.bank-chip {
 .bank-month-pick,
 .bank-mom h3 {
   margin: 8px 0;
-}
-
-.bank-month-pick select,
-.bank-hist-pick select {
-  max-width: 100%;
-  min-height: 40px;
 }
 
 .bank-mom-list {

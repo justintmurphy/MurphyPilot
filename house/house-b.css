@@ -169,6 +169,7 @@ table.book td {
 table.book td.num,
 table.book th.num {
   text-align: right;
+  white-space: nowrap;
 }
 .paydesk table.book td.num,
 .paydesk table.book th.num {

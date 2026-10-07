@@ -525,8 +525,9 @@ test("investments page wires the shared list cap and ticker", function () {
   const page = fs.readFileSync(path.join(root, "investments/index.html"), "utf8");
   assert.equal((page.match(/id="mp-ticker"/g) || []).length, 1);
   assert.match(page, /<div id="mp-ticker" class="mp-ticker-slot" hidden><\/div>/);
-  assert.match(page, /list-cap\.js\?v=20261006ec3/);
-  assert.match(page, /list-cap\.css\?v=20261006ec3/);
+  assert.match(page, /list-cap\.js\?v=20261007eh3/);
+  assert.match(page, /list-cap\.css\?v=20261007eh3/);
+  assert.match(page, /nav\.js\?v=20261007eh3/);
   assert.match(page, /ticker\.js\?v=20261007eh3/);
   assert.match(page, /ticker\.css\?v=20261007eh4/);
   assert.doesNotMatch(page, /banking\.js/);

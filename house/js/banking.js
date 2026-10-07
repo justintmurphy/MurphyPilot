@@ -3410,17 +3410,17 @@ function bankTilesHtml(tiles, rollup) {
   if (!tiles.length) return '<p class="bank-empty">No accounts in this print.</p>';
   rollup = rollup || { value: null, pending: 0 };
   var cards = tiles.map(function (t) {
-    return '<article class="bank-tile" data-acct="' + bankEsc(t.name) + '" data-balance="' + (t.missing ? "missing" : String(t.balance)) + '">' +
-      '<span class="k">' + bankEsc(t.name) + "</span> " +
+    return '<div data-acct="' + bankEsc(t.name) + '" data-balance="' + (t.missing ? "missing" : String(t.balance)) + '">' +
+      "<span>" + bankEsc(t.name) + "</span> " +
       (t.mask ? '<i class="mask">' + bankEsc(t.mask) + "</i> " : "") +
-      "<b>" + bankMoney(t.missing ? null : t.balance) + "</b></article>";
+      "<b>" + bankMoney(t.missing ? null : t.balance) + "</b></div>";
   }).join("");
   var totalMissing = rollup.value == null;
   var partial = !totalMissing && rollup.pending > 0;
   var state = totalMissing ? "missing" : (partial ? "partial" : "set");
-  cards += '<article class="bank-tile bank-total" data-total="' + state + '"' +
-    (rollup.pending > 0 ? ' data-pending="' + rollup.pending + '"' : "") + '><span class="k">Total cash</span> <b>' +
-    bankMoney(totalMissing ? null : rollup.value) + "</b> " + bankTotalPendingHtml(rollup.pending) + "</article>";
+  cards += '<div data-total="' + state + '"' +
+    (rollup.pending > 0 ? ' data-pending="' + rollup.pending + '"' : "") + '><span>Total cash</span> <b>' +
+    bankMoney(totalMissing ? null : rollup.value) + "</b> " + bankTotalPendingHtml(rollup.pending) + "</div>";
   return '<div class="kpi">' + cards + "</div>";
 }
 
@@ -4865,13 +4865,13 @@ function bankTierRowLists(groups, opts) {
       if (stamp) meta = meta ? meta + " \u00b7 " + stamp : stamp;
       var swatch = tier === "needs" ? "var(--mix-a)" : tier === "wants" ? "var(--mix-b)" : "var(--mix-c)";
       if (meta === "day \u2014") meta = "";
-      return '<li class="mix-leg"' + (paid ? ' data-paid="' + bankEsc(paid) + '"' : "") + '><i style="background:' + swatch + '"></i>' +
+      return '<div class="mix-leg"' + (paid ? ' data-paid="' + bankEsc(paid) + '"' : "") + '><i style="background:' + swatch + '"></i>' +
         '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(r.name) + "</span>" + notes +
         (meta ? ' <span class="sub">' + bankMetaHtml(meta) + "</span>" : "") + "</span> " +
-        '<span class="mix-leg-fig"><span class="mix-amt">' + bankMoney(r.amount) + "</span></span></li>";
+        '<span class="mix-leg-fig"><span class="mix-amt">' + bankMoney(r.amount) + "</span></span></div>";
     }).join("");
     return '<h2>' + bankTierLabel(tier) + '</h2><div class="card span">' +
-      bankCapList('<ul class="mix-legend">' + items + "</ul>", rows.length, bankTierLabel(tier)) + "</div>";
+      bankCapList('<div class="mix-legend">' + items + "</div>", rows.length, bankTierLabel(tier)) + "</div>";
   }).join("");
 }
 
@@ -4889,6 +4889,71 @@ function bankTierSumsFromCats(snap, list) {
     sums[tier] += n;
   });
   return sums;
+}
+
+/* One status word for Budget, Current, and Historical. Budget's chip is lowercase. */
+function bankLedgerStatusWord(status) {
+  var text = status == null ? "" : String(status);
+  if (!text || text === "Due" || text === "Unpaid" || text.indexOf("Unpaid") === 0) return "unpaid";
+  if (text.indexOf("Paid late") === 0) return text.replace(/^Paid/, "paid");
+  if (text === "Paid" || text.indexOf("Paid") === 0) return "paid";
+  return text;
+}
+
+function bankLedgerFace(snap, name) {
+  var budget = (snap && snap.budget) || {};
+  var alias = bankSnapshotAliasFace(budget, name, "bills") || bankSnapshotAliasFace(budget, name, "categories") || "";
+  var shown = bankBillDisplayName(alias || name);
+  if (shown && shown === shown.toLowerCase() && /[a-z]/.test(shown)) {
+    shown = shown.replace(/(^|\s)([a-z])/g, function (_, sp, ch) { return sp + ch.toUpperCase(); });
+  }
+  return shown;
+}
+
+function bankClosedOpening(snap, monthKey) {
+  var key = bankMonthKey(monthKey);
+  var bag = key ? bankActualsMap(snap)[key] : null;
+  var n = null;
+  if (bag && typeof bag === "object") {
+    n = bankNum(bag.opening_balance);
+    if (n == null) n = bankNum(bag.start_balance);
+    if (n == null) n = bankNum(bag.start);
+  }
+  if (n != null) return n;
+  var shot = bankSnapshotFor(snap, key);
+  if (shot && typeof shot === "object") {
+    n = bankNum(shot.opening_balance);
+    if (n == null) n = bankNum(shot.start_balance);
+    if (n == null) n = bankNum(shot.start);
+  }
+  return n;
+}
+
+function bankUnlistedPosted(snap, ym, todayIso, listed) {
+  var sum = 0;
+  var lists = [];
+  var cur = snap && snap.current;
+  if (cur && Array.isArray(cur.recent_tx)) lists.push(cur.recent_tx);
+  if (cur && Array.isArray(cur.edits_tx)) lists.push(cur.edits_tx);
+  var seen = {};
+  lists.forEach(function (list) {
+    list.forEach(function (raw) {
+      if (!raw || bankFlowSide(raw) !== "out") return;
+      if (bankTruthyFlag(raw.one_off)) return;
+      var when = String(raw.date || "").slice(0, 10);
+      if (!when || bankMonthKey(when) !== bankMonthKey(ym)) return;
+      if (todayIso && when >= todayIso) return;
+      var name = raw.category || raw.desc || raw.name || "";
+      if (name && listed[bankTierKey(name)]) return;
+      var key = raw.tx_key || raw.tx_id || (when + "|" + name + "|" + raw.amount);
+      if (seen[key]) return;
+      seen[key] = true;
+      var n = bankNum(raw.amount);
+      if (n == null) return;
+      sum += Math.abs(n);
+    });
+  });
+  return bankRoundCents(sum);
 }
 
 function bankPayStatusText(row, ym, today, trustPaid) {
@@ -5310,13 +5375,15 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
   var books = bankCombinedBooks(snap, { month: monthKey, monthKey: monthKey, now: opts.now, today: todayIso });
   var start = books.start != null ? books.start : 0;
   var rows = [];
-  function pushBillRow(b, due, day, phrase, marker, partial, counted, per, paidFlag) {
-    var key = bankTierKey(bankBillDisplayName(b.name, b.display_label)) + "|" + (due || "") + "|out";
+  function pushBillRow(b, due, day, phrase, marker, partial, counted, per, paidFlag, posted, planAmt) {
+    var face = bankLedgerFace(snap, bankBillDisplayName(b.name, b.display_label));
+    var key = bankTierKey(face) + "|" + (due || "") + "|out";
+    if (!counted) key = "nc|" + bankTierKey(face);
     if (seenRow[key]) return;
     seenRow[key] = true;
     rows.push({
       date: due || "9998-12-31",
-      name: bankBillDisplayName(b.name, b.display_label),
+      name: face,
       amount: per,
       kind: "out",
       phrase: phrase,
@@ -5325,7 +5392,10 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       tier: bankResolveTier(b.name, snap, tierCtx, b),
       counted: counted,
       pending: per == null,
-      undated: !due
+      undated: !due,
+      paid: !!paidFlag,
+      posted: !!posted,
+      actualDiff: posted && planAmt != null && per != null && Math.abs(per - planAmt) > 0.004
     });
   }
   var seenRow = {};
@@ -5337,8 +5407,13 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     var dueDays = partial ? bankPartialOpenDays(b, ym, partial) : bankBillDueDays(b, ym);
     var counted = bankBillCounted(b);
     var paidFlag = trust && (status === "Paid" || (status && status.indexOf("Paid") === 0) || bankBillPaidStatus(b, ym) === "paid" || bankBillPaidStatus(b, ym) === "paid_late");
+    var planAmt = bankBillLineAmount(b, ym, edits);
     var actual = mode === "current" ? bankPostedOutAmount(snap, b, ym) : null;
-    var per = actual != null ? actual : bankBillLineAmount(b, ym, edits);
+    if (mode === "historical") {
+      var spentActual = bankCategoryActual(bankActualsMap(snap)[monthKey], b.name);
+      if (spentActual != null) actual = spentActual;
+    }
+    var per = actual != null ? actual : planAmt;
     if (actual == null && (bankIsTwiceBill(b) || dueDays.length > 1)) {
       var plan = bankBillMonthPlan(b, ym, edits);
       var times = bankBillTimes(b) || dueDays.length || 1;
@@ -5349,29 +5424,30 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     function phraseFor(day) {
       var phrase = day != null ? bankDueDayPhrase([day]) : "";
       var marker = "";
-      if (!counted) phrase = "not counted";
-      else if (mode === "plan") {
-        if (status === "Unpaid") phrase = phrase ? phrase + " \u00b7 unpaid" : "unpaid";
-        else if (paidFlag || (status && status !== "Due" && status.indexOf("Unpaid") < 0)) marker = '<small class="bank-paid-mark">paid</small>';
-      } else if (status && status !== "Due") {
-        phrase = phrase ? phrase + " \u00b7 " + status : status;
-      } else {
-        var paid = bankDueIsPaid(snap, b.name, ym, mode, status) && trust;
-        phrase = (phrase ? phrase + " \u00b7 " : "") + (paid ? "Paid" : "Unpaid");
+      var word = bankLedgerStatusWord(status);
+      var paid = paidFlag || word === "paid" || (status && status.indexOf("Paid") === 0);
+      if (mode === "historical") {
+        var spentHit = bankCategoryActual(bankActualsMap(snap)[monthKey], b.name);
+        if (spentHit != null && spentHit > 0) paid = true;
       }
+      if (!counted) phrase = "not counted";
+      else if (paid && status && status.indexOf("Paid late") === 0) {
+        phrase = phrase ? phrase + " \u00b7 " + bankLedgerStatusWord(status) : bankLedgerStatusWord(status);
+      } else if (paid) marker = '<small class="bank-paid-mark">paid</small>';
+      else phrase = phrase ? phrase + " \u00b7 " + bankLedgerStatusWord("Unpaid") : bankLedgerStatusWord("Unpaid");
       if (b.cancelled_later) phrase = (phrase ? phrase + " \u00b7 " : "") + "cancelled later";
       if (phrase === "day \u2014" || phrase === "due day \u2014") phrase = "";
       return { phrase: phrase, marker: marker };
     }
     if (!dueDays.length) {
       var bare = phraseFor(null);
-      pushBillRow(b, "", null, bare.phrase, bare.marker, partial, counted, per, paidFlag);
+      pushBillRow(b, "", null, bare.phrase, bare.marker, partial, counted, per, paidFlag, actual != null, planAmt);
       return;
     }
     dueDays.forEach(function (day) {
       var due = ymObj ? bankDateKey(ymObj.year, ymObj.month, day) : "";
       var bits = phraseFor(day);
-      pushBillRow(b, due, day, bits.phrase, bits.marker, partial, counted, per, paidFlag);
+      pushBillRow(b, due, day, bits.phrase, bits.marker, partial, counted, per, paidFlag, actual != null, planAmt);
     });
   });
   bankMerchantRecurringRows(snap, bills).forEach(function (extra) {
@@ -5404,17 +5480,19 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     var trust = bankTrustPaidStatus(snap, s, ym, opts);
     var status = bankPayStatusText(s, ym, today, trust);
     var phrase = bankDueDayPhrase([s.typical_day]);
-    if (mode !== "plan") {
-      var paid = bankDueIsPaid(snap, s.name, ym, mode, status) && trust;
-      phrase = phrase + " \u00b7 " + (paid ? "Paid" : "Unpaid");
-    } else if (status === "Unpaid") phrase = phrase + " \u00b7 unpaid";
+    var subMarker = "";
+    var subWord = bankLedgerStatusWord(status);
+    var subPaid = (trust && bankDueIsPaid(snap, s.name, ym, mode, status)) || subWord === "paid";
+    if (subPaid && status && status.indexOf("Paid late") === 0) phrase = phrase + " \u00b7 " + bankLedgerStatusWord(status);
+    else if (subPaid) subMarker = '<small class="bank-paid-mark">paid</small>';
+    else phrase = phrase + " \u00b7 " + bankLedgerStatusWord("Unpaid");
     rows.push({
       date: due || "9999-99-99",
-      name: bankBillDisplayName(s.name),
+      name: bankLedgerFace(snap, bankBillDisplayName(s.name)),
+      marker: subMarker,
       amount: s.amount,
       kind: "out",
       phrase: "Subscription \u00b7 " + phrase,
-      marker: "",
       chip: "",
       tier: bankResolveTier(s.name, snap, tierCtx, s),
       counted: bankBillCounted(s),
@@ -5434,22 +5512,86 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       pending: false
     });
   });
+  var closed = mode === "historical";
+  var opening = closed ? bankClosedOpening(snap, monthKey) : null;
+  var showBalance = !closed || opening != null;
+  if (closed) {
+    rows = rows.filter(function (row) { return row.kind !== "in"; });
+    var actualBag = bankActualsMap(snap)[monthKey] || {};
+    var actualDeps = Array.isArray(actualBag.deposits) ? actualBag.deposits : [];
+    if (!actualDeps.length && bankNum(actualBag.income_received) > 0) {
+      actualDeps = [{ name: "Deposit", amount: actualBag.income_received, date: monthKey + "-01" }];
+    }
+    actualDeps.forEach(function (dep) {
+      if (!dep) return;
+      var amount = bankNum(dep.amount);
+      if (!(amount > 0)) return;
+      var when = bankCopyDate(dep.date || dep.on) || "";
+      rows.push({
+        date: when || (monthKey + "-01"),
+        name: bankLedgerFace(snap, dep.name || dep.kind || "Deposit"),
+        amount: amount,
+        kind: "in",
+        phrase: when ? (bankShortDate(when) || when) : "",
+        marker: '<small class="bank-paid-mark">paid</small>',
+        chip: "",
+        counted: true,
+        pending: false,
+        posted: true
+      });
+    });
+    if (opening != null) start = opening;
+  }
   rows.sort(function (a, b) {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
     if (a.kind !== b.kind) return a.kind === "in" ? -1 : 1;
     return String(a.name).localeCompare(String(b.name));
   });
-  var marked = false;
-  rows.forEach(function (row) {
-    if (marked || !todayIso || !row.date || row.undated || row.date.indexOf("999") === 0) return;
-    if (row.date === todayIso || row.date > todayIso) {
-      row.today = true;
-      marked = true;
+  if (!closed && todayIso) {
+    var earlyNet = 0;
+    var earlyAny = false;
+    var later = [];
+    var listedNames = {};
+    rows.forEach(function (row) {
+      if (row && row.name) listedNames[bankTierKey(row.name)] = true;
+    });
+    rows.forEach(function (row) {
+      var past = row.date && row.date.indexOf("999") !== 0 && !row.undated && row.date < todayIso;
+      var postedPast = past && row.kind === "in";
+      if (!postedPast) {
+        later.push(row);
+        return;
+      }
+      if (!row.counted || row.pending || row.amount == null) return;
+      earlyAny = true;
+      earlyNet += row.kind === "out" ? -row.amount : row.amount;
+    });
+    var extraOut = bankUnlistedPosted(snap, monthKey, todayIso, listedNames);
+    if (extraOut > 0.004) {
+      earlyAny = true;
+      earlyNet -= extraOut;
     }
-  });
+    if (earlyAny && Math.abs(earlyNet) > 0.004) {
+      later.unshift({
+        date: "",
+        name: "Posted so far",
+        amount: Math.abs(earlyNet),
+        kind: earlyNet < 0 ? "out" : "in",
+        phrase: "",
+        marker: "",
+        chip: "",
+        counted: true,
+        pending: false,
+        rollup: true
+      });
+    }
+    rows = later;
+  }
   var balance = start;
   var datedNet = 0;
-  rows.forEach(function (row) {
+  var needsListed = 0;
+  var wantsListed = 0;
+  function applyRow(row) {
     if (!row.counted || row.pending || row.amount == null) {
       row.left = balance;
       return;
@@ -5458,42 +5600,90 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     datedNet += signed;
     balance = bankRoundCents(balance + signed);
     row.left = balance;
+    if (!closed && row.kind === "out" && !row.rollup && row.tier === "needs") needsListed += row.amount;
+    if (!closed && row.kind === "out" && !row.rollup && row.tier === "wants") wantsListed += row.amount;
+  }
+  var beforeToday = [];
+  var fromToday = [];
+  if (!closed && todayIso) {
+    rows.forEach(function (row) {
+      if (row.rollup) beforeToday.push(row);
+      else fromToday.push(row);
+    });
+  } else fromToday = rows.slice();
+  var todayHit = false;
+  fromToday.forEach(function (row) {
+    if (!closed && todayIso && row.date === todayIso && !row.undated) {
+      row.today = true;
+      todayHit = true;
+    }
   });
-  var listedNeeds = bankUndatedPlanAmount(snap, ym, edits, bills, subs);
-  var target = books.end != null ? books.end : bankRoundCents(start + datedNet - listedNeeds);
-  var remainder = books.end != null ? bankRoundCents((start + datedNet) - target) : listedNeeds;
-  var bodyRows = rows.slice();
-  if (Math.abs(remainder) > 0.004) {
-    var afterRemain = bankRoundCents(balance - remainder);
-    bodyRows.push({
-      date: "",
-      name: "Remaining Needs/Wants",
-      amount: Math.abs(remainder),
-      kind: remainder >= 0 ? "out" : "in",
+  if (!closed && todayIso && !todayHit) {
+    fromToday.unshift({
+      date: todayIso,
+      name: "Today",
+      amount: null,
+      kind: "",
       phrase: "",
       marker: "",
       chip: "",
       counted: true,
-      pending: false,
-      left: afterRemain,
-      today: !marked
+      pending: true,
+      today: true
     });
-    balance = afterRemain;
-    marked = true;
   }
-  bodyRows.push({
-    date: "",
-    name: "Month-end",
-    amount: null,
-    kind: "",
-    phrase: "",
-    marker: "",
-    chip: "",
-    counted: true,
-    pending: true,
-    left: target,
-    closing: true
-  });
+  var bodyRows = beforeToday.concat(fromToday);
+  bodyRows.forEach(applyRow);
+  if (!closed) {
+    var fig = bankPlanNumbers(snap, bankParseYm(monthKey), edits);
+    var needsPlan = fig && fig.needs != null ? fig.needs : 0;
+    var wantsPlan = fig && fig.wants != null ? fig.wants : 0;
+    var remain = bankRoundCents(Math.max(0, needsPlan - needsListed) + Math.max(0, wantsPlan - wantsListed));
+    if (remain > 0.004) {
+      balance = bankRoundCents(balance - remain);
+      bodyRows.push({
+        date: "",
+        name: "Remaining Needs/Wants",
+        amount: remain,
+        kind: "out",
+        phrase: "",
+        marker: "",
+        chip: "",
+        counted: true,
+        pending: false,
+        left: balance
+      });
+    }
+    bodyRows.push({
+      date: "",
+      name: "Month-end",
+      amount: null,
+      kind: "",
+      phrase: "",
+      marker: "",
+      chip: "",
+      counted: true,
+      pending: true,
+      left: balance,
+      closing: true
+    });
+  } else if (showBalance) {
+    bodyRows.push({
+      date: "",
+      name: "Month-end",
+      amount: null,
+      kind: "",
+      phrase: "",
+      marker: "",
+      chip: "",
+      counted: true,
+      pending: true,
+      left: balance,
+      closing: true
+    });
+  } else {
+    bodyRows.forEach(function (row) { row.left = null; });
+  }
   var listTitle = opts.listTitle || "Due this month";
   if (!bodyRows.length) {
     return '<section class="bank-due-month">' + bankDueHeading(listTitle) + '<p class="bank-empty">Nothing due in this month.</p></section>';
@@ -5501,7 +5691,8 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
   var trs = bodyRows.map(function (row) {
     var metaBits = [];
     if (row.phrase && row.phrase !== "day \u2014") metaBits.push(row.phrase);
-    if (row.today) metaBits.push("today");
+    if (row.actualDiff) metaBits.push("actual");
+    if (row.today && !closed) metaBits.push("today");
     if (row.tier && !opts.hideTier) {
       var tierWord = bankTierLabel(row.tier);
       if (tierWord) metaBits.push(tierWord);
@@ -5515,13 +5706,16 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       return '<td class="num ' + flow.cls + '">' + bankEsc(flow.text) + "</td>";
     })();
     var leftCls = row.left < -0.0001 ? " num tone-stop" : " num";
-    var todayAttr = row.today ? ' data-bank-today="1"' : "";
+    var todayAttr = row.today && !closed ? ' data-bank-today="1"' : "";
+    var leftCell = showBalance ? '<td class="' + leftCls.trim() + '">' + bankEsc(bankMoney(row.left)) + "</td>" : "";
     return "<tr" + todayAttr + "><td><span class=\"sym\">" + bankEsc(row.name) + "</span>" +
       (meta ? " " + meta : "") + (extras.length ? " " + extras.join(" ") : "") + "</td>" + amt +
-      '<td class="' + leftCls.trim() + '">' + bankEsc(bankMoney(row.left)) + "</td></tr>";
+      leftCell + "</tr>";
   }).join("");
-  var table = '<table class="book"><thead><tr><th>Item</th><th class="num">Amount</th><th class="num">Left after</th></tr></thead><tbody>' +
-    trs + "</tbody></table>";
+  var head = showBalance
+    ? "<tr><th>Item</th><th class=\"num\">Amount</th><th class=\"num\">Left after</th></tr>"
+    : "<tr><th>Item</th><th class=\"num\">Amount</th></tr>";
+  var table = '<table class="book"><thead>' + head + "</thead><tbody>" + trs + "</tbody></table>";
   return '<section class="bank-due-month">' + bankDueHeading(listTitle) +
     bankCapList(table, bodyRows.length, listTitle) + "</section>";
 }
@@ -6081,18 +6275,29 @@ function bankFundStartHtml(acct) {
 
 function bankFundDetailHtml(acct) {
   var rows = bankSortByDue((acct && acct.rows) || [], { mode: "date" });
-  var lines = rows.map(function (row) {
-    var cls = row.balance < 0 ? ' class="bank-fund-neg"' : "";
+  var trs = [];
+  if (acct && acct.onFirst != null && (acct.onFirstLabel || !acct.seedDate)) {
+    var startName = acct.onFirstLabel || "Start";
+    var startNote = acct.onFirstLabel ? (acct.startNote || "") : (acct.asof ? "as of " + (bankShortDate(acct.asof) || acct.asof) : "");
+    trs.push('<tr data-fund-start="1"><td><span class="sym">' + bankEsc(startName) + "</span>" +
+      (startNote ? ' <span class="sub">' + bankEsc(startNote) + "</span>" : "") +
+      '</td><td class="num"><span class="sub">\u2014</span></td><td class="num">' + bankEsc(bankMoney(acct.onFirst)) + "</td></tr>");
+  }
+  rows.forEach(function (row) {
     var when = row.date ? bankShortDate(row.date) || row.date : "";
-    var label = when ? when + " " + row.name : row.name;
+    var flow = bankFundSigned(row.amount, row.kind);
     var lag = row.lag ? ' <i class="bank-fund-lag">' + bankEsc(row.lag) + "</i>" : "";
-    return "<li" + cls + "><span>" + bankEsc(label) + lag + "</span> " + bankFlowAmt(row.amount, row.kind) +
-      " <i>" + bankMoney(row.balance) + "</i></li>";
-  }).join("");
-  var start = bankFundStartHtml(acct);
-  var end = '<li class="bank-fund-end"><span>End</span> <b>' + bankMoney(acct && acct.end) + "</b> <i></i></li>";
-  var count = rows.length + (start ? 1 : 0) + 1;
-  return bankCapList('<ul class="bank-fund-rows">' + start + lines + end + "</ul>", count, "Account funding");
+    var neg = row.balance < 0 ? " tone-stop" : "";
+    trs.push("<tr" + (row.balance < 0 ? ' class="bank-fund-neg"' : "") + "><td><span class=\"sym\">" + bankEsc(row.name) + "</span>" +
+      (when ? ' <span class="sub">' + bankEsc(when) + "</span>" : "") + lag +
+      '</td><td class="num ' + flow.cls + '">' + bankEsc(flow.text) + '</td><td class="num' + neg + '">' +
+      bankEsc(bankMoney(row.balance)) + "</td></tr>");
+  });
+  trs.push('<tr class="bank-fund-end"><td><span class="sym">End</span></td><td class="num"><span class="sub">\u2014</span></td><td class="num">' +
+    bankEsc(bankMoney(acct && acct.end)) + "</td></tr>");
+  var table = '<table class="book"><thead><tr><th>Item</th><th class="num">Amount</th><th class="num">Balance</th></tr></thead><tbody>' +
+    trs.join("") + "</tbody></table>";
+  return bankCapList(table, trs.length, "Account funding");
 }
 
 function bankFundingFlowHtml(books) {
@@ -6119,20 +6324,29 @@ function bankFundingHtml(snap, opts, extra) {
   }
   var showBooks = !!accounts.length;
   if (!showBooks && !extra) return "";
-  var leftCls = books.leftNow != null && books.leftNow < -0.0001 ? "num tone-stop" : "num";
-  var endCls = books.end != null && books.end < -0.0001 ? "num tone-stop" : "num";
   var short = "";
   if (books.shortBy > 0) {
     var when = books.shortDate ? (bankShortDate(books.shortDate) || books.shortDate) : "";
     short = '<span class="fresh-chips"><span class="fresh-chip fresh-stale">Short ' + bankMoney(books.shortBy) +
       (when ? " by " + bankEsc(when) : "") + "</span></span>";
   }
+  function kpiCell(label, text, cls) {
+    return "<div><span>" + bankEsc(label) + '</span> <b class="' + bankEsc(cls || "") + '">' + bankEsc(text) + "</b></div>";
+  }
+  var innFlow = books.inn > 0 ? bankFundSigned(books.inn, "in") : { text: "\u2014", cls: "" };
+  var outFlow = books.out > 0 ? bankFundSigned(books.out, "out") : { text: "\u2014", cls: "" };
+  var leftFlowCls = books.leftNow != null && books.leftNow < -0.0001 ? "tone-stop" : "";
+  var endFlowCls = books.end != null && books.end < -0.0001 ? "tone-stop" : "";
   var table = showBooks
-    ? '<table class="book" data-fund-start="' + bankEsc(books.start == null ? "" : String(books.start)) +
+    ? '<div class="kpi" data-fund-start="' + bankEsc(books.start == null ? "" : String(books.start)) +
       '" data-fund-in="' + bankEsc(String(books.inn || 0)) + '" data-fund-out="' + bankEsc(String(books.out || 0)) +
-      '" data-fund-end="' + bankEsc(books.end == null ? "" : String(books.end)) + '"><thead><tr><th>Accounts</th><th class="num">Left now</th><th class="num">Month-end</th></tr></thead><tbody><tr><td><span class="sym">All accounts</span> ' +
-      short + '</td><td class="' + leftCls + '">' + bankEsc(bankMoney(books.leftNow)) +
-      '</td><td class="' + endCls + '">' + bankEsc(bankMoney(books.end)) + "</td></tr></tbody></table>"
+      '" data-fund-end="' + bankEsc(books.end == null ? "" : String(books.end)) + '">' +
+      kpiCell("Start", bankMoney(books.start), "") +
+      kpiCell("In", innFlow.text, innFlow.cls) +
+      kpiCell("Out", outFlow.text, outFlow.cls) +
+      kpiCell("Left", bankMoney(books.leftNow), leftFlowCls) +
+      kpiCell("Month-end", bankMoney(books.end), endFlowCls) +
+      "</div>" + short
     : "";
   var moveLines = opts.hideMoves ? [] : bankFundMoveNotes(view);
   var notes = moveLines.length ? '<p class="hint">' + bankEsc(moveLines.join(" \u00b7 ")) + "</p>" : "";
@@ -6195,11 +6409,10 @@ function bankFundingAccountBlocks(snap, opts) {
     if (et) today = bankDateKey(et.year, et.month, et.day);
   }
   if (!today) today = bankTodayIso(snap, opts);
-  var flow = bankFundingFlowHtml(books);
   var summary = bankFundAccountsTable(accounts, today);
-  return flow + summary + accounts.map(function (acct) {
+  return summary + accounts.map(function (acct) {
     return '<div data-fund="' + bankEsc(acct.tag) + '"><p class="hint">' + bankEsc(acct.tag) + "</p>" +
-      bankFundDetailHtml(acct) + bankFundMoveNote(snap, acct) + "</div>";
+      bankFundDetailHtml(acct) + "</div>";
   }).join("");
 }
 
@@ -6377,7 +6590,8 @@ function bankLedgerDeposits(snap, ym) {
     var amount = bankNum(ev.amount);
     if (!(amount > 0)) return;
     var name = ev.kind || ev.name || "Deposit";
-    var key = ev.date + "|" + bankTierKey(name) + "|" + amount;
+    var stream = name === "Payroll" || name === "Stipend" || bankIsPayrollIncome(name) || bankIsFosteringIncome(name);
+    var key = ev.date + "|" + (stream ? bankTierKey(bankStreamKind(name, ev)) : (bankTierKey(name) + "|" + amount));
     if (seen[key]) return;
     seen[key] = true;
     events.push({
@@ -8020,10 +8234,10 @@ function bankRenderCalendar(view, opts, mode, month, missing) {
   if (openDay) {
     var items = bankDayItems(view, month, openDay, edits);
     picked = '<div class="bank-cal-picked"><h2>' + bankEsc(BANK_MONTHS[(month.month || 1) - 1] + " " + openDay) + "</h2>" +
-      (items.length ? "<ul class=\"mix-legend\">" + items.map(function (it) {
-        return '<li class="mix-leg"><span class="mix-leg-name">' + bankEsc(it.name) + "</span> <span class=\"mix-amt\">" +
-          bankEsc(it.amount || "\u2014") + "</span></li>";
-      }).join("") + "</ul>" : '<p class="bank-empty">Nothing scheduled</p>') + "</div>";
+      (items.length ? "<div class=\"mix-legend\">" + items.map(function (it) {
+        return '<div class="mix-leg"><span class="mix-leg-name">' + bankEsc(it.name) + "</span> <span class=\"mix-amt\">" +
+          bankEsc(it.amount || "\u2014") + "</span></div>";
+      }).join("") + "</div>" : '<p class="bank-empty">Nothing scheduled</p>') + "</div>";
   }
   return '<section class="bank-cal"><h2>' + heading + '</h2><div class="card span">' +
     bankCalendarHtml(cells, bankHasDueDays(cells), month, bankBillCalendarAmounts(bills, month, edits), bankBillFaceMap(bills), { hideNav: mode === "current" }) +
@@ -8176,8 +8390,8 @@ function bankSharedLayout(snap, opts, mode, month) {
   var view = shot ? bankProjectSnapshot(snap, shot, monthKey) : snap;
   var actuals = bankTierActuals(snap, monthKey, mode === "plan" ? "current" : mode);
   var planView = past ? view : snap;
-  var listTitle = past && month && month.year ? bankMonthTitle(month.year, month.month) : "Due this month";
-  var fundOpts = { monthKey: monthKey, now: opts.now, past: past, monthTitle: listTitle, hideMoves: past };
+  var listTitle = "Due this month";
+  var fundOpts = { monthKey: monthKey, now: opts.now, past: past, monthTitle: "Account funding", hideMoves: past };
   var ledgerOpts = Object.assign({}, opts, { listTitle: listTitle, past: past });
   var ledger = bankRenderDueList(planView, ledgerOpts, mode, month, missing);
   var incomeOpts = Object.assign({}, opts, { edits: past ? null : opts.edits });
@@ -8224,8 +8438,7 @@ function bankMomHtml(snap) {
     function line(label, plan, actual, incomeLine) {
       return "<p><span>" + bankEsc(label) + "</span> " + bankMomPair(plan, actual, incomeLine) + "</p>";
     }
-    var title = bankMonthTitle(Number(key.slice(0, 4)), Number(key.slice(5, 7)));
-    return '<li data-mom="' + bankEsc(key) + '"><h2>' + bankEsc(title) + "</h2>" +
+    return '<li data-mom="' + bankEsc(key) + '">' +
       line("Required", bankTierPick(tiers, ["required_plan", "required_total"]), bag.required_spent, false) +
       line("Needs", bankTierPick(tiers, ["needs_plan", "needs"]), bag.needs_spent, false) +
       line("Wants", bankTierPick(tiers, ["wants_plan", "wants"]), bag.wants_spent, false) +
@@ -8534,9 +8747,10 @@ function bankCapList(html, count, label) {
 function bankPlanFieldHtml(snap, ym, key, label) {
   var fig = bankPlanNumbers(snap, ym, null);
   var value = fig && fig[key] != null ? String(fig[key]) : "";
+  var clear = value !== "" ? ' <button type="button" class="act ghost" data-bank-plan-clear="' + key +
+    '" aria-label="Clear ' + bankEsc(label) + '">\u00d7</button>' : "";
   return '<label>' + bankEsc(label) + ' <input data-bank-plan-tier="' + key + '" inputmode="decimal" maxlength="12" max="1000000" aria-label="' +
-    bankEsc(label) + '" value="' + bankEsc(value) + '"></label> <button type="button" class="act ghost" data-bank-plan-clear="' + key +
-    '" aria-label="Clear ' + bankEsc(label) + '">\u00d7</button>';
+    bankEsc(label) + '" value="' + bankEsc(value) + '">' + clear + "</label>";
 }
 
 function bankBasisCaption(budget) {
@@ -8606,7 +8820,7 @@ function bankKindEditHtml(snap) {
       if (bankBillKey(b.name) === bankBillKey(name) && b.display_label) label = b.display_label;
     });
     var tier = bankResolveTier(name, snap, ctx, bankKindSourceRow(snap, name));
-    return "<li><span class=\"bank-kind-name\">" + bankEsc(label) + '</span> <span class="bank-edit-side"><select class="bank-chip" data-bank-kind="' +
+    return "<li><span class=\"bank-kind-name\" title=\"" + bankEsc(label) + "\">" + bankEsc(label) + '</span> <span class="bank-edit-side"><select class="bank-chip" data-bank-kind="' +
       bankEsc(name) + '" aria-label="Tier for ' + bankEsc(label) + '">' + bankKindOptions(tier) +
       "</select></span></li>";
   }).join("");
@@ -8721,7 +8935,7 @@ function bankTierEditSections(snap, ym, edits, confirm, opts) {
       ? bankCapList('<table class="book"><thead><tr><th>Name</th><th class="num">Amount</th><th>Tier</th></tr></thead><tbody>' +
         items.map(function (item) { return item.html; }).join("") + "</tbody></table>", items.length, title)
       : '<p class="hint">Nothing in ' + title + ".</p>";
-    return '<section class="card span" data-tier-list="' + tier + '"><h2>' + title + "</h2>" + body + "</section>";
+    return '<section data-tier-list="' + tier + '"><h2>' + title + '</h2><div class="card span">' + body + "</div></section>";
   }
   return {
     other: oneTier("other_income"),
@@ -9077,17 +9291,18 @@ function bankTxSearchHtml(snap, opts) {
       list + "</tbody></table>", rows.length, "Transactions")
     : '<p class="hint">No matching transactions.</p>';
   if (!String(q || "").trim() && !tier && !account && !month) body = '<p class="hint">Type to search.</p>';
-  return '<section class="card span bank-tx-search"><h2>Transactions</h2>' +
+  return '<section class="bank-tx-search"><h2>Transactions</h2><div class="card span">' +
     '<label>Search <input type="search" data-bank-find value="' + bankEsc(q) + '" aria-label="Search"></label> ' +
-    '<label>Tier <select data-bank-find-filter="tier" aria-label="Tier"><option value="">Any</option> ' +
+    '<div class="bank-hist-controls">' +
+    '<select data-bank-find-filter="tier" aria-label="Tier"><option value="">Any tier</option> ' +
     '<option value="required"' + (tier === "required" ? " selected" : "") + ">Required</option> " +
     '<option value="needs"' + (tier === "needs" ? " selected" : "") + ">Needs</option> " +
-    '<option value="wants"' + (tier === "wants" ? " selected" : "") + ">Wants</option></select></label> " +
-    '<label>Account <select data-bank-find-filter="account" aria-label="Account"><option value="">Any</option> ' + acctOpts + "</select></label> " +
-    '<label>Month <select data-bank-find-filter="month" aria-label="Month"><option value="">Any</option> ' + monthOpts + "</select></label> " +
-    '<button type="button" class="act ghost" data-bank-find-order="' + (order === "asc" ? "desc" : "asc") + '">' +
-    (order === "asc" ? "Oldest" : "Newest") + "</button>" +
-    note + body + assign + "</section>";
+    '<option value="wants"' + (tier === "wants" ? " selected" : "") + ">Wants</option></select> " +
+    '<select data-bank-find-filter="account" aria-label="Account"><option value="">Any account</option> ' + acctOpts + "</select> " +
+    '<select data-bank-find-filter="month" aria-label="Month"><option value="">Any month</option> ' + monthOpts + "</select> " +
+    '<button type="button" class="book-chip" data-bank-find-order="' + (order === "asc" ? "desc" : "asc") + '">' +
+    (order === "asc" ? "Oldest" : "Newest") + "</button></div>" +
+    note + body + assign + "</div></section>";
 }
 
 function bankEditsPanelHtml(snap, opts) {
@@ -9111,23 +9326,23 @@ function bankEditsPanelHtml(snap, opts) {
   var tiers = bankTierEditSections(snap, ym, opts.edits, opts.statusConfirm, Object.assign({}, opts, { editCat: picked }));
   var txAssign = bankEditTxListHtml(rows, known, picked, opts.rowAdd);
   var more = bankMixMore("More details",
-    '<section class="card span"><h2>Categories</h2>' + catErr + addErr +
+    "<section><h2>Categories</h2><div class=\"card span\">" + catErr + addErr +
     '<p class="hint">Categories sync across your seats.</p>' +
-    bankAddCategoryHtml() + bankCatPickerHtml(known, picked) + "</section>" +
-    '<section class="card span"><h2>Income</h2>' +
+    bankAddCategoryHtml() + bankCatPickerHtml(known, picked) + "</div></section>" +
+    "<section><h2>Income</h2><div class=\"card span\">" +
     '<p class="hint">A blank amount or day stays blank.</p>' +
-    bankEditIncomeHtml(incomes, ym) + "</section>" +
+    bankEditIncomeHtml(incomes, ym) + "</div></section>" +
     bankBasisCaption(budget) + bankUnmatchedStatusHtml(snap));
   return '<div class="bank-edit-grid">' + saveErr + bankTxSearchHtml(snap, Object.assign({}, opts, { txAssign: txAssign })) +
-    '<section class="card span bank-edit-block"><h2>Bills</h2>' + dueNote + dueErr +
-    bankEditBillHtml(bills, ym, opts.edits, opts.statusConfirm, snap) + "</section>" +
+    '<section class="bank-edit-block"><h2>Bills</h2><div class="card span">' + dueNote + dueErr +
+    bankEditBillHtml(bills, ym, opts.edits, opts.statusConfirm, snap) + "</div></section>" +
     (tiers.other || "") +
     '<div class="bank-edit-rules">' + (tiers.rules || "") +
-    '<section class="card span"><h2>Rules</h2>' +
+    "<section><h2>Rules</h2><div class=\"card span\">" +
     (kindNote || "") + kindErr +
     '<div class="bank-tier-plans">' + bankPlanFieldHtml(snap, ym, "required", "Required plan") + " " +
     bankPlanFieldHtml(snap, ym, "needs", "Needs plan") + " " + bankPlanFieldHtml(snap, ym, "wants", "Wants plan") + "</div>" +
-    bankKindEditHtml(snap) + "</section></div>" + more + "</div>";
+    bankKindEditHtml(snap) + "</div></section></div>" + more + "</div>";
 }
 
 function bankTabHint(tab) {
