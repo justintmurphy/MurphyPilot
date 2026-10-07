@@ -1,7 +1,14 @@
+/* Banking uses one compact strip. Investments keeps the desk ticker. */
 #mp-ticker {
   max-width: 1100px;
   margin: 0 auto;
   padding: 0 16px;
+}
+
+body.bank-page #mp-ticker {
+  margin: 0;
+  padding: 0;
+  max-width: none;
 }
 
 .mp-ticker {
@@ -45,17 +52,75 @@
   color: var(--ink-soft, #666);
 }
 
+body.bank-page .mp-ticker:not(.mp-ticker-desk) {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: 42px;
+  margin: 0;
+  overflow: hidden;
+  gap: 0;
+  grid-template-columns: none;
+  background: var(--cream);
+  color: var(--ink);
+  border-bottom: 1px solid var(--rule);
+  font-variant-numeric: tabular-nums;
+}
+
+body.bank-page .mp-ticker:not(.mp-ticker-desk) button,
+body.bank-page .mp-ticker:not(.mp-ticker-desk) .mp-tick-empty {
+  display: inline-flex;
+  flex: 1 1 0;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  height: 42px;
+  margin: 0;
+  padding: 0 22px;
+  border: 0;
+  border-right: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  font-size: 12.5px;
+  line-height: 42px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+body.bank-page .mp-ticker:not(.mp-ticker-desk) .mp-tick-empty {
+  cursor: default;
+  color: var(--ink-soft);
+}
+
+body.bank-page .mp-ticker:not(.mp-ticker-desk) button > span:first-child {
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  font-size: 11px;
+}
+
+.mp-ticker .meta {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
 .mp-ticker.mp-ticker-desk {
   display: flex;
   flex-wrap: wrap;
   overflow-x: auto;
   grid-template-columns: none;
+  height: auto;
+  border-bottom: 0;
 }
 .mp-ticker.mp-ticker-desk button {
   flex: 1 1 auto;
   flex-wrap: wrap;
   min-width: max-content;
   max-width: 100%;
+  height: auto;
+  overflow: visible;
 }
 .mp-ticker.mp-ticker-desk b,
 .mp-ticker.mp-ticker-desk i,

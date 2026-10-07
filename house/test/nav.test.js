@@ -332,7 +332,8 @@ test("top nav is two buttons and the open menu matches the section", function ()
   assert.match(bankItems, /href="\/#current"/);
   assert.match(bankItems, /href="\/#historical"/);
   assert.doesNotMatch(bankItems, /data-tab|edits|Overview/i);
-  assert.doesNotMatch(bankHtml, /data-theme-choice/);
+  assert.match(bankHtml, /data-theme-choice="justin"/);
+  assert.match(bankHtml, /data-theme-choice="nina"/);
 
   const inv = bootNav({ pathname: "/investments/", hash: "#house" });
   const invHtml = inv.elements.mpNav.innerHTML;

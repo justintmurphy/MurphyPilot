@@ -12,22 +12,6 @@
     return "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  function mask(last4) {
-    if (typeof root.bankAccountMask === "function") return root.bankAccountMask(last4);
-    var digits = String(last4 || "").replace(/\D/g, "");
-    if (digits.length > 4) digits = digits.slice(-4);
-    return digits ? "\u00b7\u00b7" + digits : "";
-  }
-
-  function face(account) {
-    if (typeof root.bankAccountFace === "function") return root.bankAccountFace(account);
-    if (!account) return "";
-    if (typeof account === "string") return account;
-    var nick = account.nickname || account.name || "";
-    var last = mask(account.last4 || account.last_4);
-    return nick && last ? nick + " " + last : (nick || last);
-  }
-
   function shortDate(iso) {
     if (typeof root.bankShortDate === "function") return root.bankShortDate(iso) || iso;
     return iso || "";
@@ -227,7 +211,7 @@
     var left = deposit
       ? '<button type="button" data-mp-tick="in" title="' + esc(deposit.name || "Deposit") + '" aria-label="' + esc(depAria) + '">' +
         "<span>Next in</span> <b>" + esc(depName) + "</b> <b>" +
-        esc(depWhen) + "</b> <b>" + money(deposit.amount) + "</b>" + acctBit + "</button>"
+        esc(depWhen) + "</b> <b>" + money(deposit.amount) + "</b></button>"
       : '<span class="mp-tick-empty">Next in \u2014</span>';
     var more = bill && bill.more > 0 ? " +" + bill.more + " more" : "";
     var right = bill
