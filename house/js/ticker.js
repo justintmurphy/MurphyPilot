@@ -206,8 +206,6 @@
     var depName = deposit ? (deposit.kind || deposit.name || "Deposit") : "";
     var depAria = deposit ? ("Next deposit " + depName + (depWhen ? " " + depWhen : "") + " " + money(deposit.amount)) : "";
     var billAria = bill ? ("Next bill " + (bill.name || "") + (billWhen ? " " + billWhen : "") + " " + money(bill.amount)) : "";
-    var acct = deposit ? face(deposit.account) : "";
-    var acctBit = acct && !/\bTBD\b/.test(acct) ? " <i>" + esc(acct) + "</i>" : "";
     var left = deposit
       ? '<button type="button" data-mp-tick="in" title="' + esc(deposit.name || "Deposit") + '" aria-label="' + esc(depAria) + '">' +
         "<span>Next in</span> <b>" + esc(depName) + "</b> <b>" +
