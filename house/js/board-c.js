@@ -572,9 +572,10 @@ merge = function (house, pilot, outside) {
   return out;
 };
 function bookCardHtml(id, label, equity, tag, tapeKey) {
-  var day = '<div class="m"><span class="tone-flat">Day —</span></div>';
+  var day = "";
   var sleeveCard = (typeof isFidSleeveTab === "function" && isFidSleeveTab(id));
   var key = sleeveCard ? null : (tapeKey || id);
+  if (!key && sleeveCard && snap && snap.tape && snap.tape[id] && snap.tape[id].length) key = id;
   if (key) {
     var prints = dodTape(key);
     var tapeLast = null;
@@ -965,8 +966,9 @@ function overallCardHtml() {
     "<div><span>Last close</span> <b>" + money(c.equity) + "</b></div>" +
     improveKpis(prints, c.equity) + "</div>" +
     "<div class=\"tape-plot ov-plot\">" + overlayAxisChart(prints) + "</div>" +
-    "<p class=\"hint\">Click for every book. Live RH + Fidelity sleeves " + money(c.live_equity) + " \u00b7 Voya EOD " + (truthifiSoftEmpty() ? "\u2014" : money(c.custodial_equity)) + "." +
-    (asof ? " Holdings date " + esc(asof) + "." : "") + "</p></div>";
+    '<p class="hint">Click for every book.</p>' +
+    '<details class="tape-more"><summary><span class="tape-sum">Sources</span></summary>' +
+    '<p class="hint">' + (typeof overallSourceLine === "function" ? overallSourceLine(c, asof) : "") + "</p></details></div>";
 }
 var _paint = paint;
 paint = function () {

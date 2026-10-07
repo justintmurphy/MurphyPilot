@@ -1069,12 +1069,20 @@ function invMountTicker() {
       growChip("Day", vsLookback(prints, eq, 1, now)) +
       growChip("Week", vsLookback(prints, eq, 7, now)) +
       growChip("Month", vsLookback(prints, eq, 30, now)) +
-      growChip("YTD", vsYtd(prints, eq)) +
-      growChip("Year", vsLookback(prints, eq, 365, now)) +
+      (function () { var ytd = vsYtd(prints, eq); return ytd ? growChip("YTD", ytd) : ""; })() +
+      (function () { var year = vsLookback(prints, eq, 365, now); return year ? growChip("Year", year) : ""; })() +
       "</div>" +
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" +
-      '<p class="hint">Click for every book. Live (Robinhood + Fidelity) ' + money(c.live_equity) + " \u00b7 Voya EOD " + ((snap && snap.truthifiFail && !snap.truthifiHeld) ? "\u2014" : money(c.custodial_equity)) + "." +
-      (asof ? " Holdings " + esc(String(asof).slice(0, 10)) + "." : "") + "</p></div>";
+      '<p class="hint">Click for every book.</p>' +
+      '<details class="tape-more"><summary><span class="tape-sum">Sources</span></summary>' +
+      '<p class="hint">' + overallSourceLine(c, asof) + "</p></details></div>";
+  }
+  function overallSourceLine(c, asof) {
+    var eodMissing = snap && snap.truthifiFail && !snap.truthifiHeld;
+    var eod = eodMissing ? "\u2014" : money(c && c.custodial_equity);
+    var bits = ["Live " + money(c && c.live_equity), "EOD " + eod];
+    if (asof) bits.push("Holdings " + esc(String(asof).slice(0, 10)));
+    return bits.join(" \u00b7 ") + ".";
   }
 
   function stateHtml(b, title) {
