@@ -5932,7 +5932,7 @@ test("banking assets use the ec cache bust", function () {
   assert.match(page, /\/house\/banking\.css\?v=20261007eh3/);
   assert.match(page, /list-cap\.js\?v=20261007eh3/);
   assert.match(page, /ticker\.js\?v=20261007eh3/);
-  assert.match(page, /ticker\.css\?v=20261007eh3/);
+  assert.match(page, /ticker\.css\?v=20261007eh4/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -7020,7 +7020,7 @@ test("banking page links the shared list cap and ticker", function () {
   assert.match(page, /list-cap\.js\?v=20261007eh3/);
   assert.match(page, /ticker\.js\?v=20261007eh3/);
   assert.match(page, /list-cap\.css\?v=20261007eh3/);
-  assert.match(page, /ticker\.css\?v=20261007eh3/);
+  assert.match(page, /ticker\.css\?v=20261007eh4/);
   const css = fs.readFileSync(path.join(root, "house/list-cap.css"), "utf8");
   assert.match(css, /overflow-y:\s*auto/);
   assert.match(css, /--list-cap-rows/);
@@ -7863,6 +7863,73 @@ test("next pay renders a prorated needs share when it is above zero", function (
   assert.match(next, /Needs \(groceries, etc\.\)[\s\S]{0,80}−\$50\.00/);
   assert.doesNotMatch(next, /Needs \(groceries, etc\.\)[\s\S]{0,40}<span class="sub">—/);
   assert.doesNotMatch(next, />Wants</);
+});
+
+test("ticker fields keep their natural width at 390", function () {
+  const { spawnSync } = require("child_process");
+  const os = require("os");
+  const ctx = boot();
+  function paint(billName) {
+    const fx = {
+      asof: "2026-10-06T12:00:00-04:00",
+      budget: {
+        pay_schedule: [{ name: "Payroll", kind: "payroll", date: "2026-10-15", amount: 40, account: { last4: "1111" } }],
+        bills: [{ name: billName, amount: 22, typical_day: 20, cadence: "monthly" }],
+        subscriptions: [],
+        income_monthly: [],
+        calendar: []
+      },
+      current: { recent_tx: [], edits_tx: [] }
+    };
+    const mountEl = { hidden: true, innerHTML: "", addEventListener: function () {} };
+    ctx.MPTicker.render(mountEl, fx, null, { year: 2026, month: 10, day: 6 });
+    return mountEl.innerHTML;
+  }
+  const html = "<!DOCTYPE html><html data-theme=\"justin\"><head><meta charset=\"utf-8\">" +
+    '<link rel="stylesheet" href="file://' + path.join(root, "house/house.css") + '">' +
+    '<link rel="stylesheet" href="file://' + path.join(root, "house/ticker.css") + '">' +
+    "<style>html,body{margin:0} .lane{width:390px}</style></head><body>" +
+    '<div class="lane" id="short">' + paint("Rent") + "</div>" +
+    '<div class="lane" id="long">' + paint("Example Household Supply Run For The Month And Another Week") + "</div><script>" +
+    "function audit(root, fit) {" +
+    "  var bad = [];" +
+    "  root.querySelectorAll('.mp-ticker b, .mp-ticker span').forEach(function (el) {" +
+    "    var cs = getComputedStyle(el);" +
+    "    if (cs.textOverflow === 'ellipsis' || el.scrollWidth > el.clientWidth + 1) {" +
+    "      bad.push((el.textContent || '').trim() + ' ' + cs.textOverflow + ' ' + el.scrollWidth + '/' + el.clientWidth);" +
+    "    }" +
+    "  });" +
+    "  root.querySelectorAll('.mp-ticker button').forEach(function (btn) {" +
+    "    if (btn.clientWidth < 360 || btn.clientWidth > 390) bad.push('width ' + btn.clientWidth);" +
+    "    var overflows = btn.scrollWidth > btn.clientWidth + 1;" +
+    "    var wide = (btn.getAttribute('data-mp-tick') === 'out') && !fit;" +
+    "    if (!wide && overflows) bad.push('clipped ' + (btn.textContent || '').replace(/\\s+/g, ' ').trim());" +
+    "    if (wide && !overflows) bad.push('expected scroll ' + btn.clientWidth + '/' + btn.scrollWidth);" +
+    "  });" +
+    "  return bad.join(' || ');" +
+    "}" +
+    "document.body.setAttribute('data-short', audit(document.getElementById('short'), true));" +
+    "document.body.setAttribute('data-long', audit(document.getElementById('long'), false));" +
+    "document.body.setAttribute('data-text', document.getElementById('short').innerText.replace(/\\s+/g, ' ').trim());" +
+    "document.body.setAttribute('data-page', document.documentElement.scrollWidth + '/' + document.documentElement.clientWidth);" +
+    "</script></body></html>";
+  const file = path.join(os.tmpdir(), "bank-ticker-390.html");
+  fs.writeFileSync(file, html);
+  const chrome = fs.existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : "google-chrome";
+  const run = spawnSync(chrome, [
+    "--headless", "--disable-gpu", "--no-sandbox", "--virtual-time-budget=2000",
+    "--window-size=390,900", "--dump-dom", "file://" + file
+  ], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr || run.stdout);
+  const dom = run.stdout || "";
+  assert.match(dom, /data-short=""/);
+  assert.match(dom, /data-long=""/);
+  assert.match(dom, /data-text="[^"]*Next in Payroll Oct 15 \$40\.00/);
+  assert.match(dom, /data-text="[^"]*Next out Rent Oct 20 \$22\.00/);
+  assert.doesNotMatch(dom, /data-text="[^"]*\u2026/);
+  const pageBox = dom.match(/data-page="(\d+)\/(\d+)"/);
+  assert.ok(pageBox, dom.slice(0, 500));
+  assert.ok(Number(pageBox[1]) <= Number(pageBox[2]) + 1, "page scroll " + pageBox[0]);
 });
 
 test("funding sits beside the calendar at desktop and the due list does not scroll sideways at 390", function () {
