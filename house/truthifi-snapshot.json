@@ -1,16 +1,16 @@
 {
   "asof": "2026-10-06",
   "source": "Truthifi",
-  "note": "Both links complete. Fidelity scan 6ac6a7b84691bff6b3a2ae63 and Voya scan 6ac6a7b99621c3bc349fd59f finished 2026-10-07 ~16:13 ET. Holdings date range tops at 2026-10-06 (today ET not in range). Cash sweeps counted as cash. ESPP empty. RSU 2 BNY (cost basis null from Truthifi). names[] full Truthifi securityName; Fid accounts[]+suffix last-4. No FAULT.",
+  "note": "Both links complete. Fidelity scan 6ac6a7b84691bff6b3a2ae63 and Voya scan 6ac6a7b99621c3bc349fd59f finished 2026-10-07 ~16:13 ET. Holdings date range tops at 2026-10-06 (today ET not in range). Cash sweeps counted as cash. ESPP empty. RSU 2 BNY (cost basis null from Truthifi). names[] full Truthifi securityName; Fid accounts[]+suffix last-4. No FAULT. Forge Close repair 2026-10-07 ~16:3x ET: restored tape.overall history from 7b8080c (RH fixes 562b356/95ad74d for 09-12/13/14/16/18/19/22 + 10-01; 10-03 and 10-06 rows re-added) after desk tip ddb1493 rebuilt tape from a stale base; overall.live_equity refreshed to house 16:17 ET close print 2589a56 (combined 3373.32). Holdings/names/sleeves unchanged from ddb1493 scans.",
   "scanned_at": "2026-10-07 16:14 ET",
   "holdings_asof": "2026-10-06",
   "overall": {
-    "equity": 69337.015,
-    "live_equity": 3382.25,
+    "equity": 69328.085,
+    "live_equity": 3373.32,
     "custodial_equity": 65954.765,
     "asof": "2026-10-07T16:00:00-04:00",
     "holdings_asof": "2026-10-06",
-    "live_asof": "2026-10-07T13:12:03-04:00"
+    "live_asof": "2026-10-07T16:17:12-04:00"
   },
   "accounts": {
     "fidelity": {
@@ -733,22 +733,22 @@
       {
         "t": "2026-09-12T16:00:00-04:00",
         "dtg": "121600R SEP 26",
-        "equity": 67683.85,
-        "live": 3080.18,
+        "equity": 67686.97,
+        "live": 3083.3,
         "custodial": 64603.67
       },
       {
         "t": "2026-09-13T16:00:00-04:00",
         "dtg": "131600R SEP 26",
-        "equity": 67683.85,
-        "live": 3080.18,
+        "equity": 67686.97,
+        "live": 3083.3,
         "custodial": 64603.67
       },
       {
         "t": "2026-09-14T16:00:00-04:00",
         "dtg": "141600R SEP 26",
-        "equity": 67947.2,
-        "live": 3080.18,
+        "equity": 67959.98,
+        "live": 3092.96,
         "custodial": 64867.02
       },
       {
@@ -761,23 +761,23 @@
       {
         "t": "2026-09-16T16:00:00-04:00",
         "dtg": "161600R SEP 26",
-        "equity": 67655.12,
-        "live": 3217.58,
+        "equity": 67652.98,
+        "live": 3215.44,
         "custodial": 64437.54
       },
       {
         "t": "2026-09-18T16:00:00-04:00",
         "dtg": "181600R SEP 26",
-        "equity": 68346.67,
-        "live": 3247.08,
+        "equity": 68315.66,
+        "live": 3216.07,
         "custodial": 65099.59
       },
       {
         "t": "2026-09-19T16:00:00-04:00",
         "dtg": "191600R SEP 26",
-        "equity": 65101.84,
-        "live": 3022.55,
-        "custodial": 62079.29
+        "equity": 68317.91,
+        "live": 3216.07,
+        "custodial": 65101.84
       },
       {
         "t": "2026-09-21T16:00:00-04:00",
@@ -789,9 +789,9 @@
       {
         "t": "2026-09-22T16:00:00-04:00",
         "dtg": "221600R SEP 26",
-        "equity": 64989.21,
-        "live": 3029.62,
-        "custodial": 61959.59
+        "equity": 68249.035,
+        "live": 3259.82,
+        "custodial": 64989.215
       },
       {
         "t": "2026-09-23T16:00:00-04:00",
@@ -831,8 +831,8 @@
       {
         "t": "2026-10-01T13:19:00-04:00",
         "dtg": "011319R OCT 26",
-        "equity": 67881.969,
-        "live": 3319.88,
+        "equity": 67856.329,
+        "live": 3294.24,
         "custodial": 64562.089
       },
       {
@@ -843,10 +843,24 @@
         "custodial": 64975.432
       },
       {
+        "t": "2026-10-03T13:14:00-04:00",
+        "dtg": "031314R OCT 26",
+        "equity": 68346.551,
+        "live": 3316.92,
+        "custodial": 65029.631
+      },
+      {
+        "t": "2026-10-06T13:14:30-04:00",
+        "dtg": "061314R OCT 26",
+        "equity": 68469.588,
+        "live": 3411.67,
+        "custodial": 65057.918
+      },
+      {
         "t": "2026-10-07T16:00:00-04:00",
         "dtg": "071600R OCT 26",
-        "equity": 69337.015,
-        "live": 3382.25,
+        "equity": 69328.085,
+        "live": 3373.32,
         "custodial": 65954.765
       }
     ]
