@@ -5374,6 +5374,24 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
   var monthKey = bankMonthKey(ym);
   var books = bankCombinedBooks(snap, { month: monthKey, monthKey: monthKey, now: opts.now, today: todayIso });
   var start = books.start != null ? books.start : 0;
+  var fundingNames = {};
+  (books.accounts || []).forEach(function (acct) {
+    (acct.rows || []).forEach(function (row) {
+      if (!row || row.kind === "in" || !row.name) return;
+      fundingNames[bankTierKey(row.name)] = true;
+      fundingNames[bankBillKey(row.name)] = true;
+    });
+  });
+  function explicitTierPlan(key) {
+    var shot = monthKey ? bankSnapshotFor(snap, monthKey) : null;
+    var tiers = shot && bankSnapshotHasPrintedTiers(shot.tiers) ? shot.tiers : ((snap && snap.budget && snap.budget.tiers) || {});
+    var printed = key === "required"
+      ? (tiers.required_plan != null ? tiers.required_plan : tiers.required_total)
+      : key === "needs"
+        ? (tiers.needs_plan != null ? tiers.needs_plan : tiers.needs)
+        : (tiers.wants_plan != null ? tiers.wants_plan : tiers.wants);
+    return bankNum(printed);
+  }
   var rows = [];
   function pushBillRow(b, due, day, phrase, marker, partial, counted, per, paidFlag, posted, planAmt) {
     var face = bankLedgerFace(snap, bankBillDisplayName(b.name, b.display_label));
@@ -5415,28 +5433,26 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     var planAmt = bankBillLineAmount(b, ym, edits);
     var actual = mode === "current" ? bankPostedOutAmount(snap, b, ym) : null;
     if (mode === "historical") {
+      if (!counted) return;
       var actualBag = bankActualsMap(snap)[monthKey];
       var spentActual = null;
       [b.name, b.display_label, bankLedgerFace(snap, bankBillDisplayName(b.name, b.display_label))].forEach(function (nm) {
         if (spentActual != null || !nm) return;
         spentActual = bankCategoryActual(actualBag, nm);
       });
-      if (spentActual == null && snap && snap._bankSnapshotMonth) {
-        var snapAmt = bankNum(b.amount);
-        if (snapAmt == null) snapAmt = bankNum(b.monthly_amount);
-        if (snapAmt != null) spentActual = snapAmt;
-      }
-      if (spentActual == null) {
+      if (!(spentActual > 0)) {
         var face = bankLedgerFace(snap, bankBillDisplayName(b.name, b.display_label));
         var missKey = "nf|" + bankTierKey(face);
         if (!seenRow[missKey]) {
           seenRow[missKey] = true;
+          var missPhrase = "not found";
+          if (b.cancelled_later) missPhrase += " \u00b7 cancelled later";
           rows.push({
             date: "",
             name: face,
             amount: null,
             kind: "out",
-            phrase: "not found",
+            phrase: missPhrase,
             marker: "",
             chip: "",
             counted: false,
@@ -5448,7 +5464,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
         return;
       }
       actual = spentActual;
-      paidFlag = spentActual > 0;
+      paidFlag = true;
     }
     var per = mode === "historical" ? actual : (actual != null ? actual : planAmt);
     if (actual == null && (bankIsTwiceBill(b) || dueDays.length > 1)) {
@@ -5490,6 +5506,11 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
   bankMerchantRecurringRows(snap, bills).forEach(function (extra) {
     var name = bankBillDisplayName(extra.name || extra.label || extra.merchant || "Recurring");
     var amount = bankNum(extra.amount != null ? extra.amount : extra.typical_amount);
+    var tier = bankResolveTier(name, snap, tierCtx, extra);
+    var inFunding = !!(fundingNames[bankTierKey(name)] || fundingNames[bankBillKey(name)]);
+    var tierPlan = explicitTierPlan(tier);
+    /* A printed funding row already carries this merchant. Leave it in the tier remainder. */
+    if (inFunding && tierPlan != null && tierPlan > 0) return;
     var day = bankDay(extra.typical_day != null ? extra.typical_day : extra.due_day);
     var ymObj = bankParseYm(monthKey);
     var due = day != null && ymObj ? bankDateKey(ymObj.year, ymObj.month, day) : "";
@@ -5504,14 +5525,58 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       phrase: day != null ? bankDueDayPhrase([day]) : "",
       marker: "",
       chip: "",
-      tier: bankResolveTier(name, snap, tierCtx, extra),
+      tier: tier,
       counted: true,
       pending: amount == null,
       undated: !due
     });
   });
   (subs || []).forEach(function (s) {
-    if (!s || s.typical_day == null) return;
+    if (!s) return;
+    if (mode !== "historical" && s.typical_day == null) return;
+    var subFace = bankLedgerFace(snap, bankBillDisplayName(s.name));
+    if (mode === "historical") {
+      var subBag = bankActualsMap(snap)[monthKey];
+      var subActual = null;
+      [s.name, subFace].forEach(function (nm) {
+        if (subActual != null || !nm) return;
+        subActual = bankCategoryActual(subBag, nm);
+      });
+      if (!(subActual > 0)) {
+        var subMiss = "nf|" + bankTierKey(subFace);
+        if (seenRow[subMiss]) return;
+        seenRow[subMiss] = true;
+        rows.push({
+          date: "",
+          name: subFace,
+          amount: null,
+          kind: "out",
+          phrase: "not found",
+          marker: "",
+          chip: "",
+          counted: false,
+          pending: true,
+          undated: true,
+          notFound: true
+        });
+        return;
+      }
+      rows.push({
+        date: s.typical_day == null ? "" : (bankParseYm(monthKey) ? bankDateKey(bankParseYm(monthKey).year, bankParseYm(monthKey).month, s.typical_day) : ""),
+        name: subFace,
+        marker: '<small class="bank-paid-mark">paid</small>',
+        amount: subActual,
+        kind: "out",
+        phrase: "Subscription",
+        chip: "",
+        tier: bankResolveTier(s.name, snap, tierCtx, s),
+        counted: true,
+        pending: false,
+        posted: true,
+        paid: true
+      });
+      return;
+    }
     var ymObj = bankParseYm(monthKey);
     var due = ymObj ? bankDateKey(ymObj.year, ymObj.month, s.typical_day) : "";
     var trust = bankTrustPaidStatus(snap, s, ym, opts);
@@ -5525,7 +5590,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     else phrase = phrase + " \u00b7 " + bankLedgerStatusWord("Unpaid");
     rows.push({
       date: due || "9999-99-99",
-      name: bankLedgerFace(snap, bankBillDisplayName(s.name)),
+      name: subFace,
       marker: subMarker,
       amount: s.amount,
       kind: "out",
@@ -5599,6 +5664,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
   else if (books.start != null) anchor = books.start;
   var balance = anchor;
   var datedNet = 0;
+  var requiredListed = 0;
   var needsListed = 0;
   var wantsListed = 0;
   function applyRow(row) {
@@ -5614,6 +5680,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     datedNet += signed;
     balance = bankRoundCents(balance + signed);
     row.left = balance;
+    if (!closed && row.kind === "out" && !row.rollup && row.tier === "required") requiredListed += row.amount;
     if (!closed && row.kind === "out" && !row.rollup && row.tier === "needs") needsListed += row.amount;
     if (!closed && row.kind === "out" && !row.rollup && row.tier === "wants") wantsListed += row.amount;
   }
@@ -5649,10 +5716,11 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     if (needsPlan == null) needsPlan = fig && fig.needs != null ? fig.needs : 0;
     if (wantsPlan == null) wantsPlan = fig && fig.wants != null ? fig.wants : 0;
     var spentTiers = bankTierSpend(snap, monthKey) || {};
+    var requiredPlan = explicitTierPlan("required");
     function tierRemain(plan, spent, listed) {
       return bankRoundCents(Math.max(0, (plan || 0) - (spent || 0) - (listed || 0)));
     }
-    [["Needs", tierRemain(needsPlan, spentTiers.needs, needsListed)], ["Wants", tierRemain(wantsPlan, spentTiers.wants, wantsListed)]].forEach(function (pair) {
+    [["Required", tierRemain(requiredPlan, spentTiers.required, requiredListed)], ["Needs", tierRemain(needsPlan, spentTiers.needs, needsListed)], ["Wants", tierRemain(wantsPlan, spentTiers.wants, wantsListed)]].forEach(function (pair) {
       var remain = pair[1];
       if (!(remain > 0.004)) return;
       if (balance != null) balance = bankRoundCents(balance - remain);
