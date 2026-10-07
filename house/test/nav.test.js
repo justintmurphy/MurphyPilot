@@ -610,13 +610,13 @@ test("touched assets use the eg cache bust and banking uses ec", function () {
   assert.doesNotMatch(bank, /section-nav/);
   assert.match(inv, /\/js\/nav\.js\?v=20261006ec4/);
   assert.match(inv, /\/house\/house\.css\?v=20261006ec4/);
-  assert.match(inv, /\/house\/js\/board-b\.js\?v=20261006ef/);
+  assert.match(inv, /\/house\/js\/board-b\.js\?v=20261006eg/);
   assert.match(inv, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(inv, /Murphy Pilot House/);
-  assert.match(inv, /\/house\/js\/board-c\.js\?v=20261006ef/);
-  assert.match(inv, /\/house\/js\/board-e\.js\?v=20261006ef/);
+  assert.match(inv, /\/house\/js\/board-c\.js\?v=20261006ed/);
+  assert.match(inv, /\/house\/js\/board-e\.js\?v=20261006ed/);
   assert.match(inv, /\/house\/js\/board-a\.js\?v=20260904cn/);
-  assert.match(inv, /\/house\/js\/board-d\.js\?v=20261006ef/);
+  assert.match(inv, /\/house\/js\/board-d\.js\?v=20260904cn/);
   assert.match(inv, /id="mpNav" class="mp-nav" data-section="investments"/);
   assert.match(inv, /<a class="brand-block" href="\/investments\/">/);
   assert.match(inv, /id="deskSub">INVESTMENTS</);

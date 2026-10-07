@@ -199,7 +199,7 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.equal(ctx.retRemoteInit().credentials, "same-origin");
   assert.equal(ctx.retRemoteInit().cache, "no-store");
   const indexHtml = fs.readFileSync(path.join(root, "investments/index.html"), "utf8");
-  assert.match(indexHtml, /\/house\/js\/board-b\.js\?v=20261006ef/);
+  assert.match(indexHtml, /\/house\/js\/board-b\.js\?v=20261006eg/);
 });
 
 test("slider touch does not pin salary, so a later file salary shows without Reset", function () {

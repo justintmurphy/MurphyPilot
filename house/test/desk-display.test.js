@@ -957,8 +957,7 @@ test("live rows render the full-precision P&L sum rounded only at display", func
       pnl += lot.pnl;
       cost += lot.cost;
     });
-    const pctV = rows.length === 1 ? ctx.lotPnl(rows[0]).pct : (pnl / cost) * 100;
-    return ctx.money(pnl) + " " + ctx.pct(pctV);
+    return ctx.money(pnl) + " " + ctx.pct((pnl / cost) * 100);
   }
 
   const symbols = {};
