@@ -58,12 +58,14 @@ button.tape-row b {
   font-weight: 700;
 }
 button.tape-row.on,
-tr[data-check-id].on {
+tr[data-check-id].on,
+tr[data-tax-year].on {
   background: var(--paper);
   border-color: var(--rule);
   box-shadow: inset 3px 0 0 var(--ink);
 }
-tr[data-check-id] { cursor: pointer; }
+tr[data-check-id],
+tr[data-scenario] { cursor: pointer; }
 details.tape-more {
   margin-top: 4px;
 }
@@ -169,6 +171,10 @@ table.book td {
 table.book td.num,
 table.book th.num {
   text-align: right;
+  white-space: nowrap;
+}
+@media (min-width: 721px) {
+  tr.scenario-more { display: none; }
 }
 table.book .sym {
   font-weight: 700;
@@ -396,6 +402,7 @@ footer.desk-foot {
   table.book {
     font-size: 10.5px;
   }
+  table.book .wide-col { display: none; }
   table.book th { font-size: 9px; }
   table.book .sub { font-size: 9px; }
   button.acct-mini b { font-size: 12px; }
@@ -511,7 +518,8 @@ button.mix-leg,
 button.mix-leg:hover,
 .mix-leg:hover,
 .mix-leg.on,
-tr[data-check-id].on {
+tr[data-check-id].on,
+tr[data-tax-year].on {
   border-color: var(--nav-line);
   background: var(--row);
 }

@@ -161,7 +161,7 @@ function plainPageText(html) {
 function glueCopyHits(text) {
   const hits = [];
   text.split("\n").forEach(function (line) {
-    const stripped = line.replace(/\([A-Za-z]+-\d+\)/g, " ");
+    const stripped = line.replace(/\([A-Za-z]+-\d+\)/g, " ").replace(/\$[\d,.]*\d\s*k\b/gi, " ");
     if (/[A-Za-z)][$\d]|[$\d][A-Za-z)]/.test(stripped)) hits.push(line.trim().slice(0, 160));
     if (/[a-z][A-Z]/.test(line)) hits.push(line.trim().slice(0, 160));
   });
@@ -295,7 +295,15 @@ test("pay summary is analytics first and agrees on the stub", function () {
   const html = ctx.paydeskHtml("pay", doc, {});
   assert.match(html, /\u2212\$/);
   const summary = html.split("<details")[0];
-  assert.match(summary, /<h2>Pay<\/h2>/);
+  assert.match(summary, /class="bank-view-title"[^>]*>Pay</);
+  assert.match(summary, /class="split-two"/);
+  assert.match(summary, /Latest net/);
+  assert.match(summary, /Raises:/);
+  assert.match(summary, /Average /);
+  assert.match(summary, /vs last year/);
+  assert.match(summary, /<1%/);
+  assert.match(summary, /var\(--mix-d\)/);
+  assert.doesNotMatch(read("house/test/fixtures/example-pay.json"), /3800/);
   assert.doesNotMatch(summary, /Pay ·/);
   assert.doesNotMatch(summary, /data-year-pick/);
   assert.match(summary, /\$104,000\.00/);
@@ -358,9 +366,10 @@ test("opened check lines sit outside the checks list cap", function () {
     extra.push(Object.assign({}, seed[0], { id: "x" + i, pay_date: "2026-02-" + String(i + 1).padStart(2, "0") }));
   }
   doc.checks = doc.checks.concat(extra);
-  const closed = ctx.paydeskHtml("pay", doc, { detailsOpen: true });
+  const closed = ctx.paydeskHtml("pay", doc, { detailsOpen: true, openCheckId: "" });
   assert.match(closed, /class="list-cap"/);
   assert.doesNotMatch(closed, /data-check-lines/);
+  assert.doesNotMatch(closed, /data-card="latest"/);
   const html = ctx.paydeskHtml("pay", doc, { detailsOpen: true, openCheckId: "c005" });
   const cap = html.split('aria-label="Checks"')[1].split("</div>")[0];
   assert.doesNotMatch(cap, /data-check-lines|Medical\/dental/);
@@ -407,14 +416,24 @@ test("taxes summary uses payload labels and the base flag", function () {
   assert.doesNotMatch(src, /spouse_income|car_loan_deduction/);
   const html = ctx.paydeskHtml("taxes", doc, {});
   const summary = html.split("<details")[0];
-  assert.match(summary, /<h2>Taxes<\/h2>/);
+  assert.match(summary, /class="bank-view-title"[^>]*>Taxes</);
   assert.doesNotMatch(summary, /Taxes ·/);
   assert.doesNotMatch(summary, /data-year-pick/);
   assert.match(summary, /2026 estimate/);
   assert.match(summary, /\+\$4,436\.00/);
   assert.match(summary, /Projected tax/);
   assert.match(summary, /Withheld/);
+  assert.match(summary, /No extra needed/);
+  assert.match(summary, /\+\$4,436\.00 to /);
+  assert.match(summary, /Refund vs base/);
+  assert.doesNotMatch(summary, /Versus base/);
   assert.doesNotMatch(summary, /Extra per check needed/);
+  const estimate = summary.split('data-card="estimate"')[1].split("data-card=")[0];
+  assert.doesNotMatch(estimate, />Federal</);
+  assert.doesNotMatch(estimate, />State</);
+  assert.doesNotMatch(estimate, />Local</);
+  assert.match(summary, /class="split-two"/);
+  assert.match(summary, /Eff\. rate /);
   const base = doc.estimate.scenarios.find(function (row) { return row.is_base; });
   const others = doc.estimate.scenarios.filter(function (row) { return !row.is_base; });
   assert.ok(base);
@@ -433,7 +452,10 @@ test("taxes summary uses payload labels and the base flag", function () {
   const amended = doc.flags.find(function (flag) { return flag.kind === "amended" && flag.year === 2025; });
   const filed = doc.years.find(function (row) { return row.year === 2025; });
   const withheld = "$" + Number(filed.payments.withholding).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  assert.match(y2025, new RegExp(amended.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(y2025, /class="on"/);
+  assert.doesNotMatch(y2025, /Selected/);
+  assert.doesNotMatch(y2025, new RegExp(amended.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(more, new RegExp(amended.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(y2025, new RegExp(withheld.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assertCleanGlue(html, "taxes");
   assertCleanGlue(more, "taxes more");

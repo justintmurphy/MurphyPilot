@@ -93,6 +93,41 @@ function card(title, id, inner) {
   return "<h2>" + esc(title) + '</h2><div class="card span" data-card="' + id + '">' + inner + "</div>";
 }
 
+function pageTitle(text) {
+  return '<div class="bank-nav"><h2 class="bank-view-title" id="bank-view-title">' + esc(text) + "</h2></div>";
+}
+
+function shortMoney(n) {
+  var v = Number(n);
+  if (!isFinite(v)) return "\u2014";
+  var neg = v < 0;
+  var abs = Math.abs(v);
+  var body;
+  if (abs >= 1000) {
+    var k = Math.round((abs / 1000) * 10) / 10;
+    body = (k % 1 === 0 ? String(k) : k.toFixed(1)) + "k";
+  } else body = String(Math.round(abs));
+  return (neg ? "\u2212$" : "$") + body;
+}
+
+function shareText(pct) {
+  if (pct > 0 && pct < 1) return "<1%";
+  return pct.toFixed(0) + "%";
+}
+
+function axisMonth(iso) {
+  var m = /^(\d{4})-(\d{2})/.exec(String(iso || ""));
+  if (!m) return "";
+  var month = MONTHS[Number(m[2]) - 1];
+  return month ? month + " " + m[1] : "";
+}
+
+function dayIndex(iso) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+  if (!m) return null;
+  return Number(m[1]) * 372 + Number(m[2]) * 31 + Number(m[3]);
+}
+
 function fmtDate(iso) {
   var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
   if (!m) return "\u2014";
@@ -237,21 +272,31 @@ function trendChart(checks) {
   if (!rows.length) return hint("No checks for this chart.");
   var gross = rows.map(function (c) { return Number(c.gross) || 0; });
   var net = rows.map(function (c) { return Number(c.net) || 0; });
-  var box = { w: 640, h: 88, pL: 8, pR: 8, pT: 8, pB: 8 };
+  var box = { w: 360, h: 108, pL: 8, pR: 72, pT: 16, pB: 22 };
   var scale = scalePair([gross, net]);
+  var span = scale.mx - scale.mn || 1;
+  var last = rows[rows.length - 1];
+  var lastNet = Number(last.net) || 0;
+  var xLast = box.pL + (rows.length - 1) * (box.w - box.pL - box.pR) / Math.max(rows.length - 1, 1);
+  var yLast = box.pT + (box.h - box.pT - box.pB) * (1 - (lastNet - scale.mn) / span);
+  var endLabel = '<text x="' + (xLast + 4).toFixed(1) + '" y="' + yLast.toFixed(1) +
+    '" fill="var(--go)" font-size="12">' + esc(moneyText(lastNet, "in").text) + "</text> ";
+  var ticks = '<text x="' + box.pL + '" y="' + (box.h - 4) + '" fill="var(--ink-soft)" font-size="12">' +
+    esc(axisMonth(rows[0].pay_date)) + '</text> <text x="' + (box.w - box.pR) + '" y="' + (box.h - 4) +
+    '" text-anchor="end" fill="var(--ink-soft)" font-size="12">' + esc(axisMonth(last.pay_date)) + "</text>";
   return '<div class="tape-plot"><svg class="ov-line-svg" viewBox="0 0 ' + box.w + " " + box.h +
-    '" preserveAspectRatio="none" role="img" aria-label="Net and gross per check">' +
+    '" role="img" aria-label="Net and gross per check">' +
     '<polyline fill="none" stroke="var(--ink-soft)" stroke-opacity="0.35" stroke-width="2" points="' +
     polyPoints(gross, box, scale) + '"></polyline>' +
     '<polyline fill="none" stroke="var(--go)" stroke-width="2" points="' +
-    polyPoints(net, box, scale) + '"></polyline></svg></div>';
+    polyPoints(net, box, scale) + '"></polyline>' + endLabel + ticks + "</svg></div>";
 }
 
 function stepChart(history) {
   history = history || [];
   if (!history.length) return "";
   var vals = history.map(function (row) { return Number(row.annual) || 0; });
-  var box = { w: 640, h: 88, pL: 8, pR: 8, pT: 18, pB: 8 };
+  var box = { w: 360, h: 128, pL: 8, pR: 8, pT: 36, pB: 22 };
   var scale = scalePair([vals]);
   var span = scale.mx - scale.mn || 1;
   var n = history.length;
@@ -263,14 +308,51 @@ function stepChart(history) {
     var x1 = box.pL + (i + 1) * (box.w - box.pL - box.pR) / Math.max(n, 1);
     var y = box.pT + (box.h - box.pT - box.pB) * (1 - (v - scale.mn) / span);
     d += (i ? " L" : "M") + x0.toFixed(1) + " " + y.toFixed(1) + " L" + x1.toFixed(1) + " " + y.toFixed(1);
-    if (row.change_pct != null && isFinite(Number(row.change_pct))) {
-      labels += '<text x="' + x0.toFixed(1) + '" y="' + Math.max(y - 6, 12).toFixed(1) +
-        '" fill="var(--ink-soft)" font-size="12">' + esc(pctText(row.change_pct, true)) + "</text>";
-    }
+    var year = String(row.first_pay_date || row.effective || "").slice(0, 4);
+    labels += '<text x="' + x1.toFixed(1) + '" y="' + Math.max(y - 16, 14).toFixed(1) +
+      '" text-anchor="end" fill="var(--ink)" font-size="12">' + esc(year) + " " + esc(shortMoney(v)) + "</text> ";
   });
+  var first = history[0];
+  var last = history[history.length - 1];
+  labels += '<text x="' + box.pL + '" y="' + (box.h - 4) + '" fill="var(--ink-soft)" font-size="12">' +
+    esc(axisMonth(first.effective || first.first_pay_date)) + "</text> ";
+  labels += '<text x="' + (box.w - box.pR) + '" y="' + (box.h - 4) + '" text-anchor="end" fill="var(--ink-soft)" font-size="12">' +
+    esc(axisMonth(last.effective || last.first_pay_date)) + "</text> ";
   return '<div class="tape-plot"><svg class="axis-svg" viewBox="0 0 ' + box.w + " " + box.h +
-    '" preserveAspectRatio="none" role="img" aria-label="Salary by year">' +
+    '" role="img" aria-label="Salary by year">' +
     '<path d="' + d + '" fill="none" stroke="var(--mix-a)" stroke-width="2"></path>' + labels + "</svg></div>";
+}
+
+function raisesLine(history) {
+  var bits = [];
+  var sum = 0;
+  var n = 0;
+  (history || []).forEach(function (row) {
+    if (!row || row.change_pct == null || !isFinite(Number(row.change_pct))) return;
+    var year = String(row.first_pay_date || row.effective || "").slice(0, 4);
+    bits.push((year ? year + " " : "") + pctText(row.change_pct, true));
+    sum += Number(row.change_pct);
+    n += 1;
+  });
+  if (!n) return "";
+  return hint("Raises: " + bits.join(", ") + ". Average " + pctText(sum / n, true) + " per year.");
+}
+
+function yearAgoCheck(rows, latest) {
+  if (!latest) return null;
+  var target = dayIndex(latest.pay_date);
+  if (target == null) return null;
+  target -= 372;
+  var best = null;
+  var bestDist = 1e9;
+  rows.forEach(function (row) {
+    if (!row || row === latest) return;
+    var d = dayIndex(row.pay_date);
+    if (d == null) return;
+    var dist = Math.abs(d - target);
+    if (dist < bestDist) { bestDist = dist; best = row; }
+  });
+  return best;
 }
 
 function donutPath(cx, cy, r0, r1, a0, a1) {
@@ -294,18 +376,18 @@ function payParts(doc, year) {
   if (sum.basis === "stub") {
     var k = sum.k401split || {};
     add("taxes", "Taxes", sum.taxes, MIX[0], "out");
-    add("k401", "401(k)", sum.k401, MIX[1], "out");
+    add("k401", "401(k)", sum.k401, "var(--mix-d)", "out");
     add("insurance", "Insurance/HSA", Number(sum.pretax) - Number(k.pretax || 0), MIX[2], "out");
-    add("loan", "Loan", Number(sum.posttax) - Number(k.roth || 0) - Number(k.aftertax || 0), MIX[3], "out");
-    add("net", "Net", sum.net, MIX[5], "in");
+    add("loan", "Loan", Number(sum.posttax) - Number(k.roth || 0) - Number(k.aftertax || 0), "var(--mix-e)", "out");
+    add("net", "Net", sum.net, "var(--go)", "in");
     return parts;
   }
   var b = sum.buckets || {};
   add("taxes", "Taxes", sum.taxes, MIX[0], "out");
-  add("k401", "401(k)", sum.k401, MIX[1], "out");
+  add("k401", "401(k)", sum.k401, "var(--mix-d)", "out");
   add("insurance", "Insurance/HSA", b.insurance_hsa, MIX[2], "out");
-  add("loan", "Loan", b.loan_401k, MIX[3], "out");
-  add("net", "Net", sum.net, MIX[5], "in");
+  add("loan", "Loan", b.loan_401k, "var(--mix-e)", "out");
+  add("net", "Net", sum.net, "var(--go)", "in");
   return parts;
 }
 
@@ -343,12 +425,16 @@ function whereCard(doc, year, checks, openGroup) {
     p.d = d;
     return p;
   });
-  var top = paths.slice().sort(function (x, y) { return y.value - x.value; })[0];
+  var centerPart = null;
+  paths.forEach(function (p) { if (p.key === "net") centerPart = p; });
+  if (!centerPart) centerPart = paths.slice().sort(function (x, y) { return y.value - x.value; })[0];
+  var centerMoney = moneyText(centerPart.value, centerPart.mode);
   var svg = '<div class="mix-ring"><svg class="mix-svg" viewBox="0 0 140 140" aria-hidden="true">' +
     paths.map(function (p) {
       return '<path d="' + p.d + '" fill="' + p.color + '"></path>';
     }).join("") +
-    '</svg><div class="mix-center"><b>' + top.pct.toFixed(0) + '%</b><span>' + esc(top.label) + "</span></div></div>";
+    '</svg><div class="mix-center"><b class="' + centerMoney.tone + '">' + centerMoney.text + "</b> <span>" +
+    esc(centerPart.label) + "</span></div></div>";
   var latest = checks[0] || null;
   var legend = paths.map(function (p) {
     var on = openGroup === p.key;
@@ -357,7 +443,7 @@ function whereCard(doc, year, checks, openGroup) {
       '<i style="background:' + p.color + '"></i>' +
       '<span class="mix-leg-meta"><span class="mix-leg-name">' + esc(p.label) + "</span>" +
       '<span class="mix-bar"><span style="width:' + Math.max(p.pct, 2).toFixed(1) + "%;background:" + p.color + '"></span></span></span> ' +
-      "<b>" + p.pct.toFixed(0) + "% \u00b7 " + '<span class="' + m.tone + '">' + m.text + "</span></b></button>";
+      "<b>" + shareText(p.pct) + " \u00b7 " + '<span class="' + m.tone + '">' + m.text + "</span></b></button>";
   }).join("");
   var lines = "";
   if (openGroup && latest) {
@@ -382,7 +468,7 @@ function salaryHero(doc) {
     moneyKpi("Annual", salary.current_annual, "plain") +
     textKpi("Last raise", pctText(lastRaise, true)) +
     "</div>";
-  return card("Salary", "salary", kpis + stepChart(hist));
+  return card("Salary", "salary", kpis + stepChart(hist) + raisesLine(hist));
 }
 
 function ytdCard(doc, year) {
@@ -403,7 +489,7 @@ function ytdCard(doc, year) {
   var line = "";
   if (sum.basis === "stub") {
     line = "Stub through " + fmtDate(sum.through) + ".";
-    if (comparable) line += " Versus " + sum.checks + " checks through " + fmtDate(same.through) + ".";
+    if (comparable) line += " Versus " + sum.checks + " checks through " + fmtDate(same.through) + ", vs last year.";
   } else {
     line = "partial \u00b7 " + sum.onFile + " checks on file.";
     if (sum.lastPay) line += " Last check of " + String(year) + ".";
@@ -566,19 +652,34 @@ function payHtml(doc, state) {
   var year = state.year != null && years.indexOf(Number(state.year)) >= 0 ? Number(state.year) : (years.length ? years[years.length - 1] : "");
   var checks = checksForYear(doc, year);
   var latest = checks[0] || null;
-  var openId = state.openCheckId && checks.some(function (c) { return c.id === state.openCheckId; }) ? state.openCheckId : "";
+  var openId = state.openCheckId;
+  if (openId == null) openId = latest ? latest.id : "";
+  else if (openId && !checks.some(function (c) { return c.id === openId; })) openId = "";
   var flags = doc.flags || [];
   var extraFlags = flags.length > 3 ? flagsBlock(flags.slice(3), 10) : "";
-  return "<h2>Pay</h2>" +
+  var trendRows = sortedChecks(doc).slice(-24);
+  var trendLast = trendRows.length ? trendRows[trendRows.length - 1] : null;
+  var trendPrior = yearAgoCheck(trendRows, trendLast);
+  var trendDelta = null;
+  if (trendLast && trendPrior && Number(trendPrior.net)) {
+    trendDelta = ((Number(trendLast.net) - Number(trendPrior.net)) / Math.abs(Number(trendPrior.net))) * 100;
+  }
+  var trendTile = trendLast
+    ? '<div class="kpi kpi-equity">' + moneyKpi("Latest net", trendLast.net, "in", trendDelta == null ? null : deltaExtra(trendDelta, false)) + "</div>"
+    : "";
+  var trendNote = "Net per check, gross behind.";
+  if (trendPrior) trendNote += " Change vs a year ago.";
+  return pageTitle("Pay") +
+    '<div class="split-two">' +
     salaryHero(doc) +
-    card("Take-home trend", "trend", trendChart(sortedChecks(doc).slice(-24)) + hint("Net per check, gross behind.")) +
+    card("Take-home trend", "trend", trendTile + trendChart(trendRows) + hint(trendNote)) +
+    "</div>" +
     whereCard(doc, year, checks, state.openGroup) +
     ytdCard(doc, year) +
     flagsBlock(flags, 3) +
     k401Card(doc, year, latest) +
     moreBlock(
       yearPick("pay", year, years) +
-      latestDetail(latest) +
       checksCard(checks, latest && latest.id, openId) +
       salaryTable(doc) +
       byYearCard(doc, year) +
@@ -605,61 +706,78 @@ function estimateCard(doc) {
   if (!isFinite(total)) total = fed.refund_or_owed;
   var big = moneyText(total, "signed");
   var word = Number(total) < 0 ? "Owed" : "Refund";
-  var hero = '<div class="kpi"><div><span>' + word + '</span> <b class="' + big.tone + '">' + big.text + "</b></div></div>";
-  var extra = fed.extra_per_check_to_break_even;
-  var extraLine = extra != null && isFinite(Number(extra)) && Number(extra) !== 0
-    ? hint("Extra per check needed: " + moneyText(extra, "plain").text + ".")
-    : "";
-  var withheld = est.stub_adjustment && est.stub_adjustment.withholding_projected;
-  var owe = Number(total) < 0;
-  var resultLabel = owe ? "Owe" : "Refund";
-  var resultMoney = moneyText(Math.abs(Number(total)), owe ? "out" : "in");
-  var per = "";
-  if (owe && extra != null && isFinite(Number(extra)) && Number(extra) !== 0) {
-    per = " \u00b7 " + moneyText(extra, "plain").text + "/check";
+  var hero = '<div class="kpi kpi-equity"><div><span>' + word + '</span> <b class="' + big.tone + '">' + big.text + "</b></div></div>";
+  var scenarios = est.scenarios || [];
+  var nets = [];
+  scenarios.forEach(function (row) {
+    if (row && row.refund_or_owed != null && isFinite(Number(row.refund_or_owed))) nets.push(Number(row.refund_or_owed));
+  });
+  var range = "";
+  if (nets.length) {
+    var hi = Math.max.apply(null, nets);
+    var lo = Math.min.apply(null, nets);
+    range = moneyText(hi, "signed").text + " to " + moneyText(lo, "signed").text + ". ";
   }
+  var extra = fed.extra_per_check_to_break_even;
+  var extraText = extra != null && isFinite(Number(extra)) && Number(extra) !== 0
+    ? "Extra per check: " + moneyText(extra, "plain").text + "."
+    : "No extra needed.";
+  var extraLine = hint(range + extraText);
+  var withheld = est.stub_adjustment && est.stub_adjustment.withholding_projected;
   function row(label, cell) {
     return "<tr><td><span class=\"sym\">" + esc(label) + "</span></td>" + cell + "</tr>";
   }
+  function nonzero(n) { return n != null && isFinite(Number(n)) && Number(n) !== 0; }
   var body = row("Projected tax", moneyTd(fed.total_tax, "out")) +
-    row("Withheld", moneyTd(withheld, "plain")) +
-    row(resultLabel, '<td class="num ' + resultMoney.tone + '">' + resultMoney.text + per + "</td>") +
-    row("Federal", moneyTd(fed.refund_or_owed, "signed")) +
-    row("State", moneyTd(state.refund_or_owed, "signed")) +
-    row("Local", moneyTd(local.refund_or_owed, "signed"));
+    row("Withheld", moneyTd(withheld, "plain"));
+  if (nonzero(state.refund_or_owed)) body += row("State", moneyTd(state.refund_or_owed, "signed"));
+  if (nonzero(local.refund_or_owed)) body += row("Local", moneyTd(local.refund_or_owed, "signed"));
   var table = '<table class="book"><thead><tr><th>Piece</th><th class="num">Amount</th></tr></thead><tbody>' + body + "</tbody></table>";
   var heading = "Estimate";
   if (est.year != null) heading = String(est.year) + " estimate";
   return card(heading, "estimate", hero + extraLine + table);
 }
 
-function scenariosCard(doc) {
+function scenariosCard(doc, state) {
   var base = baseScenario(doc);
   var rows = ((doc.estimate && doc.estimate.scenarios) || []).filter(function (row) {
     return row && !row.is_base;
   });
   if (!rows.length) return "";
+  var openId = state && state.openScenario;
   var body = rows.map(function (row) {
     var change = base && row.refund_or_owed != null && base.refund_or_owed != null
       ? Number(row.refund_or_owed) - Number(base.refund_or_owed)
       : null;
-    return "<tr><td><span class=\"sym\">" + esc(row.label || "") + "</span></td>" +
-      moneyTd(row.agi, "plain") + moneyTd(row.total_tax, "out") + moneyTd(row.withholding, "plain") +
-      moneyTd(change, "signed") + "</tr>";
+    var open = openId && String(openId) === String(row.id);
+    var more = open
+      ? '<tr class="scenario-more"><td colspan="6"><span class="sub">AGI ' + moneyText(row.agi, "plain").text +
+        " \u00b7 Tax " + moneyText(row.total_tax, "out").text +
+        " \u00b7 Withheld " + moneyText(row.withholding, "plain").text + "</span></td></tr>"
+      : "";
+    function wide(n, mode) {
+      return moneyTd(n, mode).replace('class="num ', 'class="num wide-col ');
+    }
+    return '<tr data-scenario="' + esc(row.id) + '"' + (open ? ' class="on"' : "") +
+      ' tabindex="0" role="button" aria-expanded="' + (open ? "true" : "false") + '"><td><span class="sym">' +
+      esc(row.label || "") + "</span></td>" +
+      wide(row.agi, "plain") + wide(row.total_tax, "out") + wide(row.withholding, "plain") +
+      moneyTd(row.refund_or_owed, "signed") +
+      moneyTd(change, "signed") + "</tr>" + more;
   }).join("");
-  var table = '<table class="book"><thead><tr><th>Scenario</th><th class="num">AGI</th><th class="num">Tax</th><th class="num">Withheld</th><th class="num">Versus base</th></tr></thead><tbody>' +
+  var table = '<table class="book"><thead><tr><th>Scenario</th><th class="num wide-col">AGI</th><th class="num wide-col">Tax</th><th class="num wide-col">Withheld</th><th class="num">Refund / owed</th><th class="num">Refund vs base</th></tr></thead><tbody>' +
     body + "</tbody></table>";
-  return card("Scenarios", "scenarios", table);
+  return card("Scenarios", "scenarios", table + hint("Tap a row for AGI, tax, and withheld."));
 }
 
 function yearBars(rows) {
   if (!rows.length) return "";
-  var w = 640, h = 120, pL = 8, pR = 8, pT = 12, pB = 22;
+  var w = 360, h = 168, pL = 28, pR = 8, pT = 18, pB = 22;
   var nets = rows.map(function (row) { return Number(row.net) || 0; });
   var maxAbs = Math.max.apply(null, nets.map(function (n) { return Math.abs(n); }).concat([1]));
   var mid = pT + (h - pT - pB) / 2;
   var slot = (w - pL - pR) / Math.max(rows.length, 1);
-  var barW = Math.min(36, slot * 0.5);
+  var barW = Math.min(28, slot * 0.46);
   var parts = ['<line x1="' + pL + '" y1="' + mid + '" x2="' + (w - pR) + '" y2="' + mid + '" stroke="var(--rule)"></line>'];
   var rates = [];
   rows.forEach(function (row) {
@@ -670,24 +788,37 @@ function yearBars(rows) {
   if (rmax === rmin) { rmin -= 1; rmax += 1; }
   var rspan = rmax - rmin || 1;
   var pts = [];
+  var lastRate = null;
+  var lastCx = null;
+  var lastRy = null;
   rows.forEach(function (row, i) {
     var net = Number(row.net) || 0;
     var cx = pL + slot * i + slot / 2;
-    var bh = (Math.abs(net) / maxAbs) * ((h - pT - pB) / 2 - 4);
+    var bh = (Math.abs(net) / maxAbs) * ((h - pT - pB) / 2 - 16);
     var y = net >= 0 ? mid - bh : mid;
     var fill = net < 0 ? "var(--stop)" : "var(--go)";
     parts.push('<rect x="' + (cx - barW / 2).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) +
       '" height="' + Math.max(bh, 1).toFixed(1) + '" fill="' + fill + '"></rect>');
-    parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" fill="var(--ink-soft)" font-size="11">' +
+    var labelY = net >= 0 ? Math.max(y - 4, 12) : y + bh + 12;
+    parts.push('<text x="' + cx.toFixed(1) + '" y="' + labelY.toFixed(1) + '" text-anchor="middle" fill="var(--ink)" font-size="11">' +
+      esc(shortMoney(net)) + "</text>");
+    parts.push('<text x="' + cx.toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle" fill="var(--ink-soft)" font-size="12">' +
       esc(row.year) + "</text>");
     if (row.effective_rate_pct != null && isFinite(Number(row.effective_rate_pct))) {
       var ry = pT + (h - pT - pB) * (1 - (Number(row.effective_rate_pct) - rmin) / rspan);
       pts.push(cx.toFixed(1) + "," + ry.toFixed(1));
+      lastRate = Number(row.effective_rate_pct);
+      lastCx = cx;
+      lastRy = ry;
     }
   });
-  if (pts.length) parts.push('<polyline fill="none" stroke="var(--mix-c)" stroke-width="2" points="' + pts.join(" ") + '"></polyline>');
+  if (pts.length) {
+    parts.push('<polyline fill="none" stroke="var(--mix-c)" stroke-width="2" points="' + pts.join(" ") + '"></polyline>');
+    parts.push('<text x="4" y="' + (lastRy || pT).toFixed(1) + '" fill="var(--mix-c)" font-size="11">' +
+      esc("Eff. rate " + pctText(lastRate, false)) + "</text>");
+  }
   return '<div class="tape-plot"><svg class="axis-svg" viewBox="0 0 ' + w + " " + h +
-    '" role="img" aria-label="Refund or owed by year">' + parts.join("") + "</svg></div>";
+    '" role="img" aria-label="Refund or owed by year">' + parts.join(" ") + "</svg></div>";
 }
 
 function barsCard(doc) {
@@ -718,11 +849,9 @@ function yearsTable(doc, selected) {
   var body = rows.map(function (row) {
     var net = row.net != null ? row.net : (Number(row.refund) || 0) - (Number(row.owed) || 0);
     var withheld = row.payments && row.payments.withholding;
-    var mark = amendedNote(doc, row.year);
-    var sub = mark ? ' <span class="sub">' + esc(mark) + "</span>" : "";
-    var picked = Number(row.year) === Number(selected) ? ' <span class="sub">Selected</span>' : "";
-    return '<tr data-tax-year="' + esc(row.year) + '"><td><span class="sym">' + esc(row.year) + "</span>" + picked + sub +
-      "</td>" + moneyTd(row.agi, "plain") + moneyTd(row.total_tax, "out") + moneyTd(withheld, "plain") +
+    var picked = Number(row.year) === Number(selected);
+    return '<tr data-tax-year="' + esc(row.year) + '"' + (picked ? ' class="on"' : "") + '"><td><span class="sym">' +
+      esc(row.year) + "</span></td>" + moneyTd(row.agi, "plain") + moneyTd(row.total_tax, "out") + moneyTd(withheld, "plain") +
       moneyTd(net, "signed") + "</tr>";
   }).join("");
   var table = '<table class="book"><thead><tr><th>Year</th><th class="num">AGI</th><th class="num">Total tax</th><th class="num">Withheld</th><th class="num">Refund / owed</th></tr></thead><tbody>' +
@@ -747,11 +876,13 @@ function taxesHtml(doc, state) {
   state = state || {};
   var years = yearsOf(doc.years);
   var year = state.year != null && years.indexOf(Number(state.year)) >= 0 ? Number(state.year) : (years.length ? years[years.length - 1] : "");
-  return "<h2>Taxes</h2>" +
+  return pageTitle("Taxes") +
     estimateCard(doc) +
-    scenariosCard(doc) +
+    scenariosCard(doc, state) +
+    '<div class="split-two">' +
     barsCard(doc) +
     energyCard(doc) +
+    "</div>" +
     moreBlock(
       yearPick("taxes", year, years) +
       yearsTable(doc, year) +
@@ -881,6 +1012,14 @@ function bind(root, kind) {
       if (mem[kind]) paint(root, kind, { ok: true, doc: mem[kind] });
       return;
     }
+    var scenario = target.closest("tr[data-scenario]");
+    if (scenario && (!root.contains || root.contains(scenario))) {
+      var sid = scenario.getAttribute("data-scenario");
+      var sstate = root._paydeskState;
+      sstate.openScenario = sstate.openScenario === sid ? "" : sid;
+      if (mem[kind]) paint(root, kind, { ok: true, doc: mem[kind] });
+      return;
+    }
     var row = target.closest("tr[data-check-id]");
     if (!row || (root.contains && !root.contains(row))) return;
     var id = row.getAttribute("data-check-id");
@@ -903,8 +1042,9 @@ function bind(root, kind) {
     if (!sel || !sel.getAttribute || !sel.getAttribute("data-year-pick")) return;
     var state = root._paydeskState;
     state.year = Number(sel.value);
-    state.openCheckId = "";
+    state.openCheckId = null;
     state.openGroup = "";
+    state.openScenario = "";
     if (!mem[kind]) return;
     paint(root, kind, { ok: true, doc: mem[kind] });
   });

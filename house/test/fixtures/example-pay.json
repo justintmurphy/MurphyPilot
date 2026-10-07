@@ -532,7 +532,7 @@
         "gross": 76000,
         "taxes": 16492,
         "pretax": 6650,
-        "posttax": 3800,
+        "posttax": 3600,
         "net": 49058
       },
       "k401_elected_pct": {
@@ -613,7 +613,7 @@
           "label": "401(k) pre-tax",
           "bucket": "k401_pretax",
           "current": 200,
-          "ytd": 3800
+          "ytd": 3600
         },
         {
           "section": "pretax",
@@ -637,7 +637,7 @@
           "label": "401(k) Roth",
           "bucket": "k401_roth",
           "current": 200,
-          "ytd": 3800
+          "ytd": 3600
         },
         {
           "section": "employer",

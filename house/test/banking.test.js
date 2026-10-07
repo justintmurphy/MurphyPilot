@@ -6858,6 +6858,11 @@ test("ticker rolls paydays, skips retired bills, and hides when the fetch fails"
   assert.match(mountEl.innerHTML, /data-mp-tick="out"/);
   assert.match(mountEl.innerHTML, /\+1 more/);
   assert.match(mountEl.innerHTML, /··1111|Next in/);
+  fx.budget.income_monthly[0].deposits[0].account = null;
+  const bareEl = { hidden: true, innerHTML: "", addEventListener: function () {} };
+  ctx.MPTicker.render(bareEl, fx, null, { year: 2026, month: 10, day: 6 });
+  assert.match(bareEl.innerHTML, /Next in/);
+  assert.doesNotMatch(bareEl.innerHTML, /TBD/);
   fx.budget.bills = [{ name: "Rent", amount: 10, typical_day: 2, cadence: "monthly" }];
   const wrapped = ctx.bankNextBillOut(fx, { now: "2026-10-28T12:00:00-04:00" });
   assert.equal(wrapped.due.slice(0, 7), "2026-11");
