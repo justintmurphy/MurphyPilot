@@ -338,14 +338,10 @@ function investSortSoonest(list) {
     return 0;
   });
 }
-function invPaintTicker(snap, opts) {
+function invPaintTicker(snap) {
   var el = typeof document !== "undefined" && document.getElementById ? document.getElementById("mp-ticker") : null;
-  if (!el || typeof MPTicker === "undefined" || !MPTicker.render) return;
-  try {
-    var tiers = (typeof bankTierDoc === "function") ? bankTierDoc(snap) : null;
-    var today = (typeof bankScreenToday === "function") ? bankScreenToday(snap, opts || {}) : null;
-    MPTicker.render(el, snap, tiers, today);
-  } catch (e) {
+  if (!el || typeof MPTicker === "undefined" || !MPTicker.renderDesk) return;
+  try { MPTicker.renderDesk(el, snap); } catch (e) {
     el.hidden = true;
     el.innerHTML = "";
   }
@@ -4187,6 +4183,7 @@ function invMountTicker() {
 
   function paint() {
     if (!snap) return;
+    if (typeof invPaintTicker === "function") invPaintTicker(snap);
     paintNav();
     var b = book();
     var title = LABEL[tab] || tab;
