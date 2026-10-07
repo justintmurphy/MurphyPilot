@@ -1029,6 +1029,7 @@ function invMountTicker() {
   }
   /* Day is the prior session, week is five sessions back, month is the prior month's last session. Other spans snap a calendar day back onto the prior session. Exact tape day or null — never the newest row and never an older stand-in. */
   function lookbackAnchor(days, now, prints) {
+    if (now == null) now = Date.now();
     var today = nyYmd(now);
     var session = sessionDay(today, now, prints);
     if (days === 1) return tradingDaysBefore(session, 1);

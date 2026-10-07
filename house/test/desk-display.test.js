@@ -1343,6 +1343,45 @@ test("before the open today is not a session, and a missing anchor hides every c
   assert.notEqual(holidayYear.prior, 99);
 });
 
+test("callers that omit now still skip today before the open", function () {
+  const ctx = boot();
+  pinClock(ctx, "2026-10-16T08:00:00-04:00");
+  const prints = [
+    closePrint("2026-10-08", 200),
+    closePrint("2026-10-09", 300),
+    closePrint("2026-10-14", 100),
+    closePrint("2026-10-15", 80)
+  ];
+  ctx.snap = {
+    accounts: {
+      desk: {
+        id: "desk",
+        equity: 80,
+        cash: 1,
+        buying_power: 1,
+        invested_pct: 10,
+        names: [],
+        pending_deposits: 0
+      }
+    },
+    combined: { equity: 80, live_equity: 80 },
+    tape: { overall: prints, desk: prints.slice() },
+    truthifiFail: true
+  };
+  ctx.tab = "desk";
+  const strip = ctx.overallStripHtml();
+  const book = ctx.stateHtml(ctx.snap.accounts.desk, "Desk");
+  const tape = ctx.tapeHtml("desk", "Desk", false);
+  assert.match(strip, /Day<\/span> <b class="tone-stop">-\$20\.00<\/b>/);
+  assert.match(strip, /Week<\/span> <b class="tone-stop">-\$120\.00<\/b>/);
+  assert.match(book, /Day -\$20\.00/);
+  assert.match(book, /Week -\$120\.00/);
+  assert.match(tape, /Day<\/span> <b class="tone-stop">-\$20\.00<\/b>/);
+  assert.match(tape, /Week<\/span> <b class="tone-stop">-\$120\.00<\/b>/);
+  assert.doesNotMatch(strip + book + tape, /Day[^<]{0,40}\$0\.00/);
+  assert.doesNotMatch(strip + tape, /Week<\/span> <b class="tone-stop">-\$220\.00<\/b>/);
+});
+
 test("mix center sums full-precision parts and matches the book equity", function () {
   const ctx = boot();
   vm.runInContext(fs.readFileSync(path.join(root, "house/js/board-d.js"), "utf8"), ctx, { filename: "board-d.js" });
