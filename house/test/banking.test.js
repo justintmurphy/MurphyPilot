@@ -8210,6 +8210,99 @@ test("a ten-row cap measures against itself at phone and desktop widths", functi
   });
 });
 
+test("edits tiers cap at ten rows and a short list stays open", async function () {
+  const ctx = boot();
+  function tiersFx(n) {
+    const fx = blankBudget(loadFixture());
+    fx.custom_categories = [];
+    fx.budget.snapshots = {};
+    fx.budget.other_income = [];
+    fx.budget.planned_by_category = {};
+    for (let i = 1; i <= n; i++) fx.budget.planned_by_category["Example Category " + i] = 4;
+    return fx;
+  }
+  function rulesSlice(html) {
+    const at = html.indexOf("<h2>Rules</h2>");
+    const more = html.indexOf("More details", at);
+    return html.slice(at, more > at ? more : at + 12000);
+  }
+  const now = "2026-10-06T12:00:00-04:00";
+  const rules = rulesSlice(ctx.bankPageHtml(tiersFx(11), { tab: "edits", now: now }));
+  assert.match(rules, /class="list-cap"/);
+  assert.match(rules, /aria-label="Tiers"/);
+  assert.match(rules, /Showing 10 of 11, scroll for more/);
+  assert.equal((rules.match(/data-bank-kind="/g) || []).length, 11);
+  assert.match(rules, /Example Category 11/);
+  const short = rulesSlice(ctx.bankPageHtml(tiersFx(4), { tab: "edits", now: now }));
+  assert.doesNotMatch(short, /Showing 10 of/);
+  assert.doesNotMatch(short, /aria-label="Tiers"/);
+  assert.equal((short.match(/data-bank-kind="/g) || []).length, 4);
+
+  const { spawn } = require("child_process");
+  const os = require("os");
+  const fragment = ctx.bankKindEditHtml(tiersFx(11));
+  const html = "<!DOCTYPE html><html data-theme=\"justin\"><head><meta charset=\"utf-8\">" +
+    '<link rel="stylesheet" href="file://' + path.join(root, "house/house.css") + '">' +
+    '<link rel="stylesheet" href="file://' + path.join(root, "house/list-cap.css") + '">' +
+    '<link rel="stylesheet" href="file://' + path.join(root, "house/banking.css") + '">' +
+    "<style>body{margin:0;width:390px}</style></head><body>" +
+    '<section class="card span"><h2>Rules</h2>' + fragment + "</section>" +
+    '<script src="file://' + path.join(root, "house/js/list-cap.js") + '"></script><script>' +
+    'MPListCap.refresh(document);' +
+    'var cap=document.querySelector(\'.list-cap[aria-label="Tiers"]\');' +
+    'var rows=cap?Array.prototype.slice.call(cap.querySelectorAll("ul.bank-edit-list > li")):[];' +
+    'document.body.setAttribute("data-rows", String(rows.length));' +
+    'document.body.setAttribute("data-visible", cap ? (cap.getAttribute("data-list-visible") || "") : "");' +
+    'document.body.setAttribute("data-client", cap ? String(cap.clientHeight) : "0");' +
+    'document.body.setAttribute("data-scroll", cap ? String(cap.scrollHeight) : "0");' +
+    'document.body.setAttribute("data-count", cap ? String(MPListCap.visibleCount(cap, rows)) : "0");' +
+    'var host=cap&&cap.getBoundingClientRect();' +
+    'var row11=rows[10]&&rows[10].getBoundingClientRect();' +
+    'document.body.setAttribute("data-row11", row11&&host ? String(Math.round(row11.top - host.top)) : "");' +
+    "</script></body></html>";
+  const file = path.join(os.tmpdir(), "edits-tiers-cap.html");
+  fs.writeFileSync(file, html);
+  const chrome = fs.existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : "google-chrome";
+  const run = await new Promise(function (resolve) {
+    const child = spawn(chrome, [
+      "--headless", "--disable-gpu", "--no-sandbox", "--virtual-time-budget=2000",
+      "--remote-debugging-port=0",
+      "--user-data-dir=" + path.join(os.tmpdir(), "edits-tiers-cap-chrome"),
+      "--window-size=390,900", "--dump-dom", "file://" + file
+    ], { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    function finish(status) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { child.kill("SIGKILL"); } catch (e) {}
+      resolve({ status: status, stdout: stdout, stderr: stderr });
+    }
+    const timer = setTimeout(function () { finish(stdout.indexOf("data-row11=") >= 0 ? 0 : 1); }, 20000);
+    child.stdout.on("data", function (buf) {
+      stdout += buf;
+      if (stdout.indexOf("data-row11=") >= 0) finish(0);
+    });
+    child.stderr.on("data", function (buf) { stderr += buf; });
+    child.on("error", function (err) { stderr += String(err); finish(1); });
+    child.on("exit", function (code) { finish(code == null ? 1 : code); });
+  });
+  assert.equal(run.status, 0, run.stderr || run.stdout);
+  const dom = run.stdout || "";
+  const visible = (dom.match(/data-visible="(\d+)"/) || [])[1];
+  const count = (dom.match(/data-count="(\d+)"/) || [])[1];
+  const client = Number((dom.match(/data-client="(\d+)"/) || [])[1]);
+  const scroll = Number((dom.match(/data-scroll="(\d+)"/) || [])[1]);
+  const row11 = Number((dom.match(/data-row11="(-?\d+)"/) || [])[1]);
+  assert.equal((dom.match(/data-rows="(\d+)"/) || [])[1], "11");
+  assert.equal(visible, "10", "data-list-visible " + visible);
+  assert.equal(count, "10", "visible rows " + count);
+  assert.ok(scroll > client, "scroll " + scroll + " client " + client);
+  assert.ok(row11 >= client - 1, "row 11 top " + row11 + " client " + client);
+});
+
 test("funding start plus in minus out equals the month-end", function () {
   const ctx = boot();
   const fx = blankBudget(loadFixture());
