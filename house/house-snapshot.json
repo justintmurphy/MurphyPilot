@@ -1,7 +1,7 @@
 {
   "asof": "2026-10-07T16:17:12-04:00",
   "tip": "ba+bb+bc+be+bg+bh+bi+bj",
-  "note": "Wed 16:07 slot Site data House/pilot refresh (~16:17 ET, after the close). live RH portfolios+positions+quotes (regular-session 4 PM last)+crypto marks/positions. Positions unchanged in all 4 books vs Wed 13:02 slot (e302593); no closing trades, so realized day=0 and week/month carried. Yahoo indexes = Wed close vs Tue close. AI WWIII fills carried (no new orders). KEEP cashflow_30d. Truthifi untouched. Quiet Justin. | cashflow_30d KEPT verbatim from prior house (2026-09-02 to 2026-10-01).",
+  "note": "Wed 16:07 slot Site data House/pilot refresh (~16:17 ET, after the close). live RH portfolios+positions+quotes (regular-session 4 PM last)+crypto marks/positions. Positions unchanged in all 4 books vs Wed 13:02 slot (e302593); no closing trades, so realized day=0 and week/month carried. Yahoo indexes = Wed close vs Tue close. AI WWIII fills carried (no new orders). KEEP cashflow_30d. Truthifi untouched. Quiet Justin. | cashflow_30d Close recompute Wed 2026-10-07 (Forge, after Truthifi tip 8983710): 2026-09-07 to 2026-10-06, RH+Fid+Voya by_source.",
   "accounts": {
     "individual": {
       "id": "individual",
@@ -810,29 +810,29 @@
     },
     "invested_pct": 99.44,
     "cashflow_30d": {
-      "asof": "2026-10-02T16:29:22-04:00",
-      "from": "2026-09-02",
-      "to": "2026-10-01",
+      "asof": "2026-10-07T16:23:46-04:00",
+      "from": "2026-09-07",
+      "to": "2026-10-06",
       "owner_deposits": 1121.91,
-      "market_earnings": -1540.42,
+      "market_earnings": -425.21,
       "market_earnings_basis": "rh_realized+truthifi_totalPnL",
       "window_days": 30,
-      "dividends": 1.02,
-      "reinvested": 0.85,
+      "dividends": 1.63,
+      "reinvested": 1.47,
       "by_source": {
         "robinhood": {
           "owner_deposits": 250.0,
-          "market_earnings": -73.75
+          "market_earnings": -69.08
         },
         "fidelity": {
           "owner_deposits": 217.97,
-          "market_earnings": -180.17,
-          "dividends": 1.02,
-          "reinvested": 0.85
+          "market_earnings": -148.67,
+          "dividends": 1.63,
+          "reinvested": 1.47
         },
         "voya": {
           "owner_deposits": 653.94,
-          "market_earnings": -1286.5
+          "market_earnings": -207.46
         }
       }
     }
