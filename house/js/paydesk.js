@@ -110,6 +110,27 @@ function shortMoney(n) {
   return (neg ? "\u2212$" : "$") + body;
 }
 
+function compactMoney(n) {
+  var v = Number(n);
+  if (!isFinite(v)) return "\u2014";
+  var neg = v < 0;
+  var abs = Math.abs(v);
+  var body;
+  if (abs >= 1000000) body = (Math.round((abs / 1000000) * 10) / 10).toFixed(1) + "M";
+  else if (abs >= 1000) body = (Math.round((abs / 1000) * 10) / 10).toFixed(1) + "k";
+  else body = String(Math.round(abs));
+  return (neg ? "\u2212$" : "$") + body;
+}
+
+function wholeMoney(n) {
+  if (n == null || n === "" || !isFinite(Number(n))) return "\u2014";
+  var v = Math.round(Number(n));
+  var abs = String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  if (v < 0) return "\u2212$" + abs;
+  if (v > 0) return "+$" + abs;
+  return "$0";
+}
+
 function shareText(pct) {
   if (pct > 0 && pct < 1) return "<1%";
   return pct.toFixed(0) + "%";
@@ -312,15 +333,29 @@ function stepChart(history) {
     labels += '<text x="' + x1.toFixed(1) + '" y="' + Math.max(y - 16, 14).toFixed(1) +
       '" text-anchor="end" fill="var(--ink)" font-size="12">' + esc(year) + " " + esc(shortMoney(v)) + "</text> ";
   });
-  var first = history[0];
-  var last = history[history.length - 1];
+  var spanDates = stubSpan(history);
   labels += '<text x="' + box.pL + '" y="' + (box.h - 4) + '" fill="var(--ink-soft)" font-size="12">' +
-    esc(axisMonth(first.effective || first.first_pay_date)) + "</text> ";
+    esc(axisMonth(spanDates.start)) + "</text> ";
   labels += '<text x="' + (box.w - box.pR) + '" y="' + (box.h - 4) + '" text-anchor="end" fill="var(--ink-soft)" font-size="12">' +
-    esc(axisMonth(last.effective || last.first_pay_date)) + "</text> ";
+    esc(axisMonth(spanDates.end)) + "</text> ";
   return '<div class="tape-plot"><svg class="axis-svg" viewBox="0 0 ' + box.w + " " + box.h +
     '" role="img" aria-label="Salary by year">' +
     '<path d="' + d + '" fill="none" stroke="var(--mix-a)" stroke-width="2"></path>' + labels + "</svg></div>";
+}
+
+function stubSpan(history) {
+  var start = null;
+  var end = null;
+  var startIdx = null;
+  var endIdx = null;
+  (history || []).forEach(function (row) {
+    var iso = row && (row.first_pay_date || row.effective || "");
+    var idx = dayIndex(iso);
+    if (idx == null) return;
+    if (startIdx == null || idx < startIdx) { startIdx = idx; start = iso; }
+    if (endIdx == null || idx > endIdx) { endIdx = idx; end = iso; }
+  });
+  return { start: start, end: end };
 }
 
 function raisesLine(history) {
@@ -428,12 +463,13 @@ function whereCard(doc, year, checks, openGroup) {
   var centerPart = null;
   paths.forEach(function (p) { if (p.key === "net") centerPart = p; });
   if (!centerPart) centerPart = paths.slice().sort(function (x, y) { return y.value - x.value; })[0];
-  var centerMoney = moneyText(centerPart.value, centerPart.mode);
+  var centerTone = moneyText(centerPart.value, centerPart.mode).tone;
+  var centerText = compactMoney(centerPart.mode === "out" ? -centerPart.value : centerPart.value);
   var svg = '<div class="mix-ring"><svg class="mix-svg" viewBox="0 0 140 140" aria-hidden="true">' +
     paths.map(function (p) {
       return '<path d="' + p.d + '" fill="' + p.color + '"></path>';
     }).join("") +
-    '</svg><div class="mix-center"><b class="' + centerMoney.tone + '">' + centerMoney.text + "</b> <span>" +
+    '</svg><div class="mix-center"><b class="' + centerTone + '">' + centerText + "</b> <span>" +
     esc(centerPart.label) + "</span></div></div>";
   var latest = checks[0] || null;
   var legend = paths.map(function (p) {
@@ -489,7 +525,7 @@ function ytdCard(doc, year) {
   var line = "";
   if (sum.basis === "stub") {
     line = "Stub through " + fmtDate(sum.through) + ".";
-    if (comparable) line += " Versus " + sum.checks + " checks through " + fmtDate(same.through) + ", vs last year.";
+    if (comparable) line += " % vs last year (" + sum.checks + " checks through " + fmtDate(same.through) + ").";
   } else {
     line = "partial \u00b7 " + sum.onFile + " checks on file.";
     if (sum.lastPay) line += " Last check of " + String(year) + ".";
@@ -716,7 +752,7 @@ function estimateCard(doc) {
   if (nets.length) {
     var hi = Math.max.apply(null, nets);
     var lo = Math.min.apply(null, nets);
-    range = moneyText(hi, "signed").text + " to " + moneyText(lo, "signed").text + ". ";
+    range = "Range " + wholeMoney(lo) + " to " + wholeMoney(hi) + " across scenarios. ";
   }
   var extra = fed.extra_per_check_to_break_even;
   var extraText = extra != null && isFinite(Number(extra)) && Number(extra) !== 0
@@ -789,8 +825,6 @@ function yearBars(rows) {
   var rspan = rmax - rmin || 1;
   var pts = [];
   var lastRate = null;
-  var lastCx = null;
-  var lastRy = null;
   rows.forEach(function (row, i) {
     var net = Number(row.net) || 0;
     var cx = pL + slot * i + slot / 2;
@@ -808,17 +842,15 @@ function yearBars(rows) {
       var ry = pT + (h - pT - pB) * (1 - (Number(row.effective_rate_pct) - rmin) / rspan);
       pts.push(cx.toFixed(1) + "," + ry.toFixed(1));
       lastRate = Number(row.effective_rate_pct);
-      lastCx = cx;
-      lastRy = ry;
     }
   });
+  var rateLegend = "";
   if (pts.length) {
     parts.push('<polyline fill="none" stroke="var(--mix-c)" stroke-width="2" points="' + pts.join(" ") + '"></polyline>');
-    parts.push('<text x="4" y="' + (lastRy || pT).toFixed(1) + '" fill="var(--mix-c)" font-size="11">' +
-      esc("Eff. rate " + pctText(lastRate, false)) + "</text>");
+    rateLegend = hint("Eff. rate " + pctText(lastRate, false));
   }
   return '<div class="tape-plot"><svg class="axis-svg" viewBox="0 0 ' + w + " " + h +
-    '" role="img" aria-label="Refund or owed by year">' + parts.join(" ") + "</svg></div>";
+    '" role="img" aria-label="Refund or owed by year">' + parts.join(" ") + "</svg></div>" + rateLegend;
 }
 
 function barsCard(doc) {

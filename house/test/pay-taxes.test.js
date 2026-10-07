@@ -161,7 +161,10 @@ function plainPageText(html) {
 function glueCopyHits(text) {
   const hits = [];
   text.split("\n").forEach(function (line) {
-    const stripped = line.replace(/\([A-Za-z]+-\d+\)/g, " ").replace(/\$[\d,.]*\d\s*k\b/gi, " ");
+    const stripped = line
+      .replace(/\([A-Za-z]+-\d+\)/g, " ")
+      .replace(/\$[\d,.]*\d\s*k\b/gi, " ")
+      .replace(/\(\d+ checks through [^)]+\)/g, " ");
     if (/[A-Za-z)][$\d]|[$\d][A-Za-z)]/.test(stripped)) hits.push(line.trim().slice(0, 160));
     if (/[a-z][A-Z]/.test(line)) hits.push(line.trim().slice(0, 160));
   });
@@ -314,8 +317,13 @@ test("pay summary is analytics first and agrees on the stub", function () {
   assert.match(summary, /class="mix-svg"/);
   assert.match(summary, /data-basis="stub"/);
   assert.match(summary, /\+\$84,000\.00/);
-  assert.match(summary, /Stub through Oct 9, 2026/);
-  assert.match(summary, /Versus 21 checks through Oct 10, 2025/);
+  assert.match(summary, /Stub through Oct 9, 2026\. % vs last year \(21 checks through Oct 10, 2025\)\./);
+  assert.doesNotMatch(summary, /Versus /);
+  const where = summary.split('data-card="where"')[1].split("data-card=")[0];
+  const center = where.split('class="mix-center"')[1].split("</div>")[0];
+  assert.match(center, /\$54\.4k/);
+  assert.doesNotMatch(center, /54,362/);
+  assert.match(where, /\+\$54,362\.87/);
   assert.match(summary, /\+6\.75%/);
   assert.match(summary, /No employer match shows on recent stubs/);
   assert.doesNotMatch(summary, /understates/);
@@ -424,7 +432,19 @@ test("taxes summary uses payload labels and the base flag", function () {
   assert.match(summary, /Projected tax/);
   assert.match(summary, /Withheld/);
   assert.match(summary, /No extra needed/);
-  assert.match(summary, /\+\$4,436\.00 to /);
+  const nets = doc.estimate.scenarios.map(function (row) { return Number(row.refund_or_owed); });
+  function whole(n) {
+    const v = Math.round(n);
+    const abs = String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    if (v < 0) return "\u2212$" + abs;
+    if (v > 0) return "+$" + abs;
+    return "$0";
+  }
+  const rangeLine = "Range " + whole(Math.min.apply(null, nets)) + " to " + whole(Math.max.apply(null, nets)) + " across scenarios. No extra needed.";
+  assert.ok(summary.includes(rangeLine), rangeLine);
+  const rangeHint = (summary.match(/<p class="hint">Range [^<]*<\/p>/) || [""])[0];
+  assert.doesNotMatch(rangeHint, /\+\$4,436\.00/);
+  assert.doesNotMatch(rangeHint, /−\$2,000\.00/);
   assert.match(summary, /Refund vs base/);
   assert.doesNotMatch(summary, /Versus base/);
   assert.doesNotMatch(summary, /Extra per check needed/);
@@ -474,6 +494,70 @@ test("energy carryforward remaining renders when it is a number", function () {
   const html = ctx.paydeskHtml("taxes", carry, {});
   assert.match(html, /data-card="energy"[\s\S]{0,240}\+\$300\.00/);
   assert.doesNotMatch(html, /data-card="energy"[\s\S]{0,240}—/);
+});
+
+test("salary axis ticks run from the first stub date to the latest", function () {
+  const ctx = boot();
+  const src = read("house/js/paydesk.js");
+  assert.doesNotMatch(src, /Sep 2025|Dec 2025|Jan 2026|Mar 2024|Aug 2026/);
+  const doc = loadPay();
+  const liveSvg = ctx.paydeskHtml("pay", doc, {}).split('aria-label="Salary by year"')[1].split("</svg>")[0];
+  const liveTicks = Array.from(liveSvg.matchAll(/fill="var\(--ink-soft\)"[^>]*>([^<]+)/g)).map(function (m) { return m[1]; });
+  assert.deepEqual(liveTicks, ["Sep 2025", "Jan 2026"]);
+  doc.salary.history[0].effective = "2024-11-01";
+  doc.salary.history[0].first_pay_date = "2024-03-15";
+  doc.salary.history[1].effective = "2025-12-15";
+  doc.salary.history[1].first_pay_date = "2026-08-02";
+  doc.salary.history.reverse();
+  const svg = ctx.paydeskHtml("pay", doc, {}).split('aria-label="Salary by year"')[1].split("</svg>")[0];
+  const ticks = Array.from(svg.matchAll(/fill="var\(--ink-soft\)"[^>]*>([^<]+)/g)).map(function (m) { return m[1]; });
+  assert.deepEqual(ticks, ["Mar 2024", "Aug 2026"]);
+  assert.doesNotMatch(svg, /Nov 2024|Dec 2025/);
+});
+
+test("donut center compacts millions and an extra check uses the extra line", function () {
+  const ctx = boot();
+  const pay = loadPay();
+  pay.ytd.this_year.net = 2500000;
+  const where = ctx.paydeskHtml("pay", pay, {}).split('data-card="where"')[1].split("data-card=")[0];
+  assert.match(where.split('class="mix-center"')[1], /\$2\.5M/);
+  assert.match(where, /\+\$2,500,000\.00/);
+  const taxes = loadTaxes();
+  taxes.estimate.federal.extra_per_check_to_break_even = 400;
+  const estimate = ctx.paydeskHtml("taxes", taxes, {}).split('data-card="estimate"')[1].split("data-card=")[0];
+  assert.match(estimate, /Extra per check: \$400\.00\./);
+  assert.doesNotMatch(estimate, /No extra needed/);
+});
+
+test("pay and taxes load the stylesheet that defines .bank-view-title", function () {
+  function linkedSheets(rel) {
+    const html = read(rel);
+    return (html.match(/<link\b[^>]*>/g) || []).map(function (tag) {
+      if (!/rel="stylesheet"/.test(tag)) return "";
+      const href = /href="([^"]+)"/.exec(tag);
+      return href ? href[1].split("?")[0] : "";
+    }).filter(Boolean);
+  }
+  function defines(href, seen) {
+    if (!href || seen[href]) return false;
+    seen[href] = true;
+    const file = href.replace(/^\//, "");
+    let css = "";
+    try { css = read(file); } catch (e) { return false; }
+    if (/\.bank-view-title\s*\{/.test(css)) return true;
+    const dir = file.split("/").slice(0, -1).join("/");
+    const imports = [];
+    const re = /@import\s+url\("([^"]+)"\)/g;
+    let m;
+    while ((m = re.exec(css))) {
+      const next = m[1].split("?")[0];
+      imports.push(next.charAt(0) === "/" ? next : "/" + dir + "/" + next);
+    }
+    return imports.some(function (next) { return defines(next, seen); });
+  }
+  ["pay/index.html", "taxes/index.html"].forEach(function (rel) {
+    assert.ok(linkedSheets(rel).some(function (href) { return defines(href, {}); }), rel);
+  });
 });
 
 test("list cap is position relative and pages bust caches at 20261007em", function () {
