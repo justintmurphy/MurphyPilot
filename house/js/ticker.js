@@ -267,18 +267,21 @@
     if (!mountEl || mountEl._mpTickerPainted) return;
     if (pageSection() !== "banking") return;
     var creds = { credentials: "same-origin" };
-    Promise.all([
-      fetch("/data/banking.json", creds).then(function (res) { return res && res.ok ? res.json() : null; }),
-      fetch("/data/banking/tiers.json", creds).then(function (res) { return res && res.ok ? res.json() : null; })
-    ]).then(function (pair) {
-      if (mountEl._mpTickerPainted) return;
-      if (!pair[0]) {
+    fetch("/data/banking.json", creds).then(function (res) {
+      return res && res.ok ? res.json() : null;
+    }).then(function (print) {
+      if (mountEl._mpTickerPainted) return null;
+      if (!print) {
         mountEl.hidden = true;
         mountEl.innerHTML = "";
-        return;
+        return null;
       }
-      mountEl._mpTickerPainted = true;
-      render(mountEl, pair[0], pair[1], null);
+      return fetch("/data/banking/tiers.json", creds).then(function (res) {
+        return res && res.ok ? res.json() : null;
+      }).catch(function () { return null; }).then(function (tiers) {
+        if (mountEl._mpTickerPainted) return;
+        render(mountEl, print, tiers, null);
+      });
     }).catch(function () {
       if (mountEl._mpTickerPainted) return;
       mountEl.hidden = true;

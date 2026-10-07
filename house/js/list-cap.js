@@ -18,6 +18,7 @@
     var max = opts.max || MAX;
     var count = Number(opts.count);
     if (!(count > max)) return inner || "";
+    if (String(inner || "").indexOf("list-cap") >= 0) return inner || "";
     var label = opts.label || "List";
     return '<div class="list-cap" style="--list-cap-rows:' + max + '" tabindex="0" role="region" aria-label="' +
       esc(label) + '">' + (inner || "") + '</div><p class="list-cap-note">' + noteText(max, count) + "</p>";
@@ -47,13 +48,22 @@
     });
   }
 
-  /* offsetTop walked up to the scrolling list, plus the row's own height. */
+  /* Bottom of the row measured against the cap, not the page. */
   function rowEnd(row, list) {
+    if (row && list && typeof row.getBoundingClientRect === "function" && typeof list.getBoundingClientRect === "function") {
+      var rowBox = row.getBoundingClientRect();
+      var listBox = list.getBoundingClientRect();
+      var boxHeight = rowBox.height || Number(row.offsetHeight) || 0;
+      if (boxHeight > 0 || rowBox.top || rowBox.bottom) {
+        return (rowBox.bottom - listBox.top) + (Number(list.scrollTop) || 0);
+      }
+    }
     var top = Number(row && row.offsetTop) || 0;
     var height = Number(row && row.offsetHeight) || 0;
     var node = row && row.offsetParent;
     var guard = 0;
     while (node && node !== list && guard < 8) {
+      if (list && typeof list.contains === "function" && !list.contains(node)) break;
       top += Number(node.offsetTop) || 0;
       node = node.offsetParent;
       guard += 1;
@@ -114,9 +124,20 @@
     }
   }
 
+  function capOwner(el) {
+    var node = el && el.parentElement;
+    while (node) {
+      if (node.classList && node.classList.contains("list-cap")) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
   function apply(el, opts) {
     if (!el) return el;
     opts = opts || {};
+    if (capOwner(el)) return el;
+    if (el.querySelector && el.querySelector(".list-cap")) return el;
     var max = opts.max || MAX;
     var rows = listRows(el);
     var count = rows.length || (el.children ? el.children.length : 0);
@@ -135,14 +156,19 @@
     return el;
   }
 
+  /* One cap per list. A list already inside a cap, or one that wraps a cap, stays as it is. */
   function refresh(scope) {
     if (!scope || !scope.querySelectorAll) return;
-    var nodes = scope.querySelectorAll(".list-cap, ol.bank-rank");
+    var nodes = scope.querySelectorAll(".list-cap");
     Array.prototype.forEach.call(nodes, function (el) {
+      if (capOwner(el)) {
+        if (el.classList) el.classList.remove("list-cap");
+        if (el.style) el.style.maxHeight = "";
+        return;
+      }
       var rows = listRows(el);
       var max = readMax(el, MAX);
       if (rows.length > max) {
-        if (el.classList && !el.classList.contains("list-cap")) el.classList.add("list-cap");
         measure(el, max);
         watch(el, max);
       }
