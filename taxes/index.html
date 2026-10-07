@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Murphy Pilot · Banking</title>
+<title>Taxes</title>
 <meta name="theme-color" content="#08090B">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,11 +13,11 @@
 <script>(function(){try{var k="murphyPilotTheme";var t=localStorage.getItem(k)||localStorage.getItem("murphyHouseTheme");if(t==="nina"||t==="purple")t="nina";else t="justin";document.documentElement.setAttribute("data-theme",t);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="nina"?"#1A0A24":"#08090B");}catch(e){document.documentElement.setAttribute("data-theme","justin");}})();</script>
 <script src="/js/nav.js?v=20261007em"></script>
 <link rel="stylesheet" href="/house/house.css?v=20261007em">
-<link rel="stylesheet" href="/house/list-cap.css?v=20261006ec3">
-<link rel="stylesheet" href="/house/ticker.css?v=20261007eo2">
 <link rel="stylesheet" href="/house/banking.css?v=20261006ec4">
+<link rel="stylesheet" href="/house/list-cap.css?v=20261007em">
+<link rel="stylesheet" href="/house/ticker.css?v=20261007em">
 </head>
-<body class="bank-page">
+<body class="inv-page">
 <header>
   <a class="mark" href="/" aria-label="Murphy Pilot">
     <img src="/house/logo.svg?v=20260904cn" width="52" height="52" alt="Murphy Pilot">
@@ -36,12 +36,13 @@
   </div>
 </header>
 <div id="mp-ticker" class="mp-ticker-slot" hidden></div>
-<main class="desk bank-desk" id="bankDesk">
-  <p class="bank-gate">Loading banking…</p>
+<main class="desk paydesk" id="taxDesk">
+  <p class="hint">Loading…</p>
 </main>
-<noscript><p>Banking needs JavaScript to read the signed-in feed. Balances are not in this page.</p></noscript>
-<script src="/house/js/list-cap.js?v=20261006ec3"></script>
-<script src="/house/js/ticker.js?v=20261007eo2"></script>
+<noscript><p>Taxes needs JavaScript to read the signed-in feed.</p></noscript>
+<script src="/house/js/list-cap.js?v=20261007em"></script>
 <script src="/house/js/banking.js?v=20261007em"></script>
+<script src="/house/js/ticker.js?v=20261007em"></script>
+<script src="/house/js/paydesk.js?v=20261007em"></script>
 </body>
 </html>

@@ -12,7 +12,9 @@
         items: [
           { id: "budget", label: "Budget", href: "/#budget" },
           { id: "current", label: "Current", href: "/#current" },
-          { id: "historical", label: "Historical", href: "/#historical" }
+          { id: "historical", label: "Historical", href: "/#historical" },
+          { id: "pay", label: "Pay", href: "/pay/" },
+          { id: "taxes", label: "Taxes", href: "/taxes/" }
         ]
       },
       investments: {
@@ -67,8 +69,15 @@
     if (h === "historical" || h.indexOf("historical=") === 0) return "historical";
     return "";
   }
+  function bankingPathId() {
+    var path = String(location.pathname || "/").replace(/\/index\.html$/, "/");
+    if (path.length > 1 && path.charAt(path.length - 1) !== "/") path += "/";
+    if (path === "/pay/") return "pay";
+    if (path === "/taxes/") return "taxes";
+    return "";
+  }
   function bankingActive() {
-    return bankingHashId(location.hash) || BANKING_DEFAULT;
+    return bankingPathId() || bankingHashId(location.hash) || BANKING_DEFAULT;
   }
   function itemsHtml() {
     var s = NAV.sections[section];
@@ -100,11 +109,13 @@
     var main = d.querySelector("main");
     if (!main || !main.insertAdjacentHTML) return;
     var foot = NAV.foot;
-    var html = '<nav class="docs-foot" aria-label="Documentation"><span>' + esc(foot.label) + "</span>" +
+    var docsHref = foot.links[0] ? foot.links[0].href : "/";
+    var note = section === "investments" ? "<span>" + esc(foot.note) + "</span>" : "";
+    var html = '<nav class="docs-foot" aria-label="Documentation"><a href="' + docsHref + '">' + esc(foot.label) + "</a>" +
       foot.links.map(function (l) {
         return '<a href="' + l.href + '">' + esc(l.label) + "</a>";
       }).join("") +
-      "<span>" + esc(foot.note) + "</span></nav>";
+      note + "</nav>";
     main.insertAdjacentHTML("afterend", html);
   }
   function mountTicker() {
@@ -172,9 +183,59 @@
     syncBanking: function () { if (section === "banking") repaint(); }
   };
 
+  function applyTheme(choice) {
+    var t = choice === "nina" || choice === "purple" ? "nina" : "justin";
+    try { d.documentElement.setAttribute("data-theme", t); } catch (e) {}
+    try { w.localStorage.setItem("murphyPilotTheme", t); } catch (e2) {}
+    try {
+      var buttons = d.querySelectorAll("[data-theme-choice]");
+      for (var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.toggle("on", buttons[i].getAttribute("data-theme-choice") === t);
+      }
+      var meta = d.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", t === "nina" ? "#1A0A24" : "#08090B");
+    } catch (e3) {}
+  }
+  function tickClock() {
+    var el = d.getElementById("clock");
+    if (!el || !el.querySelector) return;
+    var tEl = el.querySelector(".t");
+    var dEl = el.querySelector(".d");
+    var now;
+    try { now = new Date(); } catch (e) { return; }
+    var clock = "--:--:-- ET";
+    var date = "";
+    try {
+      clock = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      }).format(now) + " ET";
+      date = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        weekday: "short",
+        month: "short",
+        day: "numeric"
+      }).format(now);
+    } catch (e2) {}
+    if (tEl) tEl.textContent = clock;
+    if (dEl) dEl.textContent = date;
+  }
+  function startClock() {
+    if (!d.getElementById || !d.getElementById("clock")) return;
+    tickClock();
+    if (typeof w.setInterval === "function") w.setInterval(tickClock, 1e3);
+  }
   d.addEventListener("click", function (e) {
     var t = e.target;
     if (!t || !t.closest) return;
+    var themeBtn = t.closest("[data-theme-choice]");
+    if (themeBtn && typeof themeBtn.getAttribute === "function") {
+      var choice = themeBtn.getAttribute("data-theme-choice");
+      if (choice) { applyTheme(choice); return; }
+    }
     if (t.closest("#menuBtn")) { toggle(); return; }
     if (t.closest("#deskMenu [data-nav-item]") || !t.closest(".mp-nav")) close();
     if (section === "banking" && t.closest("[data-bank-tab]")) w.setTimeout(w.MPNav.syncBanking, 0);
@@ -188,6 +249,6 @@
   w.addEventListener("hashchange", onLocationChange);
   w.addEventListener("popstate", onLocationChange);
   w.addEventListener("pageshow", function () { close(); w.MPNav.syncBanking(); });
-  if (d.readyState === "loading") d.addEventListener("DOMContentLoaded", mount);
-  else mount();
+  if (d.readyState === "loading") d.addEventListener("DOMContentLoaded", function () { mount(); startClock(); });
+  else { mount(); startClock(); }
 })(window, document);

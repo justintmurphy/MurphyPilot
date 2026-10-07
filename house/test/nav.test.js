@@ -364,6 +364,9 @@ test("top nav is two buttons and the open menu matches the section", function ()
   assert.match(inv.elements.main._after, /href="\/Murphy_Pilot_Setup\.html"/);
   assert.match(inv.elements.main._after, /href="\/Murphy_Pilot_Desk\.html"/);
   assert.match(inv.elements.main._after, /Agentic \/ AI WWIII only/);
+  assert.match(inv.elements.main._after, /<a href="\/Murphy_Pilot_Manual\.html">Docs<\/a>/);
+  assert.doesNotMatch(bank.elements.main._after, /Agentic \/ AI WWIII only/);
+  assert.match(bank.elements.main._after, /<a href="\/Murphy_Pilot_Manual\.html">Docs<\/a>/);
 
   const edits = bootNav({ pathname: "/", hash: "#edits" });
   assert.doesNotMatch(edits.elements.tabs.innerHTML, /class="on"/);
@@ -585,7 +588,9 @@ test("nav source stays free of figures and institution names", function () {
   const nav = read("js/nav.js");
   assert.doesNotMatch(nav, /\$\d/);
   assert.doesNotMatch(nav, /\u00b7\u00b7\u00b7/);
-  assert.doesNotMatch(nav, /\d{4,}/);
+  assert.match(nav, /"#08090B"/);
+  assert.doesNotMatch(nav, /"#080"\s*\+\s*"90B"/);
+  assert.doesNotMatch(nav.replace(/#[0-9A-Fa-f]{3,8}/g, ""), /\d{4,}/);
   assert.doesNotMatch(nav, /Robinhood|Fidelity|Voya|Schwab|Chase|Wells|T-Mobile|NFCU|BNY|Mellon|Duquesne|Marlowe|Claude/i);
   assert.doesNotMatch(nav, /console\./);
   ["house/index.html", "house/banking/index.html"].forEach(function (rel) {
@@ -599,17 +604,17 @@ test("nav source stays free of figures and institution names", function () {
 test("touched assets use the eg cache bust and banking uses ec", function () {
   const bank = read("index.html");
   const inv = read("investments/index.html");
-  assert.match(bank, /\/js\/nav\.js\?v=20261006ec4/);
-  assert.match(bank, /\/house\/house\.css\?v=20261006ec4/);
-  assert.match(bank, /\/house\/js\/banking\.js\?v=20261006ec/);
+  assert.match(bank, /\/js\/nav\.js\?v=20261007em/);
+  assert.match(bank, /\/house\/house\.css\?v=20261007em/);
+  assert.match(bank, /\/house\/js\/banking\.js\?v=20261007em/);
   assert.match(bank, /\/house\/banking\.css\?v=20261006ec/);
   assert.match(bank, /id="mpNav" class="mp-nav" data-section="banking"/);
   assert.match(bank, /<a class="brand-block" href="\/">/);
   assert.match(bank, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(bank, /Murphy Pilot House/);
   assert.doesNotMatch(bank, /section-nav/);
-  assert.match(inv, /\/js\/nav\.js\?v=20261006ec4/);
-  assert.match(inv, /\/house\/house\.css\?v=20261006ec4/);
+  assert.match(inv, /\/js\/nav\.js\?v=20261007em/);
+  assert.match(inv, /\/house\/house\.css\?v=20261007em/);
   assert.match(inv, /\/house\/js\/board-b\.js\?v=20261007eo/);
   assert.match(inv, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(inv, /Murphy Pilot House/);

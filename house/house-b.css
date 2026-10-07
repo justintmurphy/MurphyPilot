@@ -62,6 +62,8 @@ button.tape-row.on {
   border-color: var(--rule);
   box-shadow: inset 3px 0 0 var(--ink);
 }
+.paydesk tr[data-check-id],
+.paydesk tr[data-scenario] { cursor: pointer; }
 details.tape-more {
   margin-top: 4px;
 }
@@ -168,6 +170,24 @@ table.book td.num,
 table.book th.num {
   text-align: right;
 }
+.paydesk table.book td.num,
+.paydesk table.book th.num {
+  white-space: nowrap;
+}
+table.book tr.on {
+  background: var(--row);
+}
+table.book tr.on td:first-child {
+  box-shadow: inset 3px 0 0 var(--nav-line);
+}
+.paydesk .tape-plot svg.axis-svg,
+.paydesk .tape-plot svg.ov-line-svg {
+  width: 100%;
+  height: auto;
+}
+@media (min-width: 721px) {
+  .paydesk tr.scenario-more { display: none; }
+}
 table.book .sym {
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -240,7 +260,8 @@ label {
   margin: 8px 0 3px;
 }
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   font: 15px/1.35 "Segoe UI", system-ui, sans-serif;
   color: var(--ink);
@@ -248,6 +269,11 @@ textarea {
   border: 1px solid var(--rule);
   border-radius: 4px;
   padding: 8px 10px;
+}
+.paydesk input,
+.paydesk textarea,
+.paydesk select {
+  min-height: 44px;
 }
 textarea {
   min-height: 88px;
@@ -392,6 +418,7 @@ footer.desk-foot {
   table.book {
     font-size: 10.5px;
   }
+  table.book .wide-col { display: none; }
   table.book th { font-size: 9px; }
   table.book .sub { font-size: 9px; }
   button.acct-mini b { font-size: 12px; }
