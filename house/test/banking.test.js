@@ -6582,7 +6582,7 @@ test("education keeps a childcare alias, and a frozen snapshot only relabels", a
   const ctx = boot();
   assert.equal(ctx.bankDisplayName("North Education"), "Education");
   assert.equal(ctx.bankDisplayName("Education"), "Education");
-  assert.equal(ctx.bankDisplayName("North Childcare"), "Childcare");
+  assert.equal(ctx.bankDisplayName("Example Childcare"), "Childcare");
   assert.equal(ctx.bankDisplayName("Childcare"), "Childcare");
   const fx = blankBudget(loadFixture());
   fx.budget.bills = [{
@@ -6982,7 +6982,7 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.match(html, /class="mp-in">\+\$40\.00/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261006ec4/);
+  assert.match(page, /banking\.js\?v=20261006ec2/);
   assert.match(page, /banking\.css\?v=20261006ec4/);
   assert.match(page, /list-cap\.js\?v=20261006ec3/);
   assert.match(page, /list-cap\.css\?v=20261006ec3/);

@@ -295,8 +295,8 @@ function collapseHouseNames(list) {
       g.unrealized_pnl = g.pnlSum;
       var pctV = null;
       if (g.cost !== 0) {
-        if (g.pnl != null) pctV = (g.pnl / g.cost) * 100;
-        else if (g.srcCount === 1 && g.printedPct != null) pctV = g.printedPct;
+        if (g.srcCount === 1 && g.printedPct != null) pctV = g.printedPct;
+        else if (g.pnl != null) pctV = (g.pnl / g.cost) * 100;
       }
       g.pnl_pct = pctV;
       g.unrealized_pnl_pct = pctV;
