@@ -499,6 +499,58 @@ test("taxes summary uses payload labels and the base flag", function () {
   assertCleanGlue(more, "taxes more");
 });
 
+test("a single scenario omits the range and the Scenarios card", function () {
+  const ctx = boot();
+  assert.equal(FAKE_NOW.toISOString().slice(0, 10), "2026-10-16");
+  const doc = loadTaxes();
+  const base = doc.estimate.scenarios.find(function (row) { return row.is_base; });
+  doc.estimate.scenarios = [base];
+  const html = ctx.paydeskHtml("taxes", doc, {});
+  const summary = html.split("<details")[0];
+  const estimate = summary.split('data-card="estimate"')[1].split("data-card=")[0];
+  assert.match(estimate, /<span>Refund<\/span>/);
+  assert.match(estimate, /<p class="hint">No extra needed\.<\/p>/);
+  assert.doesNotMatch(estimate, /Range /);
+  assert.doesNotMatch(estimate, /across scenarios/);
+  assert.doesNotMatch(html, /data-card="scenarios"/);
+  assert.doesNotMatch(html, /<h2>Scenarios<\/h2>/);
+  assertCleanGlue(html, "one scenario");
+});
+
+test("two scenarios with the same refund omit the range", function () {
+  const ctx = boot();
+  assert.equal(FAKE_NOW.toISOString().slice(0, 10), "2026-10-16");
+  const doc = loadTaxes();
+  const base = doc.estimate.scenarios.find(function (row) { return row.is_base; });
+  const other = doc.estimate.scenarios.find(function (row) { return !row.is_base; });
+  base.refund_or_owed = 1500;
+  other.refund_or_owed = 1500;
+  doc.estimate.scenarios = [base, other];
+  const html = ctx.paydeskHtml("taxes", doc, {});
+  const estimate = html.split('data-card="estimate"')[1].split("data-card=")[0];
+  assert.match(estimate, /<p class="hint">No extra needed\.<\/p>/);
+  assert.doesNotMatch(estimate, /Range /);
+  assert.doesNotMatch(estimate, /across scenarios/);
+  assert.doesNotMatch(estimate, /\$1,500/);
+  assertCleanGlue(html, "equal scenarios");
+});
+
+test("two scenarios with different refunds show the range", function () {
+  const ctx = boot();
+  assert.equal(FAKE_NOW.toISOString().slice(0, 10), "2026-10-16");
+  const doc = loadTaxes();
+  const base = doc.estimate.scenarios.find(function (row) { return row.is_base; });
+  const other = doc.estimate.scenarios.find(function (row) { return !row.is_base; });
+  base.refund_or_owed = 1200;
+  other.refund_or_owed = 3400;
+  doc.estimate.scenarios = [base, other];
+  const html = ctx.paydeskHtml("taxes", doc, {});
+  const estimate = html.split('data-card="estimate"')[1].split("data-card=")[0];
+  assert.match(estimate, /Range \+\$1,200 to \+\$3,400 across scenarios\. Base: no extra needed\./);
+  assert.match(html, /data-card="scenarios"/);
+  assertCleanGlue(html, "two scenarios");
+});
+
 test("energy carryforward remaining renders when it is a number", function () {
   const ctx = boot();
   const blank = loadTaxes();
@@ -533,6 +585,47 @@ test("salary axis ticks run from the first stub date to the latest", function ()
   assert.deepEqual(ticks, ["Mar 2024", "Oct 2026"]);
   assert.match(svg, /L352\.0 /);
   assert.doesNotMatch(svg, /Nov 2024|Dec 2025/);
+});
+
+test("the last salary step reaches the latest stub date", function () {
+  const ctx = boot();
+  assert.equal(FAKE_NOW.toISOString().slice(0, 10), "2026-10-16");
+  const doc = loadPay();
+  const hist = doc.salary.history.slice().sort(function (a, b) {
+    return String(a.first_pay_date || a.effective).localeCompare(String(b.first_pay_date || b.effective));
+  });
+  const start = hist[0].first_pay_date || hist[0].effective;
+  const raise = hist[hist.length - 1].first_pay_date || hist[hist.length - 1].effective;
+  const stub = doc.checks.map(function (c) { return String(c.pay_date); }).sort().pop();
+  assert.ok(stub > raise);
+  function dayIndex(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    return Number(m[1]) * 372 + Number(m[2]) * 31 + Number(m[3]);
+  }
+  const plotW = 360 - 8 - 8;
+  function xAt(iso) {
+    const t = (dayIndex(iso) - dayIndex(start)) / (dayIndex(stub) - dayIndex(start));
+    return (8 + t * plotW).toFixed(1);
+  }
+  const raiseX = xAt(raise);
+  const stubX = xAt(stub);
+  assert.notEqual(raiseX, stubX);
+  const html = ctx.paydeskHtml("pay", doc, {});
+  const svg = html.split('aria-label="Salary by year"')[1].split("</svg>")[0];
+  const d = /<path d="([^"]+)"/.exec(svg)[1];
+  const pts = d.split(/[ML]/).filter(Boolean).map(function (pair) {
+    const bits = pair.trim().split(/\s+/);
+    return { x: bits[0], y: bits[1] };
+  });
+  const end = pts[pts.length - 1];
+  const prev = pts[pts.length - 2];
+  assert.equal(end.x, stubX);
+  assert.equal(prev.x, raiseX);
+  assert.equal(end.y, prev.y);
+  const ticks = Array.from(svg.matchAll(/fill="var\(--ink-soft\)"[^>]*>([^<]+)/g)).map(function (m) { return m[1]; });
+  assert.equal(ticks[ticks.length - 1], "Oct 2026");
+  assert.notEqual(ticks[ticks.length - 1], "Jan 2026");
+  assertCleanGlue(html, "salary stub");
 });
 
 test("donut center compacts millions and an extra check uses the extra line", function () {
@@ -692,7 +785,7 @@ test("pay and taxes load the stylesheet that defines .bank-view-title", function
   });
 });
 
-test("list cap is position relative and pages bust caches at 20261007em", function () {
+test("list cap is position relative and paydesk busts at 20261007en", function () {
   const css = read("house/list-cap.css");
   assert.equal((css.match(/position:\s*relative/g) || []).length, 1);
   ["pay/index.html", "taxes/index.html"].forEach(function (rel) {
@@ -700,7 +793,8 @@ test("list cap is position relative and pages bust caches at 20261007em", functi
     assert.match(html, /\/js\/nav\.js\?v=20261007em/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007em/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007em/);
-    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261007em/);
+    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261007en/);
+    assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
     assert.match(html, /\/house\/js\/banking\.js\?v=20261007em/);
     assert.match(html, /id="clock"/);
     assert.match(html, /id="mp-ticker"/);
