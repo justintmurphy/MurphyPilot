@@ -1367,6 +1367,7 @@ header .section-nav a:hover {
   opacity: 0.7;
 }
 .mp-menu nav#tabs a.on,
+.mp-menu nav#tabs a[aria-current="page"],
 .mp-menu nav#tabs a:hover { opacity: 1; background: var(--row); }
 body.inv-page > header {
   grid-template-columns: auto minmax(0, 1fr) auto auto;

@@ -84,8 +84,9 @@
           return;
         }
         if (which === "out") {
-          var tab = document.querySelector('[data-bank-tab="budget"]');
-          if (tab && tab.click) tab.click();
+          if (typeof root.bankActivate === "function" && root.bankNavRoot && root.bankNavRoot._bank) {
+            root.bankActivate(root.bankNavRoot, "budget");
+          }
           var due = document.querySelector(".bank-due-month");
           if (due && due.focus) due.setAttribute("tabindex", "-1");
           if (due && due.focus) due.focus();

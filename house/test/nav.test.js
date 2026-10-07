@@ -304,7 +304,7 @@ test("route map sends old House and Banking URLs to their new homes", function (
 });
 
 test("banking hashes stay put and investments hashes stay put", function () {
-  ["", "#budget", "#current", "#historical", "#edits"].forEach(function (hash) {
+  ["", "#budget", "#current", "#historical", "#edits", "#historical=2026-09"].forEach(function (hash) {
     const ctx = bootNav({ pathname: "/", search: "?ok=1", hash: hash });
     assert.deepEqual(ctx.replaced, []);
     assert.equal(ctx.MPNav.section, "banking");
@@ -328,7 +328,7 @@ test("top nav is two buttons and the open menu matches the section", function ()
   assert.match(bankHtml, /<button type="button" id="menuBtn"[^>]*aria-controls="deskMenu"[^>]*aria-label="Menu"/);
   assert.doesNotMatch(bankHtml, />House<|>Docs<|>Manual<|>Setup<|>Edits</);
   const bankItems = bank.elements.tabs.innerHTML;
-  assert.match(bankItems, /href="\/#budget"[^>]*data-nav-item="budget"[^>]*class="on"/);
+  assert.match(bankItems, /href="\/#budget"[^>]*data-nav-item="budget"[^>]*class="on" aria-current="page"/);
   assert.match(bankItems, /href="\/#current"/);
   assert.match(bankItems, /href="\/#historical"/);
   assert.doesNotMatch(bankItems, /data-tab|edits|Overview/i);
@@ -369,8 +369,9 @@ test("top nav is two buttons and the open menu matches the section", function ()
   assert.doesNotMatch(edits.elements.tabs.innerHTML, /class="on"/);
   edits.location.hash = "#current";
   edits.windowListeners.hashchange.forEach(function (fn) { fn(); });
-  assert.match(edits.elements.tabs.innerHTML, /data-nav-item="current"[^>]*class="on"/);
+  assert.match(edits.elements.tabs.innerHTML, /data-nav-item="current"[^>]*class="on" aria-current="page"/);
   assert.doesNotMatch(edits.elements.tabs.innerHTML, /data-nav-item="budget"[^>]*class="on"/);
+  assert.doesNotMatch(edits.elements.tabs.innerHTML, /data-nav-item="budget"[^>]*aria-current="page"/);
   assert.equal(edits.replaced.length, 0);
 });
 
@@ -386,7 +387,7 @@ test("a same-document hash change still forwards to the other section", function
   stay.windowListeners.hashchange.forEach(function (fn) { fn(); });
   stay.windowListeners.popstate.forEach(function (fn) { fn(); });
   assert.equal(stay.replaced.length, 0);
-  assert.match(stay.elements.tabs.innerHTML, /data-nav-item="current"[^>]*class="on"/);
+  assert.match(stay.elements.tabs.innerHTML, /data-nav-item="current"[^>]*class="on" aria-current="page"/);
 
   const inv = bootNav({ pathname: "/investments/", hash: "#house" });
   inv.location.hash = "#edits";
@@ -449,7 +450,53 @@ test("the menu toggles from the active button and closes around it", async funct
     closest: function (sel) { return sel === "[data-bank-tab]" ? {} : null; }
   });
   await new Promise(function (resolve) { setTimeout(resolve, 0); });
-  assert.match(ctx.elements.tabs.innerHTML, /data-nav-item="historical"[^>]*class="on"/);
+  assert.match(ctx.elements.tabs.innerHTML, /data-nav-item="historical"[^>]*class="on" aria-current="page"/);
+});
+
+test("the banking menu marks the current page for each hash", function () {
+  function marked(ctx) {
+    const html = ctx.elements.tabs.innerHTML;
+    const hits = [];
+    ["budget", "current", "historical"].forEach(function (id) {
+      const re = new RegExp('data-nav-item="' + id + '"[^>]*aria-current="page"');
+      if (re.test(html)) hits.push(id);
+    });
+    return hits;
+  }
+  const pages = [
+    ["", "budget"],
+    ["#budget", "budget"],
+    ["#current", "current"],
+    ["#historical", "historical"],
+    ["#historical=2026-09", "historical"],
+    ["#edits", ""]
+  ];
+  pages.forEach(function (row) {
+    const ctx = bootNav({ pathname: "/", hash: row[0] });
+    const html = ctx.elements.tabs.innerHTML;
+    assert.match(html, /href="\/#budget"/);
+    assert.match(html, /href="\/#current"/);
+    assert.match(html, /href="\/#historical"/);
+    assert.equal(marked(ctx).join(","), row[1], row[0]);
+    if (row[1]) {
+      assert.match(html, new RegExp('data-nav-item="' + row[1] + '"[^>]*class="on" aria-current="page"'));
+    } else {
+      assert.doesNotMatch(html, /aria-current="page"/);
+      assert.doesNotMatch(html, /class="on"/);
+    }
+  });
+  const live = bootNav({ pathname: "/", hash: "#budget" });
+  live.location.hash = "#current";
+  live.windowListeners.hashchange.forEach(function (fn) { fn(); });
+  assert.equal(marked(live).join(","), "current");
+  live.location.hash = "#historical";
+  live.windowListeners.popstate.forEach(function (fn) { fn(); });
+  assert.equal(marked(live).join(","), "historical");
+  live.location.hash = "#edits";
+  live.windowListeners.hashchange.forEach(function (fn) { fn(); });
+  assert.equal(marked(live).join(","), "");
+  const fromInv = bootNav({ pathname: "/investments/", hash: "#historical=2026-08" });
+  assert.deepEqual(fromInv.replaced, ["/#historical=2026-08"]);
 });
 
 test("each page has one empty ticker slot under the header", function () {
@@ -552,8 +599,8 @@ test("nav source stays free of figures and institution names", function () {
 test("touched assets use the eg cache bust and banking uses ec", function () {
   const bank = read("index.html");
   const inv = read("investments/index.html");
-  assert.match(bank, /\/js\/nav\.js\?v=20261006eg/);
-  assert.match(bank, /\/house\/house\.css\?v=20261006eg/);
+  assert.match(bank, /\/js\/nav\.js\?v=20261006ec4/);
+  assert.match(bank, /\/house\/house\.css\?v=20261006ec4/);
   assert.match(bank, /\/house\/js\/banking\.js\?v=20261006ec/);
   assert.match(bank, /\/house\/banking\.css\?v=20261006ec/);
   assert.match(bank, /id="mpNav" class="mp-nav" data-section="banking"/);
@@ -561,8 +608,8 @@ test("touched assets use the eg cache bust and banking uses ec", function () {
   assert.match(bank, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(bank, /Murphy Pilot House/);
   assert.doesNotMatch(bank, /section-nav/);
-  assert.match(inv, /\/js\/nav\.js\?v=20261006eg/);
-  assert.match(inv, /\/house\/house\.css\?v=20261006eg/);
+  assert.match(inv, /\/js\/nav\.js\?v=20261006ec4/);
+  assert.match(inv, /\/house\/house\.css\?v=20261006ec4/);
   assert.match(inv, /\/house\/js\/board-b\.js\?v=20261006eg/);
   assert.match(inv, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(inv, /Murphy Pilot House/);
