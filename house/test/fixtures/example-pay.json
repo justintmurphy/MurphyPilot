@@ -687,8 +687,8 @@
         "gross": 80000,
         "taxes": 17360,
         "pretax": 7000,
-        "posttax": 6000,
-        "net": 49640
+        "posttax": 4100,
+        "net": 51540
       },
       "k401_elected_pct": {
         "pretax": 5,
@@ -887,12 +887,12 @@
     "this_year": {
       "year": 2026,
       "through": "2026-10-09",
-      "checks": 19,
+      "checks": 20,
       "gross": 80000,
       "taxes": 17360,
       "pretax": 7000,
-      "posttax": 6000,
-      "net": 49640,
+      "posttax": 4100,
+      "net": 51540,
       "k401": {
         "pretax": 4000,
         "roth": 4000,
@@ -903,12 +903,12 @@
     "last_year_same_point": {
       "year": 2025,
       "through": "2025-10-10",
-      "checks": 19,
-      "gross": 78750,
-      "taxes": 16850.4,
-      "pretax": 7087.5,
-      "posttax": 3937.5,
-      "net": 50874.6,
+      "checks": 20,
+      "gross": 75000,
+      "taxes": 16277.6,
+      "pretax": 6750,
+      "posttax": 3750,
+      "net": 48222.4,
       "k401": {
         "pretax": 3937.5,
         "roth": 3937.5,
@@ -917,9 +917,9 @@
       }
     },
     "delta": {
-      "gross_pct": 1.59,
-      "taxes_pct": 3.02,
-      "net_pct": -2.43
+      "gross_pct": 6.67,
+      "taxes_pct": 6.65,
+      "net_pct": 6.88
     }
   },
   "k401": {

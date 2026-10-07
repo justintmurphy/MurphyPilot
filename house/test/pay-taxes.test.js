@@ -317,17 +317,19 @@ test("pay summary is analytics first and agrees on the stub", function () {
   assert.match(summary, /class="mix-svg"/);
   assert.match(summary, /data-basis="stub"/);
   assert.match(summary, /\+\$80,000\.00/);
-  assert.match(summary, /Stub through Oct 9, 2026\. % vs last year \(19 checks through Oct 10, 2025\)\./);
+  assert.match(summary, /Stub through Oct 9, 2026\. % vs last year \(20 checks through Oct 10, 2025\)\./);
   assert.doesNotMatch(summary, /Versus /);
   const where = summary.split('data-card="where"')[1].split("data-card=")[0];
   const center = where.split('class="mix-center"')[1].split("</div>")[0];
   assert.match(center, /\$80\.0k/);
   assert.match(center, /Gross YTD/);
   assert.doesNotMatch(center, /Net/);
-  assert.match(where, /Loan &amp; other/);
+  assert.match(where, /class="mix-leg-name">Loan</);
+  assert.doesNotMatch(where, /Loan &amp; other/);
   assert.doesNotMatch(where, /Insurance\/HSA &amp; other/);
-  assert.match(where, /\+\$49,640\.00/);
-  assert.match(summary, /\+3\.02%/);
+  assert.match(where, /\+\$51,540\.00/);
+  assert.match(summary, /\+6\.65%/);
+  assert.match(summary, /\+6\.88%/);
   assert.match(summary, /No employer match shows on recent stubs/);
   assert.doesNotMatch(summary, /understates/);
   assert.doesNotMatch(summary, /Match</);
@@ -341,7 +343,10 @@ test("pay summary is analytics first and agrees on the stub", function () {
   assert.match(html, /<label>Year <select data-year-pick="pay">/);
   const yearRow = html.split('data-year="2026"')[1].split("</tr>")[0];
   assert.match(yearRow, /\+\$80,000\.00/);
-  assert.match(yearRow, /partial · 3 checks on file/);
+  assert.match(yearRow, /\u2212\$17,360\.00/);
+  assert.match(yearRow, /\+\$51,540\.00/);
+  assert.match(yearRow, /partial · 20 checks/);
+  assert.doesNotMatch(yearRow, /on file|Last check|\$100,000|\$21,413|\$64,736/);
   assert.doesNotMatch(html, /Full year/);
   assert.doesNotMatch(html, /On the card/);
   const loan = doc.checks.find(function (c) { return c.id === "c005"; }).lines.find(function (line) {
@@ -400,7 +405,11 @@ test("a past pay year stays partial", function () {
   const html = ctx.paydeskHtml("pay", loadPay(), { year: 2025, detailsOpen: true });
   assert.match(html, /data-basis="file"/);
   assert.match(html, /partial · 2 checks on file/);
-  assert.match(html, /Last check of 2025/);
+  const pastRow = html.split('data-year="2025"')[1].split("</tr>")[0];
+  assert.match(pastRow, /partial · 2 checks/);
+  assert.doesNotMatch(pastRow, /on file|Last check/);
+  const byYear = html.split('data-card="by-year"')[1].split("data-card=")[0];
+  assert.match(byYear, /<p class="hint">Last check of 2025\./);
   assert.doesNotMatch(html, /Full year/);
   assert.match(html, /data-check-id="c002"/);
   assert.match(html, /data-check-id="c001"/);
@@ -553,38 +562,68 @@ test("donut center compacts millions and an extra check uses the extra line", fu
   assert.doesNotMatch(estimate, /Base: no extra needed/);
 });
 
-test("year to date matches the latest stub and stays within possible paydays", function () {
+test("year to date matches the latest stub and compares an equal check count", function () {
   const ctx = boot();
   const doc = loadPay();
-  function possible(iso) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
-    assert.ok(m, String(iso));
-    return (Number(m[2]) - 1) * 2 + (Number(m[3]) >= 15 ? 2 : 1);
+  const src = read("house/js/paydesk.js");
+  assert.doesNotMatch(src, /2025-10-10|Oct 10, 2025/);
+  function countOf(check) {
+    return Math.round(Number(check.ytd.gross) / Number(check.gross));
   }
   const latest = doc.checks.slice().sort(function (a, b) {
     return String(b.pay_date).localeCompare(String(a.pay_date));
   })[0];
+  const count = countOf(latest);
+  const year = Number(String(latest.pay_date).slice(0, 4));
+  const prior = doc.checks.filter(function (c) {
+    return Number(String(c.pay_date).slice(0, 4)) === year - 1 && countOf(c) === count;
+  }).sort(function (a, b) {
+    return String(b.pay_date).localeCompare(String(a.pay_date));
+  })[0];
+  assert.ok(prior);
+  assert.equal(countOf(prior), count);
   const ytd = doc.ytd.this_year;
   assert.equal(ytd.gross, latest.ytd.gross);
   assert.equal(ytd.taxes, latest.ytd.taxes);
   assert.equal(ytd.net, latest.ytd.net);
+  assert.equal(ytd.posttax, latest.ytd.posttax);
+  assert.equal(ytd.checks, count);
+  assert.equal(doc.ytd.last_year_same_point.checks, count);
+  assert.equal(doc.ytd.last_year_same_point.gross, prior.ytd.gross);
+  assert.equal(doc.ytd.last_year_same_point.net, prior.ytd.net);
   function lineYtd(code) {
     return Number(latest.lines.find(function (row) { return row.code === code; }).ytd);
   }
   assert.equal(ytd.k401.employee_total, lineYtd("k401_pretax") + lineYtd("k401_roth"));
-  assert.ok(ytd.checks <= possible(ytd.through));
-  assert.ok(doc.ytd.last_year_same_point.checks <= possible(doc.ytd.last_year_same_point.through));
+  const posttax = latest.lines.filter(function (line) { return line.section === "posttax"; }).reduce(function (n, line) {
+    return n + Number(line.ytd);
+  }, 0);
+  assert.equal(posttax, latest.ytd.posttax);
+  assert.equal(latest.ytd.net, latest.ytd.gross - latest.ytd.taxes - latest.ytd.pretax - latest.ytd.posttax);
   doc.by_year.forEach(function (row) {
-    const count = doc.checks.filter(function (c) {
+    const onFile = doc.checks.filter(function (c) {
       return String(c.pay_date).indexOf(String(row.year)) === 0;
     }).length;
-    assert.equal(row.checks, count);
+    assert.equal(row.checks, onFile);
   });
+  function shown(now, then) {
+    const pct = ((Number(now) - Number(then)) / Math.abs(Number(then))) * 100;
+    const abs = Math.abs(pct).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+    return (pct < 0 ? "\u2212" : "+") + abs + "%";
+  }
   const card = ctx.paydeskHtml("pay", doc, {}).split('data-card="ytd"')[1].split("data-card=")[0];
   assert.match(card, /\+\$80,000\.00/);
   assert.match(card, /\u2212\$17,360\.00/);
   assert.match(card, /\u2212\$8,000\.00/);
-  assert.match(card, /\+\$49,640\.00/);
+  assert.match(card, /\+\$51,540\.00/);
+  assert.match(card, new RegExp(count + " checks through "));
+  [shown(latest.ytd.gross, prior.ytd.gross), shown(latest.ytd.taxes, prior.ytd.taxes), shown(latest.ytd.net, prior.ytd.net)].forEach(function (text) {
+    assert.ok(card.includes(text), text);
+  });
+  const yearRow = ctx.paydeskHtml("pay", doc, { detailsOpen: true }).split('data-year="2026"')[1].split("</tr>")[0];
+  assert.match(yearRow, new RegExp("partial · " + count + " checks"));
+  assert.match(yearRow, /\+\$80,000\.00/);
+  assert.match(yearRow, /\+\$51,540\.00/);
 });
 
 test("more details shows the latest check once, as the open row", function () {
@@ -677,12 +716,37 @@ test("pay and taxes number and control rules stay off Investments", function () 
   assert.doesNotMatch(css, /(?:^|\n)input,\s*\ntextarea,\s*\nselect \{[^}]*min-height:\s*44px/s);
   assert.match(css, /table\.book tr\.on \{\s*\n\s*background:\s*var\(--row\);/);
   assert.match(css, /table\.book tr\.on td:first-child \{\s*\n\s*box-shadow:\s*inset 3px 0 0 var\(--nav-line\);/);
+  assert.match(css, /\.paydesk tr\[data-check-id\],\s*\n\.paydesk tr\[data-scenario\] \{ cursor: pointer; \}/);
+  assert.doesNotMatch(css, /(?:^|\n)tr\[data-check-id\],/);
   const tape = css.split("button.tape-row.on")[1].split("}")[0];
   assert.doesNotMatch(tape, /tr\[/);
   ["pay/index.html", "taxes/index.html"].forEach(function (rel) {
     assert.match(read(rel), /class="desk paydesk"/);
   });
   assert.doesNotMatch(read("investments/index.html"), /paydesk/);
+});
+
+test("house.css and banking.js share one cache bust", function () {
+  const version = "20261007em";
+  const pages = ["index.html", "investments/index.html", "pay/index.html", "taxes/index.html"];
+  const house = new Set();
+  const banking = new Set();
+  pages.forEach(function (rel) {
+    const html = read(rel);
+    const houseRef = /house\.css\?v=([^"]+)/.exec(html);
+    const bankRef = /banking\.js\?v=([^"]+)/.exec(html);
+    assert.ok(houseRef, rel + " house.css");
+    house.add(houseRef[1]);
+    if (rel === "investments/index.html") assert.equal(bankRef, null);
+    else {
+      assert.ok(bankRef, rel + " banking.js");
+      banking.add(bankRef[1]);
+    }
+  });
+  assert.deepEqual(Array.from(house), [version]);
+  assert.deepEqual(Array.from(banking), [version]);
+  assert.match(read("house/house.css"), new RegExp("house-b\\.css\\?v=" + version));
+  assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261007em)/);
 });
 
 test("banking menu links Pay and Taxes on absolute paths", function () {

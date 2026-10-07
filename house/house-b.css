@@ -62,8 +62,8 @@ button.tape-row.on {
   border-color: var(--rule);
   box-shadow: inset 3px 0 0 var(--ink);
 }
-tr[data-check-id],
-tr[data-scenario] { cursor: pointer; }
+.paydesk tr[data-check-id],
+.paydesk tr[data-scenario] { cursor: pointer; }
 details.tape-more {
   margin-top: 4px;
 }

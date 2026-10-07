@@ -546,12 +546,60 @@ function salaryHero(doc) {
   return card("Salary", "salary", kpis + stepChart(hist, latestStubDate(doc)) + raisesLine(hist));
 }
 
+function impliedChecks(check) {
+  if (!check || !check.ytd) return null;
+  var per = Number(check.gross);
+  var total = Number(check.ytd.gross);
+  if (!isFinite(per) || per === 0 || !isFinite(total)) return null;
+  return Math.round(total / per);
+}
+
+function priorByCount(doc, latest) {
+  var count = impliedChecks(latest);
+  var year = checkYear(latest);
+  if (count == null || !isFinite(year)) return null;
+  var found = null;
+  (doc.checks || []).forEach(function (c) {
+    if (!c || checkYear(c) !== year - 1) return;
+    if (impliedChecks(c) !== count) return;
+    if (!found || String(c.pay_date) > String(found.pay_date)) found = c;
+  });
+  return found;
+}
+
+function pctDelta(now, then) {
+  var a = Number(now);
+  var b = Number(then);
+  if (!isFinite(a) || !isFinite(b) || b === 0) return null;
+  return ((a - b) / Math.abs(b)) * 100;
+}
+
 function ytdCard(doc, year) {
   var sum = moneyForYear(doc, year);
   if (!sum) return card("Year to date", "ytd", hint("No year totals."));
-  var same = doc.ytd && doc.ytd.last_year_same_point;
-  var delta = doc.ytd && doc.ytd.delta;
-  var comparable = sum.basis === "stub" && same && Number(same.checks) === Number(sum.checks) && delta;
+  var latest = checksForYear(doc, year)[0] || null;
+  var prior = latest ? priorByCount(doc, latest) : null;
+  var count = null;
+  var delta = null;
+  var sameThrough = null;
+  if (prior && prior.ytd && sum.basis === "stub") {
+    count = impliedChecks(latest);
+    delta = {
+      gross_pct: pctDelta(sum.gross, prior.ytd.gross),
+      taxes_pct: pctDelta(sum.taxes, prior.ytd.taxes),
+      net_pct: pctDelta(sum.net, prior.ytd.net)
+    };
+    sameThrough = prior.pay_date;
+  } else {
+    var same = doc.ytd && doc.ytd.last_year_same_point;
+    var stored = doc.ytd && doc.ytd.delta;
+    if (sum.basis === "stub" && same && Number(same.checks) === Number(sum.checks) && stored) {
+      count = sum.checks;
+      delta = stored;
+      sameThrough = same.through;
+    }
+  }
+  var comparable = !!(delta && count != null && sameThrough);
   function cell(label, value, mode, pct, invert) {
     return moneyKpi(label, value, mode, comparable ? deltaExtra(pct, invert) : null);
   }
@@ -564,7 +612,7 @@ function ytdCard(doc, year) {
   var line = "";
   if (sum.basis === "stub") {
     line = "Stub through " + fmtDate(sum.through) + ".";
-    if (comparable) line += " % vs last year (" + sum.checks + " checks through " + fmtDate(same.through) + ").";
+    if (comparable) line += " % vs last year (" + count + " checks through " + fmtDate(sameThrough) + ").";
   } else {
     line = "partial \u00b7 " + sum.onFile + " checks on file.";
     if (sum.lastPay) line += " Last check of " + String(year) + ".";
@@ -707,18 +755,25 @@ function salaryTable(doc) {
 
 function byYearCard(doc, selected) {
   var rows = (doc.by_year || []).slice().sort(function (a, b) { return Number(a.year) - Number(b.year); });
+  var lasts = [];
   var body = rows.map(function (row) {
     var sum = moneyForYear(doc, row.year) || {};
-    var mark = "partial \u00b7 " + (sum.onFile != null ? sum.onFile : row.checks) + " checks on file";
-    var last = "";
-    if (sum.basis !== "stub" && row.last_pay_date) last = ' <span class="sub">Last check of ' + esc(row.year) + "</span>";
+    var n = sum.onFile != null ? sum.onFile : row.checks;
+    if (sum.basis === "stub") {
+      var implied = impliedChecks(checksForYear(doc, row.year)[0]);
+      if (implied != null) n = implied;
+    } else if (row.last_pay_date) {
+      lasts.push("Last check of " + row.year);
+    }
+    var mark = "partial \u00b7 " + n + " checks";
     return '<tr data-year="' + esc(row.year) + '"><td><span class="sym">' + esc(row.year) + '</span> <span class="sub">' +
-      esc(mark) + "</span>" + last + "</td><td class=\"num\">" + esc(sum.onFile != null ? sum.onFile : row.checks) + "</td>" +
+      esc(mark) + "</span></td><td class=\"num\">" + esc(n) + "</td>" +
       moneyTd(sum.gross, "in") + moneyTd(sum.taxes, "out") + moneyTd(sum.net, "in") + "</tr>";
   }).join("");
   var table = '<table class="book"><thead><tr><th>Year</th><th class="num">Checks</th><th class="num">Gross</th><th class="num">Taxes</th><th class="num">Net</th></tr></thead><tbody>' +
     body + "</tbody></table>";
-  return card("By year", "by-year", capWrap(table, rows.length, "Years"));
+  var note = lasts.length ? hint(lasts.join(". ") + ".") : "";
+  return card("By year", "by-year", capWrap(table, rows.length, "Years") + note);
 }
 
 function payHtml(doc, state) {
