@@ -755,25 +755,20 @@ function salaryTable(doc) {
 
 function byYearCard(doc, selected) {
   var rows = (doc.by_year || []).slice().sort(function (a, b) { return Number(a.year) - Number(b.year); });
-  var lasts = [];
   var body = rows.map(function (row) {
     var sum = moneyForYear(doc, row.year) || {};
     var n = sum.onFile != null ? sum.onFile : row.checks;
     if (sum.basis === "stub") {
       var implied = impliedChecks(checksForYear(doc, row.year)[0]);
       if (implied != null) n = implied;
-    } else if (row.last_pay_date) {
-      lasts.push("Last check of " + row.year);
     }
-    var mark = "partial \u00b7 " + n + " checks";
-    return '<tr data-year="' + esc(row.year) + '"><td><span class="sym">' + esc(row.year) + '</span> <span class="sub">' +
-      esc(mark) + "</span></td><td class=\"num\">" + esc(n) + "</td>" +
+    return '<tr data-year="' + esc(row.year) + '"><td><span class="sym">' + esc(row.year) + '</span> <span class="sub">partial</span></td><td class="num">' +
+      esc(n) + "</td>" +
       moneyTd(sum.gross, "in") + moneyTd(sum.taxes, "out") + moneyTd(sum.net, "in") + "</tr>";
   }).join("");
   var table = '<table class="book"><thead><tr><th>Year</th><th class="num">Checks</th><th class="num">Gross</th><th class="num">Taxes</th><th class="num">Net</th></tr></thead><tbody>' +
     body + "</tbody></table>";
-  var note = lasts.length ? hint(lasts.join(". ") + ".") : "";
-  return card("By year", "by-year", capWrap(table, rows.length, "Years") + note);
+  return card("By year", "by-year", capWrap(table, rows.length, "Years"));
 }
 
 function payHtml(doc, state) {

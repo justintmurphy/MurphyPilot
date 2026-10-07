@@ -345,8 +345,8 @@ test("pay summary is analytics first and agrees on the stub", function () {
   assert.match(yearRow, /\+\$80,000\.00/);
   assert.match(yearRow, /\u2212\$17,360\.00/);
   assert.match(yearRow, /\+\$51,540\.00/);
-  assert.match(yearRow, /partial · 20 checks/);
-  assert.doesNotMatch(yearRow, /on file|Last check|\$100,000|\$21,413|\$64,736/);
+  assert.match(yearRow, /<span class="sub">partial<\/span>/);
+  assert.doesNotMatch(yearRow, /partial ·|on file|Last check|\$100,000|\$21,413|\$64,736/);
   assert.doesNotMatch(html, /Full year/);
   assert.doesNotMatch(html, /On the card/);
   const loan = doc.checks.find(function (c) { return c.id === "c005"; }).lines.find(function (line) {
@@ -406,10 +406,10 @@ test("a past pay year stays partial", function () {
   assert.match(html, /data-basis="file"/);
   assert.match(html, /partial · 2 checks on file/);
   const pastRow = html.split('data-year="2025"')[1].split("</tr>")[0];
-  assert.match(pastRow, /partial · 2 checks/);
-  assert.doesNotMatch(pastRow, /on file|Last check/);
+  assert.match(pastRow, /<span class="sub">partial<\/span>/);
+  assert.doesNotMatch(pastRow, /partial ·|on file|Last check/);
   const byYear = html.split('data-card="by-year"')[1].split("data-card=")[0];
-  assert.match(byYear, /<p class="hint">Last check of 2025\./);
+  assert.doesNotMatch(byYear, /Last check of /);
   assert.doesNotMatch(html, /Full year/);
   assert.match(html, /data-check-id="c002"/);
   assert.match(html, /data-check-id="c001"/);
@@ -620,8 +620,12 @@ test("year to date matches the latest stub and compares an equal check count", f
   [shown(latest.ytd.gross, prior.ytd.gross), shown(latest.ytd.taxes, prior.ytd.taxes), shown(latest.ytd.net, prior.ytd.net)].forEach(function (text) {
     assert.ok(card.includes(text), text);
   });
-  const yearRow = ctx.paydeskHtml("pay", doc, { detailsOpen: true }).split('data-year="2026"')[1].split("</tr>")[0];
-  assert.match(yearRow, new RegExp("partial · " + count + " checks"));
+  const details = ctx.paydeskHtml("pay", doc, { detailsOpen: true });
+  const yearRow = details.split('data-year="2026"')[1].split("</tr>")[0];
+  assert.match(yearRow, /<span class="sub">partial<\/span>/);
+  assert.match(yearRow, new RegExp("<td class=\"num\">" + count + "</td>"));
+  assert.doesNotMatch(yearRow, /partial ·/);
+  assert.doesNotMatch(details.split('data-card="by-year"')[1], /Last check of /);
   assert.match(yearRow, /\+\$80,000\.00/);
   assert.match(yearRow, /\+\$51,540\.00/);
 });
