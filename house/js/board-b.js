@@ -1038,13 +1038,13 @@ function invMountTicker() {
     return '<small class="dod tone-' + tone(d.delta) + '">' + tag + " " + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</small>";
   }
   function dodHtml(prints, currentEq, now) {
-    return improveLine("Day", vsLookback(prints, currentEq, 1, now)) +
-      improveLine("Week", vsLookback(prints, currentEq, 7, now)) +
+    return improveLine("Day", vsLookback(prints, currentEq, 1, now)) + " " +
+      improveLine("Week", vsLookback(prints, currentEq, 7, now)) + " " +
       improveLine("Month", vsLookback(prints, currentEq, 30, now));
   }
   function improveCell(label, d) {
-    if (!d) return "<div><span>" + label + "</span><b class=\"tone-flat\">\u2014</b></div>";
-    return "<div><span>" + label + "</span><b class=\"tone-" + tone(d.delta) + "\">" + (d.delta > 0 ? "+" : "") + money(d.delta) + "</b>" +
+    if (!d) return "<div><span>" + label + "</span> <b class=\"tone-flat\">\u2014</b></div>";
+    return "<div><span>" + label + "</span> <b class=\"tone-" + tone(d.delta) + "\">" + (d.delta > 0 ? "+" : "") + money(d.delta) + "</b> " +
       '<small class="dod tone-' + tone(d.delta) + '">' + pct(d.pct) + "</small></div>";
   }
   function improveKpis(prints, currentEq, now) {
@@ -1053,9 +1053,9 @@ function invMountTicker() {
       improveCell("Month", vsLookback(prints, currentEq, 30, now));
   }
   function growChip(label, d) {
-    if (!d) return '<div class="ov-chip"><span>' + label + '</span><b class="tone-flat">\u2014</b></div>';
-    return '<div class="ov-chip"><span>' + label + '</span><b class="tone-' + tone(d.delta) + '">' +
-      (d.delta > 0 ? "+" : "") + money(d.delta) + '</b><i class="tone-' + tone(d.delta) + '">' + pct(d.pct) + "</i></div>";
+    if (!d) return '<div class="ov-chip"><span>' + label + '</span> <b class="tone-flat">\u2014</b></div>';
+    return '<div class="ov-chip"><span>' + label + '</span> <b class="tone-' + tone(d.delta) + '">' +
+      (d.delta > 0 ? "+" : "") + money(d.delta) + '</b> <i class="tone-' + tone(d.delta) + '">' + pct(d.pct) + "</i></div>";
   }
 
   function overallStripHtml(now) {
@@ -1064,7 +1064,7 @@ function invMountTicker() {
     var eq = Number(c.equity) || 0;
     var asof = c.outside_asof || c.overall_asof || "";
     return '<div class="card span overall-strip tape-open" data-open-all-books="1">' +
-      '<div class="ov-hero"><span>Overall \u00b7 last close</span><b>' + money(eq) + "</b></div>" +
+      '<div class="ov-hero"><span>Overall \u00b7 last close</span> <b>' + money(eq) + "</b></div>" +
       '<div class="ov-chips">' +
       growChip("Day", vsLookback(prints, eq, 1, now)) +
       growChip("Week", vsLookback(prints, eq, 7, now)) +
@@ -1080,19 +1080,19 @@ function invMountTicker() {
   function stateHtml(b, title) {
     var cells = [];
     if (tab === "combined") {
-      cells.push("<div><span>Cash</span><b>" + moneyOrDash(b.cash) + "</b></div>");
-      cells.push("<div><span>Buying power</span><b>" + moneyOrDash(b.buying_power) + "</b></div>");
-      cells.push("<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
-      cells.push("<div><span>Names</span><b>" + (b.names || []).length + "</b></div>");
+      cells.push("<div><span>Cash</span> <b>" + moneyOrDash(b.cash) + "</b></div>");
+      cells.push("<div><span>Buying power</span> <b>" + moneyOrDash(b.buying_power) + "</b></div>");
+      cells.push("<div><span>Invested</span> <b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
+      cells.push("<div><span>Names</span> <b>" + (b.names || []).length + "</b></div>");
     } else {
-      cells.push("<div><span>Equity</span><b>" + moneyOrDash(b.equity) + "</b>" + dodHtml(dodTape(tab), b.equity) + "</div>");
-      cells.push("<div><span>Cash</span><b>" + moneyOrDash(b.cash) + "</b></div>");
-      cells.push("<div><span>Buying power</span><b>" + moneyOrDash(b.buying_power) + "</b></div>");
-      cells.push("<div><span>Invested</span><b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
+      cells.push("<div><span>Equity</span> <b>" + moneyOrDash(b.equity) + "</b> " + dodHtml(dodTape(tab), b.equity) + "</div>");
+      cells.push("<div><span>Cash</span> <b>" + moneyOrDash(b.cash) + "</b></div>");
+      cells.push("<div><span>Buying power</span> <b>" + moneyOrDash(b.buying_power) + "</b></div>");
+      cells.push("<div><span>Invested</span> <b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
     }
     if (typeof nameStats === "function" && typeof pnlKpiText === "function") {
       var ns = nameStats(b.names);
-      cells.push("<div><span>P&L</span><b class=\"tone-" + tone(ns.pnl) + "\">" + pnlKpiText(ns) + "</b></div>");
+      cells.push("<div><span>P&L</span> <b class=\"tone-" + tone(ns.pnl) + "\">" + pnlKpiText(ns) + "</b></div>");
     }
     var digChip = "";
     if (tab === "individual" || tab === "auto_grok" || tab === "joint") digChip = claudeAsofChipHtml(rhBookAsof(b));
@@ -1124,7 +1124,7 @@ function invMountTicker() {
     else hint = '<p class="hint">Day / week / month vs this book\u2019s last print.</p>';
     var liveTitle = title === "House" ? "Robinhood + Fidelity" : title;
     return "<h2>Live equity \u00b7 " + esc(liveTitle) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
-      '<div class="tape-kpis"><div><span>Now</span><b>' + money(last) + "</b></div>" +
+      '<div class="tape-kpis"><div><span>Now</span> <b>' + money(last) + "</b></div>" +
       improveKpis(prints, last) + "</div>" +
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" + hint + "</div>";
   }

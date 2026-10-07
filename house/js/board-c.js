@@ -828,7 +828,7 @@ function eodTapeHtml(key, title) {
   var last = vals.length ? vals[vals.length - 1] : 0;
   if (!vals.length) vals = [last, last];
   return "<h2>EOD equity \u00b7 " + esc(title) + "</h2><div class=\"card tape-card\">" +
-    "<div class=\"tape-kpis\"><div><span>Last EOD</span><b>" + money(last) + "</b></div>" +
+    "<div class=\"tape-kpis\"><div><span>Last EOD</span> <b>" + money(last) + "</b></div>" +
     improveKpis(prints, last) + "</div>" +
     "<div class=\"tape-plot ov-plot\">" + overlayAxisChart(prints) + "</div>" +
     "<p class=\"hint\">Truthifi weekday close. Day / week / month vs the prior close.</p></div>";
@@ -875,7 +875,7 @@ function fidelityTapeHtml() {
   var last = vals.length ? vals[vals.length - 1] : Number((snap.accounts.fidelity || {}).equity) || 0;
   if (!vals.length) vals = [last, last];
   return "<h2>Live equity · Fidelity</h2><div class=\"card tape-card\">" +
-    "<div class=\"tape-kpis\"><div><span>Now</span><b>" + money(last) + "</b></div>" +
+    "<div class=\"tape-kpis\"><div><span>Now</span> <b>" + money(last) + "</b></div>" +
     improveKpis(prints, last) + "</div>" +
     "<div class=\"tape-plot ov-plot\">" + overlayAxisChart(prints) + "</div>" +
     "<p class=\"hint\">Session prints when SnapTrade/House updates. Day / week / month vs prior close.</p></div>";
@@ -962,7 +962,7 @@ function overallCardHtml() {
   var asof = c.outside_asof || (prints.length ? prints[prints.length - 1].t.slice(0, 10) : "");
   return "<h2 class=\"overall-eq\">Overall \u00b7 last close</h2><div class=\"card tape-card tape-open\" data-open-all-books=\"1\">" +
     "<div class=\"tape-kpis\">" +
-    "<div><span>Last close</span><b>" + money(c.equity) + "</b></div>" +
+    "<div><span>Last close</span> <b>" + money(c.equity) + "</b></div>" +
     improveKpis(prints, c.equity) + "</div>" +
     "<div class=\"tape-plot ov-plot\">" + overlayAxisChart(prints) + "</div>" +
     "<p class=\"hint\">Click for every book. Live RH + Fidelity sleeves " + money(c.live_equity) + " \u00b7 Voya EOD " + (truthifiSoftEmpty() ? "\u2014" : money(c.custodial_equity)) + "." +
