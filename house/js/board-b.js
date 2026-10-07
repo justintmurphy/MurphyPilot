@@ -986,9 +986,40 @@ function invMountTicker() {
     }
     return "";
   }
-  function sessionDay(ymd) {
-    if (nyseOpen(ymd)) return ymd;
-    return prevOpenDay(ymd);
+  function nyMinutes(now) {
+    var dt = now == null ? new Date() : new Date(now);
+    if (!isFinite(dt.getTime())) dt = new Date();
+    try {
+      var parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        minute: "numeric",
+        hourCycle: "h23"
+      }).formatToParts(dt);
+      var hour = 0, minute = 0;
+      parts.forEach(function (p) {
+        if (p.type === "hour") hour = Number(p.value);
+        if (p.type === "minute") minute = Number(p.value);
+      });
+      if (hour === 24) hour = 0;
+      return hour * 60 + minute;
+    } catch (e) {
+      return 12 * 60;
+    }
+  }
+  function tapeHasDay(prints, ymd) {
+    var hit = false;
+    lastByDay(prints).forEach(function (row) { if (row.day === ymd) hit = true; });
+    return hit;
+  }
+  /* Today counts only at or after 9:30 ET, or when the tape already has that day. A closed day snaps to the prior session. */
+  function sessionDay(ymd, now, prints) {
+    if (!nyseOpen(ymd)) return prevOpenDay(ymd);
+    if (now != null && nyYmd(now) === ymd) {
+      if (tapeHasDay(prints, ymd) || nyMinutes(now) >= 9 * 60 + 30) return ymd;
+      return prevOpenDay(ymd);
+    }
+    return ymd;
   }
   function tradingDaysBefore(session, n) {
     var d = session;
@@ -996,10 +1027,10 @@ function invMountTicker() {
     for (i = 0; i < n; i++) d = prevOpenDay(d);
     return d;
   }
-  /* Day is the prior session, week is five sessions back, month is the prior month's last session. Other spans are a calendar day from today. Exact tape day or null — never the newest row and never an older stand-in. */
-  function lookbackAnchor(days, now) {
+  /* Day is the prior session, week is five sessions back, month is the prior month's last session. Other spans snap a calendar day back onto the prior session. Exact tape day or null — never the newest row and never an older stand-in. */
+  function lookbackAnchor(days, now, prints) {
     var today = nyYmd(now);
-    var session = sessionDay(today);
+    var session = sessionDay(today, now, prints);
     if (days === 1) return tradingDaysBefore(session, 1);
     if (days === 7) return tradingDaysBefore(session, 5);
     if (days === 30) {
@@ -1007,12 +1038,12 @@ function invMountTicker() {
       if (parts.length < 3 || !parts[0]) return "";
       return prevOpenDay(parts[0] + "-" + parts[1] + "-01");
     }
-    return ymdAdd(today, -days);
+    return sessionDay(ymdAdd(today, -days));
   }
   function vsLookback(prints, currentEq, days, now) {
     var rows = lastByDay(prints);
     if (!rows.length) return null;
-    var anchor = lookbackAnchor(days, now);
+    var anchor = lookbackAnchor(days, now, prints);
     if (!anchor) return null;
     var prior = null;
     rows.forEach(function (row) { if (row.day === anchor) prior = row; });
@@ -1034,26 +1065,26 @@ function invMountTicker() {
     return { delta: delta, pct: prior.equity ? (delta / prior.equity) * 100 : null, prior: prior.equity };
   }
   function improveLine(tag, d) {
-    if (!d) return '<small class="dod tone-flat">' + tag + " \u2014</small>";
+    if (!d) return "";
     return '<small class="dod tone-' + tone(d.delta) + '">' + tag + " " + (d.delta > 0 ? "+" : "") + money(d.delta) + " \u00b7 " + pct(d.pct) + "</small>";
   }
   function dodHtml(prints, currentEq, now) {
-    return improveLine("Day", vsLookback(prints, currentEq, 1, now)) + " " +
-      improveLine("Week", vsLookback(prints, currentEq, 7, now)) + " " +
-      improveLine("Month", vsLookback(prints, currentEq, 30, now));
+    return [improveLine("Day", vsLookback(prints, currentEq, 1, now)),
+      improveLine("Week", vsLookback(prints, currentEq, 7, now)),
+      improveLine("Month", vsLookback(prints, currentEq, 30, now))].filter(Boolean).join(" ");
   }
   function improveCell(label, d) {
-    if (!d) return "<div><span>" + label + "</span> <b class=\"tone-flat\">\u2014</b></div>";
+    if (!d) return "";
     return "<div><span>" + label + "</span> <b class=\"tone-" + tone(d.delta) + "\">" + (d.delta > 0 ? "+" : "") + money(d.delta) + "</b> " +
       '<small class="dod tone-' + tone(d.delta) + '">' + pct(d.pct) + "</small></div>";
   }
   function improveKpis(prints, currentEq, now) {
-    return improveCell("Day", vsLookback(prints, currentEq, 1, now)) +
-      improveCell("Week", vsLookback(prints, currentEq, 7, now)) +
-      improveCell("Month", vsLookback(prints, currentEq, 30, now));
+    return [improveCell("Day", vsLookback(prints, currentEq, 1, now)),
+      improveCell("Week", vsLookback(prints, currentEq, 7, now)),
+      improveCell("Month", vsLookback(prints, currentEq, 30, now))].filter(Boolean).join("");
   }
   function growChip(label, d) {
-    if (!d) return '<div class="ov-chip"><span>' + label + '</span> <b class="tone-flat">\u2014</b></div>';
+    if (!d) return "";
     return '<div class="ov-chip"><span>' + label + '</span> <b class="tone-' + tone(d.delta) + '">' +
       (d.delta > 0 ? "+" : "") + money(d.delta) + '</b> <i class="tone-' + tone(d.delta) + '">' + pct(d.pct) + "</i></div>";
   }
@@ -1085,7 +1116,7 @@ function invMountTicker() {
     return bits.join(" \u00b7 ") + ".";
   }
 
-  function stateHtml(b, title) {
+  function stateHtml(b, title, now) {
     var cells = [];
     if (tab === "combined") {
       cells.push("<div><span>Cash</span> <b>" + moneyOrDash(b.cash) + "</b></div>");
@@ -1093,7 +1124,7 @@ function invMountTicker() {
       cells.push("<div><span>Invested</span> <b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
       cells.push("<div><span>Names</span> <b>" + (b.names || []).length + "</b></div>");
     } else {
-      cells.push("<div><span>Equity</span> <b>" + moneyOrDash(b.equity) + "</b> " + dodHtml(dodTape(tab), b.equity) + "</div>");
+      cells.push("<div><span>Equity</span> <b>" + moneyOrDash(b.equity) + "</b> " + dodHtml(dodTape(tab), b.equity, now) + "</div>");
       cells.push("<div><span>Cash</span> <b>" + moneyOrDash(b.cash) + "</b></div>");
       cells.push("<div><span>Buying power</span> <b>" + moneyOrDash(b.buying_power) + "</b></div>");
       cells.push("<div><span>Invested</span> <b>" + (isFinite(b.invested_pct) ? Math.min(b.invested_pct, 100).toFixed(1) + "%" : "\u2014") + "</b></div>");
@@ -1113,7 +1144,7 @@ function invMountTicker() {
       (b.asof || (snap && snap.asof) ? " \u00b7 asof " + esc(String(b.asof || snap.asof)) : "") + "</p></div>";
   }
 
-  function tapeHtml(key, title, clickable) {
+  function tapeHtml(key, title, clickable, now) {
     var src = (snap.tape && snap.tape[key]) || [];
     if (key === "robinhood") src = (snap.tape && (snap.tape.robinhood || snap.tape.combined)) || [];
     if (key === "combined" && snap.tape && snap.tape.live && snap.tape.live.length) src = src.concat(snap.tape.live);
@@ -1133,7 +1164,7 @@ function invMountTicker() {
     var liveTitle = title === "House" ? "Robinhood + Fidelity" : title;
     return "<h2>Live equity \u00b7 " + esc(liveTitle) + "</h2><div class=\"card tape-card" + (clickable ? " tape-open" : "") + "\"" + open + ">" +
       '<div class="tape-kpis"><div><span>Now</span> <b>' + money(last) + "</b></div>" +
-      improveKpis(prints, last) + "</div>" +
+      improveKpis(prints, last, now) + "</div>" +
       '<div class="tape-plot ov-plot">' + overlayAxisChart(prints) + "</div>" + hint + "</div>";
   }
 

@@ -989,7 +989,7 @@ function closePrint(ymd, equity) {
   return { t: ymd + "T16:00:00-04:00", equity: equity };
 }
 
-test("day week and month use trading-day anchors and dash when the tape day is missing", function () {
+test("day week and month use trading-day anchors and hide when the tape day is missing", function () {
   const ctx = boot();
   const weekend = "2026-10-10T12:00:00-04:00";
   const prints = [
@@ -1044,18 +1044,17 @@ test("day week and month use trading-day anchors and dash when the tape day is m
   assert.equal(ctx.vsLookback(stale, 80, 7, staleNow), null);
   assert.equal(ctx.vsLookback(stale, 80, 30, staleNow), null);
   const lines = ctx.dodHtml(stale, 80, staleNow);
-  assert.match(lines, /Day \u2014/);
-  assert.match(lines, /Week \u2014/);
-  assert.match(lines, /Month \u2014/);
+  assert.equal(lines, "");
   ctx.snap = {
     combined: { equity: 80 },
     tape: { overall: stale },
     truthifiFail: true
   };
   const staleStrip = ctx.overallStripHtml(staleNow);
-  assert.match(staleStrip, /Day<\/span> <b class="tone-flat">\u2014<\/b>/);
-  assert.match(staleStrip, /Week<\/span> <b class="tone-flat">\u2014<\/b>/);
-  assert.match(staleStrip, /Month<\/span> <b class="tone-flat">\u2014<\/b>/);
+  assert.doesNotMatch(staleStrip, /<span>Day<\/span>/);
+  assert.doesNotMatch(staleStrip, /<span>Week<\/span>/);
+  assert.doesNotMatch(staleStrip, /<span>Month<\/span>/);
+  assert.doesNotMatch(staleStrip, /tone-flat">\u2014<\/b>/);
 });
 
 function pinClock(ctx, iso) {
@@ -1232,6 +1231,116 @@ test("book day hides without a prior session, and empty YTD and Year tiles stay 
   assert.match(card, /<details class="tape-more">/);
   assert.match(card, /Live \$30\.00 · EOD \$60\.00 · Holdings 2026-10-09\./);
   assert.doesNotMatch(card, /Click for every book\. Live/);
+});
+
+test("before the open today is not a session, and a missing anchor hides every chip", function () {
+  const ctx = boot();
+  const prints = [
+    closePrint("2026-09-30", 50),
+    closePrint("2026-10-08", 200),
+    closePrint("2026-10-09", 300),
+    closePrint("2026-10-14", 100),
+    closePrint("2026-10-15", 80)
+  ];
+  const early = "2026-10-16T08:00:00-04:00";
+  const late = "2026-10-16T10:00:00-04:00";
+  assert.equal(ctx.sessionDay("2026-10-16", early, prints), "2026-10-15");
+  const earlyDay = ctx.vsLookback(prints, 80, 1, early);
+  const earlyWeek = ctx.vsLookback(prints, 80, 7, early);
+  assert.equal(earlyDay.prior, 100);
+  assert.equal(earlyDay.delta, -20);
+  assert.notEqual(earlyDay.delta, 0);
+  assert.equal(earlyWeek.prior, 200);
+  assert.notEqual(earlyWeek.prior, 300);
+
+  assert.equal(ctx.sessionDay("2026-10-16", late, prints), "2026-10-16");
+  const lateDay = ctx.vsLookback(prints, 90, 1, late);
+  const lateWeek = ctx.vsLookback(prints, 90, 7, late);
+  assert.equal(lateDay.prior, 80);
+  assert.equal(lateDay.delta, 10);
+  assert.equal(lateWeek.prior, 300);
+  assert.notEqual(lateWeek.prior, 200);
+
+  const withToday = prints.concat([closePrint("2026-10-16", 70)]);
+  assert.equal(ctx.sessionDay("2026-10-16", early, withToday), "2026-10-16");
+  const openedEarly = ctx.vsLookback(withToday, 95, 1, early);
+  assert.equal(openedEarly.prior, 80);
+  assert.equal(openedEarly.delta, 15);
+
+  ctx.snap = {
+    accounts: {
+      desk: {
+        id: "desk",
+        equity: 80,
+        cash: 1,
+        buying_power: 1,
+        invested_pct: 10,
+        names: [],
+        pending_deposits: 0
+      }
+    },
+    combined: { equity: 80, live_equity: 80 },
+    tape: { overall: prints, desk: prints.slice() },
+    truthifiFail: true
+  };
+  const earlyStrip = ctx.overallStripHtml(early);
+  assert.match(earlyStrip, /Day<\/span> <b class="tone-stop">-\$20\.00<\/b>/);
+  assert.match(earlyStrip, /Week<\/span> <b class="tone-stop">-\$120\.00<\/b>/);
+  assert.doesNotMatch(earlyStrip, /\$0\.00<\/b>/);
+
+  ctx.snap.combined.equity = 90;
+  ctx.snap.accounts.desk.equity = 90;
+  ctx.tab = "desk";
+  const lateBook = ctx.stateHtml(ctx.snap.accounts.desk, "Desk", late);
+  assert.match(lateBook, /Day \+\$10\.00/);
+  assert.match(lateBook, /Week -\$210\.00/);
+  const lateTape = ctx.tapeHtml("desk", "Desk", false, late);
+  assert.match(lateTape, /Day<\/span> <b class="tone-go">\+\$10\.00<\/b>/);
+  assert.match(lateTape, /Week<\/span> <b class="tone-stop">-\$210\.00<\/b>/);
+  const earlyBook = ctx.stateHtml(ctx.snap.accounts.desk, "Desk", early);
+  assert.match(earlyBook, /Day -\$10\.00/);
+  assert.doesNotMatch(earlyBook, /Day \+\$10\.00/);
+
+  const stale = [closePrint("2026-09-02", 10), closePrint("2026-09-03", 12)];
+  const noon = "2026-10-07T12:00:00-04:00";
+  ctx.snap.combined.equity = 80;
+  ctx.snap.accounts.desk.equity = 80;
+  ctx.snap.tape = { overall: stale, desk: stale.slice() };
+  const hiddenBook = ctx.stateHtml(ctx.snap.accounts.desk, "Desk", noon);
+  assert.match(hiddenBook, />\$80\.00</);
+  assert.doesNotMatch(hiddenBook, /Day —/);
+  assert.doesNotMatch(hiddenBook, /Week —/);
+  assert.doesNotMatch(hiddenBook, /Month —/);
+  assert.doesNotMatch(hiddenBook, /<small class="dod/);
+  const hiddenTape = ctx.tapeHtml("desk", "Desk", false, noon);
+  assert.match(hiddenTape, /<span>Now<\/span>/);
+  assert.doesNotMatch(hiddenTape, /<span>Day<\/span>/);
+  assert.doesNotMatch(hiddenTape, /<span>Week<\/span>/);
+  assert.doesNotMatch(hiddenTape, /<span>Month<\/span>/);
+  const hiddenStrip = ctx.overallStripHtml(noon);
+  assert.doesNotMatch(hiddenStrip, /<span>Day<\/span>/);
+  assert.doesNotMatch(hiddenStrip, /<span>Week<\/span>/);
+  assert.doesNotMatch(hiddenStrip, /<span>Month<\/span>/);
+
+  const sun = "2026-10-18T12:00:00-04:00";
+  assert.equal(ctx.ymdAdd("2026-10-18", -365), "2025-10-18");
+  assert.equal(ctx.sessionDay("2025-10-18"), "2025-10-17");
+  const year = ctx.vsLookback([
+    closePrint("2025-10-17", 40),
+    closePrint("2025-10-18", 99),
+    closePrint("2026-10-16", 80)
+  ], 90, 365, sun);
+  assert.equal(year.prior, 40);
+  assert.equal(year.delta, 50);
+  assert.notEqual(year.prior, 99);
+  const holidayNow = ctx.ymdAdd("2026-04-03", 365) + "T12:00:00-04:00";
+  assert.equal(ctx.sessionDay("2026-04-03"), "2026-04-02");
+  const holidayYear = ctx.vsLookback([
+    closePrint("2026-04-02", 40),
+    closePrint("2026-04-03", 99)
+  ], 70, 365, holidayNow);
+  assert.equal(holidayYear.prior, 40);
+  assert.notEqual(holidayYear.prior, 99);
 });
 
 test("mix center sums full-precision parts and matches the book equity", function () {
