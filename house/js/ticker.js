@@ -33,6 +33,166 @@
     return iso || "";
   }
 
+  /* Section, not seat. Investments never reads the Banking print. */
+  function pageSection() {
+    var nav = null;
+    try { nav = document.getElementById("mpNav"); } catch (e) {}
+    if (nav && nav.getAttribute) {
+      var attr = nav.getAttribute("data-section");
+      if (attr) return String(attr);
+    }
+    if (root.MPNav && root.MPNav.section) return String(root.MPNav.section);
+    var path = "";
+    try { path = (root.location && root.location.pathname) || ""; } catch (e2) {}
+    if (/^\/investments(\/|$)/.test(path)) return "investments";
+    return "banking";
+  }
+
+  function deskNow() {
+    if (typeof root.FAKE_NOW !== "undefined" && root.FAKE_NOW != null && root.FAKE_NOW !== "") return root.FAKE_NOW;
+    return null;
+  }
+
+  function deskAbs(n) {
+    return Math.abs(Number(n)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function deskMoney(n) {
+    var v = Number(n);
+    if (!isFinite(v)) return "";
+    return (v < 0 ? "\u2212$" : "$") + deskAbs(v);
+  }
+
+  function deskSigned(n) {
+    var v = Number(n);
+    if (!isFinite(v)) return "";
+    if (v < 0) return "\u2212$" + deskAbs(v);
+    if (v > 0) return "+$" + deskAbs(v);
+    return "$" + deskAbs(v);
+  }
+
+  function deskPct(n) {
+    var v = Number(n);
+    if (!isFinite(v)) return "";
+    var body = Math.abs(v).toFixed(2) + "%";
+    if (v < 0) return "\u2212" + body;
+    if (v > 0) return "+" + body;
+    return body;
+  }
+
+  function deskTone(n) {
+    if (typeof root.tone === "function") {
+      var t = root.tone(n);
+      if (t === "go" || t === "stop" || t === "flat") return "tone-" + t;
+    }
+    var v = Number(n);
+    if (!isFinite(v) || Math.abs(v) < 0.0005) return "tone-flat";
+    return v > 0 ? "tone-go" : "tone-stop";
+  }
+
+  function tickButton(kind, title, aria, inner) {
+    return '<button type="button" data-mp-tick="' + kind + '" title="' + esc(title) + '" aria-label="' + esc(aria) + '">' + inner + "</button>";
+  }
+
+  function portfolioItem(snap) {
+    var c = (snap && snap.combined) || snap || {};
+    var eq = Number(c.equity);
+    if (!isFinite(eq) && snap && isFinite(Number(snap.equity))) eq = Number(snap.equity);
+    if (!isFinite(eq)) return null;
+    var bits = ["<span>Portfolio</span> <b>" + deskMoney(eq) + "</b>"];
+    var aria = "Portfolio " + deskMoney(eq);
+    var tape = (snap && snap.tape) || {};
+    var prints = (tape.overall && tape.overall.length >= 2) ? tape.overall : (tape.combined || tape.overall || []);
+    var day = (typeof root.vsLookback === "function") ? root.vsLookback(prints, eq, 1, deskNow()) : null;
+    if (day && isFinite(Number(day.delta))) {
+      var signed = deskSigned(day.delta);
+      bits.push('<b class="' + deskTone(day.delta) + '">' + signed + "</b>");
+      aria += " " + signed;
+    }
+    return tickButton("value", "Portfolio", aria, bits.join(" "));
+  }
+
+  function indexItem(key, label) {
+    var book = root.INDEXES && root.INDEXES[key];
+    if (!book || book.last == null || !isFinite(Number(book.last))) return null;
+    var last = Number(book.last);
+    var pct = book.pct != null && isFinite(Number(book.pct)) ? Number(book.pct) : null;
+    if (pct == null && book.prev != null && isFinite(Number(book.prev)) && Number(book.prev)) {
+      pct = ((last - Number(book.prev)) / Number(book.prev)) * 100;
+    }
+    var level = last.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    var inner = "<span>" + esc(label) + "</span> <b>" + level + "</b>";
+    var aria = label + " " + level;
+    if (pct != null) {
+      var chg = deskPct(pct);
+      inner += ' <b class="' + deskTone(pct) + '">' + chg + "</b>";
+      aria += " " + chg;
+    }
+    return tickButton(key, label, aria, inner);
+  }
+
+  function latestFill(snap) {
+    var best = null;
+    function take(list) {
+      (list || []).forEach(function (f) {
+        if (!f || !f.symbol || !f.side || !f.ts) return;
+        if (!best || String(f.ts) > String(best.ts)) best = f;
+      });
+    }
+    if (!snap) return null;
+    take(snap.fills);
+    if (snap.combined) take(snap.combined.fills);
+    if (snap.robinhood) take(snap.robinhood.fills);
+    var accounts = snap.accounts || {};
+    Object.keys(accounts).forEach(function (id) {
+      var book = accounts[id];
+      if (!book) return;
+      take(book.fills);
+      (book.sleeves || []).forEach(function (s) { if (s) take(s.fills); });
+    });
+    return best;
+  }
+
+  function fillItem(snap) {
+    var f = latestFill(snap);
+    if (!f) return null;
+    var clock = (/T(\d{2}:\d{2})/.exec(String(f.ts)) || [])[1] || "";
+    if (!clock) return null;
+    var side = String(f.side || "").toLowerCase();
+    var sideLabel = side === "buy" ? "Buy" : (side === "sell" ? "Sell" : "");
+    if (!sideLabel) return null;
+    var sym = String(f.symbol).trim();
+    if (!sym) return null;
+    var aria = "Fill " + sym + " " + sideLabel + " " + clock;
+    var inner = "<span>Fill</span> <b>" + esc(sym) + "</b> <b>" + sideLabel + "</b> <b>" + clock + "</b>";
+    return tickButton("fill", sym, aria, inner);
+  }
+
+  function renderDesk(mountEl, snap) {
+    if (!mountEl) return;
+    mountEl._mpTickerPainted = true;
+    var parts = [];
+    var portfolio = portfolioItem(snap);
+    if (portfolio) parts.push(portfolio);
+    var spx = indexItem("spx", "S&P 500");
+    var ndx = indexItem("ndx", "Nasdaq");
+    if (spx) parts.push(spx);
+    if (ndx) parts.push(ndx);
+    var fill = fillItem(snap);
+    if (fill) parts.push(fill);
+    if (!parts.length) {
+      mountEl.hidden = true;
+      mountEl.innerHTML = "";
+      return;
+    }
+    mountEl.hidden = false;
+    var aria = parts.map(function (html) {
+      var m = /aria-label="([^"]*)"/.exec(html);
+      return m ? m[1].replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'") : "";
+    }).filter(Boolean).join(". ");
+    mountEl.innerHTML = '<div class="mp-ticker mp-ticker-desk" role="region" aria-label="' + esc(aria) + '">' + parts.join(" ") + "</div>";
+  }
+
   function render(mountEl, print, tiersDoc, today) {
     if (!mountEl) return;
     mountEl._mpTickerPainted = true;
@@ -103,6 +263,7 @@
 
   function load(mountEl) {
     if (!mountEl || mountEl._mpTickerPainted) return;
+    if (pageSection() !== "banking") return;
     var creds = { credentials: "same-origin" };
     Promise.all([
       fetch("/data/banking.json", creds).then(function (res) { return res && res.ok ? res.json() : null; }),
@@ -123,7 +284,7 @@
     });
   }
 
-  root.MPTicker = { render: render, load: load };
+  root.MPTicker = { render: render, renderDesk: renderDesk, load: load };
 
   function boot() {
     var el = document.getElementById("mp-ticker");
