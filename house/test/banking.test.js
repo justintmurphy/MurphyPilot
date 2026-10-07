@@ -6580,7 +6580,7 @@ test("bill_id joins status, and a prev_key alias is cleared on save", async func
 
 test("education keeps a childcare alias, and a frozen snapshot only relabels", async function () {
   const ctx = boot();
-  assert.equal(ctx.bankDisplayName("North Education"), "Education");
+  assert.equal(ctx.bankDisplayName("Example Education"), "Education");
   assert.equal(ctx.bankDisplayName("Education"), "Education");
   assert.equal(ctx.bankDisplayName("Example Childcare"), "Childcare");
   assert.equal(ctx.bankDisplayName("Childcare"), "Childcare");
