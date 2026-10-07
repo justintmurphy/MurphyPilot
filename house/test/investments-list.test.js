@@ -527,9 +527,9 @@ test("investments page wires the shared list cap and ticker", function () {
   assert.match(page, /<div id="mp-ticker" class="mp-ticker-slot" hidden><\/div>/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);
-  assert.match(page, /nav\.js\?v=20261007eh/);
-  assert.match(page, /ticker\.js\?v=20261007eh3/);
-  assert.match(page, /ticker\.css\?v=20261007eh4/);
+  assert.match(page, /nav\.js\?v=20261007ei/);
+  assert.match(page, /ticker\.js\?v=20261007ei/);
+  assert.match(page, /ticker\.css\?v=20261007ei/);
   assert.doesNotMatch(page, /banking\.js/);
   const css = fs.readFileSync(path.join(root, "house/list-cap.css"), "utf8");
   assert.match(css, /overflow-y:\s*auto/);

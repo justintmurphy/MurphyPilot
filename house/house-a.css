@@ -204,40 +204,6 @@ header .clock .d {
   font-size: 10px;
   opacity: 0.8;
 }
-header .theme-switch {
-  display: inline-flex;
-  border: 1px solid var(--nav-line);
-  border-radius: 4px;
-  overflow: hidden;
-  flex: 0 0 auto;
-}
-header .theme-switch button {
-  margin: 0;
-  min-height: 40px;
-  width: auto;
-  padding: 8px 11px;
-  background: transparent;
-  color: var(--header-fg);
-  border: 0;
-  border-radius: 0;
-  letter-spacing: 0.7px;
-  font-size: 12px;
-  opacity: 0.72;
-  text-transform: none;
-}
-header .theme-switch button.on {
-  background: var(--mark-bg);
-  color: var(--brand);
-  opacity: 1;
-}
-header .theme-switch button:hover {
-  opacity: 1;
-  background: var(--nav-hover);
-}
-header .theme-switch button.on:hover {
-  background: var(--mark-bg);
-  color: var(--brand);
-}
 
 .ticker {
   background: var(--cream);
