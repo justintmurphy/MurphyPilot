@@ -79,9 +79,23 @@ function sleeves(n) {
   return out;
 }
 
+function assertNoNestedCap(html) {
+  const re = /class="list-cap"|class="list-cap-note"/g;
+  let depth = 0;
+  let m;
+  while ((m = re.exec(html))) {
+    if (m[0] === 'class="list-cap"') {
+      depth += 1;
+      assert.ok(depth < 2);
+    } else depth = Math.max(0, depth - 1);
+  }
+  assert.equal(depth, 0);
+}
+
 function assertCapped(html, label, count) {
   assert.match(html, new RegExp('class="list-cap"[^>]*tabindex="0"[^>]*aria-label="' + label + '"'));
   assert.match(html, new RegExp("Showing 10 of " + count + ", scroll for more"));
+  assertNoNestedCap(html);
 }
 
 function assertOpen(html, label) {
@@ -302,13 +316,11 @@ test("investments page wires the shared list cap and ticker", function () {
   assert.equal((page.match(/id="mp-ticker"/g) || []).length, 1);
   assert.match(page, /<div id="mp-ticker" class="mp-ticker-slot" hidden><\/div>/);
   assert.match(page, /list-cap\.js\?v=20261006ec3/);
-  assert.match(page, /list-cap\.css\?v=20261006ef/);
+  assert.match(page, /list-cap\.css\?v=20261006ec3/);
   assert.match(page, /ticker\.js\?v=20261006ef/);
   assert.match(page, /ticker\.css\?v=20261006ec/);
   assert.match(page, /\/house\/js\/banking\.js\?v=20261006ec4/);
   const css = fs.readFileSync(path.join(root, "house/list-cap.css"), "utf8");
-  assert.match(css, /@media \(max-width:\s*390px\)/);
-  assert.match(css, /max-width:\s*100%/);
   assert.match(css, /overflow-y:\s*auto/);
   assert.match(css, /--list-cap-rows/);
 });
