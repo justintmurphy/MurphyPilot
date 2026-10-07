@@ -1,5 +1,6 @@
 /* Ten rows, then scroll inside the box. The page itself does not trap. */
 .list-cap {
+  position: relative;
   --list-cap-rows: 10;
   max-height: calc(var(--list-cap-rows) * 2.05rem);
   overflow-x: hidden;

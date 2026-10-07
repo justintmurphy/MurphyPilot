@@ -12,7 +12,9 @@
         items: [
           { id: "budget", label: "Budget", href: "/#budget" },
           { id: "current", label: "Current", href: "/#current" },
-          { id: "historical", label: "Historical", href: "/#historical" }
+          { id: "historical", label: "Historical", href: "/#historical" },
+          { id: "pay", label: "Pay", href: "/pay/" },
+          { id: "taxes", label: "Taxes", href: "/taxes/" }
         ]
       },
       investments: {
@@ -67,8 +69,15 @@
     if (h === "historical" || h.indexOf("historical=") === 0) return "historical";
     return "";
   }
+  function bankingPathId() {
+    var path = String(location.pathname || "/").replace(/\/index\.html$/, "/");
+    if (path.length > 1 && path.charAt(path.length - 1) !== "/") path += "/";
+    if (path === "/pay/") return "pay";
+    if (path === "/taxes/") return "taxes";
+    return "";
+  }
   function bankingActive() {
-    return bankingHashId(location.hash) || BANKING_DEFAULT;
+    return bankingPathId() || bankingHashId(location.hash) || BANKING_DEFAULT;
   }
   function itemsHtml() {
     var s = NAV.sections[section];

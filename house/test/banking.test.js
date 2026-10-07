@@ -890,7 +890,7 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   const houseCss = fs.readFileSync(path.join(root, "house/house.css"), "utf8");
   const bankCss = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   assert.match(index, /id="bankDesk"/);
-  assert.match(index, /\/js\/nav\.js\?v=20261006ec4/);
+  assert.match(index, /\/js\/nav\.js\?v=20261007em/);
   assert.match(index, /id="mpNav"/);
   assert.doesNotMatch(index, /href="\/house\/banking\/"/);
   assert.doesNotMatch(index, /href="\/house\/banking"/);

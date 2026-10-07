@@ -1,0 +1,718 @@
+{
+  "schema": "taxes/v1",
+  "asof": "2026-10-09",
+  "generated_at": "2026-10-09T18:00:00-04:00",
+  "currency": "USD",
+  "counts": {
+    "years": 5,
+    "scenarios": 3,
+    "flags": 4
+  },
+  "years": [
+    {
+      "year": 2021,
+      "filing": "married_joint",
+      "wages": 100000.0,
+      "other_income": 0.0,
+      "adjustments": 0.0,
+      "agi": 100000.0,
+      "deduction": {
+        "type": "standard",
+        "amount": 30000.0
+      },
+      "extra_deductions": 0.0,
+      "taxable_income": 70000.0,
+      "tax_before_credits": 12000.0,
+      "credits": {
+        "child": 4000.0,
+        "energy": 0.0,
+        "other": 0.0,
+        "total_nonrefundable": 4000.0,
+        "refundable_child": 0.0,
+        "total": 4000.0
+      },
+      "other_taxes": 0.0,
+      "total_tax": 8000.0,
+      "payments": {
+        "withholding": 9000.0,
+        "estimated": 0.0,
+        "refundable_credits": 0.0,
+        "total": 9000.0
+      },
+      "refund": 1000.0,
+      "owed": 0.0,
+      "net": 1000.0,
+      "effective_rate_pct": 8.0,
+      "marginal_bracket_pct": 22.0,
+      "state": {
+        "taxable_income": 100000.0,
+        "tax": 3000.0,
+        "withheld": 3000.0,
+        "refund": 0.0,
+        "owed": 0.0,
+        "net": 0.0
+      },
+      "hsa_employer": 500.0,
+      "amended": false,
+      "amended_change": null,
+      "lines": [
+        {
+          "code": "wages",
+          "label": "Wages (W-2)",
+          "amount": 100000.0
+        },
+        {
+          "code": "other_income",
+          "label": "Other income",
+          "amount": 0.0
+        },
+        {
+          "code": "adjustments",
+          "label": "Adjustments",
+          "amount": 0.0
+        },
+        {
+          "code": "agi",
+          "label": "Adjusted gross income",
+          "amount": 100000.0
+        },
+        {
+          "code": "deduction",
+          "label": "Standard deduction",
+          "amount": -30000.0
+        },
+        {
+          "code": "taxable_income",
+          "label": "Taxable income",
+          "amount": 70000.0
+        },
+        {
+          "code": "tax_before_credits",
+          "label": "Tax before credits",
+          "amount": 12000.0
+        },
+        {
+          "code": "credit_child",
+          "label": "Child tax credit",
+          "amount": -4000.0
+        },
+        {
+          "code": "total_tax",
+          "label": "Total tax",
+          "amount": 8000.0
+        },
+        {
+          "code": "withholding",
+          "label": "Federal withholding",
+          "amount": 9000.0
+        },
+        {
+          "code": "total_payments",
+          "label": "Total payments",
+          "amount": 9000.0
+        },
+        {
+          "code": "refund",
+          "label": "Refund",
+          "amount": 1000.0
+        }
+      ]
+    },
+    {
+      "year": 2022,
+      "filing": "married_joint",
+      "wages": 100000.0,
+      "other_income": 0.0,
+      "adjustments": 0.0,
+      "agi": 100000.0,
+      "deduction": {
+        "type": "standard",
+        "amount": 30000.0
+      },
+      "extra_deductions": 0.0,
+      "taxable_income": 70000.0,
+      "tax_before_credits": 12000.0,
+      "credits": {
+        "child": 4000.0,
+        "energy": 1000.0,
+        "other": 0.0,
+        "total_nonrefundable": 5000.0,
+        "refundable_child": 0.0,
+        "total": 5000.0
+      },
+      "other_taxes": 0.0,
+      "total_tax": 7000.0,
+      "payments": {
+        "withholding": 9000.0,
+        "estimated": 0.0,
+        "refundable_credits": 0.0,
+        "total": 9000.0
+      },
+      "refund": 2000.0,
+      "owed": 0.0,
+      "net": 2000.0,
+      "effective_rate_pct": 7.0,
+      "marginal_bracket_pct": 22.0,
+      "state": {
+        "taxable_income": 100000.0,
+        "tax": 3000.0,
+        "withheld": 3000.0,
+        "refund": 0.0,
+        "owed": 0.0,
+        "net": 0.0
+      },
+      "hsa_employer": 500.0,
+      "amended": false,
+      "amended_change": null,
+      "lines": [
+        {
+          "code": "wages",
+          "label": "Wages (W-2)",
+          "amount": 100000.0
+        },
+        {
+          "code": "other_income",
+          "label": "Other income",
+          "amount": 0.0
+        },
+        {
+          "code": "adjustments",
+          "label": "Adjustments",
+          "amount": 0.0
+        },
+        {
+          "code": "agi",
+          "label": "Adjusted gross income",
+          "amount": 100000.0
+        },
+        {
+          "code": "deduction",
+          "label": "Standard deduction",
+          "amount": -30000.0
+        },
+        {
+          "code": "taxable_income",
+          "label": "Taxable income",
+          "amount": 70000.0
+        },
+        {
+          "code": "tax_before_credits",
+          "label": "Tax before credits",
+          "amount": 12000.0
+        },
+        {
+          "code": "credit_child",
+          "label": "Child tax credit",
+          "amount": -4000.0
+        },
+        {
+          "code": "credit_energy",
+          "label": "Energy credit",
+          "amount": -1000.0
+        },
+        {
+          "code": "total_tax",
+          "label": "Total tax",
+          "amount": 7000.0
+        },
+        {
+          "code": "withholding",
+          "label": "Federal withholding",
+          "amount": 9000.0
+        },
+        {
+          "code": "total_payments",
+          "label": "Total payments",
+          "amount": 9000.0
+        },
+        {
+          "code": "refund",
+          "label": "Refund",
+          "amount": 2000.0
+        }
+      ]
+    },
+    {
+      "year": 2023,
+      "filing": "married_joint",
+      "wages": 110000.0,
+      "other_income": 0.0,
+      "adjustments": 0.0,
+      "agi": 110000.0,
+      "deduction": {
+        "type": "standard",
+        "amount": 30000.0
+      },
+      "extra_deductions": 0.0,
+      "taxable_income": 80000.0,
+      "tax_before_credits": 13000.0,
+      "credits": {
+        "child": 4000.0,
+        "energy": 1000.0,
+        "other": 0.0,
+        "total_nonrefundable": 5000.0,
+        "refundable_child": 0.0,
+        "total": 5000.0
+      },
+      "other_taxes": 0.0,
+      "total_tax": 8000.0,
+      "payments": {
+        "withholding": 10000.0,
+        "estimated": 0.0,
+        "refundable_credits": 0.0,
+        "total": 10000.0
+      },
+      "refund": 2000.0,
+      "owed": 0.0,
+      "net": 2000.0,
+      "effective_rate_pct": 7.27,
+      "marginal_bracket_pct": 22.0,
+      "state": {
+        "taxable_income": 110000.0,
+        "tax": 3000.0,
+        "withheld": 3000.0,
+        "refund": 0.0,
+        "owed": 0.0,
+        "net": 0.0
+      },
+      "hsa_employer": 500.0,
+      "amended": false,
+      "amended_change": null,
+      "lines": [
+        {
+          "code": "wages",
+          "label": "Wages (W-2)",
+          "amount": 110000.0
+        },
+        {
+          "code": "other_income",
+          "label": "Other income",
+          "amount": 0.0
+        },
+        {
+          "code": "adjustments",
+          "label": "Adjustments",
+          "amount": 0.0
+        },
+        {
+          "code": "agi",
+          "label": "Adjusted gross income",
+          "amount": 110000.0
+        },
+        {
+          "code": "deduction",
+          "label": "Standard deduction",
+          "amount": -30000.0
+        },
+        {
+          "code": "taxable_income",
+          "label": "Taxable income",
+          "amount": 80000.0
+        },
+        {
+          "code": "tax_before_credits",
+          "label": "Tax before credits",
+          "amount": 13000.0
+        },
+        {
+          "code": "credit_child",
+          "label": "Child tax credit",
+          "amount": -4000.0
+        },
+        {
+          "code": "credit_energy",
+          "label": "Energy credit",
+          "amount": -1000.0
+        },
+        {
+          "code": "total_tax",
+          "label": "Total tax",
+          "amount": 8000.0
+        },
+        {
+          "code": "withholding",
+          "label": "Federal withholding",
+          "amount": 10000.0
+        },
+        {
+          "code": "total_payments",
+          "label": "Total payments",
+          "amount": 10000.0
+        },
+        {
+          "code": "refund",
+          "label": "Refund",
+          "amount": 2000.0
+        }
+      ]
+    },
+    {
+      "year": 2024,
+      "filing": "married_joint",
+      "wages": 120000.0,
+      "other_income": 0.0,
+      "adjustments": 0.0,
+      "agi": 120000.0,
+      "deduction": {
+        "type": "standard",
+        "amount": 30000.0
+      },
+      "extra_deductions": 0.0,
+      "taxable_income": 90000.0,
+      "tax_before_credits": 14000.0,
+      "credits": {
+        "child": 4000.0,
+        "energy": 1000.0,
+        "other": 0.0,
+        "total_nonrefundable": 5000.0,
+        "refundable_child": 0.0,
+        "total": 5000.0
+      },
+      "other_taxes": 0.0,
+      "total_tax": 9000.0,
+      "payments": {
+        "withholding": 11000.0,
+        "estimated": 0.0,
+        "refundable_credits": 0.0,
+        "total": 11000.0
+      },
+      "refund": 2000.0,
+      "owed": 0.0,
+      "net": 2000.0,
+      "effective_rate_pct": 7.5,
+      "marginal_bracket_pct": 22.0,
+      "state": {
+        "taxable_income": 120000.0,
+        "tax": 3000.0,
+        "withheld": 3000.0,
+        "refund": 0.0,
+        "owed": 0.0,
+        "net": 0.0
+      },
+      "hsa_employer": 500.0,
+      "amended": false,
+      "amended_change": null,
+      "lines": [
+        {
+          "code": "wages",
+          "label": "Wages (W-2)",
+          "amount": 120000.0
+        },
+        {
+          "code": "other_income",
+          "label": "Other income",
+          "amount": 0.0
+        },
+        {
+          "code": "adjustments",
+          "label": "Adjustments",
+          "amount": 0.0
+        },
+        {
+          "code": "agi",
+          "label": "Adjusted gross income",
+          "amount": 120000.0
+        },
+        {
+          "code": "deduction",
+          "label": "Standard deduction",
+          "amount": -30000.0
+        },
+        {
+          "code": "taxable_income",
+          "label": "Taxable income",
+          "amount": 90000.0
+        },
+        {
+          "code": "tax_before_credits",
+          "label": "Tax before credits",
+          "amount": 14000.0
+        },
+        {
+          "code": "credit_child",
+          "label": "Child tax credit",
+          "amount": -4000.0
+        },
+        {
+          "code": "credit_energy",
+          "label": "Energy credit",
+          "amount": -1000.0
+        },
+        {
+          "code": "total_tax",
+          "label": "Total tax",
+          "amount": 9000.0
+        },
+        {
+          "code": "withholding",
+          "label": "Federal withholding",
+          "amount": 11000.0
+        },
+        {
+          "code": "total_payments",
+          "label": "Total payments",
+          "amount": 11000.0
+        },
+        {
+          "code": "refund",
+          "label": "Refund",
+          "amount": 2000.0
+        }
+      ]
+    },
+    {
+      "year": 2025,
+      "filing": "married_joint",
+      "wages": 130000.0,
+      "other_income": 0.0,
+      "adjustments": 0.0,
+      "agi": 130000.0,
+      "deduction": {
+        "type": "standard",
+        "amount": 30000.0
+      },
+      "extra_deductions": 0.0,
+      "taxable_income": 100000.0,
+      "tax_before_credits": 15000.0,
+      "credits": {
+        "child": 4000.0,
+        "energy": 1000.0,
+        "other": 0.0,
+        "total_nonrefundable": 5000.0,
+        "refundable_child": 0.0,
+        "total": 5000.0
+      },
+      "other_taxes": 0.0,
+      "total_tax": 10000.0,
+      "payments": {
+        "withholding": 11000.0,
+        "estimated": 0.0,
+        "refundable_credits": 0.0,
+        "total": 11000.0
+      },
+      "refund": 1000.0,
+      "owed": 0.0,
+      "net": 1000.0,
+      "effective_rate_pct": 7.69,
+      "marginal_bracket_pct": 22.0,
+      "state": {
+        "taxable_income": 130000.0,
+        "tax": 3000.0,
+        "withheld": 3000.0,
+        "refund": 0.0,
+        "owed": 0.0,
+        "net": 0.0
+      },
+      "hsa_employer": 500.0,
+      "amended": true,
+      "amended_change": 100.0,
+      "lines": [
+        {
+          "code": "wages",
+          "label": "Wages (W-2)",
+          "amount": 130000.0
+        },
+        {
+          "code": "other_income",
+          "label": "Other income",
+          "amount": 0.0
+        },
+        {
+          "code": "adjustments",
+          "label": "Adjustments",
+          "amount": 0.0
+        },
+        {
+          "code": "agi",
+          "label": "Adjusted gross income",
+          "amount": 130000.0
+        },
+        {
+          "code": "deduction",
+          "label": "Standard deduction",
+          "amount": -30000.0
+        },
+        {
+          "code": "taxable_income",
+          "label": "Taxable income",
+          "amount": 100000.0
+        },
+        {
+          "code": "tax_before_credits",
+          "label": "Tax before credits",
+          "amount": 15000.0
+        },
+        {
+          "code": "credit_child",
+          "label": "Child tax credit",
+          "amount": -4000.0
+        },
+        {
+          "code": "credit_energy",
+          "label": "Energy credit",
+          "amount": -1000.0
+        },
+        {
+          "code": "total_tax",
+          "label": "Total tax",
+          "amount": 10000.0
+        },
+        {
+          "code": "withholding",
+          "label": "Federal withholding",
+          "amount": 11000.0
+        },
+        {
+          "code": "total_payments",
+          "label": "Total payments",
+          "amount": 11000.0
+        },
+        {
+          "code": "refund",
+          "label": "Refund",
+          "amount": 1000.0
+        }
+      ]
+    }
+  ],
+  "credits": {
+    "energy_used_by_year": [
+      {
+        "year": 2021,
+        "amount": 0.0
+      },
+      {
+        "year": 2022,
+        "amount": 1000.0
+      },
+      {
+        "year": 2023,
+        "amount": 1000.0
+      },
+      {
+        "year": 2024,
+        "amount": 1000.0
+      },
+      {
+        "year": 2025,
+        "amount": 1000.0
+      }
+    ],
+    "energy_carryforward_used_next": 500.0,
+    "energy_carryforward_remaining": null
+  },
+  "estimate": {
+    "year": 2026,
+    "method": "projection_adjusted_by_stubs",
+    "federal": {
+      "refund_or_owed": 1000.0,
+      "refund_or_owed_at_projection": 1000.0,
+      "agi": 120000.0,
+      "total_tax": 9000.0,
+      "effective_rate_pct": 7.5,
+      "marginal_bracket_pct": 22.0,
+      "extra_per_check_to_break_even": 0.0,
+      "credits": {
+        "child": 4000.0,
+        "refundable_child": 0.0,
+        "energy_carryforward_used": 500.0
+      }
+    },
+    "state": {
+      "refund_or_owed": 0.0,
+      "withheld_projected": 3000.0,
+      "tax": 3000.0
+    },
+    "local": {
+      "refund_or_owed": 0.0,
+      "withheld_projected": 1000.0,
+      "due": 1000.0
+    },
+    "stub_adjustment": {
+      "applied": true,
+      "latest_stub": "2026-10-09",
+      "remaining_checks": 5,
+      "withholding_projected": 10000.0,
+      "wages_projected": 91250.0,
+      "withholding_delta": 0.0,
+      "tax_delta": 0.0
+    },
+    "scenarios": [
+      {
+        "id": "A",
+        "label": "Base",
+        "spouse_income": false,
+        "car_loan_deduction": false,
+        "conservative": false,
+        "agi": 120000.0,
+        "total_tax": 9000.0,
+        "withholding": 10000.0,
+        "refund_or_owed": 1000.0,
+        "effective_rate_pct": 7.5,
+        "marginal_bracket_pct": 22.0,
+        "extra_per_check_to_break_even": 0.0
+      },
+      {
+        "id": "B",
+        "label": "Scenario B",
+        "spouse_income": true,
+        "car_loan_deduction": false,
+        "conservative": false,
+        "agi": 130000.0,
+        "total_tax": 10000.0,
+        "withholding": 11000.0,
+        "refund_or_owed": 1000.0,
+        "effective_rate_pct": 7.69,
+        "marginal_bracket_pct": 22.0,
+        "extra_per_check_to_break_even": 0.0
+      },
+      {
+        "id": "C",
+        "label": "Scenario C",
+        "spouse_income": true,
+        "car_loan_deduction": false,
+        "conservative": true,
+        "agi": 150000.0,
+        "total_tax": 13000.0,
+        "withholding": 11000.0,
+        "refund_or_owed": -2000.0,
+        "effective_rate_pct": 8.67,
+        "marginal_bracket_pct": 22.0,
+        "extra_per_check_to_break_even": 400.0
+      }
+    ]
+  },
+  "flags": [
+    {
+      "id": "t001",
+      "kind": "refund_change",
+      "severity": "info",
+      "year": 2025,
+      "text": "Refund down 50% vs 2024",
+      "change_pct": -50.0
+    },
+    {
+      "id": "t002",
+      "kind": "amended",
+      "severity": "info",
+      "year": 2025,
+      "text": "Amended return filed"
+    },
+    {
+      "id": "t003",
+      "kind": "refund_change",
+      "severity": "info",
+      "year": 2022,
+      "text": "Refund up 100% vs 2021",
+      "change_pct": 100.0
+    },
+    {
+      "id": "t004",
+      "kind": "rate_change",
+      "severity": "info",
+      "year": 2022,
+      "text": "Effective rate -1.0 pts vs 2021",
+      "change_pts": -1.0
+    }
+  ]
+}
