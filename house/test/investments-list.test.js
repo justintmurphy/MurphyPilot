@@ -281,6 +281,50 @@ function sectionNav(section) {
   };
 }
 
+test("investments ticker shows no deposit or bill and does not fetch banking", async function () {
+  const ctx = boot();
+  ctx.location.pathname = "/investments/";
+  ctx.FAKE_NOW = "2026-10-16T10:00:00-04:00";
+  const calls = [];
+  ctx.fetch = function (url) {
+    calls.push(String(url));
+    return Promise.resolve({ ok: true, json: function () { return Promise.resolve({}); } });
+  };
+  const fx = {
+    asof: "2026-10-06T12:00:00-04:00",
+    budget: {
+      pay_schedule: [{
+        name: "Payroll",
+        kind: "payroll",
+        date: "2026-10-15",
+        amount: 40,
+        account: { last4: "1111" }
+      }],
+      bills: [{ name: "Rent", amount: 22, typical_day: 20, cadence: "monthly" }],
+      subscriptions: [],
+      income_monthly: [],
+      calendar: []
+    },
+    current: { recent_tx: [], edits_tx: [] }
+  };
+  const el = { hidden: true, innerHTML: "", addEventListener: function () {}, _mpTickerPainted: false };
+  ctx.document.getElementById = function (id) {
+    if (id === "mpNav") return sectionNav("investments");
+    if (id === "mp-ticker") return el;
+    return null;
+  };
+  ctx.MPTicker.load(el);
+  ctx.invPaintTicker(fx, { now: "2026-10-06T12:00:00-04:00" });
+  await new Promise(function (resolve) { setTimeout(resolve, 30); });
+  assert.doesNotMatch(el.innerHTML, /data-mp-tick="in"/);
+  assert.doesNotMatch(el.innerHTML, /data-mp-tick="out"/);
+  assert.doesNotMatch(el.innerHTML, /Next in|Next out|Payroll|Rent|deposit|bill/i);
+  assert.doesNotMatch(el.innerHTML, /\$40\.00/);
+  assert.doesNotMatch(el.innerHTML, /\$22\.00/);
+  assert.doesNotMatch(el.innerHTML, /Oct 15|Oct 20|··1111/);
+  assert.deepEqual(calls.filter(function (url) { return /\/data\/banking/.test(url); }), []);
+});
+
 test("investments ticker renders only investment items", function () {
   const ctx = boot();
   ctx.FAKE_NOW = "2026-10-16T10:00:00-04:00";
