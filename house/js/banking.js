@@ -11455,33 +11455,11 @@ function bankLoad(root, fetcher) {
   });
 }
 
-function bankApplyTheme(choice) {
-  var t = choice || "justin";
-  if (t === "nina" || t === "purple") t = "nina";
-  else t = "justin";
-  try { document.documentElement.setAttribute("data-theme", t); } catch (e) {}
-  try { localStorage.setItem("murphyPilotTheme", t); } catch (e2) {}
-  try {
-    document.querySelectorAll("[data-theme-choice]").forEach(function (b) {
-      b.classList.toggle("on", b.getAttribute("data-theme-choice") === t);
-    });
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", t === "nina" ? "#1A0A24" : "#08090B");
-  } catch (e3) {}
-}
-
 function bankBoot() {
   var root = null;
   try { root = document.getElementById("bankDesk"); } catch (e) { return; }
   if (!root) return;
   bankBindHistory(root);
-  try {
-    document.addEventListener("click", function (e) {
-      var b = e.target && e.target.closest && e.target.closest("[data-theme-choice]");
-      if (!b) return;
-      bankApplyTheme(b.getAttribute("data-theme-choice"));
-    });
-  } catch (e1) {}
   bankLoad(root);
 }
 
