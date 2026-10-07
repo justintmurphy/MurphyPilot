@@ -57,9 +57,7 @@ button.tape-row b {
   font-size: 13px;
   font-weight: 700;
 }
-button.tape-row.on,
-tr[data-check-id].on,
-tr[data-tax-year].on {
+button.tape-row.on {
   background: var(--paper);
   border-color: var(--rule);
   box-shadow: inset 3px 0 0 var(--ink);
@@ -171,10 +169,24 @@ table.book td {
 table.book td.num,
 table.book th.num {
   text-align: right;
+}
+.paydesk table.book td.num,
+.paydesk table.book th.num {
   white-space: nowrap;
 }
+table.book tr.on {
+  background: var(--row);
+}
+table.book tr.on td:first-child {
+  box-shadow: inset 3px 0 0 var(--nav-line);
+}
+.paydesk .tape-plot svg.axis-svg,
+.paydesk .tape-plot svg.ov-line-svg {
+  width: 100%;
+  height: auto;
+}
 @media (min-width: 721px) {
-  tr.scenario-more { display: none; }
+  .paydesk tr.scenario-more { display: none; }
 }
 table.book .sym {
   font-weight: 700;
@@ -257,6 +269,10 @@ select {
   border: 1px solid var(--rule);
   border-radius: 4px;
   padding: 8px 10px;
+}
+.paydesk input,
+.paydesk textarea,
+.paydesk select {
   min-height: 44px;
 }
 textarea {
@@ -517,9 +533,7 @@ button.mix-leg,
 }
 button.mix-leg:hover,
 .mix-leg:hover,
-.mix-leg.on,
-tr[data-check-id].on,
-tr[data-tax-year].on {
+.mix-leg.on {
   border-color: var(--nav-line);
   background: var(--row);
 }

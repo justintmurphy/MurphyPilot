@@ -313,31 +313,57 @@ function trendChart(checks) {
     polyPoints(net, box, scale) + '"></polyline>' + endLabel + ticks + "</svg></div>";
 }
 
-function stepChart(history) {
+function latestStubDate(doc) {
+  var latest = "";
+  (doc && doc.checks || []).forEach(function (c) {
+    var iso = c && c.pay_date ? String(c.pay_date) : "";
+    if (iso > latest) latest = iso;
+  });
+  return latest;
+}
+
+function stepChart(history, endIso) {
   history = history || [];
   if (!history.length) return "";
   var vals = history.map(function (row) { return Number(row.annual) || 0; });
   var box = { w: 360, h: 128, pL: 8, pR: 8, pT: 36, pB: 22 };
   var scale = scalePair([vals]);
   var span = scale.mx - scale.mn || 1;
-  var n = history.length;
+  var spanDates = stubSpan(history);
+  var start = spanDates.start;
+  var end = spanDates.end;
+  if (endIso && dayIndex(endIso) != null && (dayIndex(end) == null || dayIndex(endIso) > dayIndex(end))) end = endIso;
+  var startIdx = dayIndex(start);
+  var endIdx = dayIndex(end);
+  if (startIdx == null) startIdx = 0;
+  if (endIdx == null || endIdx <= startIdx) endIdx = startIdx + 1;
+  function xAt(iso) {
+    var idx = dayIndex(iso);
+    if (idx == null) idx = startIdx;
+    var t = (idx - startIdx) / (endIdx - startIdx);
+    if (t < 0) t = 0;
+    if (t > 1) t = 1;
+    return box.pL + t * (box.w - box.pL - box.pR);
+  }
   var d = "";
   var labels = "";
   history.forEach(function (row, i) {
     var v = Number(row.annual) || 0;
-    var x0 = box.pL + i * (box.w - box.pL - box.pR) / Math.max(n, 1);
-    var x1 = box.pL + (i + 1) * (box.w - box.pL - box.pR) / Math.max(n, 1);
+    var from = row.first_pay_date || row.effective;
+    var next = history[i + 1];
+    var to = next ? (next.first_pay_date || next.effective) : end;
+    var x0 = xAt(from);
+    var x1 = xAt(to);
     var y = box.pT + (box.h - box.pT - box.pB) * (1 - (v - scale.mn) / span);
     d += (i ? " L" : "M") + x0.toFixed(1) + " " + y.toFixed(1) + " L" + x1.toFixed(1) + " " + y.toFixed(1);
-    var year = String(row.first_pay_date || row.effective || "").slice(0, 4);
+    var year = String(from || "").slice(0, 4);
     labels += '<text x="' + x1.toFixed(1) + '" y="' + Math.max(y - 16, 14).toFixed(1) +
       '" text-anchor="end" fill="var(--ink)" font-size="12">' + esc(year) + " " + esc(shortMoney(v)) + "</text> ";
   });
-  var spanDates = stubSpan(history);
   labels += '<text x="' + box.pL + '" y="' + (box.h - 4) + '" fill="var(--ink-soft)" font-size="12">' +
-    esc(axisMonth(spanDates.start)) + "</text> ";
+    esc(axisMonth(start)) + "</text> ";
   labels += '<text x="' + (box.w - box.pR) + '" y="' + (box.h - 4) + '" text-anchor="end" fill="var(--ink-soft)" font-size="12">' +
-    esc(axisMonth(spanDates.end)) + "</text> ";
+    esc(axisMonth(end)) + "</text> ";
   return '<div class="tape-plot"><svg class="axis-svg" viewBox="0 0 ' + box.w + " " + box.h +
     '" role="img" aria-label="Salary by year">' +
     '<path d="' + d + '" fill="none" stroke="var(--mix-a)" stroke-width="2"></path>' + labels + "</svg></div>";
@@ -460,17 +486,30 @@ function whereCard(doc, year, checks, openGroup) {
     p.d = d;
     return p;
   });
-  var centerPart = null;
-  paths.forEach(function (p) { if (p.key === "net") centerPart = p; });
-  if (!centerPart) centerPart = paths.slice().sort(function (x, y) { return y.value - x.value; })[0];
-  var centerTone = moneyText(centerPart.value, centerPart.mode).tone;
-  var centerText = compactMoney(centerPart.mode === "out" ? -centerPart.value : centerPart.value);
+  var latestForLabels = checks[0] || null;
+  function knownYtd(pred) {
+    var sum = 0;
+    var seen = false;
+    ((latestForLabels && latestForLabels.lines) || []).forEach(function (line) {
+      if (!line || !pred(line) || line.ytd == null || !isFinite(Number(line.ytd))) return;
+      seen = true;
+      sum += Math.abs(Number(line.ytd));
+    });
+    return seen ? sum : null;
+  }
+  var knownIns = knownYtd(function (line) { return line.bucket === "insurance_hsa" && line.section !== "employer"; });
+  var knownLoan = knownYtd(function (line) { return line.bucket === "loan_401k" || line.code === "loan_401k"; });
+  paths.forEach(function (p) {
+    var known = p.key === "insurance" ? knownIns : (p.key === "loan" ? knownLoan : null);
+    if (known != null && p.value - known > 0.5) p.label = p.label + " & other";
+  });
+  var centerText = compactMoney(total);
   var svg = '<div class="mix-ring"><svg class="mix-svg" viewBox="0 0 140 140" aria-hidden="true">' +
     paths.map(function (p) {
       return '<path d="' + p.d + '" fill="' + p.color + '"></path>';
     }).join("") +
-    '</svg><div class="mix-center"><b class="' + centerTone + '">' + centerText + "</b> <span>" +
-    esc(centerPart.label) + "</span></div></div>";
+    '</svg><div class="mix-center"><b class="tone-flat">' + centerText + "</b> <span>" +
+    "Gross YTD</span></div></div>";
   var latest = checks[0] || null;
   var legend = paths.map(function (p) {
     var on = openGroup === p.key;
@@ -504,7 +543,7 @@ function salaryHero(doc) {
     moneyKpi("Annual", salary.current_annual, "plain") +
     textKpi("Last raise", pctText(lastRaise, true)) +
     "</div>";
-  return card("Salary", "salary", kpis + stepChart(hist) + raisesLine(hist));
+  return card("Salary", "salary", kpis + stepChart(hist, latestStubDate(doc)) + raisesLine(hist));
 }
 
 function ytdCard(doc, year) {
@@ -706,10 +745,11 @@ function payHtml(doc, state) {
   var trendNote = "Net per check, gross behind.";
   if (trendPrior) trendNote += " Change vs a year ago.";
   return pageTitle("Pay") +
-    '<div class="split-two">' +
+    '<div class="split-two"><div>' +
     salaryHero(doc) +
+    "</div><div>" +
     card("Take-home trend", "trend", trendTile + trendChart(trendRows) + hint(trendNote)) +
-    "</div>" +
+    "</div></div>" +
     whereCard(doc, year, checks, state.openGroup) +
     ytdCard(doc, year) +
     flagsBlock(flags, 3) +
@@ -756,8 +796,8 @@ function estimateCard(doc) {
   }
   var extra = fed.extra_per_check_to_break_even;
   var extraText = extra != null && isFinite(Number(extra)) && Number(extra) !== 0
-    ? "Extra per check: " + moneyText(extra, "plain").text + "."
-    : "No extra needed.";
+    ? "Base: extra per check " + moneyText(extra, "plain").text + "."
+    : "Base: no extra needed.";
   var extraLine = hint(range + extraText);
   var withheld = est.stub_adjustment && est.stub_adjustment.withholding_projected;
   function row(label, cell) {
@@ -878,17 +918,25 @@ function amendedNote(doc, year) {
 
 function yearsTable(doc, selected) {
   var rows = (doc.years || []).slice().sort(function (a, b) { return Number(a.year) - Number(b.year); });
+  var anyAmended = false;
   var body = rows.map(function (row) {
     var net = row.net != null ? row.net : (Number(row.refund) || 0) - (Number(row.owed) || 0);
     var withheld = row.payments && row.payments.withholding;
     var picked = Number(row.year) === Number(selected);
-    return '<tr data-tax-year="' + esc(row.year) + '"' + (picked ? ' class="on"' : "") + '"><td><span class="sym">' +
-      esc(row.year) + "</span></td>" + moneyTd(row.agi, "plain") + moneyTd(row.total_tax, "out") + moneyTd(withheld, "plain") +
+    var amended = (doc.flags || []).some(function (flag) {
+      return flag && flag.kind === "amended" && Number(flag.year) === Number(row.year);
+    });
+    if (amended) anyAmended = true;
+    var attrs = ' data-tax-year="' + esc(row.year) + '"';
+    if (picked) attrs += ' class="on"';
+    return "<tr" + attrs + '><td><span class="sym">' + esc(String(row.year) + (amended ? "*" : "")) +
+      "</span></td>" + moneyTd(row.agi, "plain") + moneyTd(row.total_tax, "out") + moneyTd(withheld, "plain") +
       moneyTd(net, "signed") + "</tr>";
   }).join("");
   var table = '<table class="book"><thead><tr><th>Year</th><th class="num">AGI</th><th class="num">Total tax</th><th class="num">Withheld</th><th class="num">Refund / owed</th></tr></thead><tbody>' +
     body + "</tbody></table>";
-  return card("Years", "years", capWrap(table, rows.length, "Tax years"));
+  var note = anyAmended ? hint("* amended return") : "";
+  return card("Years", "years", capWrap(table, rows.length, "Tax years") + note);
 }
 
 function yearLines(doc, year) {
@@ -911,10 +959,11 @@ function taxesHtml(doc, state) {
   return pageTitle("Taxes") +
     estimateCard(doc) +
     scenariosCard(doc, state) +
-    '<div class="split-two">' +
+    '<div class="split-two"><div>' +
     barsCard(doc) +
+    "</div><div>" +
     energyCard(doc) +
-    "</div>" +
+    "</div></div>" +
     moreBlock(
       yearPick("taxes", year, years) +
       yearsTable(doc, year) +

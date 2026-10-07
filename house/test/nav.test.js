@@ -588,7 +588,9 @@ test("nav source stays free of figures and institution names", function () {
   const nav = read("js/nav.js");
   assert.doesNotMatch(nav, /\$\d/);
   assert.doesNotMatch(nav, /\u00b7\u00b7\u00b7/);
-  assert.doesNotMatch(nav, /\d{4,}/);
+  assert.match(nav, /"#08090B"/);
+  assert.doesNotMatch(nav, /"#080"\s*\+\s*"90B"/);
+  assert.doesNotMatch(nav.replace(/#[0-9A-Fa-f]{3,8}/g, ""), /\d{4,}/);
   assert.doesNotMatch(nav, /Robinhood|Fidelity|Voya|Schwab|Chase|Wells|T-Mobile|NFCU|BNY|Mellon|Duquesne|Marlowe|Claude/i);
   assert.doesNotMatch(nav, /console\./);
   ["house/index.html", "house/banking/index.html"].forEach(function (rel) {

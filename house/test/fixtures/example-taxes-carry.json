@@ -680,11 +680,11 @@
         "conservative": false,
         "agi": 140200,
         "total_tax": 8684,
-        "withholding": 6684,
-        "refund_or_owed": -2000,
+        "withholding": 10000,
+        "refund_or_owed": 1316,
         "effective_rate_pct": 6.19,
         "marginal_bracket_pct": 22,
-        "extra_per_check_to_break_even": 400
+        "extra_per_check_to_break_even": 0
       }
     ]
   },

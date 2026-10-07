@@ -193,7 +193,7 @@
         buttons[i].classList.toggle("on", buttons[i].getAttribute("data-theme-choice") === t);
       }
       var meta = d.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute("content", t === "nina" ? "#1A0A24" : "#080" + "90B");
+      if (meta) meta.setAttribute("content", t === "nina" ? "#1A0A24" : "#08090B");
     } catch (e3) {}
   }
   function tickClock() {
