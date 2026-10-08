@@ -1778,6 +1778,7 @@ span.bank-chip {
   }
 
   .bank-panel > [data-bank-part="next"],
+  .bank-panel > [data-bank-part="mtd"],
   .bank-panel > [data-bank-part="more"],
   .bank-panel > .bank-day-dialog {
     grid-column: 1 / -1;

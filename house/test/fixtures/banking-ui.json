@@ -15,6 +15,19 @@
     "days_elapsed": 5,
     "days_in_month": 31,
     "month_basis": "posted",
+    "month_flow": {
+      "month": "2026-10",
+      "money_in": 24.68,
+      "money_out": 30,
+      "income_received": 24.68,
+      "other_income": 0,
+      "required_spent": 10,
+      "needs_spent": 20,
+      "wants_spent": 12.34,
+      "net": 0,
+      "basis": "posted",
+      "through_date": "2026-10-05"
+    },
     "balances": [
       {"id": "acct-check", "balance": 12.34, "asof_date": "2026-10-05"},
       {"id": "acct-debit", "balance": null, "asof_date": "2026-10-05"},
@@ -117,7 +130,7 @@
       {"label": "Phone", "category": "Utilities/Bills", "amount": 12.34, "due_day": null, "cadence": "monthly"}
     ],
     "bills": [
-      {"name": "Phone", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"},
+      {"name": "Phone", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills", "tier": "required", "paid_current_month": {"month": "2026-10", "status": "paid", "source": "manual", "paid_date": "2026-10-01"}},
       {"name": "Mortgage", "amount": 12.34, "typical_amount": 40, "typical_day": null, "cadence": "monthly", "category": "Rent/Mortgage"},
       {"name": "Mobile plan", "amount": 12.34, "typical_day": null, "cadence": "monthly", "category": "Utilities/Bills"},
       {"name": "Car payment", "amount": null, "typical_amount": null, "typical_day": null, "cadence": "monthly", "category": "Auto"},
@@ -153,6 +166,9 @@
     "planned_by_category": {"Groceries": 12.34, "Shopping": 24, "Health": null, "Education": 12.34, "Tuition": 12.34},
     "mtd_actual_by_category": {"Groceries": 30, "Shopping": 12.34},
     "mtd_actual_by_category_month": "2026-10",
+    "paid_status_month": "2026-10",
+    "tiers": {"required_plan": 100, "needs_plan": 24.68, "wants_plan": 24},
+    "account_funding": [{"nickname": "Bills", "last4": "2222", "start_balance": 80}],
     "income_total": 12.34,
     "bills_total": 12.34
   }

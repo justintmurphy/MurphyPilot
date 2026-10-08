@@ -623,7 +623,7 @@ test("touched assets use the ei cache bust", function () {
   assert.match(bank, /\/js\/nav\.js\?v=20261007ep/);
   assert.match(bank, /\/house\/house\.css\?v=20261007ei/);
   assert.match(bank, /\/house\/js\/banking\.js\?v=20261007ep/);
-  assert.match(bank, /\/house\/banking\.css\?v=20261007ei/);
+  assert.match(bank, /\/house\/banking\.css\?v=20261007ep/);
   assert.match(bank, /id="mpNav" class="mp-nav" data-section="banking"/);
   assert.match(bank, /<a class="brand-block" href="\/">/);
   assert.match(bank, /aria-label="Murphy Pilot"/);
