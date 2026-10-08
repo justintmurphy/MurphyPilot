@@ -692,7 +692,7 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   assert.match(card1, /class="ov-hero"[\s\S]{0,80}Left from this pay/);
   assert.match(card1, /Paid Bill/);
   assert.match(card1, /data-bank-bill-paid="1"/);
-  assert.match(card1, /tone-go" aria-label="Paid"/);
+  assert.match(card1, /tone-flat" aria-label="Paid"/);
   assert.match(card1, /Due Bill/);
   assert.match(card1, /data-bank-bill-paid="0"/);
   assert.match(card1, /Carried over/);
