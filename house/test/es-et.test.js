@@ -719,10 +719,11 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   assert.equal(left2, maths[nextIdx].left);
   const paidSoFar = 8;
   const remain = 6;
+  const windowBills = paidSoFar + remain;
   let ident = thisIdx > 0 ? maths[thisIdx - 1].left : 0;
   ident = ctx.bankLeftAfter(ident, { kind: "in", amount: 40, counted: true, pending: false });
   ident = ctx.bankLeftAfter(ident, { kind: "in", amount: maths[thisIdx].also, counted: true, pending: false });
-  ident = ctx.bankLeftAfter(ident, { kind: "out", amount: remain, counted: true, pending: false });
+  ident = ctx.bankLeftAfter(ident, { kind: "out", amount: windowBills, counted: true, pending: false });
   assert.equal(left1, ident);
   const rows = ledgerRows(dueSlice(html));
   const today = rows.filter(function (row) { return row.today; })[0];
@@ -736,7 +737,7 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   fromToday = ctx.bankLeftAfter(fromToday, { kind: "in", amount: maths[thisIdx].also, counted: true, pending: false });
   fromToday = ctx.bankLeftAfter(fromToday, { kind: "out", amount: remain, counted: true, pending: false });
   const priorCarry = thisIdx > 0 ? maths[thisIdx - 1].left : 0;
-  assert.equal(left1, ctx.bankRoundCents(fromToday + paidSoFar + priorCarry));
+  assert.equal(left1, ctx.bankRoundCents(fromToday + priorCarry));
   const last = maths[maths.length - 1];
   const lastDate = periods[periods.length - 1].focus.date;
   const ledgerEnd = Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]);
@@ -745,9 +746,9 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   periods.forEach(function (period, i) {
     if (period.focus && period.focus.date < "2026-10-01") brought = maths[i].left;
   });
-  if (String(periods[periods.length - 1].end || "") > "2026-10-31") assert.equal(last.left, ctx.bankRoundCents(ledgerEnd + paidSoFar + brought));
-  else if (paydayRow) assert.equal(last.left, ctx.bankRoundCents(paydayRow.left + paidSoFar + brought));
-  else assert.equal(last.left, ctx.bankRoundCents(ledgerEnd + paidSoFar + brought));
+  if (String(periods[periods.length - 1].end || "") > "2026-10-31") assert.equal(last.left, ctx.bankRoundCents(ledgerEnd + brought));
+  else if (paydayRow) assert.equal(last.left, ctx.bankRoundCents(paydayRow.left + brought));
+  else assert.equal(last.left, ctx.bankRoundCents(ledgerEnd + brought));
 });
 
 test("remaining group rows break out categories without moving left after", function () {
@@ -841,7 +842,7 @@ test("a main-page tap marks a bill paid and a second tap clears it", async funct
   const cardAfter = nextAfter.slice(nextAfter.lastIndexOf('<div class="card"', afterAt), nextAfter.indexOf('data-bank-next-card="', afterAt + 20));
   const leftAfter = Number((cardAfter.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
   assert.ok(outAfter < outBefore, outAfter + " vs " + outBefore);
-  assert.ok(leftAfter > leftBefore, leftAfter + " vs " + leftBefore);
+  assert.equal(leftAfter, leftBefore);
   assert.match(cardAfter, /data-bank-status-undo="rent"/);
   assert.match(cardAfter, /aria-label="Paid"/);
   assert.match(after.slice(after.indexOf('class="bank-day-dialog"')), /data-bank-status-undo="rent"/);

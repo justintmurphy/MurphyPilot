@@ -1785,6 +1785,72 @@ ul.bank-tx-results[data-bank-cat-items] [data-bank-item-meta] {
   }
 }
 
+/* Account funding shares one column grid: name, amount, left after. */
+.bank-due-month table.bank-fund-grid {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.bank-due-month table.bank-fund-grid col.bank-fund-amt,
+.bank-due-month table.bank-fund-grid col.bank-fund-left {
+  width: 6.25rem;
+}
+
+.bank-due-month table.bank-fund-grid th,
+.bank-due-month table.bank-fund-grid td {
+  overflow: hidden;
+}
+
+.bank-due-month table.bank-fund-grid th.num,
+.bank-due-month table.bank-fund-grid td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-feature-settings: "tnum";
+}
+
+.bank-due-month table.bank-fund-grid th:first-child,
+.bank-due-month table.bank-fund-grid td.bank-fund-name {
+  text-align: left;
+}
+
+.bank-due-month table.bank-fund-grid td.bank-fund-name .sym,
+.bank-due-month table.bank-fund-grid td.bank-fund-name .sub {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-due-month tr.bank-fund-sub td.bank-fund-name {
+  padding-left: 1.35rem;
+}
+
+.bank-due-month .bank-pay-tap {
+  display: inline-grid;
+  grid-template-columns: minmax(0, max-content) auto;
+  align-items: center;
+  column-gap: 6px;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.bank-due-month .bank-pay-tap .sym,
+.bank-due-month .bank-pay-tap .sub {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.bank-due-month .bank-pay-tap .bank-pay-box,
+.bank-due-month .bank-pay-tap > .tone-go {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  margin-left: 0;
+}
+
 .bank-funding {
   margin: 14px 0 0;
   min-width: 0;
