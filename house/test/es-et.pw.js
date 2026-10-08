@@ -229,12 +229,14 @@ async function main() {
   if (first.role !== "carousel") throw new Error("role " + first.role);
   if (first.ratio < 0.84 || first.ratio > 0.9) throw new Error("peek ratio " + first.ratio);
   if (!(first.peek > 8 && first.peek < first.trackRight * 0.2)) throw new Error("peek px " + first.peek);
-  if (!/Stipend/.test(first.also) || !/Oct 20/.test(first.also)) throw new Error("named deposit missing " + first.also);
+  if (!/Stipend · Tue Oct 20/.test(first.text)) throw new Error("stipend card missing " + first.text.slice(0, 400));
   if (/Also in/.test(first.text)) throw new Error("unnamed also in");
   if (/Rent/.test(first.text)) throw new Error("cancelled rent on carousel");
-  if (first.dates[0] !== "2026-09-30" || first.dates[1] !== "2026-10-15") throw new Error("cards " + first.dates.join(","));
+  if (first.dates[0] !== "2026-09-30" || first.dates.indexOf("2026-10-15") < 0 || first.dates.indexOf("2026-10-20") < 0) {
+    throw new Error("cards " + first.dates.join(","));
+  }
   if (!/Next pay/.test(first.title) || /Oct/.test(first.title)) throw new Error("title " + first.title);
-  if (!/Stream Club/.test(first.text) || !/−\$15\.00/.test(first.text) || !/\+\$25\.00/.test(first.text)) {
+  if (!/Stream Club/.test(first.text) || !/Power/.test(first.text) || !/−\$5\.00/.test(first.text)) {
     throw new Error("card math " + first.text);
   }
   if (Math.abs(first.heights[0] - first.heights[1]) > 1) throw new Error("card heights " + first.heights.join(","));

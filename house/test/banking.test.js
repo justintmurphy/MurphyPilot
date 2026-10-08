@@ -5599,7 +5599,7 @@ test("the next pay card leads the budget and does not warn about a shortfall", f
   const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-05T12:00:00-04:00" });
   assert.ok(html.indexOf('class="bank-next"') < html.indexOf('data-bank-part="funding"'));
   assert.match(html, /id="bank-next-title">Next pay</);
-  assert.match(html, /class="mix-hint">Thu, Oct 15/);
+  assert.match(html, /Payroll · Thu Oct 15/);
   assert.match(html, /class="tone-go">\+\$40\.00/);
   assert.match(html, /Rent/);
   assert.match(html, /−\$10\.00/);
@@ -5612,7 +5612,7 @@ test("the next pay card leads the budget and does not warn about a shortfall", f
   fx.current.recent_tx = [{ date: "2026-10-15", amount: 40, flow: "inflow", desc: "Payroll", category: "Payroll" }];
   const landed = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T12:00:00-04:00" });
   assert.match(landed, /id="bank-next-title">Next pay</);
-  assert.match(landed, /data-bank-this-pay="1"[\s\S]{0,80}Thu, Oct 15/);
+  assert.match(landed, /data-bank-this-pay="1"[\s\S]{0,120}Payroll · Thu Oct 15/);
   assert.match(landed, /This period has started/);
   assert.doesNotMatch(landed, /shortfall|underfunded/i);
 });

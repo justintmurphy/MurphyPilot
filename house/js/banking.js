@@ -1,7 +1,7 @@
 /* tip ez — A pay_schedule row counts only in a month it dates.
    Any other month uses that income's deposits or typical days, rolled back to the prior business day.
-   Next pay lists each other deposit under the paycheck, with its name and date. A rolled one notes the original day.
-   On the calendar the rolled chip uses that name, and the original day marks where it moved.
+   Each scheduled deposit, payroll and stipend, is its own Next Pay card. The window runs from that deposit to the next deposit of any kind.
+   One-off deposits in the window stay as named rows under the deposit. A rolled calendar chip uses the income name, and the original day marks where it moved.
    tip ey — Edits can put a skipped outflow into a category.
    The sheet says it is not counted as spending now, then the usual picker, starting on Just this one.
    Money in stays locked unless it is already a refund. A closed month stays read-only and says Closed month.
@@ -5933,7 +5933,7 @@ function bankLatestPostedPay(snap, opts) {
 function bankPayPeriod(snap, opts) {
   opts = opts || {};
   var today = bankTodayIso(snap, opts);
-  var anchors = bankPayrollAnchors(snap, opts);
+  var anchors = bankAllDepositEvents(snap, opts);
   if (anchors.length) {
     var posted = null;
     anchors.forEach(function (ev) {
@@ -8091,6 +8091,50 @@ function bankNextPayModel(snap, opts) {
   };
 }
 
+function bankIsScheduledDeposit(ev) {
+  if (!ev) return false;
+  var kind = ev.kind || "";
+  var name = ev.name || "";
+  if (kind === "Payroll" || kind === "Stipend") return true;
+  if (bankIsPayrollIncome(kind) || bankIsFosteringIncome(kind)) return true;
+  if (bankIsPayrollIncome(name) || bankIsFosteringIncome(name)) return true;
+  return false;
+}
+
+/* Payroll anchors plus every other scheduled deposit. One-offs stay off this list. */
+function bankAllDepositEvents(snap, opts) {
+  opts = opts || {};
+  var ym = bankScreenMonth(snap, opts);
+  var events = [];
+  var seen = {};
+  function add(ev) {
+    if (!ev || !ev.date || !bankIsScheduledDeposit(ev)) return;
+    var k = ev.date + "|" + (ev.kind || ev.name || "");
+    if (seen[k]) return;
+    seen[k] = true;
+    events.push(ev);
+  }
+  [-1, 0, 1, 2].forEach(function (shift) {
+    var view = bankParseYm(bankShiftYm(ym, shift));
+    bankCollectPayEvents(snap, view || ym).forEach(add);
+  });
+  bankPayrollAnchors(snap, opts).forEach(function (ev) {
+    if (!ev || !ev.date) return;
+    var payrollThere = false;
+    events.forEach(function (row) {
+      if (row.date === ev.date && (row.kind === "Payroll" || bankIsPayrollIncome(row.name))) payrollThere = true;
+    });
+    if (!payrollThere) add(ev);
+  });
+  events.sort(function (a, b) {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    var ak = a.kind || a.name || "";
+    var bk = b.kind || b.name || "";
+    return ak < bk ? -1 : ak > bk ? 1 : 0;
+  });
+  return events;
+}
+
 function bankPayEvents(snap, opts) {
   opts = opts || {};
   var ym = bankScreenMonth(snap, opts);
@@ -8135,7 +8179,7 @@ function bankSynthesizePayroll(afterDate, amount) {
 function bankPayPeriods(snap, opts) {
   var first = bankPayPeriod(snap, opts);
   if (!first || !first.focus) return [];
-  var anchors = bankPayrollAnchors(snap, opts);
+  var anchors = bankAllDepositEvents(snap, opts);
   var events = bankPayEvents(snap, opts);
   var payroll = events.filter(function (ev) { return ev.kind === "Payroll" || bankIsPayrollIncome(ev.name); });
   var primary = anchors.length ? anchors : (payroll.length ? payroll : events.slice());
@@ -8163,7 +8207,7 @@ function bankPayPeriods(snap, opts) {
     return end;
   }
   var guard = 0;
-  while (periods.length < 6 && guard < 8) {
+  while (periods.length < 8 && guard < 12) {
     guard += 1;
     var prev = periods[periods.length - 1];
     var start = following(prev.focus.date);
@@ -8231,6 +8275,7 @@ function bankAlsoInDeposits(snap, period) {
     bankLedgerDeposits(snap, bankParseYm(slice.ym)).forEach(function (ev) {
       if (!ev || !ev.date || ev.amount == null) return;
       if (ev.date < period.focus.date || ev.date >= period.end) return;
+      if (bankIsScheduledDeposit(ev)) return;
       var same = ev.date === period.focus.date && (ev.kind === period.focus.kind || ev.name === period.focus.name);
       if (same) return;
       var k = ev.date + "|" + (ev.kind || ev.name) + "|" + ev.amount;
@@ -8928,18 +8973,19 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried,
     if (roll) windowHint = windowHint + " " + roll;
     hints = '<p class="hint">' + bankEsc(windowHint) + "</p>";
   }
-  var when = bankShortPayDate(ev.date);
+  var face = bankDepositFace(ev);
+  var week = bankWeekDate(ev.date);
+  var rollNote = ev.rolled_from && ev.rolled_from !== ev.date ? " " + bankForOriginalNote(ev.rolled_from) : "";
+  var title = face + (week ? " \u00b7 " + week : "") + rollNote;
   var expectedAttr = period.expected && !period.past ? ' data-bank-expected="1"' : "";
   var pastAttr = period.past ? ' data-bank-past="1"' : "";
   var head;
   if (period.thisPay) {
-    head = '<p class="mix-hint" data-bank-this-pay="1">This pay <span>' + bankEsc(when) + "</span></p>";
+    head = '<p class="mix-hint" data-bank-this-pay="1">This pay <span>' + bankEsc(title) + "</span></p>";
   } else if (period.past) {
-    var pastEnd = period.end ? bankAddDays(period.end, -1) : "";
-    var range = bankShortDate(ev.date) + (pastEnd ? " to " + bankShortDate(pastEnd) : "");
-    head = '<p class="mix-hint">' + bankEsc(range) + "</p>";
+    head = '<p class="mix-hint">' + bankEsc(title) + "</p>";
   } else {
-    head = '<p class="mix-hint">' + bankEsc(when) + (period.expected ? ' <span class="sub">expected</span>' : "") + "</p>";
+    head = '<p class="mix-hint">' + bankEsc(title) + (period.expected ? ' <span class="sub">expected</span>' : "") + "</p>";
   }
   var hero = '<div class="overall-strip" data-bank-check-left="' + (left == null ? "" : left) + '"' + leftAttr +
     '><div class="ov-hero"><span>Left from this pay</span> <b class="' + leftFlow.cls + '">' + bankEsc(leftFlow.text) + "</b></div></div>";

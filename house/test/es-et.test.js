@@ -394,9 +394,10 @@ test("next pay cards cover the month, share left after, and hide paid or cancell
   assert.match(next, /aria-roledescription="carousel"/);
   assert.match(next, /class="pay-carousel(?: pay-wide)?" tabindex="0"/);
   assert.match(next, /class="book-chip on" data-bank-next-dot="0" aria-current="true"/);
-  assert.match(next, /data-bank-also-row="2026-10-20"/);
+  assert.match(next, /data-bank-next-date="2026-10-20"/);
   assert.match(next, /Stipend · Tue Oct 20/);
-  assert.doesNotMatch(next, /Also in/);
+  assert.match(next, /data-bank-next-date="2026-10-15"/);
+  assert.doesNotMatch(next, /Also in|data-bank-also-row/);
   assert.equal((next.match(/<p class="hint">/g) || []).length, 1);
   assert.doesNotMatch(next, /sym">Rent/);
   assert.match(next.slice(0, next.indexOf('data-bank-next-card="3"')), /Paid Off Item[\s\S]{0,120}data-bank-bill-paid="1"|data-bank-bill-paid="1"[\s\S]{0,200}Paid Off Item/);
@@ -537,19 +538,22 @@ test("next pay includes every active window bill, and left plus also-in is the p
   const earlier = next.slice(next.indexOf('data-bank-next-card="1"'), next.indexOf('data-bank-next-card="2"'));
   const cardAt = next.indexOf('data-bank-next-date="2026-10-15"');
   const card = next.slice(next.lastIndexOf('<div class="card"', cardAt), next.indexOf('data-bank-next-card="', cardAt + 20));
+  const stipendAt = next.indexOf('data-bank-next-date="2026-10-20"');
+  const stipendCard = next.slice(next.lastIndexOf('<div class="card"', stipendAt), next.indexOf('data-bank-next-card="', stipendAt + 20));
   assert.match(earlier, /data-bank-next-date="2026-09-30"/);
+  assert.match(card, /Payroll · Thu Oct 15/);
   assert.match(card, /Stream Club/);
-  assert.match(card, /Power/);
+  assert.doesNotMatch(card, /sym">Power/);
   assert.doesNotMatch(card, /sym">Rent/);
-  assert.match(card, /Set aside[\s\S]{0,40}−\$15\.00/);
-  assert.match(card, /data-bank-check-left="77.34"/);
-  assert.match(card, /Left from this pay[\s\S]{0,120}\+\$77\.34/);
+  assert.match(card, /Set aside[\s\S]{0,40}−\$5\.00/);
+  assert.match(card, /data-bank-check-left="75"/);
+  assert.match(stipendCard, /Stipend · Tue Oct 20/);
+  assert.match(stipendCard, /Power/);
+  assert.doesNotMatch(stipendCard, /data-bank-also-row|Also in/);
   assert.match(card, /Needs \(groceries, etc\.\)[\s\S]{0,40}\$0\.00/);
   assert.doesNotMatch(card, /Needs \(groceries, etc\.\)[\s\S]{0,40}<span class="sub">—/);
-  assert.ok(card.indexOf("Stipend") > card.indexOf("Left from this pay"));
-  assert.ok(card.indexOf("Stipend") < card.indexOf("bank-next-bills"));
-  assert.match(card, /Stipend · Tue Oct 20[\s\S]{0,80}\+\$12\.34/);
-  assert.doesNotMatch(next, /Also in/);
+  assert.doesNotMatch(card, /Stipend|Also in|data-bank-also-row/);
+  assert.match(stipendCard, /\+\$12\.34/);
   const rows = ledgerRows(dueSlice(html));
   const todayIdx = rows.findIndex(function (row) { return row.today; });
   const payIdx = rows.findIndex(function (row) { return row.kind === "in" && row.date === "2026-10-15"; });
@@ -571,8 +575,8 @@ test("next pay includes every active window bill, and left plus also-in is the p
   const goneAt = gone.indexOf('data-bank-next-date="2026-10-15"');
   const goneCard = gone.slice(gone.lastIndexOf('<div class="card"', goneAt), gone.indexOf('data-bank-next-card="', goneAt + 20));
   assert.doesNotMatch(gone, /Stream Club/);
-  assert.match(goneCard, /Set aside[\s\S]{0,40}−\$10\.00/);
-  assert.match(goneCard, /data-bank-check-left="82.34"/);
+  assert.match(goneCard, /Set aside[\s\S]{0,40}\$0\.00/);
+  assert.match(goneCard, /data-bank-check-left="80"/);
   assert.doesNotMatch(dueSlice(ctx.bankPageHtml(snap, opts)), /Stream Club/);
 });
 
@@ -664,7 +668,7 @@ test("card 1 is this pay from the posted check and later cards carry that left",
       tier: "required",
       paid_current_month: { month: "2026-10", status: "paid", source: "manual", paid_date: "2026-10-16" }
     },
-    { name: "Due Bill", bill_id: "duebill", amount: 6, typical_day: 22, cadence: "monthly", tier: "required" }
+    { name: "Due Bill", bill_id: "duebill", amount: 6, typical_day: 18, cadence: "monthly", tier: "required" }
   ];
   snap.budget.subscriptions = [];
   snap.budget.paid_status_month = "2026-10";
@@ -709,9 +713,10 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   const left2 = Number((card2.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
   const carried2 = Number((card2.match(/data-bank-carried="([^"]*)"/) || [])[1]);
   const thisIdx = periods.findIndex(function (p) { return p.focus && p.focus.date === "2026-10-15"; });
-  assert.equal(carried2, maths[thisIdx].left);
+  const nextIdx = periods.findIndex(function (p) { return p.focus && p.focus.date === "2026-10-30"; });
+  assert.equal(carried2, maths[nextIdx - 1].left);
   assert.equal(left1, maths[thisIdx].left);
-  assert.equal(left2, maths[thisIdx + 1].left);
+  assert.equal(left2, maths[nextIdx].left);
   const paidSoFar = 8;
   const remain = 6;
   let ident = thisIdx > 0 ? maths[thisIdx - 1].left : 0;
@@ -796,7 +801,7 @@ test("a main-page tap marks a bill paid and a second tap clears it", async funct
   const ctx = boot();
   const snap = baseSnap(ctx);
   snap.budget.bills = [
-    { name: "Rent", bill_id: "rent", amount: 8, typical_day: 20, cadence: "monthly", tier: "required", usual_account: { last4: "2222" } },
+    { name: "Rent", bill_id: "rent", amount: 8, typical_day: 19, cadence: "monthly", tier: "required", usual_account: { last4: "2222" } },
     {
       name: "Power",
       bill_id: "power",
@@ -810,7 +815,7 @@ test("a main-page tap marks a bill paid and a second tap clears it", async funct
   snap.budget.subscriptions = [];
   snap.budget.paid_status_month = "2026-10";
   snap.budget.tiers = { needs_plan: 0, wants_plan: 0 };
-  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z", openDay: 20 };
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z", openDay: 19 };
   const before = ctx.bankPageHtml(snap, opts);
   const outBefore = Number((before.match(/data-bank-hero-out="([^"]*)"/) || [])[1]);
   const nextBefore = before.slice(before.indexOf('class="bank-next"'), before.indexOf('data-bank-part="calendar"'));
