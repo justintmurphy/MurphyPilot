@@ -6255,7 +6255,7 @@ test("next pay lists each twice-monthly occurrence and skips a paid bill", funct
   const nextAt = html.indexOf('class="bank-next"');
   const next = html.slice(nextAt, html.indexOf('data-bank-part="calendar"', nextAt));
   const card1 = next.slice(next.indexOf('data-bank-next-card="1"'), next.indexOf('data-bank-next-card="2"'));
-  assert.equal((card1.match(/Water/g) || []).length, 2);
+  assert.equal((card1.match(/class="sym">Water/g) || []).length, 2);
   assert.match(card1, /Oct 5/);
   assert.match(card1, /Oct 20/);
   assert.match(card1, /data-bank-bill-paid="1"/);

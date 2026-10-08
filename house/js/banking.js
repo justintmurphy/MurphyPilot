@@ -8938,12 +8938,14 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried,
     var mark = pay.on
       ? '<span class="tone-flat" aria-label="Paid">\u2713</span>'
       : '<span class="bank-pay-box" aria-hidden="true"></span>';
-    var amtInner = '<b class="' + amtCls + '">' + bankEsc(row.amount == null ? "\u2014" : flow.text) + "</b>" + mark;
+    var amtText = row.amount == null ? "\u2014" : flow.text;
+    var amtInner = '<b class="' + amtCls + '">' + bankEsc(amtText) + "</b>" + mark;
     var amtHtml = '<span class="bank-next-amt">' + amtInner + "</span>";
     var rowAttr = paid ? ' class="tone-flat" data-bank-bill-paid="1"' : ' data-bank-bill-paid="0"';
     if (!pay.bank && pay.key) {
       var attr = pay.manual ? "data-bank-status-undo" : "data-bank-paid-month";
-      amtHtml = '<button type="button" class="bank-pay-tap bank-next-amt" ' + attr + '="' + bankEsc(pay.key) + '">' + amtInner + "</button>";
+      var aria = (pay.on ? "Paid " : "Mark paid ") + row.name + (due ? ", " + due : "") + ", " + amtText;
+      amtHtml = '<button type="button" class="bank-pay-tap bank-next-amt" ' + attr + '="' + bankEsc(pay.key) + '" aria-label="' + bankEsc(aria) + '">' + amtInner + "</button>";
       rowAttr += " " + attr + '="' + bankEsc(pay.key) + '"';
     }
     return "<tr" + rowAttr + '><td class="bank-next-name">' + nameHtml + '</td><td class="num">' + amtHtml + "</td></tr>";
