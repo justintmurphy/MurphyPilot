@@ -5413,7 +5413,7 @@ test("a calendar day opens a popup and Escape closes it", function () {
   assert.match(day4, /data-bank-day-name="1">Payroll \$40\.00<\/b><i data-bank-day-meta="1">Income<\/i>[\s\S]*?tone-go">\$40\.00/);
   assert.match(day4, /data-bank-day-name="1">Rent<\/b><i data-bank-day-meta="1">Bill<\/i>[\s\S]*?tone-stop">\$22\.00/);
   assert.match(day4, /data-bank-day-name="1">Stream Club<\/b><i data-bank-day-meta="1">Bill \u00b7 \u00b7\u00b71111<\/i>[\s\S]*?tone-stop">\$5\.00/);
-  assert.match(day4, /data-bank-day-close="1"/);
+  assert.match(day4, /class="book-chip"[^>]*data-bank-day-close="1"/);
   const day9 = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", openDay: 9 });
   assert.match(day9, /data-bank-day-name="1">Power<\/b><i data-bank-day-meta="1">Bill \u00b7 \u00b7\u00b74242<\/i>[\s\S]*?tone-stop">\$6\.00/);
 
@@ -7852,12 +7852,10 @@ test("the dated list walks left-after to the funding month-end", function () {
   assert.match(due, /data-bank-today="1"[\s\S]{0,320}\$100\.00/);
   assert.doesNotMatch(due, /sym">Payroll<\/span>[\s\S]{0,80}today/);
   assert.match(due, /Payroll[\s\S]{0,160}\+\$40\.00/);
-  const every = due.indexOf("Remaining Needs");
-  assert.ok(every > 0);
+  assert.doesNotMatch(due, /Remaining Needs/);
   assert.doesNotMatch(due, /Remaining Required/);
   assert.doesNotMatch(due, /sym">Month-end/);
-  assert.match(due.slice(every), /−\$20\.00/);
-  assert.equal(Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]), 120);
+  assert.equal(Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]), 140);
   const red = blankBudget(loadFixture());
   red.budget.account_funding = [{ nickname: "Bills", last4: "2222", start_balance: 20, end_balance: -10 }];
   red.budget.bills = [{ name: "Rent", amount: 40, typical_day: 4, cadence: "monthly", tier: "required" }];
@@ -8197,11 +8195,11 @@ test("a paid past bill stays out of the list and remaining uses spent", function
   assert.match(today, /\$250\.00/);
   assert.match(due, /Mortgage[\s\S]{0,240}paid Oct 6/);
   assert.doesNotMatch(due, /sym">Month-end/);
-  assert.equal(endLeft, 187);
+  assert.equal(endLeft, 205);
   assert.doesNotMatch(due, /Posted so far/);
   assert.match(due, /Groceries[\s\S]{0,400}−\$5\.00/);
-  assert.match(due, /Remaining Needs[\s\S]{0,160}−\$12\.00/);
-  assert.match(due, /Remaining Wants[\s\S]{0,160}−\$6\.00/);
+  assert.doesNotMatch(due, /Remaining Needs/);
+  assert.doesNotMatch(due, /Remaining Wants/);
   assert.doesNotMatch(fund, /<span>Month-end<\/span>/);
 });
 

@@ -716,6 +716,32 @@ test("category mode has no per-item tier picker and no group budget", function (
   assert.doesNotMatch(zero, /data-bank-spend-add="1" disabled/);
 });
 
+test("a fixture with no categories still balances bank plus in minus to pay", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  delete fx.tier_doc;
+  assert.equal(ctx.bankCategoriesActive(fx), false);
+  const html = ctx.bankPageHtml(fx, { tab: "budget", now: "2026-10-16T12:00:00-04:00" });
+  const num = function (attr) { return Number((html.match(new RegExp(attr + '="([^"]*)"')) || [])[1]); };
+  const now = num("data-bank-hero-now");
+  const inn = num("data-bank-hero-in");
+  const out = num("data-bank-hero-out");
+  const end = num("data-bank-hero-end");
+  const ledger = num("data-bank-ledger-end");
+  const left = num("data-fund-left");
+  assert.equal(Math.round((now + inn - out) * 100) / 100, end);
+  assert.equal(end, left);
+  assert.equal(end, ledger);
+  assert.equal(now, 24.68);
+  const due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('class="bank-cal"'));
+  const today = due.slice(due.indexOf('data-bank-today="1"'), due.indexOf("</tr>", due.indexOf('data-bank-today="1"')));
+  assert.match(today, /\$24\.68/);
+  assert.doesNotMatch(due, /sym">Month-end/);
+  assert.match(html, /class="book-chip"[^>]*data-bank-hero-toggle/);
+  assert.match(html, /To pay &amp; set aside/);
+  assert.match(html, /data-bank-uncat-warn="4"/);
+});
+
 test("in the bank plus coming in minus to pay equals month-end", function () {
   const ctx = boot();
   const fx = loadFixture();

@@ -177,6 +177,8 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
 .books-sheet { background: var(--paper); color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; max-width: 860px; width: 100%; max-height: 88vh; overflow: auto; padding: 16px; }
 .books-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .books-head h2 { margin: 0; }
+.books-head .overall-strip { text-align: left; }
+.books-head .overall-strip .ov-hero { padding-left: 0; padding-right: 0; }
 .mix-legend.nest { padding-left: 22px; }
 .help-pair { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; }
 .books-overlay.sheet-bottom .books-sheet { max-width: 480px; }
