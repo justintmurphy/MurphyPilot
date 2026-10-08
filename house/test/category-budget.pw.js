@@ -233,7 +233,6 @@ async function main() {
   await page.locator(".bank-tier-summary").screenshot({ path: path.join(artifacts, "budget-categories-390.png") });
 
   await page.locator("[data-bank-overflow]").click();
-  await page.locator('[data-bank-tab="edits"]').click();
   await page.locator("[data-bank-spend-cats]").waitFor();
   await shot(page, "[data-bank-spend-cats]", "edits-categories-390.png");
   await page.locator('[data-bank-cat-jump="groceries"]').click();

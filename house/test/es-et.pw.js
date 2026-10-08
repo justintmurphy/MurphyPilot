@@ -276,7 +276,6 @@ async function main() {
   await shot(page, "nextpay-carousel-390-card2.png");
 
   await page.locator("[data-bank-overflow]").click();
-  await page.locator('#bankOverflowMenu [data-bank-tab="edits"]').click();
   await page.locator('details[data-bank-cancel="power"] > summary').click();
   await page.locator("[data-bank-cancel-sheet]").waitFor();
   const sheetText = await page.locator("[data-bank-cancel-sheet]").innerText();
@@ -356,7 +355,6 @@ async function main() {
   });
   await shot(wide, "nextpay-carousel-1280.png");
   await wide.locator("[data-bank-overflow]").click();
-  await wide.locator('#bankOverflowMenu [data-bank-tab="edits"]').click();
   await wide.locator("[data-bank-cancelled]").waitFor();
   await privacy(wide, "edits-1280");
   await wide.screenshot({ path: path.join(artifacts, "es-edits-1280.png"), fullPage: true });

@@ -1,4 +1,6 @@
-/* tip ev — Each bill names the account that pays it. Each Next pay card lists the moves that keep that account from going negative.
+/* tip ex — The gear in the Banking header opens Edits (/#edits) in one tap.
+   The menu it replaced only listed Edits, so nothing else moved.
+   tip ev — Each bill names the account that pays it. Each Next pay card lists the moves that keep that account from going negative.
    Pay from defaults to the account that paid the bill most recently. The Edits bill sheet can override it.
    The override is a POST merge of bill_account only. Moves are advice. They do not move money.
    tip es — Cancel a bill or subscription from this month or next. One isCancelled(item, month) check.
@@ -44,7 +46,7 @@
    Out counts tape flows. Spent so far counts category month-to-date. One line says so. The two figures are not forced to match.
    When some account balances are missing and total_cash is blank, Total cash is the sum of the known balances plus how many accounts are still pending.
    The live spent-versus-income block sits on Current. Historical keeps its own labels.
-   Edits stays in the gear menu labeled More. The page title names the view and the month on screen.
+   The gear opens Edits (/#edits) in one tap. The page title names the view and the month on screen.
    An empty hash opens Budget. #current, #historical, #historical=YYYY-MM, and #edits stay explicit.
    #edits still resolves through bankResolveTab and bankActivate.
    A view change writes that hash with pushState. Budget is the empty hash.
@@ -3028,17 +3030,13 @@ function bankGearSvg() {
     "</svg>";
 }
 
-function bankOverflowHtml(tab, menuOpen) {
+function bankOverflowHtml(tab) {
   var onEdits = tab === "edits";
-  var open = !!menuOpen;
   return '<div class="bank-overflow"><button type="button" class="bank-gear' + (onEdits ? " on" : "") +
-    '" data-bank-overflow="1" aria-label="More" title="More" aria-haspopup="menu" aria-expanded="' +
-    (open ? "true" : "false") + '" aria-controls="bankOverflowMenu"' +
+    '" data-bank-overflow="1" data-bank-tab="edits" aria-label="Edits" title="Edits"' +
     (onEdits ? ' aria-current="true"' : "") + ">" + bankGearSvg() +
     (onEdits ? '<i class="bank-gear-mark" aria-hidden="true"></i>' : "") +
-    '</button><div class="bank-overflow-menu" id="bankOverflowMenu" role="menu" aria-label="More"' +
-    (open ? "" : " hidden") + '><button type="button" role="menuitem" data-bank-tab="edits"' +
-    (onEdits ? ' class="on" aria-current="true"' : "") + ">Edits</button></div></div>";
+    "</button></div>";
 }
 
 function bankViewName(tab) {
@@ -3070,7 +3068,7 @@ function bankViewTitle(tab, snap, opts) {
 function bankNavHtml(tab, menuOpen, title, snap, opts) {
   var pick = tab === "historical" ? bankHistPickerHtml(snap, opts) : "";
   return '<div class="bank-nav"><h2 class="bank-view-title" id="bank-view-title">' + bankEsc(title || bankViewName(tab)) +
-    "</h2>" + pick + bankOverflowHtml(tab, menuOpen) + "</div>";
+    "</h2>" + pick + bankOverflowHtml(tab) + "</div>";
 }
 
 function bankChipOptions(categories, current) {
@@ -13728,13 +13726,6 @@ function bankPaintTicker(snap, opts) {
   try { MPTicker.render(el, snap, bankTierDoc(snap), bankScreenToday(snap, opts || {})); } catch (e) {}
 }
 
-function bankFocusGear(root) {
-  var el = root && root.querySelector && root.querySelector("[data-bank-overflow]");
-  if (el && el.focus) {
-    try { el.focus(); } catch (e) {}
-  }
-}
-
 function bankFocusDayDialog(root) {
   var el = root && root.querySelector && root.querySelector(".bank-day-dialog");
   bankFocusNoScroll(el);
@@ -13791,13 +13782,6 @@ function bankCloseDay(root) {
 function bankFocusPlan(root, step) {
   if (!root || typeof root.querySelector !== "function") return;
   var el = root.querySelector('[data-bank-plan="' + String(step) + '"]');
-  if (el && el.focus) {
-    try { el.focus(); } catch (e) {}
-  }
-}
-
-function bankFocusOverflowItem(root) {
-  var el = root && root.querySelector && root.querySelector("#bankOverflowMenu [data-bank-tab]");
   if (el && el.focus) {
     try { el.focus(); } catch (e) {}
   }
@@ -15350,16 +15334,6 @@ function bankMount(root, data, opts) {
   bankBindHistory(root);
   if (root._bankBound || !root.addEventListener) return;
   root._bankBound = true;
-  if (!root._bankDocBound && typeof document !== "undefined" && document.addEventListener) {
-    root._bankDocBound = true;
-    document.addEventListener("click", function (ev) {
-      if (!root._bank || !root._bank.menuOpen) return;
-      var n = ev && ev.target;
-      if (n && n.closest && n.closest(".bank-overflow")) return;
-      if (n && root.contains && root.contains(n)) return;
-      bankPaint(root);
-    });
-  }
   root.addEventListener("click", function (e) {
     var t = e && e.target;
     if (!t || !t.closest) return;
@@ -15371,15 +15345,6 @@ function bankMount(root, data, opts) {
         if (tabBtn.getAttribute("data-bank-charged-review") != null) root._bank.reviewCancel = true;
       }
       bankActivate(root, tabBtn.getAttribute("data-bank-tab"));
-      return;
-    }
-    var gear = t.closest("[data-bank-overflow]");
-    if (gear) {
-      if (e.preventDefault) e.preventDefault();
-      if (!root._bank) return;
-      root._bank.menuOpen = !root._bank.menuOpen;
-      bankPaint(root, { keepMenu: true });
-      if (root._bank.menuOpen) bankFocusOverflowItem(root);
       return;
     }
     var monthBtn = t.closest("[data-bank-month]");
@@ -15785,9 +15750,6 @@ function bankMount(root, data, opts) {
       bankCancelRowAdd(root);
       return;
     }
-    if (root._bank && root._bank.menuOpen && !t.closest(".bank-overflow")) {
-      bankPaint(root);
-    }
   });
   root.addEventListener("change", function (e) {
     var el = e && e.target;
@@ -16043,22 +16005,6 @@ function bankMount(root, data, opts) {
         bankOpenDay(root, typedDay);
         return;
       }
-    }
-    if (e.key === "Escape" && root._bank && root._bank.menuOpen && !(el.hasAttribute && el.hasAttribute("data-bank-row-cat"))) {
-      if (e.preventDefault) e.preventDefault();
-      root._bank.menuOpen = false;
-      bankPaint(root);
-      bankFocusGear(root);
-      return;
-    }
-    if ((e.key === "ArrowDown" || e.key === "ArrowUp") && el.closest && el.closest("[data-bank-overflow]")) {
-      if (e.preventDefault) e.preventDefault();
-      if (root._bank && !root._bank.menuOpen) {
-        root._bank.menuOpen = true;
-        bankPaint(root, { keepMenu: true });
-      }
-      bankFocusOverflowItem(root);
-      return;
     }
     if (!el.hasAttribute) return;
     if (el.hasAttribute("data-bank-row-cat")) {

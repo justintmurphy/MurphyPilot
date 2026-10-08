@@ -197,52 +197,52 @@ function assertNoTabButtons(html) {
   assert.doesNotMatch(html, /aria-selected=/);
 }
 
-test("edits opens from the gear menu and the page has no tab buttons", function () {
+test("edits opens from the gear in one tap and the page has no tab buttons", function () {
   const ctx = boot();
   const fx = loadFixture();
   const current = ctx.bankPageHtml(fx, { tab: "current", now: "2026-10-05T18:00:00-04:00" });
   assertNoTabButtons(current);
   assert.match(current, /class="bank-view-title"[^>]*>Current · October 2026</);
-  assert.match(current, /aria-label="More"/);
+  assert.match(current, /aria-label="Edits"/);
   assert.match(current, /data-bank-overflow="1"/);
-  assert.match(current, /aria-haspopup="menu"/);
-  assert.match(current, /aria-expanded="false"/);
-  assert.match(current, /id="bankOverflowMenu"[^>]*hidden/);
-  assert.match(current, /role="menuitem"[^>]*>Edits</);
+  assert.match(current, /data-bank-tab="edits"/);
+  assert.doesNotMatch(current, /aria-haspopup|aria-expanded|bankOverflowMenu|role="menu"|role="menuitem"/);
   assert.ok(current.indexOf('class="bank-view-title"') < current.indexOf('class="bank-overflow"'));
 
+  const pushes = [];
+  ctx.history.pushState = function (_state, _title, url) {
+    pushes.push(String(url));
+    const s = String(url);
+    const i = s.indexOf("#");
+    ctx.location.hash = i >= 0 ? s.slice(i) : "";
+  };
   const el = mount(ctx, fx, { now: "2026-10-05T18:00:00-04:00" });
   assert.match(el.innerHTML, /data-panel="budget"/);
   assertNoTabButtons(el.innerHTML);
   const gear = {
+    getAttribute: function (name) { return name === "data-bank-tab" ? "edits" : null; },
     closest: function (sel) {
-      if (sel === "[data-bank-tab]") return null;
+      if (sel === "[data-bank-tab]") return gear;
       if (sel === "[data-bank-overflow]" || sel === ".bank-overflow") return gear;
       return null;
     }
   };
   el.listeners.click({ target: gear, preventDefault: function () {} });
-  assert.match(el.innerHTML, /data-panel="budget"/);
-  assert.match(el.innerHTML, /aria-expanded="true"/);
-  assert.doesNotMatch(el.innerHTML, /id="bankOverflowMenu"[^>]*hidden/);
-  const editsBtn = {
-    getAttribute: function (name) { return name === "data-bank-tab" ? "edits" : null; },
-    closest: function (sel) {
-      if (sel === "[data-bank-tab]") return editsBtn;
-      if (sel === "[data-bank-overflow]") return null;
-      if (sel === ".bank-overflow") return editsBtn;
-      return null;
-    }
-  };
-  el.listeners.click({ target: editsBtn, preventDefault: function () {} });
   assert.match(el.innerHTML, /data-panel="edits"/);
   assert.match(el.innerHTML, /class="bank-view-title"[^>]*>Edits</);
   assertNoTabButtons(el.innerHTML);
   assert.match(el.innerHTML, /class="bank-gear on"/);
   assert.match(el.innerHTML, /aria-current="true"/);
   assert.match(el.innerHTML, /class="bank-gear-mark"/);
-  assert.match(el.innerHTML, /aria-label="More"/);
+  assert.match(el.innerHTML, /aria-label="Edits"/);
+  assert.doesNotMatch(el.innerHTML, /bankOverflowMenu|role="menuitem"|aria-haspopup/);
   assert.equal(ctx.bankResolveTab("#edits"), "edits");
+  assert.equal(pushes.length, 1);
+  assert.match(pushes[0], /#edits$/);
+  assert.equal(ctx.location.hash, "#edits");
+  el.listeners.click({ target: gear, preventDefault: function () {} });
+  assert.match(el.innerHTML, /data-panel="edits"/);
+  assert.equal(pushes.length, 1);
 
   function fire(type) {
     (ctx._bankListeners[type] || []).forEach(function (fn) { fn(); });
@@ -260,7 +260,8 @@ test("edits opens from the gear menu and the page has no tab buttons", function 
     assert.match(page, new RegExp('data-panel="' + tab + '"'));
     assertNoTabButtons(page);
     assert.doesNotMatch(page, /class="bank-gear on"/);
-    assert.match(page, /aria-label="More"/);
+    assert.match(page, /aria-label="Edits"/);
+    assert.doesNotMatch(page, /bankOverflowMenu/);
   });
 
   ctx.location.hash = "#edits";
@@ -271,16 +272,6 @@ test("edits opens from the gear menu and the page has no tab buttons", function 
   ctx.bankActivate(el, "edits");
   assert.match(el.innerHTML, /data-panel="edits"/);
   assertNoTabButtons(el.innerHTML);
-
-  const gearKey = {
-    closest: function (sel) { return sel === "[data-bank-overflow]" ? gearKey : null; }
-  };
-  el.listeners.keydown({ key: "ArrowDown", target: gearKey, preventDefault: function () {} });
-  assert.match(el.innerHTML, /aria-expanded="true"/);
-  assert.match(el.innerHTML, /data-panel="edits"/);
-  el.listeners.keydown({ key: "Escape", target: gearKey, preventDefault: function () {} });
-  assert.match(el.innerHTML, /aria-expanded="false"/);
-  assert.match(el.innerHTML, /data-panel="edits"/);
 
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   assert.match(css, /\.bank-overflow\s*\{[^}]*flex:\s*0 0 auto/);
@@ -902,9 +893,9 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /location\.replace/);
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
-  assert.match(investments, /\/house\/house\.css\?v=20261008eu/);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ev/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008eq/);
+  assert.match(investments, /\/house\/house\.css\?v=20261008ex/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ex/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008ex/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -955,7 +946,7 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.doesNotMatch(page, /banking\.css\?v=20260904dc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904db/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904db/);
-  assert.match(page, /\/house\/house\.css\?v=20261008eu/);
+  assert.match(page, /\/house\/house\.css\?v=20261008ex/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cp/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904cp/);
@@ -1046,7 +1037,7 @@ test("merchant is the tape label and an empty desc uses a placeholder", function
   assert.match(edits, /data-bank-tab="edits"[^>]*aria-current="true"/);
   assert.doesNotMatch(edits, /class="bank-tabs"|role="tab"/);
   assert.match(edits, /class="bank-view-title"[^>]*>Edits</);
-  assert.match(edits, /aria-label="More"/);
+  assert.match(edits, /aria-label="Edits"/);
   assert.match(edits, /data-bank-cat/);
   assert.match(edits, /value="Transport" selected/);
   assert.match(edits, /class="bank-merchant">City Fuel<\/span> <span class="bank-edit-meta">2026-10-04<\/span>/);
@@ -4152,7 +4143,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20261008ev/);
+  assert.match(page, /banking\.js\?v=20261008ex/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
@@ -4315,8 +4306,8 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20261008ev/);
-  assert.match(page, /banking\.css\?v=20261008eq/);
+  assert.match(page, /banking\.js\?v=20261008ex/);
+  assert.match(page, /banking\.css\?v=20261008ex/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4470,8 +4461,8 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ev/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008eq/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ex/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008ex/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4655,8 +4646,8 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ev/);
-  assert.match(page, /banking\.css\?v=20261008eq/);
+  assert.match(page, /banking\.js\?v=20261008ex/);
+  assert.match(page, /banking\.css\?v=20261008ex/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4947,8 +4938,8 @@ test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ev/);
-  assert.match(page, /banking\.css\?v=20261008eq/);
+  assert.match(page, /banking\.js\?v=20261008ex/);
+  assert.match(page, /banking\.css\?v=20261008ex/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -5034,8 +5025,8 @@ test("tip dy plan blocks follow the selected month", function () {
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ev/);
-  assert.match(page, /banking\.css\?v=20261008eq/);
+  assert.match(page, /banking\.js\?v=20261008ex/);
+  assert.match(page, /banking\.css\?v=20261008ex/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
 
@@ -5975,8 +5966,8 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 
 test("banking assets use the ec cache bust", function () {
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ev/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008eq/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ex/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008ex/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /ticker\.js\?v=20261007ei/);
   assert.match(page, /ticker\.css\?v=20261007ei/);
@@ -7112,8 +7103,8 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.doesNotMatch(html, /<th class="num">Month-end<\/th>/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ev/);
-  assert.match(page, /banking\.css\?v=20261008eq/);
+  assert.match(page, /banking\.js\?v=20261008ex/);
+  assert.match(page, /banking\.css\?v=20261008ex/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);
   assert.doesNotMatch(css, /--mp-in:\s*#|--mp-out:\s*#|--bank-required:/);
@@ -7589,8 +7580,9 @@ test("tip ec4 titles each banking view and the nav marks the hash", function () 
     const html = ctx.bankPageHtml(fx, { tab: tab, now: now, planMonth: "2026-10", histMonth: "2026-09", menuOpen: true });
     assertNoTabButtons(html);
     assert.doesNotMatch(html, /data-bank-tab="budget"|data-bank-tab="current"|data-bank-tab="historical"/);
-    assert.match(html, /aria-label="More"/);
-    assert.match(html, /role="menuitem"[^>]*>Edits</);
+    assert.match(html, /aria-label="Edits"/);
+    assert.match(html, /data-bank-tab="edits"/);
+    assert.doesNotMatch(html, /role="menuitem"|bankOverflowMenu/);
   });
   assert.match(ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-11", now: now }), /class="bank-view-title"[^>]*>Budget · November 2026</);
   assert.match(ctx.bankPageHtml(fx, { tab: "current", now: "2026-11-02T16:00:00-05:00" }), /class="bank-view-title"[^>]*>Current · November 2026</);
@@ -7644,7 +7636,7 @@ test("tip ec4 titles each banking view and the nav marks the hash", function () 
   fire("popstate");
   assert.match(el.innerHTML, /data-panel="edits"/);
   assert.match(el.innerHTML, /class="bank-view-title"[^>]*>Edits</);
-  assert.match(el.innerHTML, /aria-label="More"/);
+  assert.match(el.innerHTML, /aria-label="Edits"/);
   assert.equal(marked(), "");
 
   ctx.location.hash = "#budget";
