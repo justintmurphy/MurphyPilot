@@ -8735,7 +8735,1076 @@ function bankTierLineSpent(snap, row, month, mode, edits, todayIso) {
   return 0;
 }
 
+/* tip ek — category budgets under Required, Needs, and Wants.
+   A tiers.json without categories leaves the tier list as it was.
+   Saves POST the full categories list, cookie only, to /data/banking/tiers.json.
+   Budgets in this file are 0. Real amounts stay in Worker KV. */
+
+var BANK_SPEND_ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+var BANK_SPEND_MAX = 30;
+var BANK_SPEND_NAME_MAX = 40;
+var BANK_SPEND_BUDGET_MAX = 1e7;
+var BANK_SPEND_RULE_CAP = 500;
+var BANK_SPEND_STARTERS = [
+  { id: "mortgage", name: "Mortgage", tier: "required" },
+  { id: "utilities", name: "Utilities", tier: "required" },
+  { id: "phone-internet", name: "Phone & Internet", tier: "required" },
+  { id: "car-insurance-loans", name: "Car, Insurance & Loans", tier: "required" },
+  { id: "education", name: "Education", tier: "required" },
+  { id: "groceries", name: "Groceries", tier: "needs" },
+  { id: "gas-fuel", name: "Gas/Fuel", tier: "needs" },
+  { id: "household-health", name: "Household & Health", tier: "needs" },
+  { id: "education-needs", name: "Education (Needs)", tier: "needs" },
+  { id: "dining", name: "Dining", tier: "wants" },
+  { id: "subscriptions", name: "Subscriptions", tier: "wants" },
+  { id: "kids-activities", name: "Kids & Activities", tier: "wants" },
+  { id: "shopping", name: "Shopping", tier: "wants" },
+  { id: "other", name: "Other", tier: "wants" }
+];
+
+function bankSpendIdOk(id) {
+  return BANK_SPEND_ID_RE.test(String(id || ""));
+}
+
+function bankSpendStarters() {
+  return BANK_SPEND_STARTERS.map(function (row) {
+    return { id: row.id, name: row.name, tier: row.tier, budget: 0, merged_into: "" };
+  });
+}
+
+function bankSpendErrorCode(body) {
+  if (!body || typeof body !== "object") return "";
+  if (body.code != null && String(body.code).trim()) return String(body.code).trim();
+  if (typeof body.error === "string" && body.error.trim()) return body.error.trim();
+  if (body.error && typeof body.error === "object" && body.error.code) return String(body.error.code);
+  if (body.reason != null && String(body.reason).trim()) return String(body.reason).trim();
+  if (Array.isArray(body.errors) && body.errors.length) {
+    var first = body.errors[0];
+    if (typeof first === "string") return first;
+    if (first && first.code) return String(first.code);
+  }
+  return "";
+}
+
+function bankSpendErrorLine(code) {
+  var key = String(code || "");
+  var lines = {
+    bad_category: "Check that category and try again.",
+    bad_category_id: "That category cannot be saved. Try a simpler name.",
+    bad_category_name: "Use a name up to 40 characters.",
+    bad_category_tier: "Pick Required, Needs, or Wants.",
+    bad_category_budget: "Enter a budget as a number, from zero on up.",
+    duplicate_category_id: "That category is already on the list.",
+    bad_merged_into: "Choose a category to merge into.",
+    merged_into_cycle: "Those categories cannot fold into each other.",
+    bad_category_ref: "Choose a category for that rule.",
+    unknown_category: "That category is not on the list.",
+    too_many_rules: "There are too many rules. Remove one and try again."
+  };
+  if (lines[key]) return lines[key];
+  if (key.indexOf("bad_category") === 0) return lines.bad_category;
+  return "That change did not save. It is still on this screen.";
+}
+
+function bankCategoryDoc(snap) {
+  if (!snap || typeof snap !== "object" || Array.isArray(snap)) return null;
+  var docs = [];
+  if (snap.tier_doc && typeof snap.tier_doc === "object" && !Array.isArray(snap.tier_doc)) docs.push(snap.tier_doc);
+  var feed = null;
+  try { feed = bankFeedTierDoc(snap); } catch (e) { feed = null; }
+  if (feed && docs.indexOf(feed) < 0) docs.push(feed);
+  var i;
+  for (i = 0; i < docs.length; i++) {
+    if (Object.prototype.hasOwnProperty.call(docs[i], "categories")) return docs[i];
+  }
+  return null;
+}
+
+function bankCategoriesActive(snap) {
+  var doc = bankCategoryDoc(snap);
+  return !!(doc && Array.isArray(doc.categories));
+}
+
+function bankSpendById(cats, id) {
+  var want = String(id || "");
+  var found = null;
+  (cats || []).forEach(function (row) {
+    if (!found && row && row.id === want) found = row;
+  });
+  return found;
+}
+
+function bankSpendCategories(snap) {
+  var doc = bankCategoryDoc(snap);
+  if (!doc || !Array.isArray(doc.categories)) return null;
+  var out = [];
+  var seen = {};
+  doc.categories.forEach(function (raw) {
+    if (!raw || typeof raw !== "object") return;
+    var id = String(raw.id == null ? "" : raw.id).trim();
+    if (!bankSpendIdOk(id) || seen[id]) return;
+    seen[id] = true;
+    var name = String(raw.name == null ? "" : raw.name).trim();
+    if (!name) name = id;
+    if (name.length > BANK_SPEND_NAME_MAX) name = name.slice(0, BANK_SPEND_NAME_MAX);
+    var tier = raw.tier === "required" || raw.tier === "needs" || raw.tier === "wants" ? raw.tier : "wants";
+    var budget = 0;
+    if (typeof raw.budget === "number" && isFinite(raw.budget) && raw.budget >= 0) {
+      budget = raw.budget > BANK_SPEND_BUDGET_MAX ? BANK_SPEND_BUDGET_MAX : raw.budget;
+    }
+    var merged = raw.merged_into == null || raw.merged_into === "" ? "" : String(raw.merged_into);
+    out.push({ id: id, name: name, tier: tier, budget: budget, merged_into: merged });
+  });
+  return out;
+}
+
+function bankSpendResolveId(cats, id) {
+  var seen = {};
+  var cur = String(id || "");
+  var guard = 0;
+  while (cur && guard < 40) {
+    if (seen[cur]) return String(id || "");
+    seen[cur] = true;
+    var row = bankSpendById(cats, cur);
+    if (!row || !row.merged_into) return cur;
+    if (!bankSpendById(cats, row.merged_into)) return cur;
+    cur = row.merged_into;
+    guard += 1;
+  }
+  return String(id || "");
+}
+
+function bankSpendVisible(cats) {
+  return (cats || []).filter(function (row) {
+    if (!row) return false;
+    if (!row.merged_into) return true;
+    return !bankSpendById(cats, row.merged_into);
+  });
+}
+
+function bankSpendMatchName(cats, name) {
+  var key = bankTierKey(name);
+  if (!key) return "";
+  var found = "";
+  (cats || []).forEach(function (row) {
+    if (found || !row) return;
+    if (bankTierKey(row.name) === key || row.id === bankBillSlug(name)) found = row.id;
+  });
+  return found;
+}
+
+function bankSpendKeyword(name) {
+  var s = String(name || "").toLowerCase();
+  if (!s) return "";
+  if (/mortgage|\brent\b|housing/.test(s)) return "mortgage";
+  if (/utility|electric|water|sewer|trash|\bpower\b/.test(s)) return "utilities";
+  if (/phone|internet|\bmobile\b|cable/.test(s)) return "phone-internet";
+  if (/insurance|\bloan\b|installment|\bcar\b|\bauto\b/.test(s)) return "car-insurance-loans";
+  if (/grocer/.test(s)) return "groceries";
+  if (/fuel|gas\/fuel|\bgas\b/.test(s)) return "gas-fuel";
+  if (/household|health|medical|pharm/.test(s)) return "household-health";
+  if (/education|tuition|childcare/.test(s)) return "education-needs";
+  if (/dining|restaurant|cafe|coffee/.test(s)) return "dining";
+  if (/subscri/.test(s)) return "subscriptions";
+  if (/kids|entertainment/.test(s)) return "kids-activities";
+  if (/shop/.test(s)) return "shopping";
+  return "";
+}
+
+function bankSpendBillCategory(bill, cats) {
+  if (!bill) return "";
+  var explicit = bill.category_id || bill.spend_category || "";
+  if (explicit && bankSpendById(cats, String(explicit))) return String(explicit);
+  var billId = String(bill.bill_id || "").trim();
+  var name = bill.name || bill.label || "";
+  if ((billId === "education" || bankBillKey(name) === "education") && bankSpendById(cats, "education")) return "education";
+  if (billId === "childcare" || bankBillKey(name) === "childcare") {
+    if (bankSpendById(cats, "education")) return "education";
+  }
+  var slug = bankBillSlug(billId || name);
+  if (slug && bankSpendById(cats, slug)) return slug;
+  var named = bankSpendMatchName(cats, name);
+  if (named) return named;
+  var word = bankSpendKeyword(name);
+  if (word && bankSpendById(cats, word)) return word;
+  return "";
+}
+
+function bankSpendExcluded(row, snap) {
+  if (!row || typeof row !== "object") return true;
+  if (row.transfer === true || row.internal === true || row.payoff === true) return true;
+  if (bankTruthyFlag(row.one_off) || bankTruthyFlag(row.exclude_from_spend_avg)) return true;
+  var label = [row.desc, row.category, row.merchant, row.name].join(" ");
+  if (bankIsTransferName(label)) return true;
+  if (bankIsIncomeName(row.category || "", null) || bankIsIncomeName(row.desc || "", null) || bankIsIncomeName(row.name || "", null)) return true;
+  var side = bankFlowSide(row);
+  var refund = row.refund === true || String(row.kind || "").toLowerCase() === "refund";
+  if (side === "in" && !refund) return true;
+  if (snap && bankTxExcludedFromSpend(row, snap)) return true;
+  return false;
+}
+
+function bankSpendAmount(row) {
+  var n = bankNum(row && row.amount);
+  if (n == null) return 0;
+  var refund = row.refund === true || String(row.kind || "").toLowerCase() === "refund";
+  if (refund) return -Math.abs(n);
+  if (bankFlowSide(row) === "in") return -Math.abs(n);
+  return n;
+}
+
+function bankRowIsInstallment(row) {
+  if (!row) return false;
+  if (row.installment === true) return true;
+  var kind = String(row.kind || row.type || "").toLowerCase();
+  if (kind === "installment" || kind === "installments") return true;
+  var cat = String(row.category || "").trim().toLowerCase();
+  return cat === "installment" || cat === "installments";
+}
+
+function bankRowIsSubscription(row, snap) {
+  if (!row || bankRowIsInstallment(row)) return false;
+  if (row.kind === "subscription" || row.subscription === true) return true;
+  var name = row.name || row.desc || row.merchant || "";
+  try { return bankIsSubName(name, snap); } catch (e) { return false; }
+}
+
+function bankSpendTxHit(doc, row) {
+  var bag = doc && doc.category_tx;
+  if (!bag || typeof bag !== "object" || Array.isArray(bag) || !row) return "";
+  var key = "";
+  if (row.tx_override_key && bankTxOverrideKeyOk(row.tx_override_key)) key = String(row.tx_override_key);
+  else {
+    try { key = bankTxBagKey(row) || ""; } catch (e) { key = ""; }
+  }
+  if (!key || !Object.prototype.hasOwnProperty.call(bag, key) || bag[key] == null) return "";
+  return String(bag[key]);
+}
+
+function bankSpendMerchantHit(doc, row) {
+  var bag = doc && doc.category_rules;
+  if (!bag || typeof bag !== "object" || Array.isArray(bag) || !row) return "";
+  var key = row.merchant_key == null ? "" : String(row.merchant_key);
+  if (!key || !Object.prototype.hasOwnProperty.call(bag, key) || bag[key] == null) return "";
+  return String(bag[key]);
+}
+
+function bankSpendBillHit(row, snap, cats) {
+  if (!row) return "";
+  var bills = [];
+  try { bills = bankPreparedBills(snap, undefined); } catch (e) { bills = []; }
+  var i;
+  for (i = 0; i < bills.length; i++) {
+    var bill = bills[i];
+    if (!bill) continue;
+    var linked = false;
+    if (row.bill_id && (String(bill.bill_id || "") === String(row.bill_id) || bankBillMatchesKey(bill, row.bill_id))) linked = true;
+    if (!linked && row.category && bankBillMatchesKey(bill, row.category)) linked = true;
+    if (!linked) continue;
+    var id = bankSpendBillCategory(bill, cats);
+    if (id) return id;
+  }
+  if (row.bill_id) return bankSpendBillCategory({ bill_id: row.bill_id, name: row.name || row.category || "" }, cats);
+  return "";
+}
+
+function bankSpendFeedHit(row) {
+  var cat = String(row && row.category || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!cat) return "";
+  var table = {
+    "food/drink": "dining",
+    "food and drink": "dining",
+    "food & drink": "dining",
+    "dining": "dining",
+    "restaurants": "dining",
+    "groceries": "groceries",
+    "grocery": "groceries",
+    "transportation": "gas-fuel",
+    "gas": "gas-fuel",
+    "fuel": "gas-fuel",
+    "gas/fuel": "gas-fuel",
+    "entertainment": "kids-activities",
+    "shopping": "shopping",
+    "merchandise": "shopping",
+    "general merchandise": "shopping",
+    "utilities": "utilities",
+    "utilities/bills": "utilities",
+    "bills & utilities": "utilities",
+    "mortgage": "mortgage",
+    "rent": "mortgage",
+    "rent/mortgage": "mortgage",
+    "housing": "mortgage",
+    "phone": "phone-internet",
+    "internet": "phone-internet",
+    "phone & internet": "phone-internet",
+    "insurance": "car-insurance-loans",
+    "loans": "car-insurance-loans",
+    "car": "car-insurance-loans",
+    "auto": "car-insurance-loans",
+    "education": "education-needs",
+    "tuition": "education-needs",
+    "childcare": "education-needs",
+    "health": "household-health",
+    "medical": "household-health",
+    "household": "household-health",
+    "household & health": "household-health",
+    "kids": "kids-activities",
+    "kids & activities": "kids-activities",
+    "subscriptions": "subscriptions",
+    "subscription": "subscriptions"
+  };
+  return table[cat] || "";
+}
+
+/* First match: tx override, merchant rule, bill, installment, subscription, feed, Other. */
+function bankMapSpendCategory(row, snap) {
+  if (bankSpendExcluded(row, snap)) return null;
+  var cats = bankSpendCategories(snap);
+  if (!cats) return null;
+  var doc = bankCategoryDoc(snap) || {};
+  function take(id, via) {
+    if (!id || !bankSpendById(cats, id)) return null;
+    return { id: id, via: via };
+  }
+  var found = take(bankSpendTxHit(doc, row), "tx");
+  if (found) return found;
+  found = take(bankSpendMerchantHit(doc, row), "merchant");
+  if (found) return found;
+  found = take(bankSpendBillHit(row, snap, cats), "bill");
+  if (found) return found;
+  if (bankRowIsInstallment(row)) {
+    found = take("car-insurance-loans", "installment");
+    if (found) return found;
+  }
+  if (bankRowIsSubscription(row, snap)) {
+    found = take("subscriptions", "subscription");
+    if (found) return found;
+  }
+  found = take(bankSpendFeedHit(row), "feed");
+  if (found) return found;
+  found = take("other", "other");
+  if (found) return found;
+  return { id: "", via: "other" };
+}
+
+function bankSpendTxRows(snap) {
+  var rows = [];
+  var seen = {};
+  function add(raw) {
+    if (!raw || typeof raw !== "object") return;
+    var keys = [];
+    if (raw.tx_key) keys.push("k:" + raw.tx_key);
+    if (raw.tx_id) keys.push("i:" + raw.tx_id);
+    if (raw.tx_override_key) keys.push("o:" + raw.tx_override_key);
+    keys.push("d:" + [raw.date || "", raw.id || "", raw.amount == null ? "" : raw.amount, raw.desc || raw.merchant || ""].join("|"));
+    var i;
+    for (i = 0; i < keys.length; i++) if (seen[keys[i]]) return;
+    for (i = 0; i < keys.length; i++) seen[keys[i]] = true;
+    rows.push(raw);
+  }
+  var cur = snap && snap.current;
+  if (cur && Array.isArray(cur.edits_tx)) cur.edits_tx.forEach(add);
+  if (cur && Array.isArray(cur.recent_tx)) cur.recent_tx.forEach(add);
+  if (cur && Array.isArray(cur.history_tx)) cur.history_tx.forEach(add);
+  var months = snap && snap.history && snap.history.months;
+  if (Array.isArray(months)) {
+    months.forEach(function (month) {
+      if (!month) return;
+      if (Array.isArray(month.tx)) month.tx.forEach(add);
+      if (Array.isArray(month.transactions)) month.transactions.forEach(add);
+    });
+  }
+  return rows;
+}
+
+function bankSpendScan(snap, monthKey, cats) {
+  var totals = {};
+  var unsorted = 0;
+  var key = bankMonthKey(monthKey);
+  bankSpendTxRows(snap).forEach(function (raw) {
+    if (key && bankMonthKey(raw.date) !== key) return;
+    if (bankSpendExcluded(raw, snap)) return;
+    var mapped = bankMapSpendCategory(raw, snap);
+    if (!mapped) return;
+    var id = mapped.id ? bankSpendResolveId(cats, mapped.id) : "";
+    if (id) totals[id] = (totals[id] || 0) + bankSpendAmount(raw);
+    if (mapped.via === "other") unsorted += 1;
+  });
+  Object.keys(totals).forEach(function (id) { totals[id] = bankRoundCents(totals[id]); });
+  return { totals: totals, unsorted: unsorted };
+}
+
+function bankSpendRowsForMonth(snap, cats, monthKey, mode) {
+  if (mode !== "historical") {
+    return bankSpendVisible(cats).map(function (row) {
+      return { id: row.id, name: row.name, tier: row.tier, budget: row.budget, showBudget: true };
+    });
+  }
+  var shot = bankSnapshotFor(snap, monthKey);
+  var frozen = shot && Array.isArray(shot.categories) ? shot.categories : null;
+  if (!frozen) {
+    return bankSpendVisible(cats).map(function (row) {
+      return { id: row.id, name: row.name, tier: row.tier, budget: null, showBudget: false };
+    });
+  }
+  var rows = [];
+  frozen.forEach(function (raw) {
+    if (!raw || typeof raw !== "object") return;
+    var id = String(raw.id || "").trim();
+    if (!bankSpendIdOk(id)) id = bankSpendMatchName(cats, raw.name || raw.category || "");
+    if (!id) return;
+    var live = bankSpendById(cats, id);
+    var name = live && live.name ? live.name : String(raw.name || raw.category || id);
+    var tier = live && (live.tier === "required" || live.tier === "needs" || live.tier === "wants") ? live.tier : raw.tier;
+    if (tier !== "required" && tier !== "needs" && tier !== "wants") tier = "wants";
+    var budget = typeof raw.budget === "number" && isFinite(raw.budget) ? raw.budget : null;
+    rows.push({ id: id, name: name, tier: tier, budget: budget, showBudget: budget != null });
+  });
+  return rows;
+}
+
+function bankSpendTone(spent, budget) {
+  var pct = bankVsPct(spent, budget);
+  if (pct == null) return "";
+  if (pct > 100) return "stop";
+  if (pct >= 80) return "warn";
+  return "go";
+}
+
+function bankSpendBarHtml(spent, budget) {
+  var plan = bankNum(budget);
+  if (plan == null || !(plan > 0)) return "";
+  var pct = bankVsPct(spent, plan);
+  var tone = bankSpendTone(spent, plan);
+  var width = pct == null ? 0 : Math.max(0, Math.min(100, pct));
+  var toneAttr = tone ? ' data-tone="' + tone + '"' : "";
+  var pctAttr = pct == null ? "" : ' data-pct="' + pct.toFixed(1) + '"';
+  return '<span class="mix-bar"' + toneAttr + pctAttr + '><span style="width:' +
+    width.toFixed(1) + "%;background:" + bankVsColor(tone) + '"></span></span>';
+}
+
+function bankSpendFigText(spent, budget, showBudget) {
+  if (!showBudget || budget == null || !(bankNum(budget) > 0)) return bankMoney(spent);
+  return bankMoney(spent) + " of " + bankMoney(budget);
+}
+
+function bankSpendRowHtml(row, spent, unsorted) {
+  var show = !!row.showBudget && row.budget != null;
+  var tone = show && row.budget > 0 ? bankSpendTone(spent, row.budget) : "";
+  var over = "";
+  if (show && row.budget > 0 && spent - row.budget > 0.004) {
+    over = '<span class="mix-amt tone-stop"> ' + bankEsc("Over " + bankMoney(bankRoundCents(spent - row.budget))) + "</span>";
+  }
+  var nudge = "";
+  if (row.id === "other" && unsorted > 0) {
+    nudge = '<span class="mix-amt"> ' + bankEsc(String(unsorted) + " to sort") + "</span>";
+  }
+  var amtCls = tone === "stop" ? "mix-amt tone-stop" : "mix-amt";
+  var attrs = ' data-bank-cat-row="' + bankEsc(row.id) + '" data-spent="' + bankRoundCents(spent) + '"';
+  if (show) attrs += ' data-budget="' + bankRoundCents(row.budget) + '"';
+  if (tone) attrs += ' data-tone="' + tone + '"';
+  return '<button type="button" class="mix-leg"' + attrs + ">" +
+    '<i style="background:' + bankVsColor(tone) + '"></i>' +
+    '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(row.name) + "</span>" +
+    (show ? bankSpendBarHtml(spent, row.budget) : "") + "</span> " +
+    '<span class="mix-leg-fig"><span class="' + amtCls + '">' + bankEsc(bankSpendFigText(spent, row.budget, show)) + "</span>" +
+    over + nudge + "</span></button>";
+}
+
+function bankSpendHeadHtml(tier, spent, plan, hasPlan) {
+  var show = !!hasPlan;
+  var tone = show && plan > 0 ? bankSpendTone(spent, plan) : "";
+  var over = "";
+  if (show && plan > 0 && spent - plan > 0.004) {
+    over = '<span class="mix-amt tone-stop"> ' + bankEsc("Over " + bankMoney(bankRoundCents(spent - plan))) + "</span>";
+  } else if (show && plan != null) {
+    var left = bankRoundCents(plan - spent);
+    over = '<span class="mix-amt"> ' + bankEsc(left < -0.004 ? ("Over " + bankMoney(bankRoundCents(-left))) : ("Left " + bankMoney(Math.max(0, left)))) + "</span>";
+  }
+  var attrs = ' data-tier="' + tier + '" data-spent="' + bankRoundCents(spent) + '"';
+  if (show && plan != null) attrs += ' data-plan="' + bankRoundCents(plan) + '"';
+  if (tone) attrs += ' data-tone="' + tone + '"';
+  var amtCls = tone === "stop" ? "mix-amt tone-stop" : "mix-amt";
+  return '<div class="mix-leg"' + attrs + ">" +
+    '<i style="background:' + bankVsColor(tone) + '"></i>' +
+    '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(bankTierLabel(tier)) + "</span>" +
+    (show ? bankSpendBarHtml(spent, plan) : "") + "</span> " +
+    '<span class="mix-leg-fig"><span class="' + amtCls + '">' + bankEsc(bankSpendFigText(spent, plan, show)) + "</span>" +
+    over + "</span></div>";
+}
+
+function bankCategorySummaryHtml(snap, opts, mode, month) {
+  var cats = bankSpendCategories(snap);
+  if (!cats || !cats.length) return "";
+  var monthKey = bankMonthKey(month);
+  var rows = bankSpendRowsForMonth(snap, cats, monthKey, mode);
+  if (!rows.length) return "";
+  var scan = bankSpendScan(snap, monthKey, cats);
+  var body = ["required", "needs", "wants"].map(function (tier) {
+    var items = rows.filter(function (row) { return row.tier === tier; });
+    var spent = 0;
+    var plan = 0;
+    var hasPlan = false;
+    items.forEach(function (row) {
+      spent += scan.totals[row.id] || 0;
+      if (row.showBudget && row.budget != null) {
+        hasPlan = true;
+        plan += row.budget;
+      }
+    });
+    spent = bankRoundCents(spent);
+    plan = hasPlan ? bankRoundCents(plan) : null;
+    var head = bankSpendHeadHtml(tier, spent, plan, hasPlan);
+    var nest = "";
+    if (items.length) {
+      var list = items.map(function (row) {
+        return bankSpendRowHtml(row, scan.totals[row.id] || 0, scan.unsorted);
+      }).join("");
+      nest = '<div class="mix-legend" style="padding-left:22px">' +
+        bankCapList(list, items.length, bankTierLabel(tier)) + "</div>";
+    }
+    return head + nest;
+  }).join("");
+  var line = opts && opts.catError && !(opts.catOpen)
+    ? '<p class="bank-override-err" role="status">' + bankEsc(opts.catError) + "</p>"
+    : '<p class="hint">Tap a category to set its monthly budget.</p>';
+  return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span">' + line +
+    '<div class="mix-legend">' + body + "</div></div></section>";
+}
+
+function bankSpendOpenMonth(snap, opts) {
+  opts = opts || {};
+  if (opts.catMonth) return bankMonthKey(opts.catMonth);
+  if (opts.tab === "historical" || opts.histMonth) {
+    var hist = bankMonthKey(opts.histMonth);
+    if (hist) return hist;
+  }
+  var ym = bankScreenMonth(snap, opts);
+  return bankYm(ym.year, ym.month);
+}
+
+function bankSpendPopupModel(snap, id, monthKey) {
+  var cats = bankSpendCategories(snap) || [];
+  var row = bankSpendById(cats, id);
+  if (!row) return null;
+  var liveId = bankSpendResolveId(cats, id);
+  var live = bankSpendById(cats, liveId) || row;
+  var shot = bankSnapshotFor(snap, monthKey);
+  var frozen = shot && Array.isArray(shot.categories) ? shot.categories : null;
+  var budget = live.budget;
+  var showBudget = true;
+  if (frozen) {
+    showBudget = false;
+    budget = null;
+    frozen.forEach(function (item) {
+      if (!item || String(item.id || "") !== live.id) return;
+      if (typeof item.budget === "number" && isFinite(item.budget)) {
+        budget = item.budget;
+        showBudget = true;
+      }
+    });
+  }
+  var nowScan = bankSpendScan(snap, monthKey, cats);
+  var prevKey = bankShiftYm(monthKey, -1);
+  var prev2Key = bankShiftYm(monthKey, -2);
+  var spent = nowScan.totals[live.id] || 0;
+  var prevSpent = prevKey ? (bankSpendScan(snap, prevKey, cats).totals[live.id] || 0) : 0;
+  var prev2Spent = prev2Key ? (bankSpendScan(snap, prev2Key, cats).totals[live.id] || 0) : 0;
+  var pct = showBudget ? bankVsPct(spent, budget) : null;
+  var left = showBudget && budget != null ? bankRoundCents(budget - spent) : null;
+  return {
+    id: live.id,
+    name: live.name,
+    budget: showBudget ? budget : null,
+    showBudget: showBudget,
+    spent: spent,
+    left: left,
+    pct: pct,
+    prevKey: prevKey,
+    prevSpent: prevSpent,
+    prev2Key: prev2Key,
+    prev2Spent: prev2Spent
+  };
+}
+
+function bankSpendMonthName(key) {
+  var parsed = bankParseYm(key);
+  if (!parsed) return "";
+  return bankMonthTitle(parsed.year, parsed.month);
+}
+
+function bankSpendPopupHtml(snap, opts) {
+  opts = opts || {};
+  if (!opts.catOpen || !bankCategoriesActive(snap)) return "";
+  var monthKey = bankSpendOpenMonth(snap, opts);
+  var model = bankSpendPopupModel(snap, opts.catOpen, monthKey);
+  if (!model) return "";
+  var draft = opts.catDraft && opts.catDraft.id === model.id ? opts.catDraft.budget : null;
+  var shownBudget = draft != null ? String(draft) : (model.budget == null ? "" : String(model.budget));
+  var tone = model.showBudget ? bankSpendTone(model.spent, model.budget) : "";
+  var leftText = "\u2014";
+  if (model.left != null && model.left < -0.004) leftText = "Over " + bankMoney(bankRoundCents(-model.left));
+  else if (model.left != null) leftText = bankMoney(model.left);
+  var pctText = model.pct == null ? "" : (model.pct > 999 ? "999%+ used" : (Math.round(model.pct) + "% used"));
+  var err = opts.catError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.catError) + "</p>" : '<p class="hint">Monthly budget for this category.</p>';
+  var prev = model.prevKey ? '<p data-cat-fig="' + bankEsc(model.prevKey) + '">' + bankEsc(bankSpendMonthName(model.prevKey)) +
+    " <b>" + bankMoney(model.prevSpent) + "</b></p>" : "";
+  var prev2 = model.prev2Key ? '<p data-cat-fig="' + bankEsc(model.prev2Key) + '">' + bankEsc(bankSpendMonthName(model.prev2Key)) +
+    " <b>" + bankMoney(model.prev2Spent) + "</b></p>" : "";
+  return '<div class="books-overlay on" data-bank-cat-pop="1">' +
+    '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="' + bankEsc(model.name) + '">' +
+    '<div class="books-head"><h2 style="margin:0">' + bankEsc(model.name) + "</h2>" +
+    '<button type="button" class="ov-close" data-bank-cat-close="1">Close</button></div>' +
+    err +
+    '<label>Monthly budget <input data-bank-cat-budget="' + bankEsc(model.id) + '" inputmode="decimal" aria-label="Monthly budget" value="' +
+    bankEsc(shownBudget) + '"></label> ' +
+    '<button type="button" class="act" data-bank-cat-save="' + bankEsc(model.id) + '">Save</button>' +
+    '<p data-cat-fig="spent">Spent this month <b>' + bankMoney(model.spent) + "</b></p>" +
+    '<p data-cat-fig="left">Left <b>' + bankEsc(leftText) + "</b></p>" +
+    (pctText ? '<p data-cat-fig="pct">' + bankEsc(pctText) + "</p>" + bankSpendBarHtml(model.spent, model.showBudget ? model.budget : 0) : "") +
+    prev + prev2 + "</div></div>";
+}
+
+function bankSpendTierOptions(selected) {
+  return ["required", "needs", "wants"].map(function (tier) {
+    return '<option value="' + tier + '"' + (tier === selected ? " selected" : "") + ">" + bankEsc(bankTierLabel(tier)) + "</option>";
+  }).join(" ");
+}
+
+function bankSpendChoiceOptions(cats, skipId, selected) {
+  var html = "";
+  bankSpendVisible(cats).forEach(function (row) {
+    if (!row || row.id === skipId) return;
+    html += '<option value="' + bankEsc(row.id) + '"' + (row.id === selected ? " selected" : "") + ">" + bankEsc(row.name) + "</option>";
+  });
+  return html;
+}
+
+function bankSpendEditorHtml(snap, opts) {
+  if (!bankCategoriesActive(snap)) return "";
+  var cats = bankSpendCategories(snap) || [];
+  opts = opts || {};
+  var line = opts.catError && !opts.catOpen
+    ? '<p class="bank-override-err" role="status">' + bankEsc(opts.catError) + "</p>"
+    : '<p class="hint">Add a category, or rename, merge, or delete one.</p>';
+  var items = bankSpendVisible(cats).map(function (row) {
+    var nameVal = opts.catDraft && opts.catDraft.id === row.id && opts.catDraft.name != null ? opts.catDraft.name : row.name;
+    var budgetVal = opts.catDraft && opts.catDraft.id === row.id && opts.catDraft.budget != null ? opts.catDraft.budget : String(row.budget);
+    var tierVal = opts.catDraft && opts.catDraft.id === row.id && opts.catDraft.tier ? opts.catDraft.tier : row.tier;
+    return "<li><label>Name <input data-bank-spend-name=\"" + bankEsc(row.id) + '" maxlength="40" aria-label="Name for ' +
+      bankEsc(row.name) + '" value="' + bankEsc(nameVal) + '"></label> ' +
+      '<label>Group <select data-bank-spend-tier="' + bankEsc(row.id) + '" aria-label="Group for ' + bankEsc(row.name) + '">' +
+      bankSpendTierOptions(tierVal) + "</select></label> " +
+      '<label>Monthly budget <input data-bank-spend-budget="' + bankEsc(row.id) + '" inputmode="decimal" aria-label="Monthly budget for ' +
+      bankEsc(row.name) + '" value="' + bankEsc(budgetVal) + '"></label> ' +
+      '<button type="button" class="act" data-bank-spend-save="' + bankEsc(row.id) + '">Save</button> ' +
+      '<label>Merge into <select data-bank-spend-into="' + bankEsc(row.id) + '" aria-label="Merge ' + bankEsc(row.name) + ' into">' +
+      bankSpendChoiceOptions(cats, row.id, "") + "</select></label> " +
+      '<button type="button" data-bank-spend-merge="' + bankEsc(row.id) + '">Merge</button> ' +
+      '<label>Move spending to <select data-bank-spend-dest="' + bankEsc(row.id) + '" aria-label="Move ' + bankEsc(row.name) + ' spending">' +
+      bankSpendChoiceOptions(cats, row.id, "other") + "</select></label> " +
+      '<label>Budget <select data-bank-spend-keep="' + bankEsc(row.id) + '" aria-label="Budget for ' + bankEsc(row.name) + '">' +
+      '<option value="add">Add it on</option><option value="drop">Drop it</option></select></label> ' +
+      '<button type="button" data-bank-spend-delete="' + bankEsc(row.id) + '">Delete</button></li>';
+  }).join("");
+  var undo = opts.catUndo ? '<button type="button" class="act ghost" data-bank-spend-undo="1">Undo</button>' : "";
+  var list = items
+    ? bankCapList('<ul class="bank-edit-list">' + items + "</ul>", bankSpendVisible(cats).length, "Categories")
+    : '<p class="bank-empty">No categories yet.</p>';
+  return '<section data-bank-spend-cats="1"><h2>Categories</h2><div class="card span">' + line +
+    '<label>New category <input data-bank-spend-new maxlength="40" aria-label="New category"></label> ' +
+    '<label>Group <select data-bank-spend-new-tier aria-label="Group for the new category">' + bankSpendTierOptions("needs") + "</select></label> " +
+    '<button type="button" class="act" data-bank-spend-add="1">Add</button>' + list + undo + "</div></section>";
+}
+
+function bankSpendCatSelectHtml(snap, raw, opts) {
+  var cats = bankSpendVisible(bankSpendCategories(snap) || []);
+  opts = opts || {};
+  var key = "";
+  try { key = bankTxOverrideKey(raw) || bankTxBagKey(raw) || ""; } catch (e) { key = ""; }
+  var narrow = opts.catNarrow && String(opts.catNarrow.key || "") === String(key || bankTxMerchantName(raw)) ? opts.catNarrow.tier : "";
+  var mapped = bankMapSpendCategory(raw, snap);
+  var current = mapped && mapped.id ? bankSpendResolveId(bankSpendCategories(snap), mapped.id) : "";
+  var currentRow = bankSpendById(bankSpendCategories(snap), current);
+  if (!narrow && currentRow) narrow = currentRow.tier;
+  var options = "";
+  var seen = false;
+  cats.forEach(function (row) {
+    if (narrow && row.tier !== narrow) return;
+    if (row.id === current) seen = true;
+    options += '<option value="' + bankEsc(row.id) + '"' + (row.id === current ? " selected" : "") + ">" + bankEsc(row.name) + "</option>";
+  });
+  if (!seen) options = '<option value="">Choose</option> ' + options;
+  var merchant = raw && raw.merchant_key ? String(raw.merchant_key) : bankTierKey(bankTxMerchantName(raw));
+  return '<select data-bank-tx-cat="' + bankEsc(key || merchant) + '" data-bank-tx-merchant="' + bankEsc(merchant) +
+    '" aria-label="Category">' + options + "</select>";
+}
+
+function bankSpendWire(list) {
+  return (list || []).map(function (row) {
+    var out = {
+      id: row.id,
+      name: row.name,
+      tier: row.tier,
+      budget: typeof row.budget === "number" && isFinite(row.budget) ? row.budget : 0
+    };
+    if (row.merged_into) out.merged_into = row.merged_into;
+    return out;
+  });
+}
+
+function bankSpendListIssue(list) {
+  if (!Array.isArray(list)) return "bad_category";
+  if (list.length > BANK_SPEND_MAX) return "bad_category";
+  var ids = {};
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var row = list[i];
+    if (!row || typeof row !== "object") return "bad_category";
+    if (!bankSpendIdOk(row.id)) return "bad_category_id";
+    if (ids[row.id]) return "duplicate_category_id";
+    ids[row.id] = true;
+    if (typeof row.name !== "string" || row.name.length < 1 || row.name.length > BANK_SPEND_NAME_MAX) return "bad_category_name";
+    if (row.tier !== "required" && row.tier !== "needs" && row.tier !== "wants") return "bad_category_tier";
+    if (typeof row.budget !== "number" || !isFinite(row.budget) || row.budget < 0 || row.budget > BANK_SPEND_BUDGET_MAX) return "bad_category_budget";
+  }
+  for (i = 0; i < list.length; i++) {
+    var merged = list[i].merged_into;
+    if (merged == null || merged === "") continue;
+    if (!ids[merged] || merged === list[i].id) return "bad_merged_into";
+  }
+  for (i = 0; i < list.length; i++) {
+    var seen = {};
+    var cur = list[i].id;
+    var guard = 0;
+    while (cur && guard < list.length + 2) {
+      if (seen[cur]) return "merged_into_cycle";
+      seen[cur] = true;
+      var next = "";
+      var j;
+      for (j = 0; j < list.length; j++) if (list[j].id === cur) next = list[j].merged_into || "";
+      if (!next) break;
+      cur = next;
+      guard += 1;
+    }
+  }
+  return "";
+}
+
+function bankSpendRefIssue(list, rulesPatch, txPatch) {
+  var ids = {};
+  (list || []).forEach(function (row) { if (row && row.id) ids[row.id] = true; });
+  function check(bag, tx) {
+    if (!bag) return "";
+    var keys = Object.keys(bag);
+    var i;
+    for (i = 0; i < keys.length; i++) {
+      var value = bag[keys[i]];
+      if (value == null) continue;
+      if (tx && !bankTxOverrideKeyOk(keys[i])) return "bad_category_ref";
+      if (typeof value !== "string" || !ids[value]) return "unknown_category";
+    }
+    return "";
+  }
+  return check(rulesPatch, false) || check(txPatch, true);
+}
+
+function bankSpendRuleCount(doc, rulesPatch, txPatch) {
+  var rules = doc && doc.rules && typeof doc.rules === "object" && !Array.isArray(doc.rules) ? doc.rules : {};
+  var catRules = {};
+  var tx = {};
+  var baseRules = doc && doc.category_rules && typeof doc.category_rules === "object" ? doc.category_rules : {};
+  var baseTx = doc && doc.category_tx && typeof doc.category_tx === "object" ? doc.category_tx : {};
+  Object.keys(baseRules).forEach(function (k) { if (baseRules[k] != null) catRules[k] = baseRules[k]; });
+  Object.keys(baseTx).forEach(function (k) { if (baseTx[k] != null) tx[k] = baseTx[k]; });
+  function apply(bag, patch) {
+    if (!patch) return;
+    Object.keys(patch).forEach(function (k) {
+      if (patch[k] == null) delete bag[k];
+      else bag[k] = patch[k];
+    });
+  }
+  apply(catRules, rulesPatch);
+  apply(tx, txPatch);
+  return Object.keys(rules).length + Object.keys(catRules).length + Object.keys(tx).length;
+}
+
+function bankSpendParseBudget(raw) {
+  if (typeof raw === "number") {
+    if (!isFinite(raw) || raw < 0 || raw > BANK_SPEND_BUDGET_MAX) return null;
+    return raw;
+  }
+  if (typeof raw !== "string") return null;
+  var text = raw.trim().replace(/[$,]/g, "");
+  if (!/^\d+(\.\d+)?$/.test(text)) return null;
+  var n = Number(text);
+  if (!isFinite(n) || n < 0 || n > BANK_SPEND_BUDGET_MAX) return null;
+  return n;
+}
+
+function bankSpendSlug(name, cats) {
+  var slug = String(name || "").trim().toLowerCase().replace(/&/g, " ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  if (!slug || !/^[a-z0-9]/.test(slug)) slug = slug ? ("c-" + slug) : "category";
+  if (slug.length > 40) slug = slug.slice(0, 40).replace(/-+$/, "");
+  var id = slug || "category";
+  var n = 2;
+  while (bankSpendById(cats, id) && n < 100) {
+    var suffix = "-" + n;
+    id = (slug.slice(0, 40 - suffix.length) + suffix).replace(/^-+/, "c");
+    n += 1;
+  }
+  return bankSpendIdOk(id) ? id : "";
+}
+
+function bankSpendClone(list) {
+  return (list || []).map(function (row) {
+    return { id: row.id, name: row.name, tier: row.tier, budget: row.budget, merged_into: row.merged_into || "" };
+  });
+}
+
+function bankSpendUndoSnap(doc) {
+  doc = doc || {};
+  var rules = {};
+  var tx = {};
+  var catRules = doc.category_rules && typeof doc.category_rules === "object" ? doc.category_rules : {};
+  var catTx = doc.category_tx && typeof doc.category_tx === "object" ? doc.category_tx : {};
+  Object.keys(catRules).forEach(function (k) { if (catRules[k] != null) rules[k] = catRules[k]; });
+  Object.keys(catTx).forEach(function (k) { if (catTx[k] != null) tx[k] = catTx[k]; });
+  return {
+    categories: bankSpendClone(bankSpendCategories({ tier_doc: doc }) || []),
+    category_rules: rules,
+    category_tx: tx
+  };
+}
+
+function bankSpendDiffMap(prev, current) {
+  prev = prev || {};
+  current = current || {};
+  var seen = {};
+  Object.keys(prev).forEach(function (k) { seen[k] = true; });
+  Object.keys(current).forEach(function (k) { seen[k] = true; });
+  var patch = {};
+  Object.keys(seen).forEach(function (k) {
+    var hasPrev = Object.prototype.hasOwnProperty.call(prev, k);
+    var hasNow = Object.prototype.hasOwnProperty.call(current, k);
+    var before = hasPrev ? prev[k] : undefined;
+    var after = hasNow ? current[k] : undefined;
+    if (before === after) return;
+    patch[k] = before === undefined ? null : before;
+  });
+  return patch;
+}
+
+function bankSpendApply(snap, body) {
+  if (!snap || typeof snap !== "object") return;
+  if (!snap.tier_doc || typeof snap.tier_doc !== "object" || Array.isArray(snap.tier_doc)) snap.tier_doc = { plans: {}, rules: {} };
+  if (body && Array.isArray(body.categories)) snap.tier_doc.categories = body.categories;
+  function merge(field, patch) {
+    if (!patch) return;
+    if (!snap.tier_doc[field] || typeof snap.tier_doc[field] !== "object" || Array.isArray(snap.tier_doc[field])) snap.tier_doc[field] = {};
+    Object.keys(patch).forEach(function (k) {
+      if (patch[k] == null) delete snap.tier_doc[field][k];
+      else snap.tier_doc[field][k] = patch[k];
+    });
+  }
+  merge("category_rules", body && body.category_rules);
+  merge("category_tx", body && body.category_tx);
+}
+
+function bankSpendFail(root, code, draft) {
+  if (!root || !root._bank) return Promise.resolve(false);
+  root._bank.catError = bankSpendErrorLine(code);
+  if (draft) root._bank.catDraft = draft;
+  if (typeof bankPaint === "function") bankPaint(root);
+  return Promise.resolve(false);
+}
+
+function bankSpendCommit(root, nextList, rulesPatch, txPatch) {
+  if (!root || !root._bank) return Promise.resolve(false);
+  var snap = root._bank.data || {};
+  var doc = bankCategoryDoc(snap) || snap.tier_doc || { rules: {}, category_rules: {}, category_tx: {} };
+  var list = nextList || bankSpendClone(bankSpendCategories(snap) || []);
+  var wire = bankSpendWire(list);
+  var issue = bankSpendListIssue(wire);
+  if (issue) return bankSpendFail(root, issue, root._bank.catDraft);
+  var ref = bankSpendRefIssue(wire, rulesPatch, txPatch);
+  if (ref) return bankSpendFail(root, ref, root._bank.catDraft);
+  if (bankSpendRuleCount(doc, rulesPatch, txPatch) > BANK_SPEND_RULE_CAP) return bankSpendFail(root, "too_many_rules", root._bank.catDraft);
+  var body = { categories: wire };
+  if (rulesPatch && Object.keys(rulesPatch).length) body.category_rules = rulesPatch;
+  if (txPatch && Object.keys(txPatch).length) body.category_tx = txPatch;
+  var undo = bankSpendUndoSnap(doc);
+  var posted = JSON.stringify(body);
+  return fetch(BANK_TIERS_URL, bankFetchInit({
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: posted
+  })).then(function (res) {
+    if (!root._bank) return false;
+    var status = res && Number(res.status);
+    function finish(err) {
+      bankSpendApply(root._bank.data || snap, body);
+      root._bank.catUndo = undo;
+      root._bank.catError = err || "";
+      if (!err) root._bank.catDraft = null;
+      if (typeof bankPaint === "function") bankPaint(root);
+      return !err;
+    }
+    if (status === 400) {
+      return bankReadJson(res).then(function (payload) {
+        return finish(bankSpendErrorLine(bankSpendErrorCode(payload)));
+      });
+    }
+    var failed = !res || res.ok !== true || res.type === "opaqueredirect";
+    if (failed) return finish("That change did not save. It is still on this screen.");
+    return finish("");
+  }).catch(function () {
+    if (!root._bank) return false;
+    bankSpendApply(root._bank.data || snap, body);
+    root._bank.catUndo = undo;
+    root._bank.catError = "That change did not save. It is still on this screen.";
+    if (typeof bankPaint === "function") bankPaint(root);
+    return false;
+  });
+}
+
+function bankSpendSaveBudget(root, id, raw) {
+  if (!root || !root._bank) return Promise.resolve(false);
+  var amount = bankSpendParseBudget(raw);
+  if (amount == null) {
+    return bankSpendFail(root, "bad_category_budget", { id: id, budget: raw == null ? "" : String(raw) });
+  }
+  var list = bankSpendClone(bankSpendCategories(root._bank.data) || []);
+  var row = bankSpendById(list, id);
+  if (!row) return bankSpendFail(root, "unknown_category");
+  row.budget = amount;
+  root._bank.catDraft = null;
+  return bankSpendCommit(root, list, null, null);
+}
+
+function bankSpendSaveRow(root, id, name, tier, rawBudget) {
+  if (!root || !root._bank) return Promise.resolve(false);
+  var list = bankSpendClone(bankSpendCategories(root._bank.data) || []);
+  var row = bankSpendById(list, id);
+  if (!row) return bankSpendFail(root, "unknown_category");
+  var nextName = String(name == null ? "" : name).trim();
+  var nextTier = tier === "required" || tier === "needs" || tier === "wants" ? tier : "";
+  var amount = bankSpendParseBudget(rawBudget);
+  root._bank.catDraft = { id: id, name: name == null ? "" : String(name), tier: tier, budget: rawBudget == null ? "" : String(rawBudget) };
+  if (!nextName || nextName.length > BANK_SPEND_NAME_MAX) return bankSpendFail(root, "bad_category_name", root._bank.catDraft);
+  if (!nextTier) return bankSpendFail(root, "bad_category_tier", root._bank.catDraft);
+  if (amount == null) return bankSpendFail(root, "bad_category_budget", root._bank.catDraft);
+  row.name = nextName;
+  row.tier = nextTier;
+  row.budget = amount;
+  return bankSpendCommit(root, list, null, null);
+}
+
+function bankSpendAdd(root, name, tier) {
+  if (!root || !root._bank) return Promise.resolve(false);
+  var list = bankSpendClone(bankSpendCategories(root._bank.data) || []);
+  if (list.length >= BANK_SPEND_MAX) return bankSpendFail(root, "bad_category", { name: name == null ? "" : String(name) });
+  var nextName = String(name == null ? "" : name).trim();
+  var nextTier = tier === "required" || tier === "needs" || tier === "wants" ? tier : "needs";
+  if (!nextName || nextName.length > BANK_SPEND_NAME_MAX) return bankSpendFail(root, "bad_category_name", { name: name == null ? "" : String(name) });
+  var id = bankSpendSlug(nextName, list);
+  if (!id) return bankSpendFail(root, "bad_category_id");
+  list.push({ id: id, name: nextName, tier: nextTier, budget: 0, merged_into: "" });
+  return bankSpendCommit(root, list, null, null);
+}
+
+function bankSpendRepoint(doc, fromId, toId) {
+  var rules = {};
+  var tx = {};
+  var catRules = doc && doc.category_rules && typeof doc.category_rules === "object" ? doc.category_rules : {};
+  var catTx = doc && doc.category_tx && typeof doc.category_tx === "object" ? doc.category_tx : {};
+  Object.keys(catRules).forEach(function (k) {
+    if (String(catRules[k]) === fromId) rules[k] = toId;
+  });
+  Object.keys(catTx).forEach(function (k) {
+    if (String(catTx[k]) === fromId) tx[k] = toId;
+  });
+  return { rules: rules, tx: tx };
+}
+
+function bankSpendMerge(root, fromId, toId) {
+  if (!root || !root._bank) return Promise.resolve(false);
+  var list = bankSpendClone(bankSpendCategories(root._bank.data) || []);
+  var source = bankSpendById(list, fromId);
+  var target = bankSpendById(list, toId);
+  if (!source || !target || source.id === target.id) return bankSpendFail(root, "bad_merged_into");
+  source.merged_into = target.id;
+  list.forEach(function (row) {
+    if (row && row.merged_into === source.id) row.merged_into = target.id;
+  });
+  var moved = bankSpendRepoint(bankCategoryDoc(root._bank.data), source.id, target.id);
+  return bankSpendCommit(root, list, moved.rules, moved.tx);
+}
+
+function bankSpendDelete(root, id, destId, keep) {
+  if (!root || !root._bank) return Promise.resolve(false);
+  var list = bankSpendClone(bankSpendCategories(root._bank.data) || []);
+  var source = bankSpendById(list, id);
+  var dest = bankSpendById(list, destId);
+  if (!source || !dest || source.id === dest.id) return bankSpendFail(root, "bad_merged_into");
+  if (keep === "add") {
+    var sum = bankRoundCents((dest.budget || 0) + (source.budget || 0));
+    dest.budget = sum > BANK_SPEND_BUDGET_MAX ? BANK_SPEND_BUDGET_MAX : sum;
+  }
+  list.forEach(function (row) {
+    if (row && row.merged_into === source.id) row.merged_into = dest.id;
+  });
+  var next = list.filter(function (row) { return row.id !== source.id; });
+  var moved = bankSpendRepoint(bankCategoryDoc(root._bank.data), source.id, dest.id);
+  return bankSpendCommit(root, next, moved.rules, moved.tx);
+}
+
+function bankSpendSaveRule(root, merchant, catId) {
+  if (!root || !root._bank) return Promise.resolve(false);
+  var key = String(merchant || "").trim();
+  if (!key) return bankSpendFail(root, "bad_category_ref");
+  if (catId != null && !bankSpendById(bankSpendCategories(root._bank.data), catId)) return bankSpendFail(root, "unknown_category");
+  var patch = {};
+  patch[key] = catId == null ? null : catId;
+  return bankSpendCommit(root, null, patch, null);
+}
+
+function bankSpendSaveTx(root, rawKey, catId) {
+  if (!root || !root._bank) return Promise.resolve(false);
+  if (catId != null && !bankSpendById(bankSpendCategories(root._bank.data), catId)) return bankSpendFail(root, "unknown_category");
+  return bankTxOverrideHash(rawKey).then(function (clean) {
+    if (!root._bank) return false;
+    if (!bankTxOverrideKeyOk(clean)) return bankSpendFail(root, "bad_category_ref");
+    var patch = {};
+    patch[clean] = catId == null ? null : catId;
+    return bankSpendCommit(root, null, null, patch);
+  });
+}
+
+function bankSpendUndo(root) {
+  if (!root || !root._bank || !root._bank.catUndo) return Promise.resolve(false);
+  var prev = root._bank.catUndo;
+  var doc = bankCategoryDoc(root._bank.data) || {};
+  var rulesPatch = bankSpendDiffMap(prev.category_rules, doc.category_rules || {});
+  var txPatch = bankSpendDiffMap(prev.category_tx, doc.category_tx || {});
+  return bankSpendCommit(root, bankSpendClone(prev.categories), rulesPatch, txPatch);
+}
+
+function bankSpendField(root, selector) {
+  if (!root || !root.querySelector) return null;
+  return root.querySelector(selector);
+}
+
+function bankSpendRead(el) {
+  if (!el) return "";
+  return el.value == null ? "" : String(el.value);
+}
+
 function bankTierSummaryHtml(snap, opts, mode, month, view, actuals, missing, shot) {
+  if (bankCategoriesActive(snap)) {
+    var catHtml = bankCategorySummaryHtml(snap, opts, mode, month);
+    if (catHtml) return catHtml;
+  }
   if (mode === "historical" && missing) {
     return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span"><p class="bank-empty">No saved budget for this month.</p></div></section>';
   }
@@ -9735,23 +10804,25 @@ function bankTxSearchRows(snap, opts) {
   return rows;
 }
 
-function bankTxPickHtml(snap, raw) {
+function bankTxPickHtml(snap, raw, opts) {
   var tier = bankTxShownTier(snap, raw);
   if (bankTxRetierBlocked(snap, raw)) return '<span class="bank-tx-fixed">Not re-tierable</span>';
   var key = bankTxOverrideKey(raw);
   var singles = bankTxMovesOn(snap) && !!key;
   var current = tier === "required" || tier === "needs" || tier === "wants" ? tier : "needs";
+  var catsOn = bankCategoriesActive(snap);
   var scope = '<select data-bank-tx-scope="' + bankEsc(key) + '" aria-label="Move scope"' + (key ? "" : " disabled") + ">" +
     '<option value="merchant">All from this merchant</option>' +
     '<option value="one"' + (singles ? "" : " disabled") + ">Just this one</option></select>";
   var pick = '<select data-bank-tx-pick="' + bankEsc(key || bankTxMerchantName(raw)) + '" data-bank-tx-merchant="' +
-    bankEsc(bankTxMerchantName(raw)) + '" aria-label="Tier">' +
+    bankEsc(bankTxMerchantName(raw)) + '" aria-label="Tier"' + (catsOn ? ' data-bank-tx-narrow="1"' : "") + ">" +
     ["required", "needs", "wants"].map(function (name) {
       return '<option value="' + name + '"' + (name === current ? " selected" : "") + ">" + bankTierLabel(name) + "</option>";
     }).join("") + "</select>";
+  var cat = catsOn ? bankSpendCatSelectHtml(snap, raw, opts) : "";
   var undo = '<button type="button" class="act ghost" data-bank-tx-undo="' + bankEsc(key || bankTxMerchantName(raw)) + '" data-bank-tx-merchant="' +
     bankEsc(bankTxMerchantName(raw)) + '">Undo</button>';
-  return scope + " " + pick + " " + undo;
+  return '<span style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">' + scope + pick + cat + undo + "</span>";
 }
 
 function bankTxResultsHtml(snap, opts) {
@@ -9772,7 +10843,7 @@ function bankTxResultsHtml(snap, opts) {
     return "<tr><td><span class=\"sub\">" + bankEsc(when) + '</span></td><td><span class="sym">' +
       bankEsc(bankTxMerchantName(raw)) + "</span> <span class=\"sub\">" + bankEsc(raw.last4 ? bankAccountMask(raw.last4) : "") +
       "</span></td><td class=\"" + tone.trim() + "\">" + bankMoney(raw.amount) + "</td><td>" + bankEsc(tierName) +
-      "</td><td>" + bankTxPickHtml(snap, raw) + "</td></tr>";
+      "</td><td>" + bankTxPickHtml(snap, raw, opts) + "</td></tr>";
   }).join("");
   var body = rows.length
     ? bankCapList('<table class="book bank-tx-results"><thead><tr><th>Date</th><th>Name</th><th class="num">Amount</th><th>Tier</th><th></th></tr></thead><tbody>' +
@@ -9878,6 +10949,7 @@ function bankEditsPanelHtml(snap, opts) {
     bankEditIncomeHtml(incomes, ym) + "</div></section>" +
     bankUnmatchedStatusHtml(snap));
   return '<div class="bank-edit-grid">' + saveErr + bankTxSearchHtml(snap, Object.assign({}, opts, { txAssign: txAssign })) +
+    bankSpendEditorHtml(snap, opts) +
     '<section class="bank-edit-block"><h2>Bills</h2><div class="card span">' + dueNote + dueErr +
     bankEditBillHtml(bills, ym, opts.edits, opts.statusConfirm, snap) + "</div></section>" +
     (tiers.other || "") +
@@ -9915,7 +10987,7 @@ function bankPageHtml(snap, opts) {
   else panel = bankCurrentHtml(snap || {}, opts);
   var title = bankViewTitle(tab, snap || {}, opts);
   return bankNavHtml(tab, opts.menuOpen, title, snap || {}, opts) + '<div class="bank-panel" data-panel="' + tab + '" aria-labelledby="bank-view-title">' +
-    bankTierStaleHtml(snap) + panel + "</div>";
+    bankTierStaleHtml(snap) + panel + "</div>" + bankSpendPopupHtml(snap || {}, Object.assign({ tab: tab }, opts));
 }
 
 function bankCopyTierBag(raw) {
@@ -10007,7 +11079,13 @@ function bankPaint(root, paintOpts) {
     txAcct: st.txAcct || "",
     txMonth: st.txMonth || "",
     txOrder: st.txOrder || "",
-    txNote: st.txNote || ""
+    txNote: st.txNote || "",
+    catOpen: st.catOpen || "",
+    catMonth: st.catMonth || "",
+    catError: st.catError || "",
+    catDraft: st.catDraft || null,
+    catUndo: st.catUndo || null,
+    catNarrow: st.catNarrow || null
   });
   bankPaintTicker(st.data, { now: st.now });
   if (typeof MPListCap !== "undefined" && MPListCap && MPListCap.refresh) {
@@ -11287,7 +12365,10 @@ function bankTierPayloadDoc(payload) {
   var doc = payload.doc && typeof payload.doc === "object" && !Array.isArray(payload.doc) ? payload.doc : payload;
   if (!doc || typeof doc !== "object" || Array.isArray(doc)) return null;
   if (payload.schema === "banking-tiers/v1" || doc.rules || doc.plans || doc.bill_status || doc.manual_paid ||
-    Object.prototype.hasOwnProperty.call(doc, "tx_overrides")) return doc;
+    Object.prototype.hasOwnProperty.call(doc, "tx_overrides") ||
+    Object.prototype.hasOwnProperty.call(doc, "categories") ||
+    Object.prototype.hasOwnProperty.call(doc, "category_rules") ||
+    Object.prototype.hasOwnProperty.call(doc, "category_tx")) return doc;
   return null;
 }
 
@@ -11301,6 +12382,12 @@ function bankRehydrateTiers(root) {
     if (!root._bank || root._bank.tierGen !== gen) return false;
     var st = root._bank;
     if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
+    if (res && (Number(res.status) === 401 || Number(res.status) === 403)) {
+      st.data._tiersFromGet = false;
+      st.data._tiersGetFailed = false;
+      bankPaint(root);
+      return false;
+    }
     if (!res || res.ok !== true || res.type === "opaqueredirect") {
       st.data._tiersFromGet = false;
       st.data._tiersGetFailed = true;
@@ -11503,6 +12590,12 @@ function bankMount(root, data, opts) {
     keptEmpty: "",
     rowAdd: null,
     openDay: opts.openDay || "",
+    catOpen: opts.catOpen || "",
+    catMonth: opts.catMonth || "",
+    catError: opts.catError || "",
+    catDraft: opts.catDraft || null,
+    catUndo: opts.catUndo || null,
+    catNarrow: opts.catNarrow || null,
     prune: Promise.resolve()
   };
   if (root._bank.tab === "edits") root._bank.prune = bankRefreshEmptyCustoms(root);
@@ -11577,7 +12670,82 @@ function bankMount(root, data, opts) {
     var txUndo = t.closest("[data-bank-tx-undo]");
     if (txUndo && txUndo.getAttribute && root._bank) {
       if (e.preventDefault) e.preventDefault();
+      if (bankCategoriesActive(root._bank.data)) {
+        var catScopeEl = txUndo.parentNode && txUndo.parentNode.querySelector ? txUndo.parentNode.querySelector("[data-bank-tx-scope]") : null;
+        var catScope = catScopeEl && catScopeEl.value ? catScopeEl.value : (root._bank.txScope || "merchant");
+        if (catScope === "one") return bankSpendSaveTx(root, txUndo.getAttribute("data-bank-tx-undo"), null);
+        return bankSpendSaveRule(root, txUndo.getAttribute("data-bank-tx-merchant"), null);
+      }
       return bankUndoTxMove(root, txUndo.getAttribute("data-bank-tx-undo"), txUndo.getAttribute("data-bank-tx-merchant"));
+    }
+    var catClose = t.closest("[data-bank-cat-close]");
+    if (catClose && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      root._bank.catOpen = "";
+      root._bank.catDraft = null;
+      root._bank.catError = "";
+      bankPaint(root);
+      return;
+    }
+    if (t.getAttribute && t.getAttribute("data-bank-cat-pop") != null && root._bank) {
+      root._bank.catOpen = "";
+      root._bank.catDraft = null;
+      root._bank.catError = "";
+      bankPaint(root);
+      return;
+    }
+    var catSave = t.closest("[data-bank-cat-save]");
+    if (catSave && catSave.getAttribute && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      var catId = catSave.getAttribute("data-bank-cat-save");
+      var catInput = root.querySelector ? root.querySelector('[data-bank-cat-budget="' + catId + '"]') : null;
+      return bankSpendSaveBudget(root, catId, catInput ? catInput.value : "");
+    }
+    var catRow = t.closest("[data-bank-cat-row]");
+    if (catRow && catRow.getAttribute && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      root._bank.catOpen = catRow.getAttribute("data-bank-cat-row");
+      root._bank.catError = "";
+      root._bank.catDraft = null;
+      var catMonth = root._bank.tab === "historical" ? root._bank.histMonth : (root._bank.planMonth || bankMonthKey(bankCalendarMonth(root._bank.data)));
+      root._bank.catMonth = bankMonthKey(catMonth);
+      bankPaint(root);
+      return;
+    }
+    var spendUndo = t.closest("[data-bank-spend-undo]");
+    if (spendUndo && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      return bankSpendUndo(root);
+    }
+    var spendAdd = t.closest("[data-bank-spend-add]");
+    if (spendAdd && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      var addName = bankSpendRead(bankSpendField(root, "[data-bank-spend-new]"));
+      var addTier = bankSpendRead(bankSpendField(root, "[data-bank-spend-new-tier]"));
+      return bankSpendAdd(root, addName, addTier);
+    }
+    var spendSave = t.closest("[data-bank-spend-save]");
+    if (spendSave && spendSave.getAttribute && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      var saveId = spendSave.getAttribute("data-bank-spend-save");
+      return bankSpendSaveRow(root, saveId,
+        bankSpendRead(bankSpendField(root, '[data-bank-spend-name="' + saveId + '"]')),
+        bankSpendRead(bankSpendField(root, '[data-bank-spend-tier="' + saveId + '"]')),
+        bankSpendRead(bankSpendField(root, '[data-bank-spend-budget="' + saveId + '"]')));
+    }
+    var spendMerge = t.closest("[data-bank-spend-merge]");
+    if (spendMerge && spendMerge.getAttribute && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      var mergeId = spendMerge.getAttribute("data-bank-spend-merge");
+      return bankSpendMerge(root, mergeId, bankSpendRead(bankSpendField(root, '[data-bank-spend-into="' + mergeId + '"]')));
+    }
+    var spendDelete = t.closest("[data-bank-spend-delete]");
+    if (spendDelete && spendDelete.getAttribute && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      var deleteId = spendDelete.getAttribute("data-bank-spend-delete");
+      return bankSpendDelete(root, deleteId,
+        bankSpendRead(bankSpendField(root, '[data-bank-spend-dest="' + deleteId + '"]')),
+        bankSpendRead(bankSpendField(root, '[data-bank-spend-keep="' + deleteId + '"]')));
     }
     var dayClose = t.closest("[data-bank-day-close], [data-bank-day-scrim]");
     if (dayClose) {
@@ -11717,11 +12885,25 @@ function bankMount(root, data, opts) {
       return;
     }
     if (el.getAttribute("data-bank-tx-pick")) {
+      if (el.getAttribute("data-bank-tx-narrow") === "1" && root._bank && bankCategoriesActive(root._bank.data)) {
+        root._bank.catNarrow = { key: el.getAttribute("data-bank-tx-pick"), tier: bankTierWord(el.value) || "" };
+        root._bank.tab = "edits";
+        bankPaint(root);
+        return;
+      }
       var picked = bankTierWord(el.value);
       var scopeEl = el.parentNode && el.parentNode.querySelector ? el.parentNode.querySelector("[data-bank-tx-scope]") : null;
       var scope = scopeEl && scopeEl.value ? scopeEl.value : (root._bank && root._bank.txScope) || "merchant";
       if (scope === "one") return bankSaveTxOverride(root, el.getAttribute("data-bank-tx-pick"), picked);
       return bankSaveTier(root, el.getAttribute("data-bank-tx-merchant") || el.getAttribute("data-bank-tx-pick"), picked);
+    }
+    if (el.getAttribute("data-bank-tx-cat")) {
+      var catPick = el.value == null ? "" : String(el.value);
+      if (!catPick || !root._bank) return;
+      var catScopeEl = el.parentNode && el.parentNode.querySelector ? el.parentNode.querySelector("[data-bank-tx-scope]") : null;
+      var catScope = catScopeEl && catScopeEl.value ? catScopeEl.value : (root._bank.txScope || "merchant");
+      if (catScope === "one") return bankSpendSaveTx(root, el.getAttribute("data-bank-tx-cat"), catPick);
+      return bankSpendSaveRule(root, el.getAttribute("data-bank-tx-merchant"), catPick);
     }
     if (el.getAttribute("data-bank-row-tier")) {
       var rowTier = bankTierWord(el.value);
@@ -11811,6 +12993,14 @@ function bankMount(root, data, opts) {
   root.addEventListener("keydown", function (e) {
     var el = e && e.target;
     if (!el) return;
+    if (e.key === "Escape" && root._bank && root._bank.catOpen) {
+      if (e.preventDefault) e.preventDefault();
+      root._bank.catOpen = "";
+      root._bank.catDraft = null;
+      root._bank.catError = "";
+      bankPaint(root);
+      return;
+    }
     if (e.key === "Escape" && root._bank && root._bank.openDay) {
       if (e.preventDefault) e.preventDefault();
       bankCloseDay(root);
