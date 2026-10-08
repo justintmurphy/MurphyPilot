@@ -4894,7 +4894,8 @@ function bankSortByDue(rows, opts) {
   return list;
 }
 
-function bankTierRowLists(groups, opts) {
+/* The same rows feed Tier Summary and the More details lists. */
+function bankTierLineRows(groups, opts) {
   opts = opts || {};
   var seenRaw = {};
   var seenPaidFace = {};
@@ -4904,6 +4905,7 @@ function bankTierRowLists(groups, opts) {
   var today = opts.today || "";
   if (today && typeof today === "object") today = bankDateKey(today.year, today.month, today.day);
   var paidAmounts = {};
+  var out = { required: [], needs: [], wants: [] };
   ["required", "needs", "wants"].forEach(function (tier) {
     ((groups && groups[tier]) || []).forEach(function (r) {
       if (!bankPaidThisMonth(r, month)) return;
@@ -4914,7 +4916,7 @@ function bankTierRowLists(groups, opts) {
       paidAmounts[face].push(amt);
     });
   });
-  return ["required", "needs", "wants"].map(function (tier) {
+  ["required", "needs", "wants"].forEach(function (tier) {
     var raw = (groups && groups[tier]) || [];
     var rows = raw.map(function (r) {
       var next = {};
@@ -4944,19 +4946,32 @@ function bankTierRowLists(groups, opts) {
       if (samePaid) seenPaidFace[paidKey] = true;
       return true;
     });
-    if (!rows.length) return "";
-    var items = rows.map(function (r) {
-      var swatch = tier === "needs" ? "var(--mix-a)" : tier === "wants" ? "var(--mix-b)" : "var(--mix-c)";
+    rows.forEach(function (r) {
       var day = null;
       if (r.bill) day = r.bill.typical_day != null ? r.bill.typical_day : r.bill.due_day;
       else if (r.typical_day != null) day = r.typical_day;
       else if (r.days && r.days.length) day = r.days[0];
       day = bankDay(day);
-      var when = day != null && month && month.month >= 1 && month.month <= 12
+      r.when = day != null && month && month.month >= 1 && month.month <= 12
         ? BANK_MONTHS[month.month - 1] + " " + String(day) : "";
+    });
+    if (rows.length === 1 && bankTierKey(rows[0].key || rows[0].name) === "other") rows = [];
+    out[tier] = rows;
+  });
+  return out;
+}
+
+function bankTierRowLists(groups, opts) {
+  opts = opts || {};
+  var lines = bankTierLineRows(groups, opts);
+  return ["required", "needs", "wants"].map(function (tier) {
+    var rows = lines[tier] || [];
+    if (!rows.length) return "";
+    var swatch = tier === "needs" ? "var(--mix-a)" : tier === "wants" ? "var(--mix-b)" : "var(--mix-c)";
+    var items = rows.map(function (r) {
       return '<div class="mix-leg"><i style="background:' + swatch + '"></i>' +
         '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(r.name) + "</span>" +
-        (when ? ' <span class="sub">' + bankEsc(when) + "</span>" : "") + "</span> " +
+        (r.when ? ' <span class="sub">' + bankEsc(r.when) + "</span>" : "") + "</span> " +
         '<span class="mix-leg-fig"><span class="mix-amt">' + bankMoney(r.amount) + "</span></span></div>";
     }).join("");
     return '<h2>' + bankTierLabel(tier) + '</h2><div class="card span">' +
@@ -6656,14 +6671,7 @@ function bankFundingAccountBlocks(snap, opts) {
   var books = bankCombinedBooks(snap, opts);
   var accounts = books.accounts || [];
   if (!accounts.length) return "";
-  var today = "";
-  if (opts.now) {
-    var et = bankEtYmd(opts.now);
-    if (et) today = bankDateKey(et.year, et.month, et.day);
-  }
-  if (!today) today = bankTodayIso(snap, opts);
-  var summary = bankFundAccountsTable(accounts, today);
-  if (!summary) return "";
+  /* The allocation table is a later tip. Keep the move note, hide the grid. */
   var seenNote = {};
   var notes = [];
   accounts.forEach(function (acct) {
@@ -6672,7 +6680,7 @@ function bankFundingAccountBlocks(snap, opts) {
     seenNote[note] = true;
     notes.push(note);
   });
-  return summary + notes.join("");
+  return notes.join("");
 }
 
 function bankFundSigned(amount, kind) {
@@ -6934,11 +6942,15 @@ function bankNextBillOut(snap, opts) {
     var ym = bankParseYm(bankShiftYm(base, shift));
     if (!ym) return;
     var month = bankYm(ym.year, ym.month);
+    var paidAmounts = bankPaidMonthAmounts(snap, bills, month, opts);
     bills.forEach(function (b) {
       if (!b || bankBillRetired(b, month) || !bankBillCounted(b)) return;
       var trust = bankTrustPaidStatus(snap, b, month, opts);
       var paid = trust ? bankBillPaidStatus(b, month) : "";
       if (paid === "paid" || paid === "paid_late") return;
+      var face = bankTierKey(bankBillDisplayName(b.name, b.display_label));
+      var amt = bankBillLineAmount(b, month, opts.edits);
+      if (bankSamePaidAmount(paidAmounts[face], amt)) return;
       var part = trust ? bankBillPartial(b, month) : null;
       var openDays = part ? bankPartialOpenDays(b, ym, part) : null;
       bankBillDueDays(b, ym).forEach(function (day) {
@@ -8458,6 +8470,58 @@ function bankCalendarHeading(mode) {
   return "Due calendar";
 }
 
+function bankPaidMonthAmounts(snap, bills, month, opts) {
+  var faces = {};
+  (bills || []).forEach(function (b) {
+    if (!b) return;
+    var trust = bankTrustPaidStatus(snap, b, month, opts || {});
+    var paid = trust ? bankBillPaidStatus(b, month) : "";
+    if (paid !== "paid" && paid !== "paid_late") return;
+    var face = bankTierKey(bankBillDisplayName(b.name, b.display_label));
+    var amt = bankBillLineAmount(b, month, opts && opts.edits);
+    if (!face || amt == null) return;
+    if (!faces[face]) faces[face] = [];
+    faces[face].push(amt);
+  });
+  return faces;
+}
+
+function bankSamePaidAmount(list, amount) {
+  return (list || []).some(function (n) { return amount != null && Math.abs(n - amount) < 0.02; });
+}
+
+/* A bill paid this month is marked on its paid date. An unpaid bill with the same name and amount is not also due. */
+function bankPaidCalendarBills(snap, bills, month, opts) {
+  var amounts = bankPaidMonthAmounts(snap, bills, month, opts);
+  var out = [];
+  (bills || []).forEach(function (b) {
+    if (!b) return;
+    var trust = bankTrustPaidStatus(snap, b, month, opts);
+    var paid = trust ? bankBillPaidStatus(b, month) : "";
+    var isPaid = paid === "paid" || paid === "paid_late";
+    var face = bankTierKey(bankBillDisplayName(b.name, b.display_label));
+    var amt = bankBillLineAmount(b, month, opts && opts.edits);
+    if (!isPaid && bankSamePaidAmount(amounts[face], amt)) return;
+    if (isPaid) {
+      var paidOn = (b.paid_current_month && b.paid_current_month.paid_date) || b.paid_date || "";
+      var key = bankCopyDate(paidOn) || "";
+      var day = key ? bankDay(String(key).slice(8, 10)) : null;
+      if (day != null && bankMonthKey(key) === bankMonthKey(month)) {
+        var copy = {};
+        Object.keys(b).forEach(function (k) { copy[k] = b[k]; });
+        copy.typical_day = day;
+        copy.typical_days = [day];
+        copy.due_day = day;
+        copy.schedule = null;
+        out.push(copy);
+        return;
+      }
+    }
+    out.push(b);
+  });
+  return out;
+}
+
 function bankRenderCalendar(view, opts, mode, month, missing) {
   var heading = bankCalendarHeading(mode);
   if (mode === "historical" && missing) {
@@ -8487,7 +8551,7 @@ function bankRenderCalendar(view, opts, mode, month, missing) {
     });
     return { day: c.day, items: items };
   });
-  var cells = bankDayCells(bills, incomes, calendar, month);
+  var cells = bankDayCells(bankPaidCalendarBills(view, bills, month, opts), incomes, calendar, month);
   bankPlaceSubs(cells, subs, month);
   var picked = "";
   var openDay = bankDay(opts && opts.openDay);
@@ -8623,53 +8687,87 @@ function bankTierItemSpent(snap, row, month, mode, edits) {
   return n != null && n > 0 ? n : 0;
 }
 
+function bankTierDueIso(row, month) {
+  var day = null;
+  if (row && row.bill) day = row.bill.typical_day != null ? row.bill.typical_day : row.bill.due_day;
+  else if (row && row.typical_day != null) day = row.typical_day;
+  else if (row && row.days && row.days.length) day = row.days[0];
+  day = bankDay(day);
+  if (day == null || !month || !month.year) return "";
+  return bankSortMonthDate(month, day);
+}
+
+/* Spent uses the same plan amount as the list row. A posted actual wins.
+   Otherwise a bill paid this month, or already due in the open month, counts as spent. */
+function bankTierLineSpent(snap, row, month, mode, edits, todayIso) {
+  var names = [];
+  function add(v) { if (v && names.indexOf(v) < 0) names.push(v); }
+  add(row && row.key);
+  add(row && row.name);
+  if (row && row.bill) {
+    add(row.bill.name);
+    add(row.bill.category);
+  }
+  var found = null;
+  if (mode === "historical") {
+    var histBag = bankActualBag(snap, month) || bankActualsMap(snap)[bankMonthKey(month)];
+    names.forEach(function (nm) {
+      if (found != null) return;
+      found = bankCategoryActual(histBag, nm);
+    });
+    var hist = bankNum(found);
+    return hist != null && hist > 0 ? hist : 0;
+  }
+  names.forEach(function (nm) {
+    if (found != null) return;
+    found = bankCategoryMtdSpent(snap, nm);
+  });
+  if (found == null) {
+    names.forEach(function (nm) {
+      if (found != null) return;
+      found = bankCategorySpendActual(snap, nm, month);
+    });
+  }
+  if (found != null && found > 0) return found;
+  var plan = bankNum(row && row.amount);
+  if (!(plan > 0)) return 0;
+  if (bankPaidThisMonth(row, month)) return plan;
+  var due = bankTierDueIso(row, month);
+  var view = bankMonthKey(month);
+  var todayMonth = todayIso ? bankMonthKey(todayIso) : "";
+  if (due && todayIso && view && view === todayMonth && due <= todayIso) return plan;
+  return 0;
+}
+
 function bankTierSummaryHtml(snap, opts, mode, month, view, actuals, missing, shot) {
   if (mode === "historical" && missing) {
     return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span"><p class="bank-empty">No saved budget for this month.</p></div></section>';
   }
   var groups = { required: [], needs: [], wants: [] };
-  try { groups = bankCollectTierRows(view || snap, month, opts && opts.edits, false) || groups; } catch (e2) {}
+  try { groups = bankAlignTierGroups(bankCollectTierRows(view || snap, month, opts && opts.edits, false) || groups, snap, month); } catch (e2) {}
   var edits = opts && opts.edits;
-  var paidAmounts = {};
-  ["required", "needs", "wants"].forEach(function (key) {
-    (groups[key] || []).forEach(function (r) {
-      if (!bankPaidThisMonth(r, month)) return;
-      var face = bankTierKey(r && r.name);
-      var amt = bankTierRowAmount(r, month, edits);
-      if (!face || amt == null) return;
-      if (!paidAmounts[face]) paidAmounts[face] = [];
-      paidAmounts[face].push(amt);
-    });
+  var today = bankScreenToday(view || snap, opts || {});
+  var todayIso = today ? bankDateKey(today.year, today.month, today.day) : "";
+  var lines = bankTierLineRows(groups, {
+    today: todayIso,
+    mode: mode === "historical" ? "historical" : (mode || "plan"),
+    month: month,
+    edits: edits
   });
-  var seenRaw = {};
-  var seenPaidFace = {};
   var body = ["required", "needs", "wants"].map(function (key) {
-    var items = (groups[key] || []).filter(function (r) {
-      if (!r || !r.name || r.key === "other" || !r.bill) return false;
-      var plan = bankTierBillPlan(r, month, edits);
-      if (plan == null || !(plan > 0)) return false;
-      var rawKey = bankTierKey(r.key || (r.bill && r.bill.name) || r.name);
-      var faceKey = bankTierKey(r.name);
-      var amt = bankTierRowAmount(r, month, edits);
-      if (!rawKey || seenRaw[rawKey]) return false;
-      var paidList = paidAmounts[faceKey] || [];
-      var samePaid = paidList.some(function (n) { return amt != null && Math.abs(n - amt) < 0.02; });
-      if (samePaid && !bankPaidThisMonth(r, month)) return false;
-      var paidKey = faceKey + "|" + (amt == null ? "" : String(amt));
-      if (samePaid && seenPaidFace[paidKey]) return false;
-      seenRaw[rawKey] = true;
-      if (samePaid) seenPaidFace[paidKey] = true;
-      r._tierPlan = plan;
-      r._tierSpent = bankTierItemSpent(snap, r, month, mode, edits);
-      return true;
+    var items = lines[key] || [];
+    items.forEach(function (r) {
+      r._tierPlan = bankNum(r.amount);
+      r._tierSpent = bankTierLineSpent(snap, r, month, mode, edits, todayIso);
     });
     var plan = 0;
     var spent = 0;
     var any = false;
     items.forEach(function (r) {
+      if (!(r._tierPlan > 0)) return;
       any = true;
       plan += r._tierPlan;
-      spent += r._tierSpent;
+      spent += r._tierSpent || 0;
     });
     plan = any ? bankRoundCents(plan) : null;
     spent = any ? bankRoundCents(spent) : null;
@@ -8677,7 +8775,10 @@ function bankTierSummaryHtml(snap, opts, mode, month, view, actuals, missing, sh
     var p = bankNum(plan);
     var neg = s != null && p != null && p - s < -0.0001;
     var leftSpan = '<span class="mix-amt' + (neg ? " tone-stop" : "") + '"> ' + bankEsc(bankTierLeftText(spent, plan, mode === "historical")) + "</span>";
-    var head = bankVsRowHtml(bankTierLabel(key), spent, plan, ' data-tier="' + key + '"', leftSpan);
+    var attrs = ' data-tier="' + key + '"';
+    if (p != null) attrs += ' data-plan="' + p + '"';
+    if (s != null) attrs += ' data-spent="' + s + '"';
+    var head = bankVsRowHtml(bankTierLabel(key), spent, plan, attrs, leftSpan);
     var rows = items.map(function (r) {
       var over = r._tierPlan != null && r._tierSpent - r._tierPlan > 0.004;
       var extra = "";
@@ -8686,7 +8787,8 @@ function bankTierSummaryHtml(snap, opts, mode, month, view, actuals, missing, sh
       }
       return bankVsRowHtml(r.name, r._tierSpent, r._tierPlan, ' data-bar="' + bankEsc(r.key || r.name) + '"', extra);
     }).join("");
-    return head + rows;
+    var nest = rows ? '<div class="mix-legend" style="padding-left:22px">' + rows + "</div>" : "";
+    return head + nest;
   }).join("");
   return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span"><div class="mix-legend">' +
     body + "</div></div></section>";
