@@ -10072,19 +10072,9 @@ function bankRenderCalendar(view, opts, mode, month, missing) {
   });
   var cells = bankDayCells(bankPaidCalendarBills(view, bills, month, opts), incomes, calendar, month);
   bankPlaceSubs(cells, subs, month);
-  var picked = "";
-  var openDay = bankDay(opts && opts.openDay);
-  if (openDay) {
-    var items = bankDayItems(view, month, openDay, edits);
-    picked = '<div class="bank-cal-picked"><h2>' + bankEsc(BANK_MONTHS[(month.month || 1) - 1] + " " + openDay) + "</h2>" +
-      (items.length ? "<div class=\"mix-legend\">" + items.map(function (it) {
-        return '<div class="mix-leg"><span class="mix-leg-name">' + bankEsc(it.name) + "</span> <span class=\"mix-amt\">" +
-          bankEsc(it.amount || "\u2014") + "</span></div>";
-      }).join("") + "</div>" : '<p class="bank-empty">Nothing scheduled</p>') + "</div>";
-  }
   return '<section class="bank-cal"><h2>' + heading + '</h2><div class="card span">' +
     bankCalendarHtml(cells, bankHasDueDays(cells), month, bankBillCalendarAmounts(bills, month, edits), bankBillFaceMap(bills), { hideNav: mode === "current", today: bankScreenToday(view, opts) }) +
-    picked + "</div></section>";
+    "</div></section>";
 }
 
 function bankSnapshotPlan(shot, key) {
@@ -13288,16 +13278,17 @@ function bankTxResultsHtml(snap, opts) {
     var chip = locked ? "Not a purchase" : bankTxChipLabel(snap, raw);
     var meta = [when, last].filter(Boolean).join(" \u00b7 ");
     if (!locked && opts.txOpen && String(opts.txOpen) === String(openKey)) sheet = bankTxSheetHtml(snap, raw, opts);
-    var body = '<span data-bank-item-name="1">' + bankEsc(name) + "</span> " +
-      (meta ? '<i data-bank-item-meta="1">' + bankEsc(meta) + "</i> " : "") +
-      '<b class="' + tone + '">' + bankEsc(flow.text) + "</b> " +
-      '<span class="fresh-chip">' + bankEsc(chip) + "</span>";
+    var change = locked ? "" : ' <span class="bank-tx-change">Change \u203a</span>';
+    var body = '<span class="bank-tx-line"><span data-bank-item-name="1">' + bankEsc(name) + "</span> " +
+      '<b class="' + tone + '">' + bankEsc(flow.text) + "</b></span> " +
+      '<span class="bank-tx-line"><i data-bank-item-meta="1">' + bankEsc(meta) + "</i> " +
+      '<span class="bank-tx-end"><span class="fresh-chip">' + bankEsc(chip) + "</span>" + change + "</span></span>";
     if (locked) {
       return '<li class="bank-tx-quiet" data-bank-cat-item="1" data-last4="' + bankEsc(last) + '">' + body + "</li>";
     }
     return '<li data-bank-cat-item="1" data-last4="' + bankEsc(last) + '">' +
       '<button type="button" class="bank-tx-hit" data-bank-tx-open="' + bankEsc(openKey) + '">' +
-      body + ' <span class="bank-tx-change">Change</span></button></li>';
+      body + "</button></li>";
   }).join("");
   var body = rows.length
     ? bankCapList('<ul class="bank-tx-results" data-bank-cat-items="1">' + list + "</ul>", rows.length, "Transactions")
@@ -13680,14 +13671,16 @@ function bankSyncNextPayDots(root) {
   }
 }
 
-/* First position is instant. A smooth scroll would land past This pay on load. */
-function bankScrollNextPay(root) {
+/* Align to the active dot. A scroll event before layout, or a later repaint, must not
+   treat a snap as a swipe and leave the track on a later card. */
+function bankPlaceNextPay(root, force) {
   if (!root || !root.querySelector) return;
   var track = root.querySelector("[data-bank-next-track]");
   if (!track || !track.querySelectorAll) return;
+  if (!force && track._bankNextUser) return;
   var cards = track.querySelectorAll("[data-bank-next-card]");
   if (!cards || !cards.length) return;
-  var dots = root.querySelectorAll ? root.querySelectorAll("[data-bank-next-dot]") : [];
+  var dots = root.querySelectorAll("[data-bank-next-dot]");
   var current = 0;
   var i;
   for (i = 0; i < dots.length; i++) {
@@ -13696,15 +13689,37 @@ function bankScrollNextPay(root) {
   if (current < 0 || current >= cards.length) current = 0;
   if (root._bank && typeof root._bank.nextIndex !== "number") root._bank.nextIndex = current;
   var left = bankNextScrollLeft(track, cards[current]);
-  if (typeof track.scrollTo === "function") {
-    try { track.scrollTo({ left: left, top: 0, behavior: "instant" }); }
-    catch (eScroll) { track.scrollLeft = left; }
-  } else {
-    track.scrollLeft = left;
+  if (Math.abs((track.scrollLeft || 0) - left) <= 1) return;
+  track.scrollLeft = left;
+}
+
+function bankScrollNextPay(root) {
+  if (!root || !root.querySelector) return;
+  var track = root.querySelector("[data-bank-next-track]");
+  if (!track) return;
+  bankPlaceNextPay(root);
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { bankPlaceNextPay(root); });
+    });
   }
   if (track._bankNextScroll || !track.addEventListener) return;
   track._bankNextScroll = true;
-  track.addEventListener("scroll", function () { bankSyncNextPayDots(root); });
+  function arm() { track._bankNextUser = true; }
+  track.addEventListener("pointerdown", arm);
+  track.addEventListener("touchstart", arm);
+  track.addEventListener("wheel", arm);
+  track.addEventListener("scroll", function () {
+    if (!track._bankNextUser) return;
+    bankSyncNextPayDots(root);
+  });
+}
+
+function bankFocusNoScroll(el) {
+  if (!el || !el.focus) return;
+  try { el.focus({ preventScroll: true }); } catch (e) {
+    try { el.focus(); } catch (e2) {}
+  }
 }
 
 function bankPaintTicker(snap, opts) {
@@ -13722,9 +13737,7 @@ function bankFocusGear(root) {
 
 function bankFocusDayDialog(root) {
   var el = root && root.querySelector && root.querySelector(".bank-day-dialog");
-  if (el && el.focus) {
-    try { el.focus(); } catch (e) {}
-  }
+  bankFocusNoScroll(el);
 }
 
 function bankDayNumberFromCell(cell) {
@@ -13742,7 +13755,7 @@ function bankFocusDayCell(root, day) {
     var cell = cells[i];
     var num = bankDayNumberFromCell(cell);
     if (num !== day || !cell.focus) continue;
-    try { cell.focus(); } catch (e) {}
+    bankFocusNoScroll(cell);
     return;
   }
 }
@@ -15670,9 +15683,7 @@ function bankMount(root, data, opts) {
             if (dotNodes[di].classList) dotNodes[di].classList.remove("on");
           }
         }
-        if (cardNodes[dotIndex] && cardNodes[dotIndex].scrollIntoView) {
-          try { cardNodes[dotIndex].scrollIntoView({ inline: "start", block: "nearest", behavior: "instant" }); } catch (eDot) {}
-        }
+        bankPlaceNextPay(root, true);
         return;
       }
       bankPaint(root);
@@ -15959,9 +15970,7 @@ function bankMount(root, data, opts) {
               if (dots[ki].classList) dots[ki].classList.remove("on");
             }
           }
-          if (cards[idx] && cards[idx].scrollIntoView) {
-            try { cards[idx].scrollIntoView({ inline: "start", block: "nearest", behavior: "instant" }); } catch (eKey) {}
-          }
+          bankPlaceNextPay(root, true);
           return;
         }
         bankPaint(root);
@@ -15998,10 +16007,10 @@ function bankMount(root, data, opts) {
         var last = tabbables[tabbables.length - 1];
         if (e.shiftKey && (el === first || el === dialog)) {
           if (e.preventDefault) e.preventDefault();
-          if (last.focus) last.focus();
+          bankFocusNoScroll(last);
         } else if (!e.shiftKey && el === last) {
           if (e.preventDefault) e.preventDefault();
-          if (first.focus) first.focus();
+          bankFocusNoScroll(first);
         }
       } else if (e.preventDefault) e.preventDefault();
       return;
@@ -16022,7 +16031,7 @@ function bankMount(root, data, opts) {
           for (n = 0; n < days.length; n++) {
             if (days[n].setAttribute) days[n].setAttribute("tabindex", days[n] === next ? "0" : "-1");
           }
-          if (next.focus) next.focus();
+          bankFocusNoScroll(next);
         }
       }
       return;

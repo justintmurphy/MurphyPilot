@@ -211,17 +211,23 @@ test("next pay scrolls to this pay, cards match, and the calendar dialog is cent
     assert.ok(align.gap <= 2, JSON.stringify(at390) + " " + JSON.stringify(align));
     sameSize(at390.heights, "390 height");
     sameSize(at390.widths, "390 width");
+    await page.evaluate(function () {
+      return new Promise(function (resolve) {
+        requestAnimationFrame(function () { requestAnimationFrame(resolve); });
+      });
+    });
+    const parked = await page.evaluate(function () {
+      var track = document.querySelector("[data-bank-next-track]");
+      var mark = document.querySelector('[data-bank-this-pay="1"]');
+      var card = mark && mark.closest ? mark.closest("[data-bank-next-card]") : null;
+      var offset = card.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft;
+      return { scroll: track.scrollLeft, offset: offset, date: card.getAttribute("data-bank-next-date") };
+    });
+    assert.equal(parked.date, "2026-09-30");
+    assert.ok(Math.abs(parked.scroll - parked.offset) <= 1, JSON.stringify(parked));
     await page.locator(".bank-next").screenshot({ path: path.join(shots, "nextpay-carousel-390.png") });
     await page.locator(".bank-next").screenshot({ path: path.join(shots, "nextpay-cards-oct8-390.png") });
-
-    await page.evaluate(function () {
-      var track = document.querySelector("[data-bank-next-track]");
-      var card = track.querySelectorAll("[data-bank-next-card]")[2];
-      track.scrollLeft = card.offsetLeft;
-      track.dispatchEvent(new Event("scroll"));
-    });
-    const swiped = await carouselState(page);
-    assert.equal(swiped.current, 2);
+    await page.screenshot({ path: path.join(shots, "banking-full-oct8-390.png"), fullPage: true });
 
     const order = await page.evaluate(function () {
       function top(sel) {
@@ -280,37 +286,78 @@ test("next pay scrolls to this pay, cards match, and the calendar dialog is cent
     await page.locator(".bank-day-dialog").waitFor();
     await page.locator("[data-bank-day-scrim]").tap({ position: { x: 8, y: 8 } });
     await page.locator(".bank-day-dialog").waitFor({ state: "detached" });
-
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await page.evaluate(function () {
-      window.scrollTo(0, 0);
+    const stuck = await page.evaluate(function () {
       var track = document.querySelector("[data-bank-next-track]");
-      var card = track.querySelector('[data-bank-next-date="2026-09-30"]');
+      var mark = document.querySelector('[data-bank-this-pay="1"]');
+      var card = mark && mark.closest ? mark.closest("[data-bank-next-card]") : null;
+      var dot = document.querySelector('[data-bank-next-dot][aria-current="true"]');
+      var offset = card.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft;
+      return {
+        scroll: track.scrollLeft,
+        offset: offset,
+        gap: Math.abs(card.getBoundingClientRect().left - track.getBoundingClientRect().left),
+        date: card.getAttribute("data-bank-next-date"),
+        dot: dot ? dot.getAttribute("data-bank-next-dot") : ""
+      };
+    });
+    assert.equal(stuck.date, "2026-09-30");
+    assert.equal(stuck.dot, "0");
+    assert.ok(Math.abs(stuck.scroll - stuck.offset) <= 1, JSON.stringify(stuck));
+    assert.ok(stuck.gap <= 2, JSON.stringify(stuck));
+    assert.ok(Math.abs(stuck.scroll - parked.scroll) <= 1, JSON.stringify({ stuck: stuck, parked: parked }));
+
+    await page.evaluate(function () {
+      var track = document.querySelector("[data-bank-next-track]");
+      var card = track.querySelectorAll("[data-bank-next-card]")[2];
+      track.dispatchEvent(new Event("pointerdown"));
       track.scrollLeft = card.offsetLeft;
       track.dispatchEvent(new Event("scroll"));
     });
-    const at1280 = await carouselState(page);
-    sameSize(at1280.heights, "1280 height");
-    sameSize(at1280.widths, "1280 width");
-    assert.ok(at1280.widths[0] > 200);
-    await page.locator(".bank-next").screenshot({ path: path.join(shots, "nextpay-carousel-1280.png") });
+    const swiped = await carouselState(page);
+    assert.equal(swiped.current, 2);
 
-    await page.evaluate(function () { window.scrollTo(0, 500); });
-    await page.locator(".bank-day").first().click();
-    await page.locator(".bank-day-dialog").waitFor();
-    const wideBox = await page.evaluate(function () {
+    await phone.context.close();
+    const wide = await openBudget(browser, served.port, "2026-10-08T16:00:00Z", 1280, 800);
+    const widePage = wide.page;
+    const wideSize = await widePage.evaluate(function () {
+      return { width: window.innerWidth, height: window.innerHeight };
+    });
+    assert.equal(wideSize.width, 1280);
+    assert.equal(wideSize.height, 800);
+    await widePage.evaluate(function () { window.scrollTo(0, 500); });
+    await widePage.locator(".bank-day").first().click();
+    await widePage.locator(".bank-day-dialog").waitFor();
+    const wideBox = await widePage.evaluate(function () {
       var box = document.querySelector(".bank-day-dialog").getBoundingClientRect();
       return {
         dx: Math.abs(box.left + box.width / 2 - window.innerWidth / 2),
         dy: Math.abs(box.top + box.height / 2 - window.innerHeight / 2),
-        scroll: window.scrollY
+        scroll: window.scrollY,
+        width: window.innerWidth,
+        height: window.innerHeight
       };
     });
     assert.ok(wideBox.scroll > 0);
+    assert.equal(wideBox.width, 1280);
+    assert.equal(wideBox.height, 800);
     assert.ok(wideBox.dx <= 2 && wideBox.dy <= 2, JSON.stringify(wideBox));
-    await page.screenshot({ path: path.join(shots, "calendar-popup-centered-1280.png") });
-    await page.keyboard.press("Escape");
-    await phone.context.close();
+    await widePage.screenshot({ path: path.join(shots, "calendar-popup-centered-1280.png") });
+    await widePage.keyboard.press("Escape");
+    await wide.context.close();
+
+    const desk = await openBudget(browser, served.port, "2026-10-08T16:00:00Z", 1280, 800);
+    await desk.page.evaluate(function () {
+      return new Promise(function (resolve) {
+        requestAnimationFrame(function () { requestAnimationFrame(resolve); });
+      });
+    });
+    const at1280 = await carouselState(desk.page);
+    sameSize(at1280.heights, "1280 height");
+    sameSize(at1280.widths, "1280 width");
+    assert.ok(at1280.widths[0] > 200);
+    assert.equal(at1280.dates[at1280.current], "2026-09-30");
+    await desk.page.locator(".bank-next").screenshot({ path: path.join(shots, "nextpay-carousel-1280.png") });
+    await desk.context.close();
 
     const midServed = await serve(livePaySnap(["2026-10-15"]));
     const mid = await openBudget(browser, midServed.port, "2026-10-20T16:00:00Z", 390, 844);
@@ -346,6 +393,39 @@ test("a search result, a filter, and the initial list open the category sheet", 
     await page.goto("http://127.0.0.1:" + served.port + "/#edits", { waitUntil: "networkidle" });
     await page.locator("[data-bank-tx-open]").first().waitFor();
 
+    async function assertRowsContained(min) {
+      const boxes = await page.evaluate(function () {
+        return Array.prototype.map.call(document.querySelectorAll(".bank-tx-results > li"), function (row) {
+          var r = row.getBoundingClientRect();
+          return {
+            top: r.top,
+            left: r.left,
+            right: r.right,
+            bottom: r.bottom,
+            kids: Array.prototype.map.call(row.querySelectorAll("*"), function (el) {
+              var b = el.getBoundingClientRect();
+              return { top: b.top, left: b.left, right: b.right, bottom: b.bottom, w: b.width, h: b.height, text: (el.textContent || "").slice(0, 40) };
+            })
+          };
+        });
+      });
+      assert.ok(boxes.length >= (min || 1), "rows " + boxes.length);
+      function overlap(a, b) {
+        return Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+          Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+      }
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          assert.equal(overlap(boxes[i], boxes[j]), false, "rows " + i + " " + j);
+        }
+        boxes[i].kids.forEach(function (kid) {
+          if (kid.w < 1 || kid.h < 1) return;
+          assert.ok(kid.left >= boxes[i].left - 1 && kid.right <= boxes[i].right + 1 &&
+            kid.top >= boxes[i].top - 1 && kid.bottom <= boxes[i].bottom + 1, kid.text);
+        });
+      }
+    }
+
     async function openFirst(label) {
       const row = page.locator("[data-bank-tx-open]").first();
       await row.waitFor();
@@ -366,6 +446,8 @@ test("a search result, a filter, and the initial list open the category sheet", 
       var input = document.querySelector("[data-bank-find]");
       return input && input.value === "grocer" && text.indexOf("Neighborhood Grocer") >= 0 && text.indexOf("City Fuel") < 0;
     });
+    await assertRowsContained(2);
+    await page.locator(".bank-tx-results").screenshot({ path: path.join(shots, "edits-search-rows-390.png") });
     const grocerKey = await openFirst("search");
     assert.match(await page.locator("[data-bank-find-results]").innerText(), /Neighborhood Grocer/);
     assert.doesNotMatch(await page.locator("[data-bank-find-results]").innerText(), /City Fuel/);
@@ -380,7 +462,8 @@ test("a search result, a filter, and the initial list open the category sheet", 
     assert.match(saved, /Dining/);
     assert.match(saved, /Change/);
     await page.locator("[data-bank-spend-undo]").waitFor();
-    await savedRow.screenshot({ path: path.join(shots, "edits-search-saved-390.png") });
+    await assertRowsContained(1);
+    await page.locator(".bank-tx-results").screenshot({ path: path.join(shots, "edits-search-saved-390.png") });
     assert.ok(posts.length >= 1);
     const body = JSON.parse(posts[posts.length - 1].body);
     assert.equal(posts[posts.length - 1].method, "POST");
