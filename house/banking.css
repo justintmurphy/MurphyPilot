@@ -1876,7 +1876,7 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
 .bank-due-month .bank-fund-check {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   column-gap: 6px;
   width: 100%;
   max-width: 100%;
@@ -1895,7 +1895,7 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
   min-width: 22px;
   margin-left: 0;
   justify-self: start;
-  align-self: center;
+  align-self: start;
 }
 
 .bank-due-month .bank-fund-check > .sym,
