@@ -198,7 +198,7 @@ test("next pay scrolls to this pay, cards match, and the calendar dialog is cent
     const phone = await openBudget(browser, served.port, "2026-10-08T16:00:00Z", 390, 844);
     const page = phone.page;
     const at390 = await carouselState(page);
-    assert.deepEqual(at390.dates, ["2026-09-30", "2026-10-15", "2026-10-30"]);
+    assert.deepEqual(at390.dates, ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"]);
     assert.equal(at390.current, 0);
     const align = await page.evaluate(function () {
       var track = document.querySelector("[data-bank-next-track]");

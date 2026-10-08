@@ -156,14 +156,19 @@ test("October 8 starts on the posted September check, then October 15 and Octobe
   const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-08T16:00:00Z" };
   const html = ctx.bankPageHtml(snap, opts);
   const cards = cardBits(html);
-  assert.deepEqual(cards.map(function (c) { return c.date; }), ["2026-09-30", "2026-10-15", "2026-10-30"]);
+  assert.deepEqual(cards.map(function (c) { return c.date; }), ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"]);
   assert.equal(cards[0].thisPay, true);
   assert.equal(cards[1].expected, true);
   assert.equal(cards[2].expected, true);
   assert.match(cards[0].chunk, /This pay/);
-  assert.match(cards[0].chunk, /through Wed, Oct 14/);
-  assert.match(cards[0].chunk, /data-bank-also-in="12.34"/);
-  assert.doesNotMatch(nextSlice(html), /data-bank-next-date="2026-10-09"|data-bank-next-date="2026-10-23"/);
+  assert.match(cards[0].chunk, /Payroll · Wed Sep 30/);
+  assert.match(cards[0].chunk, /through Thu, Oct 8/);
+  assert.doesNotMatch(cards[0].chunk, /data-bank-also-row|Also in/);
+  assert.match(cards[1].chunk, /Stipend · Fri Oct 9/);
+  assert.match(cards[1].chunk, /\(for Sat 10th\)/);
+  assert.match(cards[1].chunk, /\+\$12\.34/);
+  assert.match(cards[3].chunk, /Stipend · Fri Oct 23/);
+  assert.match(cards[3].chunk, /\(for Sun 25th\)/);
   const periods = ctx.bankPayPeriods(snap, opts);
   let carry = 0;
   periods.forEach(function (period, i) {
@@ -185,23 +190,23 @@ test("a schedule that already skipped October 15 still inserts that payday", fun
   });
   const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-08T16:00:00Z" };
   const cards = cardBits(ctx.bankPageHtml(snap, opts));
-  assert.deepEqual(cards.map(function (c) { return c.date; }), ["2026-09-30", "2026-10-15", "2026-10-30"]);
+  assert.deepEqual(cards.map(function (c) { return c.date; }), ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"]);
   assert.equal(cards[0].thisPay, true);
-  assert.equal(cards[1].expected, true);
+  assert.equal(cards.filter(function (c) { return c.date === "2026-10-15"; })[0].expected, true);
 });
 
 test("next pay follows the posted check across the October paydays", function () {
   const ctx = boot();
   const cases = [
-    { now: "2026-10-08T16:00:00Z", posted: [], dates: ["2026-09-30", "2026-10-15", "2026-10-30"], thisPay: "2026-09-30", past: [] },
-    { now: "2026-10-14T16:00:00Z", posted: [], dates: ["2026-09-30", "2026-10-15", "2026-10-30"], thisPay: "2026-09-30", past: [] },
-    { now: "2026-10-15T16:00:00Z", posted: [], dates: ["2026-09-30", "2026-10-15", "2026-10-30"], thisPay: "2026-09-30", past: [] },
-    { now: "2026-10-15T16:00:00Z", posted: ["2026-10-15"], dates: ["2026-09-30", "2026-10-15", "2026-10-30"], thisPay: "2026-10-15", past: ["2026-09-30"] },
-    { now: "2026-10-16T16:00:00Z", posted: ["2026-10-15"], dates: ["2026-09-30", "2026-10-15", "2026-10-30"], thisPay: "2026-10-15", past: ["2026-09-30"] },
-    { now: "2026-10-29T16:00:00Z", posted: ["2026-10-15"], dates: ["2026-09-30", "2026-10-15", "2026-10-30"], thisPay: "2026-10-15", past: ["2026-09-30"] },
-    { now: "2026-10-30T16:00:00Z", posted: ["2026-10-15"], dates: ["2026-09-30", "2026-10-15", "2026-10-30"], thisPay: "2026-10-15", past: ["2026-09-30"] },
-    { now: "2026-10-30T16:00:00Z", posted: ["2026-10-15", "2026-10-30"], dates: ["2026-09-30", "2026-10-15", "2026-10-30", "2026-11-13"], thisPay: "2026-10-30", past: ["2026-09-30", "2026-10-15"] },
-    { now: "2026-10-31T16:00:00Z", posted: ["2026-10-30"], dates: ["2026-09-30", "2026-10-15", "2026-10-30", "2026-11-13"], thisPay: "2026-10-30", past: ["2026-09-30", "2026-10-15"] }
+    { now: "2026-10-08T16:00:00Z", posted: [], dates: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"], thisPay: "2026-09-30", past: [] },
+    { now: "2026-10-14T16:00:00Z", posted: [], dates: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"], thisPay: "2026-09-30", past: [] },
+    { now: "2026-10-15T16:00:00Z", posted: [], dates: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"], thisPay: "2026-09-30", past: [] },
+    { now: "2026-10-15T16:00:00Z", posted: ["2026-10-15"], dates: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"], thisPay: "2026-10-15", past: ["2026-09-30", "2026-10-09"] },
+    { now: "2026-10-16T16:00:00Z", posted: ["2026-10-15"], dates: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"], thisPay: "2026-10-15", past: ["2026-09-30", "2026-10-09"] },
+    { now: "2026-10-29T16:00:00Z", posted: ["2026-10-15"], dates: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"], thisPay: "2026-10-15", past: ["2026-09-30", "2026-10-09"] },
+    { now: "2026-10-30T16:00:00Z", posted: ["2026-10-15"], dates: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"], thisPay: "2026-10-15", past: ["2026-09-30", "2026-10-09"] },
+    { now: "2026-10-30T16:00:00Z", posted: ["2026-10-15", "2026-10-30"], dates: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30", "2026-11-10"], thisPay: "2026-10-30", past: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23"] },
+    { now: "2026-10-31T16:00:00Z", posted: ["2026-10-30"], dates: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30", "2026-11-10"], thisPay: "2026-10-30", past: ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23"] }
   ];
   cases.forEach(function (row) {
     const ctx = boot();
@@ -233,15 +238,16 @@ test("October 20 keeps September 30 as a past card and lands on October 15", fun
   const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-20T16:00:00Z" };
   const html = ctx.bankPageHtml(snap, opts);
   const cards = cardBits(html);
-  assert.deepEqual(cards.map(function (c) { return c.date; }), ["2026-09-30", "2026-10-15", "2026-10-30"]);
+  assert.deepEqual(cards.map(function (c) { return c.date; }), ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"]);
   assert.equal(cards[0].past, true);
   assert.equal(cards[0].thisPay, false);
-  assert.match(cards[0].chunk, /Sep 30 to Oct 14/);
+  assert.match(cards[0].chunk, /Payroll · Wed Sep 30/);
   assert.doesNotMatch(cards[0].chunk.split('data-bank-next-card="')[0], /This pay/);
-  assert.equal(cards[1].thisPay, true);
-  assert.match(cards[1].chunk, /This pay/);
-  assert.equal(cards[2].expected, true);
-  assert.match(html, /class="book-chip on" data-bank-next-dot="1"/);
+  assert.equal(cards[2].thisPay, true);
+  assert.match(cards[2].chunk, /This pay/);
+  assert.match(cards[2].chunk, /Payroll · Thu Oct 15/);
+  assert.equal(cards[3].expected, true);
+  assert.match(html, /class="book-chip on" data-bank-next-dot="2"/);
   assert.doesNotMatch(nextSlice(html), /data-bank-next-date="2026-09-15"/);
   const periods = ctx.bankPayPeriods(snap, opts);
   let carry = 0;
@@ -254,8 +260,9 @@ test("October 20 keeps September 30 as a past card and lands on October 15", fun
     assert.equal(math.left, stepped);
     carry = math.left;
   });
-  assert.equal(periods[1].thisPay, true);
-  assert.equal(periods[2].focus.date, "2026-10-30");
+  assert.equal(periods[2].thisPay, true);
+  assert.equal(periods[2].focus.date, "2026-10-15");
+  assert.equal(periods[4].focus.date, "2026-10-30");
 });
 
 test("desktop next pay cards cap at 420px and phones keep the peek width", function () {
