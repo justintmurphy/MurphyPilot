@@ -1,4 +1,8 @@
-/* tip ey — Edits can put a skipped outflow into a category.
+/* tip ez — A pay_schedule row counts only in a month it dates.
+   Any other month uses that income's deposits or typical days, rolled back to the prior business day.
+   Next pay lists each other deposit under the paycheck, with its name and date. A rolled one notes the original day.
+   On the calendar the rolled chip uses that name, and the original day marks where it moved.
+   tip ey — Edits can put a skipped outflow into a category.
    The sheet says it is not counted as spending now, then the usual picker, starting on Just this one.
    Money in stays locked unless it is already a refund. A closed month stays read-only and says Closed month.
    A saved category replaces that chip and counts in that category for the month. The skipped choice again clears it.
@@ -2481,11 +2485,126 @@ function bankScheduleDays(inc, ym) {
   return days;
 }
 
+/* A month is covered when this income has a pay_schedule row whose pay date falls in it. */
+function bankScheduleCoversMonth(inc, ym) {
+  var days = bankScheduleDays(inc, ym);
+  return !!(days && days.length);
+}
+
+function bankIncomeFace(inc, row) {
+  var kind = bankStreamKind(inc && inc.label, row || inc);
+  if (kind === "Stipend" || kind === "Payroll") return kind;
+  return (inc && inc.label) || kind || "Income";
+}
+
+function bankRollNominalDay(ym, nominalDay) {
+  if (!(ym && ym.year && ym.month) || nominalDay == null) {
+    return { day: nominalDay, date: "", rolled_from: "", nominalDay: nominalDay };
+  }
+  var rolled = bankRollBackDate(ym.year, ym.month, nominalDay);
+  var inMonth = rolled.year === ym.year && rolled.month === ym.month;
+  return {
+    day: inMonth ? rolled.day : null,
+    date: rolled.key,
+    rolled_from: rolled.rolled_from,
+    nominalDay: nominalDay
+  };
+}
+
+/* Deposits or typical days for a month the schedule does not cover, with the prior-business-day roll. */
+function bankIncomeFallbackMarks(inc, ym) {
+  if (!inc || !ym || !ym.year || !ym.month) return [];
+  var face = bankIncomeFace(inc, inc);
+  var rows = [];
+  var key = bankYm(ym.year, ym.month);
+  if (Array.isArray(inc.deposits) && inc.deposits.length) {
+    inc.deposits.forEach(function (d) {
+      if (!d) return;
+      var amount = inc.amount_edited && bankNum(inc.amount) != null ? bankNum(inc.amount) : bankNum(d.amount);
+      if (amount == null) amount = bankNum(inc.amount);
+      var explicit = bankCopyDate(d.date || d.on);
+      if (explicit && bankMonthKey(explicit) !== key) return;
+      if (explicit && bankMonthKey(explicit) === key) {
+        var stated = bankCopyDate(d.rolled_from);
+        var day = bankDay(String(explicit).slice(8, 10));
+        var nomDay = stated && bankMonthKey(stated) === key ? bankDay(String(stated).slice(8, 10)) : null;
+        var moved = nomDay != null && nomDay !== day;
+        rows.push({
+          day: day,
+          date: explicit,
+          amount: amount,
+          rolled_from: moved ? stated : "",
+          nominalDay: moved ? nomDay : null,
+          chip: moved ? face : ""
+        });
+        return;
+      }
+      var nominalDay = bankResolveDayToken(d.day, ym);
+      if (nominalDay == null) return;
+      var rolledDep = bankRollNominalDay(ym, nominalDay);
+      if (rolledDep.day == null) return;
+      var depMoved = !!rolledDep.rolled_from;
+      rows.push({
+        day: rolledDep.day,
+        date: rolledDep.date,
+        amount: amount,
+        rolled_from: depMoved ? rolledDep.rolled_from : "",
+        nominalDay: depMoved ? nominalDay : null,
+        chip: depMoved ? face : ""
+      });
+    });
+  } else {
+    var nominals = null;
+    if (bankIsPayrollIncome(inc.label)) nominals = [15, bankMonthDim(ym.year, ym.month)];
+    else if (bankIsFosteringIncome(inc.label)) nominals = [10, 25];
+    else {
+      nominals = (inc.feed_days || []).slice();
+      if (inc.day_edited && bankDay(inc.typical_day) != null) {
+        var chosen = bankDay(inc.typical_day);
+        nominals = [chosen].concat(nominals.filter(function (d) { return d !== chosen; }));
+      }
+    }
+    nominals.forEach(function (nominalDay) {
+      var dayNum = bankDay(nominalDay);
+      if (dayNum == null) return;
+      var rolled = bankRollNominalDay(ym, dayNum);
+      if (rolled.day == null) return;
+      var moved = !!rolled.rolled_from;
+      rows.push({
+        day: rolled.day,
+        date: rolled.date,
+        amount: bankNum(inc.amount),
+        rolled_from: moved ? rolled.rolled_from : "",
+        nominalDay: moved ? dayNum : null,
+        chip: moved ? face : ""
+      });
+    });
+  }
+  if (inc.day_edited && bankDay(inc.typical_day) != null && rows.length &&
+      (bankIsJustinTwiceIncome(inc.label) || (Array.isArray(inc.deposits) && inc.deposits.length))) {
+    var edited = bankDay(inc.typical_day);
+    var taken = false;
+    rows.forEach(function (r) { if (r.day === edited) taken = true; });
+    if (!taken) {
+      var dim = bankMonthDim(ym.year, ym.month);
+      var placed = Math.min(edited, dim);
+      rows[0].day = placed;
+      rows[0].date = bankDateKey(ym.year, ym.month, placed);
+      rows[0].rolled_from = "";
+      rows[0].nominalDay = null;
+      rows[0].chip = "";
+    }
+  }
+  return rows;
+}
+
 function bankIncomePayDays(inc, ym) {
   if (!inc) return [];
   if (inc.schedule && inc.schedule.length) {
-    var scheduled = bankScheduleDays(inc, ym);
-    return scheduled || [];
+    if (bankScheduleCoversMonth(inc, ym)) return bankScheduleDays(inc, ym);
+    var uncovered = bankIncomeFallbackMarks(inc, ym);
+    if (uncovered.length) return bankUniqueDays(uncovered.map(function (m) { return m.day; }));
+    return [];
   }
   var deposits = bankIncomeResolvedDeposits(inc, ym);
   if (deposits) return bankUniqueDays(deposits.map(function (d) { return d.day; }));
@@ -2717,6 +2836,19 @@ function bankIncomeMarkDays(inc) {
   return bankIncomePayDays(inc, null);
 }
 
+function bankMarksFromFallback(inc, ym, withAmount) {
+  return bankIncomeFallbackMarks(inc, ym).map(function (m) {
+    return {
+      day: m.day,
+      amount: withAmount ? m.amount : null,
+      note: "",
+      chip: m.chip || "",
+      nominalDay: m.nominalDay || null,
+      account: inc.usual_account || null
+    };
+  });
+}
+
 function bankIncomeCalendarMarks(inc, ym) {
   if (!inc) return null;
   if (inc.schedule && inc.schedule.length && ym && ym.year && ym.month) {
@@ -2727,14 +2859,27 @@ function bankIncomeCalendarMarks(inc, ym) {
       if (bankMonthKey(when) !== key) return;
       var d = bankDay(String(when).slice(8, 10));
       if (d == null) return;
+      var nominal = bankScheduleNominal(row);
+      var nomDay = null;
+      if (nominal && nominal !== when && bankMonthKey(nominal) === key) nomDay = bankDay(String(nominal).slice(8, 10));
+      var rolled = nomDay != null && nomDay !== d;
+      var face = bankIncomeFace(inc, row);
       out.push({
         day: d,
         amount: bankNum(row.amount),
-        note: bankPayMoveHint(row) || bankMovedNote(row.rolled_from),
+        note: rolled ? "" : (bankPayMoveHint(row) || bankMovedNote(row.rolled_from)),
+        chip: rolled ? face : "",
+        nominalDay: rolled ? nomDay : null,
         account: row.account || inc.usual_account || null
       });
     });
-    return out;
+    if (out.length) return out;
+    var uncovered = bankMarksFromFallback(inc, ym, true);
+    return uncovered.length ? uncovered : null;
+  }
+  if (bankIsJustinTwiceIncome(inc.label) && ym && ym.year && !(Array.isArray(inc.deposits) && inc.deposits.length)) {
+    var rolledMarks = bankMarksFromFallback(inc, ym, false);
+    if (rolledMarks.length) return rolledMarks;
   }
   var resolved = bankIncomeResolvedDeposits(inc, ym);
   if (resolved) {
@@ -2802,7 +2947,7 @@ function bankCalendarForBills(calendar, budget) {
 function bankDayCells(bills, incomes, calendar, ym) {
   var days = [];
   var d;
-  for (d = 1; d <= 31; d++) days.push({ day: d, pays: [], bills: [], items: [], subs: [] });
+  for (d = 1; d <= 31; d++) days.push({ day: d, pays: [], payChips: [], bills: [], items: [], subs: [] });
   (incomes || []).forEach(function (inc) {
     var resolved = bankIncomeCalendarMarks(inc, ym);
     var marks = resolved || bankIncomeMarkDays(inc).map(function (day) { return { day: day, amount: null, note: "" }; });
@@ -2813,8 +2958,16 @@ function bankDayCells(bills, incomes, calendar, ym) {
       seen[day] = true;
       var label = inc.label || "Paycheck";
       if (mark.amount != null) label = label + " " + bankMoney(mark.amount);
-      days[day - 1].pays.push(label);
-      if (mark.note) days[day - 1].payNotes = (days[day - 1].payNotes || []).concat([mark.note]);
+      var cell = days[day - 1];
+      cell.pays.push(label);
+      cell.payChips.push(mark.chip || "");
+      if (mark.note) cell.payNotes = (cell.payNotes || []).concat([mark.note]);
+      if (mark.chip && mark.nominalDay && mark.nominalDay !== day && mark.nominalDay >= 1 && mark.nominalDay <= 31) {
+        var shift = mark.chip + " \u2192 " + bankOrdinal(day);
+        var orig = days[mark.nominalDay - 1];
+        orig.notes = orig.notes || [];
+        if (orig.notes.indexOf(shift) < 0) orig.notes.push(shift);
+      }
     });
   });
   (bills || []).forEach(function (b) {
@@ -3964,7 +4117,7 @@ function bankBillFaceMap(bills) {
 function bankCalendarByDay(cells, dim, amounts, faces) {
   var byDay = {};
   function slot(day) {
-    if (!byDay[day]) byDay[day] = { day: day, pays: [], bills: [], items: [], subs: [], payNotes: [] };
+    if (!byDay[day]) byDay[day] = { day: day, pays: [], payChips: [], bills: [], items: [], subs: [], payNotes: [] };
     return byDay[day];
   }
   (cells || []).forEach(function (c) {
@@ -3973,7 +4126,10 @@ function bankCalendarByDay(cells, dim, amounts, faces) {
     var place = due > dim ? dim : due;
     if (place < 1) return;
     var dest = slot(place);
-    (c.pays || []).forEach(function (name) { dest.pays.push(bankClampDayLabel(name, due, dim, faces)); });
+    (c.pays || []).forEach(function (name, i) {
+      dest.pays.push(bankClampDayLabel(name, due, dim, faces));
+      dest.payChips.push((c.payChips && c.payChips[i]) || "");
+    });
     (c.payNotes || []).forEach(function (note) { dest.payNotes.push(note); });
     (c.notes || []).concat(c.payNotes || []).forEach(function (note) {
       if (!note) return;
@@ -3997,7 +4153,9 @@ function bankCalendarByDay(cells, dim, amounts, faces) {
 
 function bankDayLabels(c) {
   var labels = [];
-  (c.pays || []).forEach(function (name) { labels.push({ kind: "pay", name: name }); });
+  (c.pays || []).forEach(function (name, i) {
+    labels.push({ kind: "pay", name: name, chip: (c.payChips && c.payChips[i]) || "" });
+  });
   (c.subs || []).forEach(function (name) { labels.push({ kind: "sub", name: name }); });
   (c.bills || []).forEach(function (name) { labels.push({ kind: "bill", name: name }); });
   (c.items || []).forEach(function (name) {
@@ -4007,10 +4165,11 @@ function bankDayLabels(c) {
   return labels;
 }
 
-function bankDayLabelHtml(kind, name, extraClass) {
+function bankDayLabelHtml(kind, name, extraClass, chip) {
   var esc = bankEsc(name);
-  var shown = kind === "pay" ? "Pay" : esc;
+  var shown = chip ? bankEsc(chip) : (kind === "pay" ? "Pay" : esc);
   var cls = kind === "pay" ? "pay" : (kind === "sub" ? "sub" : "");
+  if (chip && kind === "pay") cls = cls ? cls + " pay-named" : "pay-named";
   if (extraClass) cls = cls ? cls + " " + extraClass : extraClass;
   var tag = kind === "pay" || kind === "sub" ? "em" : "span";
   var classAttr = cls ? ' class="' + cls + '"' : "";
@@ -4048,7 +4207,7 @@ function bankDayCellHtml(c, tabIndex, ym, today) {
   var list = labels.map(function (lab) { return lab.name; }).join(", ");
   var bits = labels.map(function (lab, i) {
     var extra = i === 1 ? "bank-day-second" : (i >= 2 ? "bank-day-rest" : "");
-    return bankDayLabelHtml(lab.kind, lab.name, extra);
+    return bankDayLabelHtml(lab.kind, lab.name, extra, lab.chip);
   }).join(" ");
   var multi = labels.length >= 2;
   var head = "<b>" + c.day + "</b>";
@@ -4083,7 +4242,7 @@ function bankCalendarHtml(cells, hasDays, ym, amounts, faces, opts) {
   var slots = [];
   var i;
   for (i = 0; i < start; i++) slots.push(null);
-  for (i = 1; i <= dim; i++) slots.push(byDay[i] || { day: i, pays: [], bills: [], items: [], subs: [], payNotes: [] });
+  for (i = 1; i <= dim; i++) slots.push(byDay[i] || { day: i, pays: [], payChips: [], bills: [], items: [], subs: [], payNotes: [] });
   while (slots.length % 7) slots.push(null);
   var weeks = "";
   var dayStop = 0;
@@ -7464,15 +7623,38 @@ function bankStreamKind(label, row) {
   return label || "Income";
 }
 
+function bankFallbackPayEvents(budget, view) {
+  var events = [];
+  if (!view || !view.year) return events;
+  bankNormalizeIncome(budget).forEach(function (inc) {
+    bankIncomeFallbackMarks(inc, view).forEach(function (mark) {
+      if (!mark || !mark.date) return;
+      events.push({
+        name: inc.label,
+        kind: bankStreamKind(inc.label, inc),
+        date: mark.date,
+        amount: bankNum(mark.amount != null ? mark.amount : inc.amount),
+        account: inc.usual_account || null,
+        rolled_from: mark.rolled_from || ""
+      });
+    });
+  });
+  return events;
+}
+
 function bankCollectPayEvents(snap, ym) {
   var budget = (snap && snap.budget) || {};
   var events = [];
-  if (Array.isArray(budget.pay_schedule) && budget.pay_schedule.length) {
-    budget.pay_schedule.forEach(function (row) {
+  var schedule = Array.isArray(budget.pay_schedule) ? budget.pay_schedule : [];
+  if (schedule.length) {
+    var covered = {};
+    schedule.forEach(function (row) {
       if (!row || (!row.date && !row.pay_date)) return;
       var when = bankScheduleDate(row);
       if (!when) return;
       var nominal = bankScheduleNominal(row);
+      var monthKey = bankMonthKey(when);
+      if (monthKey) covered[monthKey] = true;
       events.push({
         name: row.name || "Income",
         kind: bankStreamKind(row.name, row),
@@ -7484,6 +7666,10 @@ function bankCollectPayEvents(snap, ym) {
         roll_reason: row.roll_reason || ""
       });
     });
+    var asked = ym && ym.year ? ym : bankCalendarMonth(snap);
+    if (asked && asked.year && !covered[bankYm(asked.year, asked.month)]) {
+      bankFallbackPayEvents(budget, asked).forEach(function (ev) { events.push(ev); });
+    }
     return events;
   }
   var incomes = bankNormalizeIncome(budget);
@@ -7563,7 +7749,8 @@ function bankLedgerDeposits(snap, ym) {
       name: ev.name || name,
       kind: name,
       date: ev.date,
-      amount: amount
+      amount: amount,
+      rolled_from: ev.rolled_from || ""
     });
   }
   bankCollectPayEvents(snap, ym).forEach(push);
@@ -8019,10 +8206,26 @@ function bankPayPeriods(snap, opts) {
   return periods;
 }
 
-function bankAlsoInAmount(snap, period) {
-  if (!period || !period.focus) return 0;
-  var sum = 0;
-  var any = false;
+function bankForOriginalNote(iso) {
+  var p = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!p) return "";
+  var names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var y = Number(p[1]);
+  var m = Number(p[2]);
+  var d = Number(p[3]);
+  return "(for " + names[bankDow(y, m, d)] + " " + bankOrdinal(d) + ")";
+}
+
+function bankDepositFace(ev) {
+  if (!ev) return "Income";
+  var kind = bankStreamKind(ev.name, ev);
+  if (kind === "Stipend" || kind === "Payroll") return kind;
+  return ev.name || kind || "Income";
+}
+
+function bankAlsoInDeposits(snap, period) {
+  var out = [];
+  if (!period || !period.focus) return out;
   var seen = {};
   bankPeriodSlices(period.focus.date, period.end).forEach(function (slice) {
     bankLedgerDeposits(snap, bankParseYm(slice.ym)).forEach(function (ev) {
@@ -8033,11 +8236,30 @@ function bankAlsoInAmount(snap, period) {
       var k = ev.date + "|" + (ev.kind || ev.name) + "|" + ev.amount;
       if (seen[k]) return;
       seen[k] = true;
-      sum += Math.abs(ev.amount);
-      any = true;
+      out.push(ev);
     });
   });
-  return any ? bankRoundCents(sum) : 0;
+  return out;
+}
+
+function bankAlsoInAmount(snap, period) {
+  var rows = bankAlsoInDeposits(snap, period);
+  if (!rows.length) return 0;
+  var sum = 0;
+  rows.forEach(function (ev) { sum += Math.abs(ev.amount); });
+  return bankRoundCents(sum);
+}
+
+function bankAlsoDepositHtml(ev) {
+  var face = bankDepositFace(ev);
+  var when = bankWeekDate(ev.date);
+  var label = when ? face + " \u00b7 " + when : face;
+  var note = ev && ev.rolled_from && ev.rolled_from !== ev.date ? bankForOriginalNote(ev.rolled_from) : "";
+  var flow = bankFundSigned(Math.abs(ev.amount || 0), "in");
+  return '<p class="bank-also-row" data-bank-also-row="' + bankEsc(ev.date || "") + '" data-bank-also-amt="' +
+    (ev.amount == null ? "" : ev.amount) + '"><span class="sym">' + bankEsc(label) + "</span>" +
+    (note ? ' <small>' + bankEsc(note) + "</small>" : "") +
+    ' <b class="num tone-go">' + bankEsc(flow.text) + "</b></p>";
 }
 
 function bankNeedsKnown(snap, opts) {
@@ -8665,7 +8887,6 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried,
     var body = pay.bank ? inner + ' <span class="tone-go" aria-label="Paid">\u2713</span>' : bankPayTapHtml(pay, inner);
     return "<tr" + (paid ? ' class="tone-flat" data-bank-bill-paid="1"' : ' data-bank-bill-paid="0"') + "><td colspan=\"2\">" + body + "</td></tr>";
   }).join("");
-  var also = math.also != null ? math.also : bankAlsoInAmount(snap, period);
   var carriedN = index > 0 ? (math.carried != null ? math.carried : (carried || 0)) : 0;
   function moneyRow(label, amount, bold) {
     var name = bold ? "<b>" + bankEsc(label) + "</b>" : '<span class="sym">' + bankEsc(label) + "</span>";
@@ -8687,14 +8908,11 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried,
     carriedRow = '<tr data-bank-carried="' + carriedN + '"><td><span class="sym">Carried over</span></td><td class="num ' +
       carriedFlow.cls + '">' + bankEsc(carriedFlow.text) + "</td></tr>";
   }
-  var alsoRow = "";
-  if (also > 0) {
-    var alsoFlow = bankFundSigned(also, "in");
-    alsoRow = '<tr data-bank-also-in="' + also + '"><td><span class="sym">Also in</span></td><td class="num tone-go">' +
-      bankEsc(alsoFlow.text) + "</td></tr>";
-  }
+  var alsoRows = "";
+  try {
+    bankAlsoInDeposits(snap, period).forEach(function (ev) { alsoRows += bankAlsoDepositHtml(ev); });
+  } catch (eAlsoRows) { alsoRows = ""; }
   var foot = moneyRow("Needs (groceries, etc.)", needs, false) +
-    alsoRow +
     moneyRow("Set aside", aside, true);
   var billTable = '<table class="book bank-next-bills"><thead><tr><th>Bill</th><th class="num">Amount</th></tr></thead><tbody>' +
     carriedRow + billTr + "</tbody><tfoot>" + foot + "</tfoot></table>";
@@ -8726,7 +8944,7 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried,
   var hero = '<div class="overall-strip" data-bank-check-left="' + (left == null ? "" : left) + '"' + leftAttr +
     '><div class="ov-hero"><span>Left from this pay</span> <b class="' + leftFlow.cls + '">' + bankEsc(leftFlow.text) + "</b></div></div>";
   return '<div class="card" data-bank-next-card="' + (index + 1) + '" data-bank-next-date="' + bankEsc(ev.date) + '"' + expectedAttr + pastAttr + '>' +
-    head + hero + payLine + movesHtml + billTable + hints + "</div>";
+    head + hero + payLine + alsoRows + movesHtml + billTable + hints + "</div>";
 }
 
 function bankNextPayHtml(snap, opts) {

@@ -202,7 +202,7 @@ async function carouselFacts(page) {
       dots: dotStyle,
       dates: Array.prototype.map.call(cards, function (card) { return card.getAttribute("data-bank-next-date"); }),
       heights: Array.prototype.map.call(cards, function (card) { return Math.round(card.getBoundingClientRect().height); }),
-      also: (document.querySelector("[data-bank-also-in]") || {}).textContent || "",
+      also: (document.querySelector("[data-bank-also-row]") || {}).textContent || "",
       title: (document.querySelector("#bank-next-title") || {}).textContent || "",
       text: section ? section.textContent : ""
     };
@@ -229,9 +229,10 @@ async function main() {
   if (first.role !== "carousel") throw new Error("role " + first.role);
   if (first.ratio < 0.84 || first.ratio > 0.9) throw new Error("peek ratio " + first.ratio);
   if (!(first.peek > 8 && first.peek < first.trackRight * 0.2)) throw new Error("peek px " + first.peek);
-  if (!/Also in/.test(first.also)) throw new Error("also in missing");
+  if (!/Stipend/.test(first.also) || !/Oct 20/.test(first.also)) throw new Error("named deposit missing " + first.also);
+  if (/Also in/.test(first.text)) throw new Error("unnamed also in");
   if (/Rent/.test(first.text)) throw new Error("cancelled rent on carousel");
-  if (first.dates[0] !== "2026-10-15") throw new Error("card 1 " + first.dates[0]);
+  if (first.dates[0] !== "2026-09-30" || first.dates[1] !== "2026-10-15") throw new Error("cards " + first.dates.join(","));
   if (!/Next pay/.test(first.title) || /Oct/.test(first.title)) throw new Error("title " + first.title);
   if (!/Stream Club/.test(first.text) || !/−\$15\.00/.test(first.text) || !/\+\$25\.00/.test(first.text)) {
     throw new Error("card math " + first.text);

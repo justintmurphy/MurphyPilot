@@ -1956,13 +1956,26 @@ ul.bank-tx-results[data-bank-cat-items] [data-bank-item-meta] {
 }
 
 @media (max-width: 720px) {
-  .bank-day.has .pay,
+  .bank-day.has .pay {
+    display: block;
+    margin-top: 1px;
+    font-size: 9px;
+    line-height: 1.05;
+  }
+
   .bank-day.has .sub,
   .bank-day.has .bank-day-second,
   .bank-day.has .bank-day-more,
   .bank-day.has .bank-day-more-wide,
   .bank-day.has .bank-day-more-narrow {
     display: none;
+  }
+
+  .bank-day-note {
+    margin-top: 1px;
+    font-size: 8px;
+    line-height: 1.1;
+    white-space: normal;
   }
 
   .bank-day.has::after {
@@ -2095,6 +2108,17 @@ ul.bank-tx-results[data-bank-cat-items] [data-bank-item-meta] {
 .bank-save-notice {
   display: block;
   margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.bank-also-row {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.bank-also-row small {
+  margin-left: 4px;
   color: var(--ink-soft);
   font-size: 12px;
 }

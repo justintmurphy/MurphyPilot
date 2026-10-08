@@ -696,7 +696,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   html = ctx.bankPageHtml(fx, { tab: "budget" });
   assert.match(html, /aria-label="February 2026"/);
   assert.match(html, /<div class="bank-cal-week" role="row"><div class="bank-day has" tabindex="0" role="button" aria-label="Feb 1: Mortgage"><b>1<\/b> <span title="Mortgage" aria-label="Mortgage">Mortgage<\/span>/);
-  assert.match(html, /<b>27<\/b> <em class="pay" title="Paycheck" aria-label="Paycheck">Pay<\/em>/);
+  assert.match(html, /<b>27<\/b> <em class="pay pay-named" title="Paycheck" aria-label="Paycheck">Payroll<\/em>/);
   assert.match(html, /<b>28<\/b> <span title="Phone" aria-label="Phone">Phone<\/span>/);
   assert.doesNotMatch(html, /<b>29<\/b>/);
   assert.doesNotMatch(html, /<b>31<\/b>/);
@@ -894,8 +894,8 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
   assert.match(investments, /\/house\/house\.css\?v=20261008ey/);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ey/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008ey/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ez/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -4002,9 +4002,9 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.match(budget, /<b>11<\/b> <span title="Car Insurance" aria-label="Car Insurance">Car Insurance<\/span>/);
   assert.match(budget, /<b>14<\/b> <span title="Car Insurance" aria-label="Car Insurance">Car Insurance<\/span>/);
   assert.match(budget, /<b>15<\/b> <em class="pay" title="Paycheck" aria-label="Paycheck">Pay<\/em>/);
-  assert.match(budget, /<b>30<\/b> <em class="pay" title="Paycheck" aria-label="Paycheck">Pay<\/em>/);
-  assert.match(budget, /<b>9<\/b> <em class="pay" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Pay<\/em>/);
-  assert.match(budget, /<b>23<\/b> <em class="pay" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Pay<\/em>/);
+  assert.match(budget, /<b>30<\/b> <em class="pay pay-named" title="Paycheck" aria-label="Paycheck">Payroll<\/em>/);
+  assert.match(budget, /<b>9<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
+  assert.match(budget, /<b>23<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
   assert.doesNotMatch(budget, /<b>1<\/b> <em class="pay"/);
   assert.match(budget, /<b>2<\/b> <span title="Sample item" aria-label="Sample item">Sample item<\/span>/);
   assert.doesNotMatch(budget, /<b>9<\/b><span>Insurance<\/span>/);
@@ -4064,7 +4064,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.match(enteredIncome, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 15<\/span><\/td><td class="num">\$40\.00/);
   assert.match(enteredIncome, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 23<\/span><\/td><td class="num">\$40\.00/);
   assert.match(entered, /title="Paycheck, Fostering Per Diem Stipend"/);
-  assert.match(entered, /<b>23<\/b> <em class="pay" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Pay<\/em>/);
+  assert.match(entered, /<b>23<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
   assert.doesNotMatch(entered, /<b>10<\/b> <em class="pay" title="Fostering Per Diem Stipend"/);
   assert.doesNotMatch(enteredIncome, /amount pending/);
 
@@ -4093,7 +4093,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.match(el.innerHTML, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 15<\/span><\/td><td class="num">\$40\.00/);
   assert.match(el.innerHTML, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 23<\/span><\/td><td class="num">\$40\.00/);
   assert.match(el.innerHTML, /title="Paycheck, Fostering Per Diem Stipend"/);
-  assert.match(el.innerHTML, /<b>23<\/b> <em class="pay" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Pay<\/em>/);
+  assert.match(el.innerHTML, /<b>23<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
   ctx.bankActivate(el, "edits");
   fire("amount", "");
   assert.equal(el._bank.edits.income["Fostering Per Diem Stipend"].amount, undefined);
@@ -4143,7 +4143,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20261008ey/);
+  assert.match(page, /banking\.js\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
@@ -4306,8 +4306,8 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20261008ey/);
-  assert.match(page, /banking\.css\?v=20261008ey/);
+  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4461,8 +4461,8 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ey/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008ey/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ez/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4518,9 +4518,9 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.match(income, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 23<\/span><\/td><td class="num">\$10\.00/);
   assert.doesNotMatch(income, /days 3|day 3|days 4|day 4/);
   assert.match(html, /<b>15<\/b> <em class="pay" title="Payroll" aria-label="Payroll">Pay<\/em>/);
-  assert.match(html, /<b>30<\/b> <em class="pay" title="Payroll" aria-label="Payroll">Pay<\/em>/);
-  assert.match(html, /<b>9<\/b> <em class="pay" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Pay<\/em>/);
-  assert.match(html, /<b>23<\/b> <em class="pay" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Pay<\/em>/);
+  assert.match(html, /<b>30<\/b> <em class="pay pay-named" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
+  assert.match(html, /<b>9<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
+  assert.match(html, /<b>23<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
   assert.doesNotMatch(html, /<b>3<\/b> <em class="pay"/);
   assert.doesNotMatch(html, /<b>4<\/b> <em class="pay"/);
   assert.doesNotMatch(html, /<ul class="bank-covers">/);
@@ -4535,7 +4535,7 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.match(editedIncome, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 12<\/span><\/td><td class="num">\$10\.00/);
   assert.match(editedIncome, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 23<\/span><\/td><td class="num">\$10\.00/);
   assert.match(edited, /<b>12<\/b> <em class="pay" title="Fostering Per Diem Stipend"/);
-  assert.match(edited, /<b>23<\/b> <em class="pay" title="Fostering Per Diem Stipend"/);
+  assert.match(edited, /<b>23<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend"[^>]*>Stipend<\/em>/);
   assert.doesNotMatch(edited, /<b>10<\/b> <em class="pay" title="Fostering Per Diem Stipend"/);
   const edits = ctx.bankPageHtml(fx, { tab: "edits" });
   assert.match(edits, /aria-label="Day for Fostering Per Diem Stipend"><option value="" selected>Day<\/option>/);
@@ -4547,8 +4547,8 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
     return ctx.bankPageHtml(fx, { tab: "budget" });
   }
   const feb = monthOf("2026-02-10T12:00:00-05:00");
-  assert.match(feb, /<b>13<\/b> <em class="pay" title="Payroll" aria-label="Payroll">Pay<\/em>/);
-  assert.match(feb, /<b>27<\/b> <em class="pay" title="Payroll" aria-label="Payroll">Pay<\/em>/);
+  assert.match(feb, /<b>13<\/b> <em class="pay pay-named" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
+  assert.match(feb, /<b>27<\/b> <em class="pay pay-named" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
   assert.match(feb, /sym">Payroll<\/span> <span class="sub">Feb 13<\/span><\/td><td class="num">/);
   assert.match(feb, /sym">Payroll<\/span> <span class="sub">Feb 27<\/span><\/td><td class="num">/);
   assert.doesNotMatch(feb, /Payroll \(31st\)|\(28th\)/);
@@ -4646,8 +4646,8 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ey/);
-  assert.match(page, /banking\.css\?v=20261008ey/);
+  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4938,8 +4938,8 @@ test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ey/);
-  assert.match(page, /banking\.css\?v=20261008ey/);
+  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -5025,8 +5025,8 @@ test("tip dy plan blocks follow the selected month", function () {
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ey/);
-  assert.match(page, /banking\.css\?v=20261008ey/);
+  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
 
@@ -5966,8 +5966,8 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 
 test("banking assets use the ec cache bust", function () {
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ey/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008ey/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ez/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008ez/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /ticker\.js\?v=20261007ei/);
   assert.match(page, /ticker\.css\?v=20261007ei/);
@@ -7103,8 +7103,8 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.doesNotMatch(html, /<th class="num">Month-end<\/th>/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ey/);
-  assert.match(page, /banking\.css\?v=20261008ey/);
+  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.css\?v=20261008ez/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);
   assert.doesNotMatch(css, /--mp-in:\s*#|--mp-out:\s*#|--bank-required:/);

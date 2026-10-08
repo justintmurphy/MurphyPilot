@@ -162,7 +162,12 @@ test("October 8 starts on the posted September check, then October 15 and Octobe
   assert.equal(cards[2].expected, true);
   assert.match(cards[0].chunk, /This pay/);
   assert.match(cards[0].chunk, /through Wed, Oct 14/);
-  assert.match(cards[0].chunk, /data-bank-also-in="12.34"/);
+  assert.match(cards[0].chunk, /data-bank-also-row="2026-10-09"/);
+  assert.match(cards[0].chunk, /Stipend · Fri Oct 9/);
+  assert.match(cards[0].chunk, /\(for Sat 10th\)/);
+  assert.match(cards[0].chunk, /\+\$12\.34/);
+  assert.doesNotMatch(cards[0].chunk, /Also in/);
+  assert.ok(cards[0].chunk.indexOf("Stipend") < cards[0].chunk.indexOf("bank-next-bills"));
   assert.doesNotMatch(nextSlice(html), /data-bank-next-date="2026-10-09"|data-bank-next-date="2026-10-23"/);
   const periods = ctx.bankPayPeriods(snap, opts);
   let carry = 0;
