@@ -1,4 +1,6 @@
-/* tip ep — House Banking.
+/* tip eq — Edits income rows stack the name, then the amount and day, then one helper on a narrow phone.
+   Feed basis notes stay off the page. The transaction search keeps its input and refreshes only the results.
+   tip ep — House Banking.
    Budget and Current are one page, built on Budget. Spent versus plan sits on each tier and category row.
    The thin bar is green under 75 percent, amber from 75 through 100, and red over 100. It uses the shared meter.
    The due list says paid or due with the date on the row. #current and /current/ open Budget.
@@ -9138,7 +9140,6 @@ function bankMatchTypicalHtml(match) {
   var days = dayList ? dayList.join(" and ") : (day != null && day !== "" ? String(day) : "");
   var hint = "";
   if (basis === "plan_fallback") hint = ' <span class="hint">from plan</span>';
-  else if (basis) hint = ' <span class="hint">' + bankEsc(basis) + "</span>";
   return "<p>Usually around day " + bankEsc(days || "\u2014") + ", about " + bankMoney(amount) + hint + "</p>";
 }
 
@@ -9263,14 +9264,6 @@ function bankPlanFieldHtml(snap, ym, key, label) {
     '" aria-label="Clear ' + bankEsc(label) + '">\u00d7</button>' : "";
   return '<label>' + bankEsc(label) + ' <input data-bank-plan-tier="' + key + '" inputmode="decimal" maxlength="12" max="1000000" aria-label="' +
     bankEsc(label) + '" value="' + bankEsc(value) + '">' + clear + "</label>";
-}
-
-function bankBasisCaption(budget) {
-  var bits = [];
-  if (budget && budget.bank_match_basis) bits.push(String(budget.bank_match_basis));
-  if (budget && budget.bill_id_basis) bits.push(String(budget.bill_id_basis));
-  if (!bits.length) return "";
-  return '<p class="bank-basis">' + bankEsc(bits.join(" ")) + "</p>";
 }
 
 function bankUnmatchedStatusHtml(snap) {
@@ -9761,7 +9754,7 @@ function bankTxPickHtml(snap, raw) {
   return scope + " " + pick + " " + undo;
 }
 
-function bankTxSearchHtml(snap, opts) {
+function bankTxResultsHtml(snap, opts) {
   opts = opts || {};
   var q = opts.txQuery == null ? (opts.q || "") : opts.txQuery;
   var tier = opts.txTier || "";
@@ -9769,24 +9762,7 @@ function bankTxSearchHtml(snap, opts) {
   var month = opts.txMonth || "";
   var order = opts.txOrder === "asc" ? "asc" : "desc";
   var rows = bankTxSearchRows(snap, { q: q, tier: tier, account: account, month: month, order: order });
-  var accounts = {};
-  var months = {};
-  bankTxRows(snap).forEach(function (raw) {
-    if (raw.last4) accounts[raw.last4] = true;
-    var ym = bankMonthKey(raw.date);
-    if (ym) months[ym] = true;
-  });
-  var acctOpts = Object.keys(accounts).sort().map(function (last) {
-    return '<option value="' + last + '"' + (last === String(account).replace(/\D/g, "").slice(-4) ? " selected" : "") + ">" +
-      bankEsc(bankAccountMask(last)) + "</option>";
-  }).join(" ");
-  var monthOpts = Object.keys(months).sort().reverse().map(function (ym) {
-    return '<option value="' + ym + '"' + (ym === month ? " selected" : "") + ">" + bankEsc(ym) + "</option>";
-  }).join(" ");
-  var note = "";
-  if (!bankTxMovesOn(snap)) note = "";
-  else if (opts.txNote) note = '<p class="bank-tx-note">' + bankEsc(opts.txNote) + "</p>";
-  var assign = opts.txAssign || "";
+  var note = bankTxMovesOn(snap) && opts.txNote ? '<p class="bank-tx-note">' + bankEsc(opts.txNote) + "</p>" : "";
   var list = rows.map(function (raw) {
     var tierName = bankFlowSide(raw) === "in" || bankTxShownTier(snap, raw) === "other_income"
       ? "Other income"
@@ -9803,8 +9779,33 @@ function bankTxSearchHtml(snap, opts) {
       list + "</tbody></table>", rows.length, "Transactions")
     : '<p class="hint">No matching transactions.</p>';
   if (!String(q || "").trim() && !tier && !account && !month) body = '<p class="hint">Type to search.</p>';
+  return note + body;
+}
+
+function bankTxSearchHtml(snap, opts) {
+  opts = opts || {};
+  var q = opts.txQuery == null ? (opts.q || "") : opts.txQuery;
+  var tier = opts.txTier || "";
+  var account = opts.txAcct || "";
+  var month = opts.txMonth || "";
+  var order = opts.txOrder === "asc" ? "asc" : "desc";
+  var accounts = {};
+  var months = {};
+  bankTxRows(snap).forEach(function (raw) {
+    if (raw.last4) accounts[raw.last4] = true;
+    var ym = bankMonthKey(raw.date);
+    if (ym) months[ym] = true;
+  });
+  var acctOpts = Object.keys(accounts).sort().map(function (last) {
+    return '<option value="' + last + '"' + (last === String(account).replace(/\D/g, "").slice(-4) ? " selected" : "") + ">" +
+      bankEsc(bankAccountMask(last)) + "</option>";
+  }).join(" ");
+  var monthOpts = Object.keys(months).sort().reverse().map(function (ym) {
+    return '<option value="' + ym + '"' + (ym === month ? " selected" : "") + ">" + bankEsc(ym) + "</option>";
+  }).join(" ");
+  var assign = opts.txAssign || "";
   return '<section class="bank-tx-search"><h2>Transactions</h2><div class="card span">' +
-    '<label>Search <input type="search" data-bank-find value="' + bankEsc(q) + '" aria-label="Search"></label>' +
+    '<label>Search <input type="search" data-bank-find value="' + bankEsc(q) + '" aria-label="Search" autocomplete="off"></label>' +
     '<div class="row2">' +
     '<select data-bank-find-filter="tier" aria-label="Tier"><option value="">Any tier</option> ' +
     '<option value="required"' + (tier === "required" ? " selected" : "") + ">Required</option> " +
@@ -9814,7 +9815,38 @@ function bankTxSearchHtml(snap, opts) {
     '<select data-bank-find-filter="month" aria-label="Month"><option value="">Any month</option> ' + monthOpts + "</select> " +
     '<button type="button" class="book-chip" data-bank-find-order="' + (order === "asc" ? "desc" : "asc") + '">' +
     (order === "asc" ? "Oldest" : "Newest") + "</button></div>" +
-    note + body + assign + "</div></section>";
+    '<div data-bank-tx-results>' + bankTxResultsHtml(snap, opts) + "</div>" +
+    assign + "</div></section>";
+}
+
+/* Refresh the results list without replacing the search input, so a phone keyboard stays up. */
+function bankPaintTxResults(root) {
+  if (!root || !root._bank || !root.querySelector) return;
+  var slot = root.querySelector("[data-bank-tx-results]");
+  if (!slot) return;
+  var st = root._bank;
+  var input = root.querySelector("[data-bank-find]");
+  var start = input && typeof input.selectionStart === "number" ? input.selectionStart : null;
+  var end = input && typeof input.selectionEnd === "number" ? input.selectionEnd : null;
+  var focused = input && typeof document !== "undefined" && document.activeElement === input;
+  slot.innerHTML = bankTxResultsHtml(st.data, {
+    txQuery: st.txQuery || "",
+    txTier: st.txTier || "",
+    txAcct: st.txAcct || "",
+    txMonth: st.txMonth || "",
+    txOrder: st.txOrder || "",
+    txNote: st.txNote || ""
+  });
+  if (typeof MPListCap !== "undefined" && MPListCap && MPListCap.refresh) {
+    try { MPListCap.refresh(root); } catch (e) {}
+  }
+  if (!input) return;
+  if (focused && document.activeElement !== input && input.focus) {
+    try { input.focus({ preventScroll: true }); } catch (e) { try { input.focus(); } catch (e2) {} }
+  }
+  if (start != null && end != null && input.setSelectionRange) {
+    try { input.setSelectionRange(start, end); } catch (e) {}
+  }
 }
 
 function bankEditsPanelHtml(snap, opts) {
@@ -9844,7 +9876,7 @@ function bankEditsPanelHtml(snap, opts) {
     "<section><h2>Income</h2><div class=\"card span\">" +
     '<p class="hint">A blank amount or day stays blank.</p>' +
     bankEditIncomeHtml(incomes, ym) + "</div></section>" +
-    bankBasisCaption(budget) + bankUnmatchedStatusHtml(snap));
+    bankUnmatchedStatusHtml(snap));
   return '<div class="bank-edit-grid">' + saveErr + bankTxSearchHtml(snap, Object.assign({}, opts, { txAssign: txAssign })) +
     '<section class="bank-edit-block"><h2>Bills</h2><div class="card span">' + dueNote + dueErr +
     bankEditBillHtml(bills, ym, opts.edits, opts.statusConfirm, snap) + "</div></section>" +
@@ -11752,13 +11784,18 @@ function bankMount(root, data, opts) {
       root._bank.txQuery = el.value == null ? "" : String(el.value);
       root._bank.tab = "edits";
       if (root._bank.txTimer) clearTimeout(root._bank.txTimer);
+      root._bank.txSeq = (root._bank.txSeq || 0) + 1;
+      var seq = root._bank.txSeq;
       root._bank.txTimer = setTimeout(function () {
-        if (!root._bank) return;
+        if (!root._bank || root._bank.txSeq !== seq) return;
         root._bank.txTimer = 0;
         var snap = root._bank.data;
         bankWarmTxOverrideKeys(snap).then(function () {
-          if (!root._bank) return;
-          bankPaint(root);
+          if (!root._bank || root._bank.txSeq !== seq) return;
+          bankPaintTxResults(root);
+        }, function () {
+          if (!root._bank || root._bank.txSeq !== seq) return;
+          bankPaintTxResults(root);
         });
       }, 200);
       return;
