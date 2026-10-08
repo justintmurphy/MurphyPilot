@@ -1,4 +1,7 @@
-/* tip es — Cancel a bill or subscription from this month or next. One isCancelled(item, month) check.
+/* tip ev — Each bill names the account that pays it. Each Next pay card lists the moves that keep that account from going negative.
+   Pay from defaults to the account that paid the bill most recently. The Edits bill sheet can override it.
+   The override is a POST merge of bill_account only. Moves are advice. They do not move money.
+   tip es — Cancel a bill or subscription from this month or next. One isCancelled(item, month) check.
    tip et — Next pay is a swipe carousel of paycheck periods through month-end.
    tip eq — Edits income rows stack the name, then the amount and day, then one helper on a narrow phone.
    Feed basis notes stay off the page. The transaction search keeps its input and refreshes only the results.
@@ -4537,7 +4540,7 @@ function bankTierDoc(snap) {
     if (feed) return feed;
   }
   var doc = snap && snap.tier_doc;
-  if (doc && typeof doc === "object" && !Array.isArray(doc) && (doc.rules || doc.plans || doc.bill_status || doc.manual_paid)) return doc;
+  if (doc && typeof doc === "object" && !Array.isArray(doc) && (doc.rules || doc.plans || doc.bill_status || doc.manual_paid || doc.bill_account || doc.move_buffer != null)) return doc;
   var saved = bankFeedTierDoc(snap);
   if (saved) return saved;
   if (!doc || typeof doc !== "object" || Array.isArray(doc)) return { plans: {}, rules: {} };
@@ -6455,6 +6458,13 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       var tierWord = bankTierLabel(row.tier);
       if (tierWord) metaBits.push(tierWord);
     }
+    var fromHtml = "";
+    if (row.kind === "out" && !row.rollup && row.name) {
+      try {
+        var fromText = bankFromLabel(bankPayFromForName(snap, row.name));
+        if (fromText) fromHtml = ' <span class="sub">' + bankEsc(fromText) + "</span>";
+      } catch (eFrom) { fromHtml = ""; }
+    }
     var meta = metaBits.length ? '<span class="sub">' + bankMetaHtml(metaBits.join(" \u00b7 ")) + "</span>" : "";
     var extras = [];
     if (row.marker) extras.push(row.marker);
@@ -6473,7 +6483,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     var rowCls = row.notFound ? ' class="tone-flat"' : "";
     var leftCell = showBalance && !row.notFound ? '<td class="' + leftCls.trim() + '">' + bankEsc(bankMoney(row.left)) + "</td>" : (showBalance ? '<td class="num"><span class="sub">\u2014</span></td>' : "");
     var main = "<tr" + rowMeta + rowCls + "><td><span class=\"sym\">" + bankEsc(row.name) + "</span>" +
-      (meta ? " " + meta : "") + (extras.length ? " " + extras.join(" ") : "") + "</td>" + amt +
+      (meta ? " " + meta : "") + fromHtml + (extras.length ? " " + extras.join(" ") : "") + "</td>" + amt +
       leftCell + "</tr>";
     var kids = (row.breakouts || []).map(function (part) {
       var over = part.over > 0.004;
@@ -7185,7 +7195,9 @@ function bankFundingAccountBlocks(snap, opts) {
     seenNote[note] = true;
     notes.push(note);
   });
-  return notes.join("");
+  var allocHtml = "";
+  try { allocHtml = bankAllocMovesHtml(bankAllocate(snap, opts).moves); } catch (eAlloc) { allocHtml = ""; }
+  return notes.join("") + allocHtml;
 }
 
 function bankFundSigned(amount, kind) {
@@ -7847,7 +7859,539 @@ function bankPeriodMath(snap, opts, period, carried) {
   return { bills: bills, needs: needs, aside: aside, deposit: deposit, also: also, carried: carriedN, left: left };
 }
 
-function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried) {
+/* Last-4 on a print account. suffix wins. last4 is the same four digits when the print stores them there. */
+function bankAccountSuffix(row) {
+  if (!row || typeof row !== "object") return "";
+  if (row.suffix != null && String(row.suffix).trim() !== "") return bankLast4Digits(row.suffix);
+  return bankLast4Digits(row.last4 != null && row.last4 !== "" ? row.last4 : (row.last_4 || row.mask));
+}
+
+function bankPrintAccounts(snap) {
+  var out = [];
+  var seen = {};
+  bankAccounts(snap).forEach(function (row) {
+    if (!row) return;
+    var suffix = bankAccountSuffix(row);
+    if (!suffix || seen[suffix]) return;
+    var nick = String(row.nickname || row.name || row.label || "").trim();
+    if (/overdraft/i.test(nick)) return;
+    seen[suffix] = true;
+    out.push({ suffix: suffix, nickname: nick, last4: suffix });
+  });
+  return out;
+}
+
+function bankKnownSuffix(snap, last4) {
+  var suffix = bankLast4Digits(last4);
+  if (!suffix) return false;
+  var ok = false;
+  bankPrintAccounts(snap).forEach(function (acct) {
+    if (acct.suffix === suffix) ok = true;
+  });
+  return ok;
+}
+
+function bankSuffixTag(acct) {
+  if (!acct) return "";
+  var mask = bankAccountMask(acct.suffix || acct.last4);
+  var nick = String(acct.nickname || "").trim();
+  if (nick && mask) return nick + " " + mask;
+  return mask || nick || "";
+}
+
+function bankFromLabel(acct) {
+  var tag = bankSuffixTag(acct);
+  return tag ? "from " + tag : "";
+}
+
+function bankFromMask(acct) {
+  if (!acct) return "";
+  var mask = bankAccountMask(acct.suffix || acct.last4);
+  return mask ? "from " + mask : "";
+}
+
+function bankResolvePrintAccount(snap, last4, nick) {
+  var suffix = bankLast4Digits(last4);
+  var wantNick = String(nick || "").trim();
+  var found = null;
+  bankPrintAccounts(snap).forEach(function (acct) {
+    if (found) return;
+    if (suffix && acct.suffix === suffix) found = acct;
+  });
+  if (!found && wantNick) {
+    bankPrintAccounts(snap).forEach(function (acct) {
+      if (found || !acct.nickname) return;
+      if (bankTierKey(acct.nickname) === bankTierKey(wantNick)) found = acct;
+    });
+  }
+  if (!found) {
+    try {
+      bankFundingAccounts((snap && snap.budget) || {}).forEach(function (acct) {
+        if (found) return;
+        var last = bankLast4Digits(acct.last4);
+        var sameLast = suffix && last && suffix === last;
+        var sameNick = wantNick && acct.nickname && bankTierKey(acct.nickname) === bankTierKey(wantNick);
+        if (!sameLast && !sameNick) return;
+        found = { suffix: last || suffix, nickname: acct.nickname || wantNick, last4: last || suffix };
+      });
+    } catch (eFund) {}
+  }
+  if (found && found.suffix) {
+    return { suffix: found.suffix, nickname: found.nickname || wantNick, last4: found.suffix };
+  }
+  if (!suffix) return null;
+  return { suffix: suffix, nickname: wantNick, last4: suffix };
+}
+
+function bankAccountFromAny(snap, acct) {
+  if (acct == null || acct === "") return null;
+  if (typeof acct === "string") {
+    var digits = bankLast4Digits(acct);
+    if (digits) return bankResolvePrintAccount(snap, digits, "");
+    return bankResolvePrintAccount(snap, "", acct);
+  }
+  if (typeof acct !== "object") return null;
+  return bankResolvePrintAccount(snap, acct.suffix || acct.last4 || acct.last_4 || acct.mask, acct.nickname || acct.name || "");
+}
+
+function bankMoveBuffer(snap) {
+  var doc = null;
+  try { doc = bankTierDoc(snap); } catch (e) { doc = null; }
+  if (!doc || !Object.prototype.hasOwnProperty.call(doc, "move_buffer")) return 0;
+  var n = bankNum(doc.move_buffer);
+  if (n == null || n < 0 || n > 1e5) return 0;
+  return n;
+}
+
+function bankBillAccountMap(snap) {
+  var bag = null;
+  try { bag = bankTierDoc(snap).bill_account; } catch (e) { bag = null; }
+  if (!bag || typeof bag !== "object" || Array.isArray(bag)) return {};
+  return bag;
+}
+
+/* Saved pay-from wins when it is a last-4 on accounts[].suffix. Null means history. */
+function bankBillAccountOverride(snap, row) {
+  var bag = bankBillAccountMap(snap);
+  if (!row) return "";
+  var id = "";
+  try { id = bankStatusPostId(row, snap, bankBillControlKey(row)); } catch (e) { id = ""; }
+  if (id && Object.prototype.hasOwnProperty.call(bag, id)) {
+    if (bag[id] == null || bag[id] === "") return "";
+    var canonical = bankLast4Digits(bag[id]);
+    if (canonical && bankKnownSuffix(snap, canonical)) return canonical;
+    return "";
+  }
+  var found = null;
+  try { found = bankBagLookupBill(bag, row); } catch (e2) { found = null; }
+  if (!found || found.value == null || found.value === "") return "";
+  var digits = bankLast4Digits(found.value);
+  if (!digits || !bankKnownSuffix(snap, digits)) return "";
+  return digits;
+}
+
+function bankAllocTxLists(snap) {
+  var lists = [];
+  var cur = snap && snap.current;
+  if (cur && Array.isArray(cur.recent_tx)) lists.push(cur.recent_tx);
+  if (cur && Array.isArray(cur.edits_tx)) lists.push(cur.edits_tx);
+  if (cur && Array.isArray(cur.history_tx)) lists.push(cur.history_tx);
+  var hist = snap && snap.history;
+  if (hist && Array.isArray(hist.tx)) lists.push(hist.tx);
+  return lists;
+}
+
+function bankTxMatchesBill(row, raw) {
+  if (!row || !raw) return false;
+  if (bankBillMatchesKey(row, raw.category || "")) return true;
+  if (bankBillMatchesKey(row, raw.desc || "")) return true;
+  if (bankBillMatchesKey(row, raw.description || "")) return true;
+  if (bankBillMatchesKey(row, raw.name || "")) return true;
+  if (bankBillMatchesKey(row, raw.merchant_key || "")) return true;
+  if (raw.bill_id && bankBillMatchesKey(row, raw.bill_id)) return true;
+  if (raw.sub_id && bankBillMatchesKey(row, raw.sub_id)) return true;
+  return false;
+}
+
+/* The account that actually paid this bill most recently. usual_account is the fallback. */
+function bankHistoryPayFrom(snap, row) {
+  if (!row) return null;
+  var hits = [];
+  function push(date, last4, nick) {
+    var digits = bankLast4Digits(last4);
+    if (!digits) return;
+    hits.push({ date: bankDayKey(date) || String(date || "").slice(0, 10), last4: digits, nick: nick || "" });
+  }
+  try {
+    bankMatchHits(row).forEach(function (hit) {
+      var acct = hit.account && typeof hit.account === "object" ? hit.account : null;
+      push(hit.date, hit.account_last4 || hit.last4 || (acct && (acct.suffix || acct.last4)), acct && (acct.nickname || acct.name));
+    });
+  } catch (eHit) {}
+  bankAllocTxLists(snap).forEach(function (list) {
+    list.forEach(function (raw) {
+      if (!raw || bankFlowSide(raw) === "in") return;
+      if (!bankTxMatchesBill(row, raw)) return;
+      push(raw.date, bankAccountLast4(snap, raw), "");
+    });
+  });
+  var today = "";
+  try { today = bankTodayIso(snap, {}); } catch (eToday) { today = ""; }
+  try {
+    bankFundingAccounts((snap && snap.budget) || {}).forEach(function (acct) {
+      (acct.rows || []).forEach(function (line) {
+        if (!line || line.kind === "in") return;
+        if (!bankBillMatchesKey(row, line.name || "")) return;
+        var day = bankDayKey(line.date);
+        if (today && day && day >= today) return;
+        push(line.date, acct.last4, acct.nickname);
+      });
+    });
+  } catch (eFund) {}
+  hits.sort(function (a, b) {
+    if (!a.date !== !b.date) return a.date ? -1 : 1;
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return 0;
+  });
+  if (hits.length) return bankResolvePrintAccount(snap, hits[0].last4, hits[0].nick);
+  var usual = row.usual_account;
+  if (usual && typeof usual === "object") return bankAccountFromAny(snap, usual);
+  return null;
+}
+
+function bankPayFrom(snap, row) {
+  var over = "";
+  try { over = bankBillAccountOverride(snap, row); } catch (e) { over = ""; }
+  if (over) return bankResolvePrintAccount(snap, over, "");
+  try { return bankHistoryPayFrom(snap, row); } catch (e2) { return null; }
+}
+
+function bankPayFromForName(snap, name) {
+  if (!name) return null;
+  var found = null;
+  try {
+    bankPreparedBills(snap, undefined).forEach(function (b) {
+      if (found || !b) return;
+      var face = bankBillDisplayName(b.name, b.display_label);
+      if (bankNamesMatch(face, name) || bankNamesMatch(b.name, name) || bankTierKey(face) === bankTierKey(name)) found = b;
+    });
+  } catch (e) {}
+  if (!found) {
+    try {
+      bankPreparedSubs(snap).forEach(function (s) {
+        if (found || !s) return;
+        var face = bankBillDisplayName(s.name, s.display_label);
+        if (bankNamesMatch(face, name) || bankNamesMatch(s.name, name) || bankTierKey(face) === bankTierKey(name)) found = s;
+      });
+    } catch (e2) {}
+  }
+  if (!found) return null;
+  return bankPayFrom(snap, found);
+}
+
+function bankDepositAccount(snap, ev) {
+  if (!ev) return null;
+  if (ev.account) {
+    var direct = bankAccountFromAny(snap, ev.account);
+    if (direct && direct.suffix) return direct;
+  }
+  var best = null;
+  bankAllocTxLists(snap).forEach(function (list) {
+    list.forEach(function (raw) {
+      if (!raw || bankFlowSide(raw) !== "in") return;
+      var blob = bankFoldName((raw.desc || "") + " " + (raw.category || "") + " " + (raw.name || ""));
+      var stream = bankFoldName(ev.name || "");
+      var kind = bankFoldName(ev.kind || "");
+      var ok = (stream && blob.indexOf(stream) >= 0) || (kind && blob.indexOf(kind) >= 0);
+      if (!ok && (ev.kind === "Payroll" || bankIsPayrollIncome(ev.name)) && /pay/.test(blob)) ok = true;
+      if (!ok) return;
+      var suffix = bankAccountLast4(snap, raw);
+      if (!suffix) return;
+      var date = bankDayKey(raw.date);
+      if (!best || (date && date > best.date)) best = { date: date, suffix: suffix };
+    });
+  });
+  if (best) return bankResolvePrintAccount(snap, best.suffix, "");
+  try {
+    var fundHit = null;
+    bankFundingAccounts((snap && snap.budget) || {}).forEach(function (acct) {
+      (acct.rows || []).forEach(function (line) {
+        if (fundHit || !line || line.kind === "out") return;
+        if (!bankNamesMatch(line.name, ev.name) && !bankNamesMatch(line.name, ev.kind)) return;
+        fundHit = bankResolvePrintAccount(snap, acct.last4, acct.nickname);
+      });
+    });
+    if (fundHit && fundHit.suffix) return fundHit;
+  } catch (eFund) {}
+  return null;
+}
+
+function bankAllocOpening(snap, opts) {
+  opts = opts || {};
+  var today = "";
+  try { today = bankTodayIso(snap, opts); } catch (e) { today = ""; }
+  var map = {};
+  function put(suffix, nick, balance, lock) {
+    suffix = bankLast4Digits(suffix);
+    if (!suffix) return;
+    if (!map[suffix]) map[suffix] = { suffix: suffix, nickname: nick || "", balance: 0, lock: false };
+    if (nick && !map[suffix].nickname) map[suffix].nickname = nick;
+    if (balance != null && (!map[suffix].lock || lock)) {
+      map[suffix].balance = bankRoundCents(balance);
+      if (lock) map[suffix].lock = true;
+    }
+  }
+  bankPrintAccounts(snap).forEach(function (acct) { put(acct.suffix, acct.nickname, null, false); });
+  var books = null;
+  var raws = [];
+  try { books = bankCombinedBooks(snap, opts); } catch (eBooks) { books = null; }
+  try { raws = bankHeroRawRows((snap && snap.budget) || {}); } catch (eRaw) { raws = []; }
+  ((books && books.accounts) || []).forEach(function (acct) {
+    var suffix = bankLast4Digits(acct.last4);
+    if (!suffix) return;
+    var explicit = null;
+    try { explicit = bankHeroExplicit(raws, { nickname: acct.nickname, last4: suffix }); } catch (eEx) { explicit = null; }
+    var amount = explicit && explicit.balance != null ? explicit.balance : bankFundingBalanceOn(acct, today);
+    if (amount == null) amount = acct.start;
+    put(suffix, acct.nickname, amount, amount != null);
+  });
+  var bals = (snap && snap.current && snap.current.balances) || [];
+  bals.forEach(function (row) {
+    if (!row) return;
+    var suffix = bankAccountSuffix(row) || bankAccountLast4(snap, row);
+    var n = bankNum(row.balance != null ? row.balance : row.current_balance);
+    if (n == null) return;
+    put(suffix, row.nickname || row.name, n, false);
+  });
+  return map;
+}
+
+function bankAllocMoveLine(move) {
+  if (!move || !(move.amount > 0)) return "";
+  var from = bankAccountMask(move.fromLast4 || move.from);
+  var to = bankAccountMask(move.toLast4 || move.to);
+  if (!from || !to) return "";
+  var when = move.date ? (bankShortDate(move.date) || "") : "";
+  return "Move " + bankMoney(move.amount) + " " + from + " \u2192 " + to + (when ? " by " + when : "");
+}
+
+function bankAllocMoveHtml(move) {
+  var line = bankAllocMoveLine(move);
+  if (!line) return "";
+  var names = [];
+  (move.bills || []).forEach(function (name) {
+    if (name && names.indexOf(name) < 0) names.push(name);
+  });
+  var nameHtml = names.map(function (name) {
+    return '<span class="mix-leg-name">' + bankEsc(name) + "</span>";
+  }).join(" ");
+  return '<p class="mix-leg wrap" data-bank-move="1" data-bank-move-amount="' + bankRoundCents(move.amount) +
+    '" data-bank-move-from="' + bankEsc(move.fromLast4 || move.from || "") +
+    '" data-bank-move-to="' + bankEsc(move.toLast4 || move.to || "") +
+    '" data-bank-move-date="' + bankEsc(move.date || "") + '">' +
+    nameHtml + (nameHtml ? " " : "") + '<span class="mix-leg-name">' + bankEsc(line) + "</span></p>";
+}
+
+function bankAllocMovesHtml(moves) {
+  var list = (moves || []).filter(function (mv) { return bankAllocMoveLine(mv); });
+  if (!list.length) return '<p class="mix-leg wrap" data-bank-moves="none"><span class="mix-leg-name">No moves needed</span></p>';
+  return '<div data-bank-moves="1">' + list.map(bankAllocMoveHtml).join("") + "</div>";
+}
+
+/* One schedule for Next pay, By account, and the hero. Advice only: balances on the page stay put. */
+function bankAllocate(snap, opts) {
+  opts = opts || {};
+  var buffer = bankMoveBuffer(snap);
+  var today = "";
+  try { today = bankTodayIso(snap, opts); } catch (eToday) { today = ""; }
+  var opening = bankAllocOpening(snap, opts);
+  var state = {};
+  Object.keys(opening).forEach(function (k) { state[k] = opening[k].balance; });
+  var periods = [];
+  try { periods = bankPayPeriods(snap, opts); } catch (ePer) { periods = []; }
+  var allMoves = [];
+  var beforeBills = [];
+  var periodOut = [];
+  function ensure(suffix, nick) {
+    suffix = bankLast4Digits(suffix);
+    if (!suffix) return "";
+    if (state[suffix] == null) state[suffix] = 0;
+    if (!opening[suffix]) opening[suffix] = { suffix: suffix, nickname: nick || "", balance: state[suffix], lock: false };
+    else if (nick && !opening[suffix].nickname) opening[suffix].nickname = nick;
+    return suffix;
+  }
+  periods.forEach(function (period) {
+    if (!period || !period.focus || !period.focus.date) return;
+    var deposit = null;
+    try { deposit = bankDepositAccount(snap, period.focus); } catch (eDep) { deposit = null; }
+    var depSuffix = deposit && deposit.suffix ? ensure(deposit.suffix, deposit.nickname) : "";
+    var depDate = period.focus.date;
+    var depAmt = bankNum(period.focus.amount) || 0;
+    var addDep = !!(depSuffix && depAmt > 0 && depDate && (!today || depDate >= today));
+    if (addDep && today && depDate === today) {
+      var landed = false;
+      try { landed = !!bankIncomeTxMatch(snap, period.focus); } catch (eLand) { landed = false; }
+      if (landed) addDep = false;
+    }
+    var rows = [];
+    try { rows = bankPeriodBillRows(snap, opts, period.focus.date, period.end); } catch (eRows) { rows = []; }
+    var bills = [];
+    rows.forEach(function (row) {
+      if (!row || row.paid || !(row.amount > 0)) return;
+      if (today && row.due && row.due < today) return;
+      var src = null;
+      try { src = bankPayFromForName(snap, row.name); } catch (eSrc) { src = null; }
+      if (!src || !src.suffix) return;
+      var suffix = ensure(src.suffix, src.nickname);
+      if (!suffix) return;
+      bills.push({ name: row.name, due: row.due, amount: bankRoundCents(row.amount), suffix: suffix });
+    });
+    bills.sort(function (a, b) {
+      if (a.due !== b.due) return a.due < b.due ? -1 : 1;
+      return String(a.name).localeCompare(String(b.name));
+    });
+    var groups = {};
+    var order = [];
+    bills.forEach(function (b) {
+      if (!groups[b.suffix]) {
+        groups[b.suffix] = [];
+        order.push(b.suffix);
+      }
+      groups[b.suffix].push(b);
+    });
+    order.sort(function (a, b) { return groups[a][0].due < groups[b][0].due ? -1 : groups[a][0].due > groups[b][0].due ? 1 : 0; });
+    var moves = [];
+    function shadowAt(date) {
+      var bal = {};
+      Object.keys(state).forEach(function (k) { bal[k] = state[k]; });
+      if (addDep && depSuffix && depDate && (!date || depDate <= date)) bal[depSuffix] = bankRoundCents((bal[depSuffix] || 0) + depAmt);
+      moves.forEach(function (mv) {
+        if (!mv.date || (date && mv.date > date)) return;
+        bal[mv.from] = bankRoundCents((bal[mv.from] || 0) - mv.amount);
+        bal[mv.to] = bankRoundCents((bal[mv.to] || 0) + mv.amount);
+      });
+      bills.forEach(function (b) {
+        if (!b.due || !date || b.due >= date) return;
+        bal[b.suffix] = bankRoundCents((bal[b.suffix] || 0) - b.amount);
+      });
+      return bal;
+    }
+    order.forEach(function (suffix) {
+      var list = groups[suffix];
+      var earliest = list[0].due;
+      var moveDate = bankAddDays(earliest, -1) || earliest;
+      var bal = shadowAt(moveDate);
+      var have = bal[suffix] || 0;
+      if (addDep && depSuffix === suffix && depDate && earliest && depDate > moveDate && depDate <= earliest) have = bankRoundCents(have + depAmt);
+      var need = buffer;
+      list.forEach(function (b) { need += b.amount; });
+      var short = bankRoundCents(need - have);
+      if (!(short > 0.004)) return;
+      var sources = Object.keys(bal).filter(function (k) { return k && k !== suffix; });
+      sources.sort(function (a, b) {
+        if (a === depSuffix) return -1;
+        if (b === depSuffix) return 1;
+        return (bal[b] || 0) - (bal[a] || 0);
+      });
+      sources.forEach(function (src) {
+        if (!(short > 0.004)) return;
+        var live = shadowAt(moveDate);
+        var srcBal = live[src] || 0;
+        var later = 0;
+        (groups[src] || []).forEach(function (b) {
+          if (!b.due || b.due > moveDate) later += b.amount;
+        });
+        var spare = bankRoundCents(srcBal - later - buffer);
+        if (!(spare > 0.004)) spare = bankRoundCents(Math.max(0, srcBal - later));
+        if (!(spare > 0.004)) return;
+        var take = bankRoundCents(Math.min(short, spare));
+        if (!(take > 0.004)) return;
+        var existing = null;
+        moves.forEach(function (mv) {
+          if (mv.from === src && mv.to === suffix) existing = mv;
+        });
+        if (existing) {
+          existing.amount = bankRoundCents(existing.amount + take);
+          if (moveDate && (!existing.date || moveDate < existing.date)) existing.date = moveDate;
+        } else {
+          existing = {
+            from: src,
+            to: suffix,
+            fromLast4: src,
+            toLast4: suffix,
+            amount: take,
+            date: moveDate,
+            bills: []
+          };
+          moves.push(existing);
+        }
+        list.forEach(function (b) {
+          if (b.name && existing.bills.indexOf(b.name) < 0) existing.bills.push(b.name);
+        });
+        short = bankRoundCents(short - take);
+      });
+    });
+    var events = [];
+    if (addDep && depDate) events.push({ date: depDate, kind: "dep" });
+    moves.forEach(function (mv) { events.push({ date: mv.date || depDate || "", kind: "move", move: mv }); });
+    bills.forEach(function (b) { events.push({ date: b.due || "", kind: "bill", bill: b }); });
+    events.sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      var rank = { dep: 0, move: 1, bill: 2 };
+      return (rank[a.kind] || 9) - (rank[b.kind] || 9);
+    });
+    var countedDep = false;
+    events.forEach(function (ev) {
+      if (ev.kind === "dep") {
+        state[depSuffix] = bankRoundCents((state[depSuffix] || 0) + depAmt);
+        countedDep = true;
+      } else if (ev.kind === "move") {
+        state[ev.move.from] = bankRoundCents((state[ev.move.from] || 0) - ev.move.amount);
+        state[ev.move.to] = bankRoundCents((state[ev.move.to] || 0) + ev.move.amount);
+      } else if (ev.kind === "bill") {
+        var before = state[ev.bill.suffix] || 0;
+        beforeBills.push({
+          name: ev.bill.name,
+          due: ev.bill.due,
+          suffix: ev.bill.suffix,
+          amount: ev.bill.amount,
+          before: bankRoundCents(before)
+        });
+        state[ev.bill.suffix] = bankRoundCents(before - ev.bill.amount);
+      }
+    });
+    periodOut.push({
+      date: period.focus.date,
+      end: period.end,
+      deposit: deposit,
+      depositAmount: depAmt,
+      depositCounted: countedDep,
+      moves: moves,
+      bills: bills
+    });
+    allMoves = allMoves.concat(moves);
+  });
+  return {
+    buffer: buffer,
+    opening: opening,
+    periods: periodOut,
+    moves: allMoves,
+    beforeBills: beforeBills
+  };
+}
+
+function bankPayFromOptions(snap, row) {
+  var selected = "";
+  try { selected = bankBillAccountOverride(snap, row); } catch (e) { selected = ""; }
+  var html = '<option value="">Default (history)</option>';
+  bankPrintAccounts(snap).forEach(function (acct) {
+    var label = bankSuffixTag(acct) || bankAccountMask(acct.suffix);
+    html += '<option value="' + bankEsc(acct.suffix) + '"' + (selected === acct.suffix ? " selected" : "") + ">" + bankEsc(label) + "</option>";
+  });
+  return html;
+}
+
+function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried, alloc) {
   if (!math) math = bankPeriodMath(snap, opts, period, carried);
   var ev = period.focus;
   var bills = math.bills;
@@ -7855,11 +8399,25 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried)
   var aside = math.aside;
   var deposit = math.deposit;
   var left = math.left;
+  if (!alloc) {
+    try { alloc = bankAllocate(snap, opts); } catch (eAlloc) { alloc = null; }
+  }
+  var periodAlloc = null;
+  if (alloc && alloc.periods) {
+    alloc.periods.forEach(function (p) {
+      if (!periodAlloc && p && ev && p.date === ev.date) periodAlloc = p;
+    });
+  }
   var dest = "account TBD";
   if (ev.account) dest = bankAccountTag(ev.account);
+  if (dest === "account TBD" && periodAlloc && periodAlloc.deposit && periodAlloc.deposit.suffix) {
+    dest = bankAccountTag({ nickname: periodAlloc.deposit.nickname || "", last4: periodAlloc.deposit.suffix });
+  }
   var payFlow = bankFundSigned(deposit || 0, "in");
   var payLine = '<p><span class="' + payFlow.cls + '">' + bankEsc(deposit == null ? "\u2014" : payFlow.text) +
     '</span> <span class="sep"> \u00b7 </span> <span>to ' + bankEsc(dest) + "</span></p>";
+  var movesHtml = "";
+  try { movesHtml = bankAllocMovesHtml(periodAlloc ? periodAlloc.moves : []); } catch (eMoves) { movesHtml = ""; }
   var shown = bills.slice(0, 10);
   var billTr = shown.map(function (row) {
     var flow = bankFundSigned(row.amount || 0, "out");
@@ -7868,8 +8426,13 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried)
     var nameCls = paid ? "sym tone-flat" : "sym";
     var amtCls = paid ? "num tone-flat" : ("num " + flow.cls);
     var mark = paid ? ' <span class="tone-go" aria-label="Paid">\u2713</span>' : "";
-    return "<tr" + (paid ? ' class="tone-flat" data-bank-bill-paid="1"' : ' data-bank-bill-paid="0"') + "><td><span class=\"" + nameCls + "\">" +
-      bankEsc(row.name) + '</span> <span class="sub' + (paid ? " tone-flat" : "") + '">' + bankEsc(due) + "</span>" + mark + "</td>" +
+    var fromHtml = "";
+    try {
+      var fromText = bankFromMask(bankPayFromForName(snap, row.name));
+      if (fromText) fromHtml = ' <span class="sub' + (paid ? " tone-flat" : "") + '">' + bankEsc(fromText) + "</span>";
+    } catch (eFrom) { fromHtml = ""; }
+    return "<tr" + (paid ? ' class="tone-flat" data-bank-bill-paid="1"' : ' data-bank-bill-paid="0"') + "><td><span class=\"mix-leg wrap\"><span class=\"mix-leg-name\"><span class=\"" + nameCls + "\">" +
+      bankEsc(row.name) + '</span></span> <span class="sub' + (paid ? " tone-flat" : "") + '">' + bankEsc(due) + "</span>" + fromHtml + mark + "</span></td>" +
       '<td class="' + amtCls + '">' + bankEsc(row.amount == null ? "\u2014" : flow.text) + "</td></tr>";
   }).join("");
   var also = math.also != null ? math.also : bankAlsoInAmount(snap, period);
@@ -7924,19 +8487,21 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried)
   var hero = '<div class="overall-strip" data-bank-check-left="' + (left == null ? "" : left) + '"' + leftAttr +
     '><div class="ov-hero"><span>Left from this pay</span> <b class="' + leftFlow.cls + '">' + bankEsc(leftFlow.text) + "</b></div></div>";
   return '<div class="card" data-bank-next-card="' + (index + 1) + '" data-bank-next-date="' + bankEsc(ev.date) + '">' +
-    head + hero + payLine + billTable + hints + "</div>";
+    head + hero + payLine + movesHtml + billTable + hints + "</div>";
 }
 
 function bankNextPayHtml(snap, opts) {
   opts = opts || {};
   var periods = bankPayPeriods(snap, opts);
   if (!periods.length) return "";
+  var alloc = null;
+  try { alloc = bankAllocate(snap, opts); } catch (eAlloc) { alloc = null; }
   var current = opts.nextIndex || 0;
   if (current < 0 || current >= periods.length) current = 0;
   var carried = 0;
   var cards = periods.map(function (period, i) {
     var math = bankPeriodMath(snap, opts, period, i === 0 ? 0 : carried);
-    var html = bankNextPayCardHtml(snap, opts, period, i, i === 0, math, i === 0 ? 0 : carried);
+    var html = bankNextPayCardHtml(snap, opts, period, i, i === 0, math, i === 0 ? 0 : carried, alloc);
     carried = math.left == null ? 0 : math.left;
     return html;
   }).join("");
@@ -11213,6 +11778,16 @@ function bankHeroNow(snap, opts) {
   return now;
 }
 
+function bankAllocMoveTotal(snap, opts) {
+  var total = 0;
+  try {
+    (bankAllocate(snap, opts).moves || []).forEach(function (mv) {
+      if (mv && mv.amount > 0) total += mv.amount;
+    });
+  } catch (e) { total = 0; }
+  return bankRoundCents(total);
+}
+
 function bankHeroHtml(snap, opts, flows) {
   opts = opts || {};
   flows = flows || {};
@@ -11257,11 +11832,12 @@ function bankHeroHtml(snap, opts, flows) {
     ? '<p class="hint" data-bank-uncat-warn="' + warnN + '"><button type="button" class="book-chip" data-bank-tab="edits" data-bank-uncat-open="1">' +
       warnN + (warnN === 1 ? " item needs a category" : " items need a category") + "</button></p>"
     : "";
+  var allocTotal = bankAllocMoveTotal(snap, opts);
   if (!rows.length && flows.left == null) {
     if (!pill && !warn) return "";
-    return '<section data-bank-hero="1">' + (pill ? '<div class="card span">' + pill + "</div>" : "") + warn + "</section>";
+    return '<section data-bank-hero="1" data-bank-alloc-total="' + allocTotal + '">' + (pill ? '<div class="card span">' + pill + "</div>" : "") + warn + "</section>";
   }
-  return '<section data-bank-hero="1"><div class="card span">' + pill +
+  return '<section data-bank-hero="1" data-bank-alloc-total="' + allocTotal + '"><div class="card span">' + pill +
     '<div class="overall-strip">' +
     '<div class="ov-hero"><span>In the bank now</span> <b data-bank-hero-now="' + (now == null ? "" : String(now)) + '" class="' + nowCls + '">' +
     bankEsc(bankMoney(now)) + "</b></div></div>" +
@@ -11785,6 +12361,16 @@ function bankCancelSheetHtml(snap, opts) {
       '" aria-pressed="' + (on ? "true" : "false") + '">' + text + "</button>";
   }
   var key = bankBillControlKey(row) || sheet.key;
+  var payKey = key;
+  try { payKey = bankStatusPostId(row, snap, key) || key; } catch (ePay) { payKey = key; }
+  var fromNow = "";
+  try { fromNow = bankFromLabel(bankPayFrom(snap, row)); } catch (eFrom) { fromNow = ""; }
+  var payError = opts.billAccountError || "";
+  var payBlock = '<p class="mix-leg wrap" data-bank-payfrom-row="1"><span class="mix-leg-name">' + bankEsc(label) + "</span>" +
+    (fromNow ? ' <span class="sub">' + bankEsc(fromNow) + "</span>" : "") + "</p>" +
+    '<label class="mix-leg wrap">Pay from <select class="bank-chip" data-bank-payfrom="' + bankEsc(payKey) + '" aria-label="Pay from">' +
+    bankPayFromOptions(snap, row) + "</select></label>" +
+    (payError ? '<p class="hint tone-stop" role="status" data-bank-payfrom-error="1">' + bankEsc(payError) + "</p>" : "");
   var actions = cancelled
     ? '<button type="button" class="act" data-bank-status-undo="' + bankEsc(key) + '" aria-label="Reactivate ' + bankEsc(label) + '">Reactivate</button>'
     : '<span class="sub">Stop from</span> ' + chip("this", "This month") + " " + chip("next", "Next month") +
@@ -11796,7 +12382,7 @@ function bankCancelSheetHtml(snap, opts) {
     '<button type="button" class="book-chip" data-bank-cancel-close="1">Close</button></div>' +
     (look ? '<span class="sub" data-bank-cancel-look="1">' + bankEsc(look) + "</span>" : "") +
     (cancelled ? "" : '<p class="hint">Marks it cancelled here; it doesn\'t cancel with the company.</p>') +
-    actions + "</div></div>";
+    payBlock + actions + "</div></div>";
 }
 
 function bankCancelToastHtml(toast) {
@@ -12755,6 +13341,7 @@ function bankPaint(root, paintOpts) {
     groupOpen: st.groupOpen || "",
     uncatOpen: !!st.uncatOpen,
     cancelSheet: st.cancelSheet || null,
+    billAccountError: st.billAccountError || "",
     cancelToast: st.cancelToast || null,
     reviewCancel: !!st.reviewCancel,
     nextIndex: st.nextIndex || 0
@@ -13586,6 +14173,7 @@ function bankEnsureTierBags(snap) {
   if (!snap.tier_doc || typeof snap.tier_doc !== "object" || Array.isArray(snap.tier_doc)) snap.tier_doc = { plans: {}, rules: {} };
   if (!snap.tier_doc.bill_status || typeof snap.tier_doc.bill_status !== "object" || Array.isArray(snap.tier_doc.bill_status)) snap.tier_doc.bill_status = {};
   if (!snap.tier_doc.manual_paid || typeof snap.tier_doc.manual_paid !== "object" || Array.isArray(snap.tier_doc.manual_paid)) snap.tier_doc.manual_paid = {};
+  if (!snap.tier_doc.bill_account || typeof snap.tier_doc.bill_account !== "object" || Array.isArray(snap.tier_doc.bill_account)) snap.tier_doc.bill_account = {};
   return snap.tier_doc;
 }
 
@@ -13667,6 +14255,70 @@ function bankTierPostBag(snap, key, entry, field) {
     });
   }
   return { id: id, bag: bag, row: row };
+}
+
+function bankSaveBillAccount(root, key, suffix) {
+  if (!root || !root._bank || !key) return Promise.resolve(false);
+  var snap = root._bank.data;
+  var row = null;
+  try { row = bankDeskRowByKey(snap, key); } catch (eRow) { row = null; }
+  var id = "";
+  try { id = bankStatusPostId(row, snap, key); } catch (eId) { id = ""; }
+  if (!id) id = String(key);
+  if (suffix != null && suffix !== "") {
+    var digits = bankLast4Digits(suffix);
+    if (!digits || !bankKnownSuffix(snap, digits)) {
+      root._bank.billAccountError = "bad_account";
+      bankPaint(root);
+      return Promise.resolve(false);
+    }
+    suffix = digits;
+  } else suffix = null;
+  var bag = bankBillAccountMap(snap);
+  var n = 0;
+  var exists = false;
+  Object.keys(bag).forEach(function (k) {
+    if (bag[k] == null || bag[k] === "") return;
+    n += 1;
+    if (bankKeysMatch(k, id)) exists = true;
+  });
+  if (suffix != null && !exists && n >= 200) {
+    root._bank.billAccountError = "too_many_accounts";
+    bankPaint(root);
+    return Promise.resolve(false);
+  }
+  var posted = {};
+  posted[id] = suffix;
+  var body = { bill_account: posted };
+  return fetch(BANK_TIERS_URL, bankFetchInit({
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  })).then(function (res) {
+    var failed = !res || res.ok !== true || res.type === "opaqueredirect";
+    function fail(payload) {
+      var code = bankSpendErrorCode(payload);
+      if (code === "bad_account" || code === "too_many_accounts") root._bank.billAccountError = code;
+      else root._bank.billAccountError = "Could not save tiers.json. The change is still on this screen.";
+      bankPaint(root);
+      return false;
+    }
+    if (failed) return bankReadJson(res).then(fail);
+    var doc = bankEnsureTierBags(root._bank.data);
+    if (doc) {
+      if (!doc.bill_account || typeof doc.bill_account !== "object" || Array.isArray(doc.bill_account)) doc.bill_account = {};
+      if (suffix == null) delete doc.bill_account[id];
+      else doc.bill_account[id] = suffix;
+    }
+    root._bank.billAccountError = "";
+    bankPaint(root);
+    return true;
+  }).catch(function () {
+    if (!root._bank) return false;
+    root._bank.billAccountError = "Could not save tiers.json. The change is still on this screen.";
+    bankPaint(root);
+    return false;
+  });
 }
 
 function bankSaveBillStatus(root, key, entry) {
@@ -14092,7 +14744,7 @@ function bankTierPayloadDoc(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
   var doc = payload.doc && typeof payload.doc === "object" && !Array.isArray(payload.doc) ? payload.doc : payload;
   if (!doc || typeof doc !== "object" || Array.isArray(doc)) return null;
-  if (payload.schema === "banking-tiers/v1" || doc.rules || doc.plans || doc.bill_status || doc.manual_paid ||
+  if (payload.schema === "banking-tiers/v1" || doc.rules || doc.plans || doc.bill_status || doc.manual_paid || doc.bill_account || doc.move_buffer != null ||
     Object.prototype.hasOwnProperty.call(doc, "tx_overrides") ||
     Object.prototype.hasOwnProperty.call(doc, "categories") ||
     Object.prototype.hasOwnProperty.call(doc, "category_rules") ||
@@ -14785,6 +15437,10 @@ function bankMount(root, data, opts) {
   root.addEventListener("change", function (e) {
     var el = e && e.target;
     if (!el || !el.getAttribute) return;
+    if (el.getAttribute("data-bank-payfrom") != null) {
+      var rawPay = el.value == null ? "" : String(el.value);
+      return bankSaveBillAccount(root, el.getAttribute("data-bank-payfrom"), rawPay === "" ? null : rawPay);
+    }
     if (el.hasAttribute && el.hasAttribute("data-bank-new-cat")) {
       if (root._bank) root._bank.newCatDraft = el.value == null ? "" : String(el.value);
       return;
