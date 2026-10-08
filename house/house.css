@@ -200,7 +200,53 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
 @media (max-width: 720px) {
   .books-overlay.on.sheet-bottom { align-items: flex-end; padding: 0; }
   .books-overlay.on.sheet-bottom .books-sheet { width: min(390px, 100%); max-width: 390px; border-radius: var(--radius) var(--radius) 0 0; }
+  .bank-page .bank-day-scrim { display: block; }
+  .bank-page .bank-day-dialog { display: block; }
 }
+details.fills-more > summary > .ret-take {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+details.fills-more > summary > .ret-take b {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+[data-bank-cat-items] {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+[data-bank-cat-items] > li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 2.05rem;
+  min-height: 2.05rem;
+  padding: 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+  line-height: 1.2;
+}
+[data-bank-cat-items] [data-bank-item-name] {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+[data-bank-cat-items] [data-bank-item-meta] {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+[data-bank-cat-items] > li > b { flex: 0 0 auto; white-space: nowrap; }
+[data-bank-cat-items] .fresh-chip { flex: 0 0 auto; }
 .ov-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (max-width: 720px) { .ov-grid { grid-template-columns: 1fr; } }
 

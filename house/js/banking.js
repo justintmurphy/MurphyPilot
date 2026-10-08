@@ -9674,9 +9674,9 @@ function bankSpendItemRowHtml(snap, raw) {
   var chip = bankTxChipLabel(snap, raw);
   var meta = [when, last].filter(Boolean).join(" \u00b7 ");
   return '<li data-bank-cat-item="1" data-last4="' + bankEsc(last) + '">' +
-    '<details class="fills-more"><summary><span class="ret-take"><b>' + bankEsc(name) + "</b>" +
-    (meta ? '<i data-bank-item-meta="1">' + bankEsc(meta) + "</i>" : "") + "</span> " +
-    '<b class="' + tone + '">' + bankEsc(flow.text) + "</b></summary></details> " +
+    '<span data-bank-item-name="1">' + bankEsc(name) + "</span>" +
+    (meta ? '<i data-bank-item-meta="1">' + bankEsc(meta) + "</i>" : "") +
+    '<b class="' + tone + '">' + bankEsc(flow.text) + "</b>" +
     '<button type="button" class="fresh-chip" data-bank-cat-item-open="' + bankEsc(openKey) + '">' + bankEsc(chip) + "</button></li>";
 }
 
@@ -9726,7 +9726,7 @@ function bankSpendPopupHtml(snap, opts) {
   var items = bankSpendMonthItems(snap, model.id, monthKey);
   var list = items.map(function (raw) { return bankSpendItemRowHtml(snap, raw); }).join("");
   var itemHtml = items.length
-    ? bankCapList('<ul class="bank-edit-list" data-bank-cat-items="1">' + list + "</ul>", items.length, model.name)
+    ? bankCapList('<ul data-bank-cat-items="1">' + list + "</ul>", items.length, model.name)
     : '<p class="hint">No items this month.</p>';
   var sheet = "";
   if (opts.txOpen) {
