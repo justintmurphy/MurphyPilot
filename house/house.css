@@ -1444,3 +1444,44 @@ body.inv-page > header .clock { grid-area: clock; }
   header .mp-top-btn { flex: 1 1 0; min-width: 0; }
   .mp-nav .mp-menu { left: 0; right: auto; }
 }
+
+.pay-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+.pay-carousel::after {
+  content: "";
+  flex: 0 0 calc(14% - 12px);
+}
+.pay-carousel > .card {
+  flex: 0 0 86%;
+  max-width: 86%;
+  scroll-snap-align: start;
+  min-width: 0;
+}
+.pay-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+@media (min-width: 1280px) {
+  .pay-carousel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+  .pay-carousel::after { content: none; }
+  .pay-carousel > .card {
+    flex: none;
+    width: auto;
+    max-width: none;
+  }
+  .pay-dots { display: none; }
+}
