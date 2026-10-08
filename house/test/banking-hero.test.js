@@ -133,7 +133,7 @@ test("hero month-end matches funding left and the list month-end", function () {
   fx.budget.bills = [{ name: "Rent", amount: 40, typical_day: 20, cadence: "monthly", tier: "required" }];
   fx.budget.pay_schedule = [{ name: "Payroll", kind: "payroll", date: "2026-10-25", amount: 100 }];
   const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
-  const fund = html.slice(html.indexOf('class="bank-funding"'), html.indexOf('data-bank-part="calendar"'));
+  const fund = html.slice(html.indexOf('class="bank-funding"'), html.indexOf('data-bank-part="income"'));
   const left = Number((fund.match(/data-fund-left="([^"]*)"/) || [])[1]);
   const end = heroEnd(html);
   const ledger = html.match(/data-bank-ledger-end="([^"]*)"/);

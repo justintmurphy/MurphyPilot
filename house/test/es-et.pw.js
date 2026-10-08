@@ -236,7 +236,7 @@ async function main() {
   if (!/Stream Club/.test(first.text) || !/−\$15\.00/.test(first.text) || !/\+\$25\.00/.test(first.text)) {
     throw new Error("card math " + first.text);
   }
-  if (first.heights[1] >= first.heights[0]) throw new Error("card heights " + first.heights.join(","));
+  if (Math.abs(first.heights[0] - first.heights[1]) > 1) throw new Error("card heights " + first.heights.join(","));
 
   const alert = await page.locator("[data-bank-hero] [data-bank-charged-alert]").innerText();
   if (!/Rent charged after cancel/.test(alert) || !/Review/.test(alert)) throw new Error("alert " + alert);
@@ -345,11 +345,11 @@ async function main() {
   await privacy(wide, "1280");
   const wideFacts = await carouselFacts(wide);
   console.log("CAROUSEL1280", JSON.stringify(wideFacts));
-  if (wideFacts.dots !== "none") throw new Error("dots " + wideFacts.dots);
+  if (wideFacts.dots === "none") throw new Error("dots " + wideFacts.dots);
   if (wideFacts.count < 2) throw new Error("wide cards " + wideFacts.count);
   if (!(wideFacts.card2Left > wideFacts.trackLeft + 40)) throw new Error("cards not side by side");
   if (!(wideFacts.ratio > 0.45 && wideFacts.ratio < 0.55)) throw new Error("wide ratio " + wideFacts.ratio);
-  if (!(wideFacts.heights[1] < wideFacts.heights[0])) throw new Error("wide heights " + wideFacts.heights.join(","));
+  if (Math.abs(wideFacts.heights[0] - wideFacts.heights[1]) > 1) throw new Error("wide heights " + wideFacts.heights.join(","));
   await wide.screenshot({ path: path.join(artifacts, "es-budget-1280.png"), fullPage: true });
   await wide.locator(".bank-next").evaluate(function (node) {
     node.scrollIntoView({ block: "start", inline: "nearest" });

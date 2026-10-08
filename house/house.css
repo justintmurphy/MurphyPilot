@@ -1469,25 +1469,35 @@ body.inv-page > header .clock { grid-area: clock; }
 
 .pay-carousel {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 12px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-padding-inline: 0;
+  scroll-behavior: auto;
   min-width: 0;
   max-width: 100%;
 }
 .pay-carousel::after {
   content: "";
   flex: 0 0 calc(14% - 12px);
+  align-self: flex-start;
+  height: 1px;
 }
 .pay-carousel > .card {
   flex: 0 0 86%;
   max-width: 86%;
-  height: auto;
-  align-self: flex-start;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  align-self: stretch;
   scroll-snap-align: start;
   min-width: 0;
+}
+.pay-carousel > .card[data-bank-past="1"] {
+  background: color-mix(in srgb, var(--ink-soft) 16%, var(--paper));
 }
 .pay-dots {
   display: flex;
@@ -1495,26 +1505,30 @@ body.inv-page > header .clock { grid-area: clock; }
   gap: 8px;
   margin-top: 8px;
 }
+.bank-day[aria-current="date"] {
+  outline: 2px solid var(--brand-fg);
+  outline-offset: 1px;
+  box-shadow: inset 0 0 0 2px var(--brand-fg);
+}
+.bank-day[aria-current="date"] b {
+  font-weight: 800;
+  color: var(--ink);
+}
 @media (min-width: 1280px) {
   .pay-carousel {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
-    overflow: visible;
-    scroll-snap-type: none;
-  }
-  .pay-carousel.pay-wide {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
   }
   .pay-carousel::after { content: none; }
   .pay-carousel > .card {
-    flex: none;
+    flex: 1 0 calc((100% - 24px) / 3);
     width: auto;
     max-width: none;
-    height: auto;
-    align-self: start;
+    min-width: calc((100% - 24px) / 3);
   }
-  .pay-dots { display: none; }
 }
 button.mix-leg.wrap,
 .mix-leg.wrap {

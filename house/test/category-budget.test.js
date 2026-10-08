@@ -676,8 +676,10 @@ test("uncategorized spend warns only in its month", function () {
   assert.match(warn, /2 items need a category/);
   const open = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00", uncatOpen: true });
   assert.match(open, /data-bank-uncat-list="1"/);
-  assert.match(open, /Odd Purchase/);
-  assert.doesNotMatch(open, /Paycheck/);
+  const listAt = open.indexOf('data-bank-uncat-list="1"');
+  const list = open.slice(listAt, open.indexOf("</ul>", listAt));
+  assert.match(list, /Odd Purchase/);
+  assert.doesNotMatch(list, /Paycheck/);
 });
 
 test("category mode has no per-item tier picker and no group budget", function () {
@@ -733,7 +735,7 @@ test("a fixture with no categories still balances bank plus in minus to pay", fu
   assert.equal(end, left);
   assert.equal(end, ledger);
   assert.equal(now, 24.68);
-  const due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('class="bank-cal"'));
+  const due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('data-bank-part="mtd"', html.indexOf('class="bank-due-month"')));
   const today = due.slice(due.indexOf('data-bank-today="1"'), due.indexOf("</tr>", due.indexOf('data-bank-today="1"')));
   assert.match(today, /\$24\.68/);
   assert.doesNotMatch(due, /sym">Month-end/);
@@ -765,7 +767,7 @@ test("in the bank plus coming in minus to pay equals month-end", function () {
   assert.equal(now, 24.68);
   const today = html.slice(html.indexOf('data-bank-today="1"'), html.indexOf("</tr>", html.indexOf('data-bank-today="1"')));
   assert.match(today, /\$24\.68/);
-  assert.doesNotMatch(html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('class="bank-cal"')), /sym">Month-end/);
+  assert.doesNotMatch(html.slice(html.indexOf('class="bank-due-month"'), html.indexOf('data-bank-part="mtd"', html.indexOf('class="bank-due-month"'))), /sym">Month-end/);
 });
 
 test("a paid bill counts in paid and not in to pay", function () {

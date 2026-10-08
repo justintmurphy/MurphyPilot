@@ -145,12 +145,16 @@ function nums(html) {
 
 function dueSlice(html) {
   const start = html.indexOf('class="bank-due-month"');
-  const end = html.indexOf('class="bank-cal"');
+  if (start < 0) return "";
+  const limits = ["data-bank-part=\"mtd\"", "data-bank-part=\"income\"", "class=\"bank-income\""].map(function (mark) {
+    return html.indexOf(mark, start);
+  }).filter(function (i) { return i > start; });
+  const end = limits.length ? Math.min.apply(null, limits) : -1;
   return html.slice(start, end < 0 ? html.length : end);
 }
 
 function nextSlice(html) {
-  return html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="funding"'));
+  return html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="calendar"'));
 }
 
 test("a cancelled bill and sub leave forecasts and keep the bank identity", function () {
@@ -446,9 +450,10 @@ test("late October shows next month's first check as card 2", function () {
   const re = /data-bank-next-date="([^"]+)"/g;
   let m;
   while ((m = re.exec(next))) dates.push(m[1]);
-  assert.equal(dates[0], "2026-10-30");
-  assert.ok(dates[1] >= "2026-11-01");
-  assert.match(dates[1], /^2026-11-/);
+  const oct30 = dates.indexOf("2026-10-30");
+  assert.ok(oct30 >= 0);
+  assert.ok(dates[oct30 + 1] >= "2026-11-01");
+  assert.match(dates[oct30 + 1], /^2026-11-/);
 });
 
 function ledgerRows(due) {
