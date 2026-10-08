@@ -526,7 +526,7 @@ test("a detected due day beats the filler and a null day still gets one", functi
   const html = ctx.bankPageHtml(fx, { tab: "budget" });
   assert.match(html, /<div class="bank-day has" tabindex="0" role="button" aria-label="Oct 1: Mortgage"><b>1<\/b> <span title="Mortgage" aria-label="Mortgage">Mortgage<\/span>/);
   assert.match(html, /<div class="bank-day has" tabindex="-1" role="button" aria-label="Oct 28: Phone"><b>28<\/b> <span title="Phone" aria-label="Phone">Phone<\/span>/);
-  assert.match(html, /<div class="bank-day has bank-day-pay multi" tabindex="-1" role="button" title="Paycheck, Car payment, Electric, Gas \(Utility\)" aria-label="Oct 15: Paycheck, Car payment, Electric, Gas \(Utility\)"><span class="bank-day-top"><b>15<\/b> <i class="bank-day-more bank-day-more-narrow" title="Paycheck, Car payment, Electric, Gas \(Utility\)" aria-hidden="true">\+3<\/i> <i class="bank-day-more bank-day-more-wide" title="Paycheck, Car payment, Electric, Gas \(Utility\)" aria-hidden="true">\+2<\/i><\/span> <em class="pay" title="Paycheck" aria-label="Paycheck">Pay<\/em> <span class="bank-day-second" title="Car payment" aria-label="Car payment">Car payment<\/span> <span class="bank-day-rest" title="Electric" aria-label="Electric">Electric<\/span> <span class="bank-day-rest" title="Gas \(Utility\)" aria-label="Gas \(Utility\)">Gas \(Utility\)<\/span>/);
+  assert.match(html, /<div class="bank-day has bank-day-pay multi" tabindex="-1" role="button" title="Paycheck, Car payment, Electric, Gas \(Utility\)" aria-label="Oct 15: Paycheck, Car payment, Electric, Gas \(Utility\)"><span class="bank-day-top"><b>15<\/b> <i class="bank-day-more bank-day-more-narrow" title="Paycheck, Car payment, Electric, Gas \(Utility\)" aria-hidden="true">\+3<\/i> <i class="bank-day-more bank-day-more-wide" title="Paycheck, Car payment, Electric, Gas \(Utility\)" aria-hidden="true">\+2<\/i><\/span> <em class="pay pay-named" title="Paycheck" aria-label="Paycheck">Payroll<\/em> <span class="bank-day-second" title="Car payment" aria-label="Car payment">Car payment<\/span> <span class="bank-day-rest" title="Electric" aria-label="Electric">Electric<\/span> <span class="bank-day-rest" title="Gas \(Utility\)" aria-label="Gas \(Utility\)">Gas \(Utility\)<\/span>/);
   assert.doesNotMatch(html, /data-bank-due/);
   assert.doesNotMatch(html, /data-bank-cat/);
   assert.doesNotMatch(html, /<select/);
@@ -788,7 +788,7 @@ test("short-month due days clamp onto the last day of that month", function () {
   assert.match(feb, /aria-label="February 2026"/);
   assert.match(feb, /<span class="bank-day-top"><b>27<\/b> <i class="bank-day-more bank-day-more-narrow" title="Rent, Internet" aria-hidden="true">\+1<\/i><\/span> <span title="Rent" aria-label="Rent">Rent<\/span> <span class="bank-day-second" title="Internet" aria-label="Internet">Internet<\/span> <small class="bank-day-note">moved from Sat Feb 28<\/small>/);
   assert.match(feb, /aria-label="Feb 27: Rent, Internet, moved from Sat Feb 28"/);
-  assert.match(feb, /<span class="bank-day-top"><b>28<\/b> <i class="bank-day-more bank-day-more-narrow" title="Bonus \(31st\), Sample item \(29th\)" aria-hidden="true">\+1<\/i><\/span> <em class="pay" title="Bonus \(31st\)" aria-label="Bonus \(31st\)">Pay<\/em> <span class="bank-day-second" title="Sample item \(29th\)" aria-label="Sample item \(29th\)">Sample item \(29th\)<\/span>/);
+  assert.match(feb, /<span class="bank-day-top"><b>28<\/b> <i class="bank-day-more bank-day-more-narrow" title="Bonus \(31st\), Sample item \(29th\)" aria-hidden="true">\+1<\/i><\/span> <em class="pay pay-named" title="Bonus \(31st\)" aria-label="Bonus \(31st\)">Bonus<\/em> <span class="bank-day-second" title="Sample item \(29th\)" aria-label="Sample item \(29th\)">Sample item \(29th\)<\/span>/);
   assert.match(feb, /<b>15<\/b> <span title="Water" aria-label="Water">Water<\/span>/);
   assert.doesNotMatch(feb, /Water \(/);
   assert.doesNotMatch(feb, /<b>29<\/b>/);
@@ -799,7 +799,7 @@ test("short-month due days clamp onto the last day of that month", function () {
 
   const apr = budget("2026-04-10T12:00:00-04:00");
   assert.match(apr, /aria-label="April 2026"/);
-  assert.match(apr, /<span class="bank-day-top"><b>30<\/b> <i class="bank-day-more bank-day-more-narrow" title="Bonus \(31st\), Rent, Internet" aria-hidden="true">\+2<\/i> <i class="bank-day-more bank-day-more-wide" title="Bonus \(31st\), Rent, Internet" aria-hidden="true">\+1<\/i><\/span> <em class="pay" title="Bonus \(31st\)" aria-label="Bonus \(31st\)">Pay<\/em> <span class="bank-day-second" title="Rent" aria-label="Rent">Rent<\/span> <span class="bank-day-rest" title="Internet" aria-label="Internet">Internet<\/span> <small class="bank-day-note">moved from day 31<\/small>/);
+  assert.match(apr, /<span class="bank-day-top"><b>30<\/b> <i class="bank-day-more bank-day-more-narrow" title="Bonus \(31st\), Rent, Internet" aria-hidden="true">\+2<\/i> <i class="bank-day-more bank-day-more-wide" title="Bonus \(31st\), Rent, Internet" aria-hidden="true">\+1<\/i><\/span> <em class="pay pay-named" title="Bonus \(31st\)" aria-label="Bonus \(31st\)">Bonus<\/em> <span class="bank-day-second" title="Rent" aria-label="Rent">Rent<\/span> <span class="bank-day-rest" title="Internet" aria-label="Internet">Internet<\/span> <small class="bank-day-note">moved from day 31<\/small>/);
   assert.match(apr, /<b>29<\/b> <span title="Sample item" aria-label="Sample item">Sample item<\/span>/);
   assert.doesNotMatch(apr, /Internet \(/);
   assert.doesNotMatch(apr, /Sample item \(/);
@@ -808,7 +808,7 @@ test("short-month due days clamp onto the last day of that month", function () {
 
   const oct = budget("2026-10-05T12:00:00-04:00");
   assert.match(oct, /aria-label="October 2026"/);
-  assert.match(oct, /<span class="bank-day-top"><b>31<\/b> <i class="bank-day-more bank-day-more-narrow" title="Bonus, Rent" aria-hidden="true">\+1<\/i><\/span> <em class="pay" title="Bonus" aria-label="Bonus">Pay<\/em> <span class="bank-day-second" title="Rent" aria-label="Rent">Rent<\/span>/);
+  assert.match(oct, /<span class="bank-day-top"><b>31<\/b> <i class="bank-day-more bank-day-more-narrow" title="Bonus, Rent" aria-hidden="true">\+1<\/i><\/span> <em class="pay pay-named" title="Bonus" aria-label="Bonus">Bonus<\/em> <span class="bank-day-second" title="Rent" aria-label="Rent">Rent<\/span>/);
   assert.doesNotMatch(oct, /<b>31<\/b>[\s\S]{0,220}bank-day-more-wide/);
   assert.match(oct, /<b>30<\/b> <span title="Internet" aria-label="Internet">Internet<\/span>/);
   assert.match(oct, /<b>29<\/b> <span title="Sample item" aria-label="Sample item">Sample item<\/span>/);
@@ -894,7 +894,7 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
   assert.match(investments, /\/house\/house\.css\?v=20261008ey/);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ez/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008fa/);
   assert.match(page, /\/house\/banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
@@ -4001,7 +4001,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.ok(budget.indexOf('class="bank-income"') < budget.indexOf('data-bank-part="tiers"'));
   assert.match(budget, /<b>11<\/b> <span title="Car Insurance" aria-label="Car Insurance">Car Insurance<\/span>/);
   assert.match(budget, /<b>14<\/b> <span title="Car Insurance" aria-label="Car Insurance">Car Insurance<\/span>/);
-  assert.match(budget, /<b>15<\/b> <em class="pay" title="Paycheck" aria-label="Paycheck">Pay<\/em>/);
+  assert.match(budget, /<b>15<\/b> <em class="pay pay-named" title="Paycheck" aria-label="Paycheck">Payroll<\/em>/);
   assert.match(budget, /<b>30<\/b> <em class="pay pay-named" title="Paycheck" aria-label="Paycheck">Payroll<\/em>/);
   assert.match(budget, /<b>9<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
   assert.match(budget, /<b>23<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
@@ -4143,7 +4143,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.js\?v=20261008fa/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
@@ -4306,7 +4306,7 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.js\?v=20261008fa/);
   assert.match(page, /banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
@@ -4461,7 +4461,7 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ez/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008fa/);
   assert.match(page, /\/house\/banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
@@ -4517,7 +4517,8 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.match(income, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 9<\/span><\/td><td class="num">\$10\.00/);
   assert.match(income, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 23<\/span><\/td><td class="num">\$10\.00/);
   assert.doesNotMatch(income, /days 3|day 3|days 4|day 4/);
-  assert.match(html, /<b>15<\/b> <em class="pay" title="Payroll" aria-label="Payroll">Pay<\/em>/);
+  assert.match(html, /<b>15<\/b> <em class="pay pay-named" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
+  assert.doesNotMatch(html, /<b>15<\/b> <em class="pay"[^>]*>Pay<\/em>/);
   assert.match(html, /<b>30<\/b> <em class="pay pay-named" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
   assert.match(html, /<b>9<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
   assert.match(html, /<b>23<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
@@ -4534,7 +4535,7 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   const editedIncome = edited.slice(edited.indexOf('class="bank-income"'), edited.indexOf('class="bank-bills"'));
   assert.match(editedIncome, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 12<\/span><\/td><td class="num">\$10\.00/);
   assert.match(editedIncome, /sym">Fostering Per Diem Stipend<\/span> <span class="sub">Oct 23<\/span><\/td><td class="num">\$10\.00/);
-  assert.match(edited, /<b>12<\/b> <em class="pay" title="Fostering Per Diem Stipend"/);
+  assert.match(edited, /<b>12<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend" aria-label="Fostering Per Diem Stipend">Stipend<\/em>/);
   assert.match(edited, /<b>23<\/b> <em class="pay pay-named" title="Fostering Per Diem Stipend"[^>]*>Stipend<\/em>/);
   assert.doesNotMatch(edited, /<b>10<\/b> <em class="pay" title="Fostering Per Diem Stipend"/);
   const edits = ctx.bankPageHtml(fx, { tab: "edits" });
@@ -4554,11 +4555,11 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(feb, /Payroll \(31st\)|\(28th\)/);
   assert.doesNotMatch(feb, /<ul class="bank-covers">/);
   const apr = monthOf("2026-04-10T12:00:00-04:00");
-  assert.match(apr, /<b>30<\/b> <em class="pay" title="Payroll" aria-label="Payroll">Pay<\/em>/);
+  assert.match(apr, /<b>30<\/b> <em class="pay pay-named" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
   assert.match(apr, /sym">Payroll<\/span> <span class="sub">Apr 15<\/span><\/td><td class="num">/);
   assert.match(apr, /sym">Payroll<\/span> <span class="sub">Apr 30<\/span><\/td><td class="num">/);
   const leap = monthOf("2028-02-10T12:00:00-05:00");
-  assert.match(leap, /<b>29<\/b> <em class="pay" title="Payroll" aria-label="Payroll">Pay<\/em>/);
+  assert.match(leap, /<b>29<\/b> <em class="pay pay-named" title="Payroll" aria-label="Payroll">Payroll<\/em>/);
   assert.doesNotMatch(leap, /Payroll \(31st\)/);
 
   fx.asof = "2026-10-05T12:00:00-04:00";
@@ -4578,10 +4579,10 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.match(plan, /sym">Side gig<\/span> <span class="sub">Oct 4<\/span><\/td><td class="num">\$8\.00/);
   assert.match(plan, /sym">Other draw<\/span> <span class="sub">Oct 6<\/span><\/td><td class="num">\$5\.00/);
   assert.match(plan, /sym">Other draw<\/span> <span class="sub">Oct 20<\/span><\/td><td class="num">\$5\.00/);
-  assert.match(html, /<b>4<\/b> <em class="pay" title="Side gig"/);
+  assert.match(html, /<b>4<\/b> <em class="pay pay-named" title="Side gig"[^>]*>Side gig<\/em>/);
   assert.doesNotMatch(html, /<b>18<\/b> <em class="pay" title="Side gig"/);
-  assert.match(html, /<b>6<\/b> <em class="pay" title="Other draw"/);
-  assert.match(html, /<b>20<\/b> <em class="pay" title="Other draw"/);
+  assert.match(html, /<b>6<\/b> <em class="pay pay-named" title="Other draw"[^>]*>Other draw<\/em>/);
+  assert.match(html, /<b>20<\/b> <em class="pay pay-named" title="Other draw"[^>]*>Other draw<\/em>/);
   assert.doesNotMatch(html, /<b>2<\/b> <em class="pay" title="Paycheck"/);
 
   fx.budget.income_monthly = [{ label: "Side gig", amount: 8, cadence: "twice_monthly" }];
@@ -4646,7 +4647,7 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.js\?v=20261008fa/);
   assert.match(page, /banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
@@ -4938,7 +4939,7 @@ test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.js\?v=20261008fa/);
   assert.match(page, /banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
@@ -5025,7 +5026,7 @@ test("tip dy plan blocks follow the selected month", function () {
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.js\?v=20261008fa/);
   assert.match(page, /banking\.css\?v=20261008ez/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
@@ -5234,8 +5235,8 @@ test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function
     deposits: [{ day: 15, amount: 110 }, { day: "EOM", amount: 100 }]
   }];
   const febPay = ctx.bankPageHtml(pay, { tab: "budget", planMonth: "2026-02" });
-  assert.match(febPay, /<b>15<\/b> <em class="pay" title="Side gig \$110\.00"/);
-  assert.match(febPay, /<b>28<\/b> <em class="pay" title="Side gig \$100\.00"/);
+  assert.match(febPay, /<b>15<\/b> <em class="pay pay-named" title="Side gig \$110\.00" aria-label="Side gig \$110\.00">Side gig<\/em>/);
+  assert.match(febPay, /<b>28<\/b> <em class="pay pay-named" title="Side gig \$100\.00" aria-label="Side gig \$100\.00">Side gig<\/em>/);
   assert.doesNotMatch(febPay, /<ul class="bank-covers">/);
   assert.match(febPay, /sym">Side gig<\/span> <span class="sub">Feb 15<\/span><\/td><td class="num">\$110\.00/);
   assert.match(febPay, /sym">Side gig<\/span> <span class="sub">Feb 28<\/span><\/td><td class="num">\$100\.00/);
@@ -5966,7 +5967,7 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 
 test("banking assets use the ec cache bust", function () {
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008ez/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008fa/);
   assert.match(page, /\/house\/banking\.css\?v=20261008ez/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /ticker\.js\?v=20261007ei/);
@@ -7103,7 +7104,7 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.doesNotMatch(html, /<th class="num">Month-end<\/th>/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008ez/);
+  assert.match(page, /banking\.js\?v=20261008fa/);
   assert.match(page, /banking\.css\?v=20261008ez/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);

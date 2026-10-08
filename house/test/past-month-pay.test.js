@@ -193,7 +193,7 @@ test("next pay names each deposit under the paycheck, including a rolled origina
   assert.equal(oneMath.also, 3);
 });
 
-test("a rolled calendar chip uses the income name and the original day points at the new date", function () {
+test("a deposit chip uses the income name, including a weekday payroll, and the original day points at a roll", function () {
   const ctx = boot();
   const data = snap([
     { name: "Payroll", kind: "payroll", date: "2026-10-15", pay_date: "2026-10-15", amount: 40 },
@@ -201,16 +201,30 @@ test("a rolled calendar chip uses the income name and the original day points at
   ]);
   const html = ctx.bankPageHtml(data, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
   const cal = html.slice(html.indexOf('class="bank-cal"'), html.indexOf('data-bank-part="funding"'));
+  assert.match(cal, /<b>15<\/b> <em class="pay pay-named" title="Payroll[^"]*" aria-label="Payroll[^"]*">Payroll<\/em>/);
+  const day15 = cal.slice(cal.indexOf("<b>15</b>") - 40, cal.indexOf("<b>15</b>") + 220);
+  assert.match(day15, />Payroll</);
+  assert.doesNotMatch(day15, />Pay</);
   assert.match(cal, /<b>23<\/b> <em class="pay pay-named" title="Stipend[^"]*" aria-label="Stipend[^"]*">Stipend<\/em>/);
   assert.match(cal, /<small class="bank-day-note">Stipend \u2192 23rd<\/small>/);
   const day25 = cal.slice(cal.indexOf("<b>25</b>") - 80, cal.indexOf("<b>25</b>") + 180);
   assert.match(day25, /Stipend \u2192 23rd/);
   assert.doesNotMatch(day25, />Pay</);
+  const next = html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="calendar"'));
+  const payAt = next.indexOf('data-bank-next-date="2026-10-15"');
+  const card = next.slice(next.lastIndexOf('<div class="card"', payAt), next.indexOf('data-bank-next-card="', payAt + 20));
+  assert.match(card, /Payroll \u00b7 Thu Oct 15/);
+  assert.doesNotMatch(card, /Pay \u00b7/);
+  const stipAt = next.indexOf('data-bank-next-date="2026-10-23"');
+  const stipendCard = next.slice(next.lastIndexOf('<div class="card"', stipAt), next.indexOf('data-bank-next-card="', stipAt + 20));
+  assert.match(stipendCard, /Stipend \u00b7 Fri Oct 23/);
+  assert.match(stipendCard, /\(for Sun 25th\)/);
   const prior = ctx.bankPageHtml(data, { tab: "budget", planMonth: "2026-09", now: "2026-10-16T16:00:00Z" });
   const priorCal = prior.slice(prior.indexOf('class="bank-cal"'), prior.indexOf('data-bank-part="funding"'));
   assert.match(priorCal, /aria-label="September 2026"/);
-  assert.match(priorCal, /<b>10<\/b> <em class="pay"/);
-  assert.match(priorCal, /<b>15<\/b> <em class="pay"/);
-  assert.match(priorCal, /<b>25<\/b> <em class="pay"/);
-  assert.match(priorCal, /<b>30<\/b> <em class="pay"/);
+  assert.match(priorCal, /<b>10<\/b> <em class="pay pay-named" title="Stipend[^"]*" aria-label="Stipend[^"]*">Stipend<\/em>/);
+  assert.match(priorCal, /<b>15<\/b> <em class="pay pay-named" title="Payroll[^"]*" aria-label="Payroll[^"]*">Payroll<\/em>/);
+  assert.match(priorCal, /<b>25<\/b> <em class="pay pay-named" title="Stipend[^"]*" aria-label="Stipend[^"]*">Stipend<\/em>/);
+  assert.match(priorCal, /<b>30<\/b> <em class="pay pay-named" title="Payroll[^"]*" aria-label="Payroll[^"]*">Payroll<\/em>/);
+  assert.doesNotMatch(priorCal, />Pay<\/em>/);
 });

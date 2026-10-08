@@ -1,7 +1,10 @@
-/* tip ez — A pay_schedule row counts only in a month it dates.
+/* tip fa — Every due-calendar deposit chip uses the income name. A weekday payroll says Payroll, the same as a rolled one.
+   The Next Pay header uses that name, as in Payroll · Thu Oct 15. A rolled stipend stays Stipend · Fri Oct 23 (for Sun 25th).
+   One-off deposits keep the name they already have.
+   tip ez — A pay_schedule row counts only in a month it dates.
    Any other month uses that income's deposits or typical days, rolled back to the prior business day.
    Each scheduled deposit, payroll and stipend, is its own Next Pay card. The window runs from that deposit to the next deposit of any kind.
-   One-off deposits in the window stay as named rows under the deposit. A rolled calendar chip uses the income name, and the original day marks where it moved.
+   One-off deposits in the window stay as named rows under the deposit. A rolled day still marks where it moved.
    tip ey — Edits can put a skipped outflow into a category.
    The sheet says it is not counted as spending now, then the usual picker, starting on Just this one.
    Money in stays locked unless it is already a refund. A closed month stays read-only and says Closed month.
@@ -2960,7 +2963,8 @@ function bankDayCells(bills, incomes, calendar, ym) {
       if (mark.amount != null) label = label + " " + bankMoney(mark.amount);
       var cell = days[day - 1];
       cell.pays.push(label);
-      cell.payChips.push(mark.chip || "");
+      /* A roll already stored the income name. A weekday deposit uses that same name. */
+      cell.payChips.push(mark.chip || bankIncomeFace(inc, inc));
       if (mark.note) cell.payNotes = (cell.payNotes || []).concat([mark.note]);
       if (mark.chip && mark.nominalDay && mark.nominalDay !== day && mark.nominalDay >= 1 && mark.nominalDay <= 31) {
         var shift = mark.chip + " \u2192 " + bankOrdinal(day);
@@ -4167,7 +4171,7 @@ function bankDayLabels(c) {
 
 function bankDayLabelHtml(kind, name, extraClass, chip) {
   var esc = bankEsc(name);
-  var shown = chip ? bankEsc(chip) : (kind === "pay" ? "Pay" : esc);
+  var shown = chip ? bankEsc(chip) : esc;
   var cls = kind === "pay" ? "pay" : (kind === "sub" ? "sub" : "");
   if (chip && kind === "pay") cls = cls ? cls + " pay-named" : "pay-named";
   if (extraClass) cls = cls ? cls + " " + extraClass : extraClass;
