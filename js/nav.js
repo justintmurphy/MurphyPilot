@@ -1,6 +1,6 @@
 (function (w, d) {
   "use strict";
-  var BANKING_HASHES = ["budget", "current", "historical", "edits"];
+  var BANKING_HASHES = ["budget", "historical", "edits"];
   var BANKING_DEFAULT = "budget";
   var NAV = {
     order: ["banking", "investments"],
@@ -10,7 +10,6 @@
         href: "/",
         items: [
           { id: "budget", label: "Budget", href: "/#budget" },
-          { id: "current", label: "Current", href: "/#current" },
           { id: "historical", label: "Historical", href: "/#historical" },
           { id: "pay", label: "Pay", href: "/pay/" },
           { id: "taxes", label: "Taxes", href: "/taxes/" }
@@ -39,9 +38,20 @@
     });
   }
 
+  function currentPath(pathname) {
+    var path = String(pathname || "/").replace(/\/index\.html$/, "");
+    if (path.length > 1 && path.charAt(path.length - 1) === "/") path = path.slice(0, -1);
+    return path === "/current";
+  }
   function forwardFor(pathname, hash, search) {
+    if (currentPath(pathname)) return "/" + (search || "");
     var sec = /^\/investments(\/|$)/.test(pathname) ? "investments" : "banking";
     var h = (hash || "").replace(/^#/, "");
+    /* Old Current links land on Budget. Stay on Banking and drop the hash. */
+    if (h === "current") {
+      if (sec === "investments") return "/" + (search || "");
+      return "";
+    }
     var bankId = bankingHashId(hash);
     if (sec === "banking" && h && !bankId) {
       return "/investments/" + (search || "") + (h === "combined" ? "#house" : hash);
@@ -51,9 +61,19 @@
     }
     return "";
   }
+  function stripCurrentHash() {
+    var h = String(location.hash || "").replace(/^#/, "");
+    if (h !== "current") return;
+    if (currentPath(location.pathname)) return;
+    try {
+      history.replaceState(history.state, "", (location.pathname || "/") + (location.search || ""));
+    } catch (e) {}
+    location.hash = "";
+  }
   var section = /^\/investments(\/|$)/.test(location.pathname) ? "investments" : "banking";
   var hopped = forwardFor(location.pathname, location.hash, location.search);
   if (hopped) { location.replace(hopped); return; }
+  if (section === "banking") stripCurrentHash();
   if (location.pathname === "/investments") {
     try { history.replaceState(history.state, "", "/investments/" + (location.search || "") + (location.hash || "")); } catch (e) {}
   }
@@ -63,7 +83,8 @@
 
   function bankingHashId(hash) {
     var h = String(hash || "").replace(/^#/, "");
-    if (h === "budget" || h === "current" || h === "edits") return h;
+    if (h === "current" || h === "budget") return "budget";
+    if (h === "edits") return "edits";
     if (h === "historical" || h.indexOf("historical=") === 0) return "historical";
     return "";
   }
@@ -321,6 +342,7 @@
   function onLocationChange() {
     var dest = forwardFor(location.pathname, location.hash, location.search);
     if (dest) { location.replace(dest); return; }
+    if (section === "banking") stripCurrentHash();
     if (section === "banking" && w.MPNav) w.MPNav.syncBanking();
   }
   w.addEventListener("hashchange", onLocationChange);
