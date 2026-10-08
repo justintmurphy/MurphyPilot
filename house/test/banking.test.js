@@ -8082,7 +8082,7 @@ test("funding sits beside the calendar at desktop and the due list does not scro
       assert.ok(Math.abs(num("tier-x") - num("fund-x")) < 40, "tiers share the funding column");
       assert.ok(num("inc-y") > num("cal-y"), "income sits under the calendar");
       assert.ok(Math.abs(num("tier-y") - num("inc-y")) < 40, "tiers sit beside income " + num("tier-y") + "/" + num("inc-y"));
-      assert.match(dom, /data-pay-word="Pay"/);
+      assert.match(dom, /data-pay-word="Payroll"/);
     }
   });
 });
