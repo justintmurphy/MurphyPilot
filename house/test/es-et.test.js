@@ -241,13 +241,19 @@ test("charged after cancel fires on or after the from month and not before", fun
   assert.equal(ctx.bankItemChargedAfter(snap, rent), true);
   const html = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
   assert.match(html, /data-bank-charged-alert=/);
-  assert.match(html, /Charged after cancel/);
+  assert.match(html, /Rent charged after cancel \u00b7 Review/);
   const row = ctx.bankSpendItemRowHtml(snap, onDay);
+  assert.match(row, /class="fresh-chip fresh-flag"/);
   assert.match(row, /Charged after cancel/);
   const powerTx = { date: "2026-10-12", amount: 10, flow: "outflow", desc: "POWER DRAFT", bill_id: "power", tx_key: "power", account_last4: "4242" };
   const powerRow = ctx.bankSpendItemRowHtml(snap, powerTx);
-  assert.match(powerRow, /data-bank-cancel-open="1"/);
-  assert.match(powerRow, /data-bank-cancel="power"/);
+  assert.doesNotMatch(powerRow, /fresh-flag/);
+  assert.doesNotMatch(powerRow, /data-bank-cancel-open/);
+  const edits = ctx.bankPageHtml(snap, { tab: "edits", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  assert.match(edits, /data-bank-cancel-open="1" data-bank-cancel="power"/);
+  assert.match(html, /Rent charged after cancel \u00b7 Review/);
+  assert.match(html, /data-bank-hero="1"[\s\S]{0,500}data-bank-charged-alert=/);
+  assert.doesNotMatch(html, /<p class="hint tone-stop"[^>]*data-bank-charged-alert/);
   const market = ctx.bankSpendItemRowHtml(snap, { date: "2026-10-04", amount: 4, flow: "outflow", desc: "Market", tx_key: "market", category: "groceries" });
   assert.doesNotMatch(market, /data-bank-cancel-open/);
 });
@@ -269,8 +275,8 @@ test("subscription cancel posts sub_id and the sheet explains it stays local", a
   assert.match(el.innerHTML, /data-bank-cancel-sheet="1"/);
   assert.match(el.innerHTML, /Marks it cancelled here; it doesn.t cancel with the company/);
   assert.match(el.innerHTML, /Stop from/);
-  assert.match(el.innerHTML, /data-bank-cancel-from="this"/);
-  assert.match(el.innerHTML, /data-bank-cancel-from="next"/);
+  assert.match(el.innerHTML, /class="book-chip on" data-bank-cancel-from="this" aria-pressed="true"/);
+  assert.match(el.innerHTML, /data-bank-cancel-from="next" aria-pressed="false"/);
   assert.match(el.innerHTML, /data-bank-cancel-go="1"/);
   assert.equal(calls.length, 0);
   await click(el, function (sel) {
@@ -284,7 +290,10 @@ test("subscription cancel posts sub_id and the sheet explains it stays local", a
   assert.match(el.innerHTML, /data-bank-cancel-toast="1"/);
   const edits = ctx.bankPageHtml(el._bank.data, { tab: "edits", planMonth: "2026-10" });
   assert.match(edits, /data-bank-cancelled="1"/);
-  assert.match(edits, /Reactivate/);
+  assert.doesNotMatch(edits, />Reactivate</);
+  const sheet = ctx.bankCancelSheetHtml(el._bank.data, { planMonth: "2026-10", cancelSheet: { key: "stream", name: "Stream Club" } });
+  assert.match(sheet, />Reactivate</);
+  assert.doesNotMatch(sheet, /Stop from/);
 });
 
 test("print cancel fields agree with isCancelled and the charged flag", function () {
@@ -315,7 +324,7 @@ test("print cancel fields agree with isCancelled and the charged flag", function
   assert.equal(ctx.bankItemChargedAfter(snap, rent), true);
   assert.equal(ctx.bankTxChargedAfter(snap, snap.current.recent_tx[0]), true);
   const html = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
-  assert.match(html, /Charged after cancel/);
+  assert.match(html, /Rent charged after cancel \u00b7 Review/);
   assert.doesNotMatch(dueSlice(html), /sym">Rent/);
 });
 
@@ -380,7 +389,7 @@ test("next pay cards cover the month, share left after, and hide paid or cancell
   assert.ok(count >= 2);
   assert.match(next, /aria-roledescription="carousel"/);
   assert.match(next, /class="pay-carousel" tabindex="0"/);
-  assert.match(next, /aria-current="true"/);
+  assert.match(next, /class="book-chip on" data-bank-next-dot="0" aria-current="true"/);
   assert.match(next, /data-bank-also-in="12.34"/);
   assert.equal((next.match(/<p class="hint">/g) || []).length, 1);
   assert.doesNotMatch(next, /sym">Rent/);
@@ -429,4 +438,160 @@ test("late October shows next month's first check as card 2", function () {
   assert.equal(dates[0], "2026-10-30");
   assert.ok(dates[1] >= "2026-11-01");
   assert.match(dates[1], /^2026-11-/);
+});
+
+function ledgerRows(due) {
+  const rows = [];
+  const re = /<tr([^>]*)>/g;
+  let m;
+  while ((m = re.exec(due))) {
+    const attrs = m[1];
+    function attr(name) {
+      const hit = attrs.match(new RegExp(name + '="([^"]*)"'));
+      return hit ? hit[1] : "";
+    }
+    if (!/data-bank-row-date|data-bank-today/.test(attrs)) continue;
+    rows.push({
+      date: attr("data-bank-row-date"),
+      kind: attr("data-bank-row-kind"),
+      left: attr("data-bank-row-left") === "" ? null : Number(attr("data-bank-row-left")),
+      expected: /data-bank-expected="1"/.test(attrs),
+      today: /data-bank-today="1"/.test(attrs)
+    });
+  }
+  return rows;
+}
+
+test("cancel lives on edits rows, category names stay whole, and an empty rules card stays hidden", function () {
+  const ctx = boot();
+  const snap = baseSnap(ctx);
+  snap.tier_doc.categories.push({
+    id: "longcat",
+    name: "Household Supply Run For The Whole Month",
+    tier: "needs",
+    budget: 12.34,
+    merged_into: ""
+  });
+  const budget = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  assert.doesNotMatch(dueSlice(budget), /data-bank-cancel-open/);
+  assert.doesNotMatch(dueSlice(budget), />Cancel</);
+  const edits = ctx.bankPageHtml(snap, { tab: "edits", planMonth: "2026-10" });
+  assert.match(edits, /data-bank-cancel-open="1" data-bank-cancel="power"/);
+  assert.match(edits, /data-bank-cancel-open="1" data-bank-cancel="stream"/);
+  assert.doesNotMatch(edits, />Cancel</);
+  assert.doesNotMatch(edits, />Edit</);
+  const cats = edits.slice(edits.indexOf('data-bank-spend-cats="1"'), edits.indexOf("<h2>Bills</h2>"));
+  assert.match(cats, /class="mix-leg wrap" data-bank-cat-jump="longcat"/);
+  assert.match(cats, /class="mix-leg-name">Household Supply Run For The Whole Month<\/span><span class="fresh-chip">Needs<\/span>/);
+  assert.match(cats, /data-bank-cat-jump="groceries"/);
+  assert.doesNotMatch(edits, /<h2>Rules<\/h2>/);
+});
+
+test("stop-from preselects this month until a charge posts, then next month", function () {
+  const ctx = boot();
+  const quiet = ctx.bankCancelSheetHtml(baseSnap(ctx), { planMonth: "2026-10", cancelSheet: { key: "power", name: "Power" } });
+  assert.match(quiet, /class="book-chip on" data-bank-cancel-from="this" aria-pressed="true"/);
+  assert.match(quiet, /data-bank-cancel-from="next" aria-pressed="false"/);
+  const snap = baseSnap(ctx);
+  snap.current.recent_tx = [{
+    date: "2026-10-12",
+    amount: 10,
+    flow: "outflow",
+    desc: "POWER DRAFT",
+    bill_id: "power",
+    tx_key: "pow",
+    account_last4: "2222"
+  }];
+  const charged = ctx.bankCancelSheetHtml(snap, { planMonth: "2026-10", cancelSheet: { key: "power", name: "Power" } });
+  assert.match(charged, /class="book-chip on" data-bank-cancel-from="next" aria-pressed="true"/);
+  assert.match(charged, /data-bank-cancel-from="this" aria-pressed="false"/);
+});
+
+test("next pay includes every active window bill, and left plus also-in is the period change", function () {
+  const ctx = boot();
+  const snap = baseSnap(ctx);
+  snap.budget.bills[0].status = "cancelled";
+  snap.budget.bills[0].status_from = "2026-10";
+  snap.budget.bills[1].typical_day = 22;
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" };
+  const html = ctx.bankPageHtml(snap, opts);
+  const next = nextSlice(html);
+  const card = next.slice(next.indexOf('data-bank-next-card="1"'), next.indexOf('data-bank-next-card="2"'));
+  assert.match(card, /Stream Club/);
+  assert.match(card, /Power/);
+  assert.doesNotMatch(card, /sym">Rent/);
+  assert.match(card, /Set aside[\s\S]{0,40}−\$15\.00/);
+  assert.match(card, /data-bank-check-left="25"/);
+  assert.match(card, /Left from this check[\s\S]{0,80}\+\$25\.00/);
+  assert.match(card, /Needs \(groceries, etc\.\)[\s\S]{0,40}\$0\.00/);
+  assert.doesNotMatch(card, /Needs \(groceries, etc\.\)[\s\S]{0,40}<span class="sub">—/);
+  assert.ok(card.indexOf("Also in this period") > card.indexOf("Left from this check"));
+  assert.match(card, /Also in this period \+\$12\.34/);
+  const rows = ledgerRows(dueSlice(html));
+  const todayIdx = rows.findIndex(function (row) { return row.today; });
+  const payIdx = rows.findIndex(function (row) { return row.kind === "in" && row.date === "2026-10-15"; });
+  assert.ok(todayIdx >= 0 && payIdx > todayIdx);
+  assert.equal(rows[payIdx].expected, true);
+  rows.slice(0, todayIdx).forEach(function (row) { assert.equal(row.expected, false); });
+  const nextPay = rows.findIndex(function (row, i) { return i > payIdx && row.kind === "in" && row.date === "2026-10-30"; });
+  assert.ok(nextPay > payIdx);
+  const change = Math.round((rows[nextPay - 1].left - rows[payIdx - 1].left) * 100) / 100;
+  assert.equal(change, Math.round((25 + 12.34) * 100) / 100);
+  const fig = nums(html);
+  assert.equal(Math.round((fig.now + fig.inn - fig.out) * 100) / 100, fig.end);
+  assert.equal(fig.end, fig.left);
+  assert.equal(fig.end, fig.ledger);
+
+  snap.budget.subscriptions[0].status = "cancelled";
+  snap.budget.subscriptions[0].status_from = "2026-10";
+  const gone = nextSlice(ctx.bankPageHtml(snap, opts));
+  const goneCard = gone.slice(gone.indexOf('data-bank-next-card="1"'), gone.indexOf('data-bank-next-card="2"'));
+  assert.doesNotMatch(gone, /Stream Club/);
+  assert.match(goneCard, /Set aside[\s\S]{0,40}−\$10\.00/);
+  assert.match(goneCard, /data-bank-check-left="30"/);
+  assert.doesNotMatch(dueSlice(ctx.bankPageHtml(snap, opts)), /Stream Club/);
+});
+
+test("a posted early payroll stays above today, and a zero plan prints $0.00", function () {
+  const ctx = boot();
+  const snap = baseSnap(ctx);
+  snap.current.recent_tx = [{
+    date: "2026-10-15",
+    amount: 40,
+    flow: "inflow",
+    desc: "Payroll",
+    category: "Payroll",
+    tx_key: "pay"
+  }];
+  const html = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  const rows = ledgerRows(dueSlice(html));
+  const todayIdx = rows.findIndex(function (row) { return row.today; });
+  const payIdx = rows.findIndex(function (row) { return row.kind === "in" && row.date === "2026-10-15"; });
+  assert.ok(payIdx >= 0 && payIdx < todayIdx);
+  assert.equal(rows[payIdx].expected, false);
+  assert.equal(rows[payIdx].left, nums(html).now);
+  rows.slice(0, todayIdx).forEach(function (row) { assert.equal(row.expected, false); });
+
+  const bare = {
+    asof: "2026-10-16T12:00:00-04:00",
+    accounts: [{ nickname: "Bills", last4: "2222", balance: 100 }],
+    current: { month: "2026-10", recent_tx: [], edits_tx: [], history_tx: [] },
+    budget: {
+      bills: [],
+      subscriptions: [],
+      pay_schedule: [
+        { name: "Payroll", kind: "payroll", date: "2026-10-15", amount: 40 },
+        { name: "Payroll", kind: "payroll", date: "2026-10-30", amount: 40 }
+      ]
+    }
+  };
+  const dashed = nextSlice(ctx.bankPageHtml(bare, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" }));
+  assert.match(dashed, /Needs \(groceries, etc\.\)[\s\S]{0,40}<span class="sub">—/);
+  assert.match(dashed, /Set aside[\s\S]{0,40}<span class="sub">—/);
+  bare.budget.tiers = { needs_plan: 0, wants_plan: 0 };
+  const zero = nextSlice(ctx.bankPageHtml(bare, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" }));
+  zero.split('data-bank-next-card="').slice(1).forEach(function (chunk) {
+    assert.match(chunk, /Needs \(groceries, etc\.\)[\s\S]{0,40}\$0\.00/);
+    assert.match(chunk, /Set aside[\s\S]{0,40}\$0\.00/);
+  });
 });

@@ -201,7 +201,9 @@ async function carouselFacts(page) {
       card1Right: a ? Math.round(a.right) : null,
       dots: dotStyle,
       dates: Array.prototype.map.call(cards, function (card) { return card.getAttribute("data-bank-next-date"); }),
+      heights: Array.prototype.map.call(cards, function (card) { return Math.round(card.getBoundingClientRect().height); }),
       also: (document.querySelector("[data-bank-also-in]") || {}).textContent || "",
+      title: (document.querySelector("#bank-next-title") || {}).textContent || "",
       text: section ? section.textContent : ""
     };
   });
@@ -230,10 +232,15 @@ async function main() {
   if (!/Also in/.test(first.also)) throw new Error("also in missing");
   if (/Rent/.test(first.text)) throw new Error("cancelled rent on carousel");
   if (first.dates[0] !== "2026-10-15") throw new Error("card 1 " + first.dates[0]);
+  if (!/Next pay/.test(first.title) || /Oct/.test(first.title)) throw new Error("title " + first.title);
+  if (!/Stream Club/.test(first.text) || !/−\$15\.00/.test(first.text) || !/\+\$25\.00/.test(first.text)) {
+    throw new Error("card math " + first.text);
+  }
+  if (first.heights[1] >= first.heights[0]) throw new Error("card heights " + first.heights.join(","));
 
-  const alert = await page.locator("[data-bank-charged-alert]").innerText();
-  if (!/Charged after cancel/.test(alert)) throw new Error("alert " + alert);
-  await page.locator("[data-bank-charged-alert]").evaluate(function (node) {
+  const alert = await page.locator("[data-bank-hero] [data-bank-charged-alert]").innerText();
+  if (!/Rent charged after cancel/.test(alert) || !/Review/.test(alert)) throw new Error("alert " + alert);
+  await page.locator("[data-bank-hero] [data-bank-charged-alert]").evaluate(function (node) {
     node.scrollIntoView({ block: "start", inline: "nearest" });
   });
   await shot(page, "es-charged-after-cancel-390.png");
@@ -261,14 +268,16 @@ async function main() {
     if (!card || !track) return false;
     var gap = Math.abs(card.getBoundingClientRect().left - track.getBoundingClientRect().left);
     var current = document.querySelector('[data-bank-next-dot="1"]');
-    return gap < 8 && current && current.getAttribute("aria-current") === "true";
+    return gap < 8 && current && current.getAttribute("aria-current") === "true" && current.classList.contains("on");
   }, null, { timeout: 3000 });
   const second = await carouselFacts(page);
   console.log("CAROUSEL390B", JSON.stringify({ dates: second.dates, card2Left: second.card2Left, trackLeft: second.trackLeft }));
   if (second.dates[1] !== "2026-10-30") throw new Error("card 2 " + second.dates[1]);
   await shot(page, "nextpay-carousel-390-card2.png");
 
-  await page.locator('[data-bank-cancel="power"]').first().click();
+  await page.locator("[data-bank-overflow]").click();
+  await page.locator('#bankOverflowMenu [data-bank-tab="edits"]').click();
+  await page.locator('details[data-bank-cancel="power"] > summary').click();
   await page.locator("[data-bank-cancel-sheet]").waitFor();
   const sheetText = await page.locator("[data-bank-cancel-sheet]").innerText();
   console.log("SHEET", JSON.stringify(sheetText));
@@ -277,6 +286,9 @@ async function main() {
   if (!/2222/.test(sheetText)) throw new Error("sheet last4");
   if (!/Stop from/.test(sheetText)) throw new Error("sheet stop");
   if (!/This month/.test(sheetText) || !/Next month/.test(sheetText) || !/Confirm/.test(sheetText)) throw new Error("sheet actions");
+  const pressed = await page.locator('[data-bank-cancel-from="this"]').getAttribute("aria-pressed");
+  const pressedClass = await page.locator('[data-bank-cancel-from="this"]').getAttribute("class");
+  if (pressed !== "true" || String(pressedClass || "").split(/\s+/).indexOf("on") < 0) throw new Error("preselect " + pressed + " " + pressedClass);
   if (!/doesn.t cancel with the company/.test(sheetText)) throw new Error("sheet disclaimer");
   await privacy(page, "sheet");
   await shot(page, "es-cancel-sheet-390.png");
@@ -290,13 +302,30 @@ async function main() {
   await assertNoOverflow(page, "360-budget");
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await page.locator("[data-bank-overflow]").click();
-  await page.locator('[data-bank-tab="edits"]').click();
-  await page.locator("[data-bank-cancelled]").waitFor();
-  await page.locator("[data-bank-cancelled] summary").click();
-  await page.locator('[data-bank-cancelled] [data-bank-status-undo="rent"]').waitFor();
+  await page.locator("[data-bank-spend-cats]").evaluate(function (node) {
+    node.scrollIntoView({ block: "start", inline: "nearest" });
+  });
+  const names = await page.evaluate(function () {
+    var bad = [];
+    document.querySelectorAll("[data-bank-spend-cats] .mix-leg-name").forEach(function (el) {
+      var text = (el.textContent || "").replace(/\s+/g, " ").trim();
+      var cs = getComputedStyle(el);
+      if (cs.whiteSpace === "nowrap" || cs.textOverflow === "ellipsis") bad.push("clip " + text);
+      if (el.scrollWidth > el.clientWidth + 2) bad.push("overflow " + text + " " + el.scrollWidth + "/" + el.clientWidth);
+    });
+    var rules = false;
+    document.querySelectorAll("h2").forEach(function (h) { if ((h.textContent || "") === "Rules") rules = true; });
+    return { bad: bad, rules: rules, sample: (document.querySelector('[data-bank-cat-jump="car-insurance-loans"] .mix-leg-name') || {}).textContent || "" };
+  });
+  console.log("CATS", JSON.stringify(names));
+  if (names.bad.length) throw new Error("category names " + names.bad.join(" | "));
+  if (names.rules) throw new Error("empty rules card is visible");
+  if (names.sample.indexOf("Car, Insurance") < 0) throw new Error("sample " + names.sample);
+  await shot(page, "edits-categories-390.png");
+
+  await page.locator("[data-bank-cancelled] summary").first().click();
   const cancelled = await page.locator("[data-bank-cancelled]").innerText();
-  if (!/Rent/.test(cancelled) || !/Reactivate/.test(cancelled) || !/Charged after cancel/.test(cancelled)) {
+  if (!/Rent/.test(cancelled) || !/Charged after cancel/.test(cancelled) || /Reactivate/.test(cancelled)) {
     throw new Error("cancelled list " + cancelled);
   }
   if (!/Stream Club/.test(await page.locator("body").innerText())) throw new Error("sub row missing");
@@ -319,13 +348,15 @@ async function main() {
   if (wideFacts.dots !== "none") throw new Error("dots " + wideFacts.dots);
   if (wideFacts.count < 2) throw new Error("wide cards " + wideFacts.count);
   if (!(wideFacts.card2Left > wideFacts.trackLeft + 40)) throw new Error("cards not side by side");
+  if (!(wideFacts.ratio > 0.45 && wideFacts.ratio < 0.55)) throw new Error("wide ratio " + wideFacts.ratio);
+  if (!(wideFacts.heights[1] < wideFacts.heights[0])) throw new Error("wide heights " + wideFacts.heights.join(","));
   await wide.screenshot({ path: path.join(artifacts, "es-budget-1280.png"), fullPage: true });
   await wide.locator(".bank-next").evaluate(function (node) {
     node.scrollIntoView({ block: "start", inline: "nearest" });
   });
   await shot(wide, "nextpay-carousel-1280.png");
   await wide.locator("[data-bank-overflow]").click();
-  await wide.locator('[data-bank-tab="edits"]').click();
+  await wide.locator('#bankOverflowMenu [data-bank-tab="edits"]').click();
   await wide.locator("[data-bank-cancelled]").waitFor();
   await privacy(wide, "edits-1280");
   await wide.screenshot({ path: path.join(artifacts, "es-edits-1280.png"), fullPage: true });

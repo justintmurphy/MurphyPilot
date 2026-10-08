@@ -1588,6 +1588,53 @@ function bankChargedAfterCount(snap) {
   return n;
 }
 
+function bankChargedAfterItems(snap) {
+  var items = [];
+  function scan(list) {
+    (list || []).forEach(function (row) {
+      if (row && bankItemChargedAfter(snap, row)) items.push(row);
+    });
+  }
+  try { scan(bankPreparedBills(snap, undefined)); } catch (e) {}
+  try { scan(bankPreparedSubs(snap)); } catch (e2) {}
+  return items;
+}
+
+function bankChargedFlagHtml() {
+  return '<span class="fresh-chip fresh-flag">Charged after cancel</span>';
+}
+
+function bankChargedPillHtml(snap) {
+  var n = 0;
+  try { n = bankChargedAfterCount(snap); } catch (e) { n = 0; }
+  if (!(n > 0)) return "";
+  var items = [];
+  try { items = bankChargedAfterItems(snap); } catch (e2) { items = []; }
+  var text = n + " charged after cancel \u00b7 Review";
+  if (n === 1 && items.length === 1) {
+    text = bankBillDisplayName(items[0].name, items[0].display_label) + " charged after cancel \u00b7 Review";
+  }
+  return '<div class="fresh-chips"><button type="button" class="fresh-chip fresh-flag" data-bank-charged-alert="' + n +
+    '" data-bank-tab="edits" data-bank-charged-review="1">' + bankEsc(text) + "</button></div>";
+}
+
+function bankMonthHasCharge(snap, item, monthKey) {
+  if (!snap || !item) return false;
+  var month = bankMonthKey(monthKey);
+  if (!month) return false;
+  var txs = [];
+  try { txs = bankSpendTxRows(snap); } catch (e) { txs = []; }
+  var i;
+  for (i = 0; i < txs.length; i++) {
+    var raw = txs[i];
+    if (!raw || !bankTxMatchesItem(raw, item)) continue;
+    if (bankMonthKey(raw.date) !== month) continue;
+    try { if (bankFlowSide(raw) === "in") continue; } catch (e2) {}
+    return true;
+  }
+  return false;
+}
+
 function bankFundingEventCancelled(snap, ev) {
   if (!snap || !ev || ev.kind === "in") return false;
   var month = bankMonthKey(ev.date);
@@ -5661,6 +5708,31 @@ function bankPeriodBillRows(snap, opts, start, end) {
       });
     });
   });
+  try {
+    bankPreparedSubs(snap).forEach(function (s) {
+      if (!s || s.set_aside || bankIsSetAside(s) || s.typical_day == null) return;
+      months.forEach(function (month) {
+        if (bankBillRetired(s, month)) return;
+        var subYm = bankParseYm(month);
+        if (!subYm) return;
+        var trust = bankTrustPaidStatus(snap, s, month, opts);
+        var paid = trust ? bankBillPaidStatus(s, month) : "";
+        if (paid === "paid" || paid === "paid_late") return;
+        var day = bankDay(s.typical_day);
+        if (day == null) return;
+        var due = bankDateKey(subYm.year, subYm.month, day);
+        if (!due || due < start || due >= end) return;
+        var amount = bankNum(s.amount);
+        if (amount == null || !(amount > 0)) return;
+        rows.push({
+          name: bankBillDisplayName(s.name, s.display_label),
+          due: due,
+          amount: amount,
+          phrase: bankDueInlineStatus(false, false, "", day, subYm)
+        });
+      });
+    });
+  } catch (eSub) {}
   rows.sort(function (a, b) {
     if (a.due !== b.due) return a.due < b.due ? -1 : 1;
     return String(a.name).localeCompare(String(b.name));
@@ -5959,6 +6031,8 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     });
   });
   bankLedgerDeposits(snap, bankParseYm(monthKey)).forEach(function (ev) {
+    var postedIn = false;
+    try { postedIn = !!bankIncomeTxMatch(snap, ev); } catch (eIn) { postedIn = false; }
     rows.push({
       date: ev.date,
       name: ev.kind || ev.name || "Deposit",
@@ -5968,7 +6042,8 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       marker: "",
       chip: "",
       counted: true,
-      pending: false
+      pending: false,
+      posted: postedIn
     });
   });
   var closed = mode === "historical";
@@ -6053,14 +6128,40 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     rows.forEach(function (row) {
       /* Already posted, so the row is a label. Left now already includes it. */
       if (row.paid) row.counted = false;
+      if (row.kind === "in" && row.posted && row.date && row.date <= todayIso) row.counted = false;
+      /* An expected deposit dated before today has not landed, so it projects after Today. */
+      if (row.kind === "in" && !row.posted && row.date && row.date < todayIso && String(row.date).indexOf("999") !== 0) {
+        row.expected = true;
+        row.phrase = row.phrase ? (row.phrase + " \u00b7 expected") : "expected";
+        afterToday.push(row);
+        return;
+      }
       if (row.date && String(row.date).indexOf("999") !== 0 && row.date < todayIso) beforeToday.push(row);
       else if (row.date === todayIso) sameDay.push(row);
       else afterToday.push(row);
     });
   } else afterToday = rows.slice();
+  function rowSortKey(row) {
+    var d = row && row.date ? String(row.date) : "";
+    if (!d || d.indexOf("999") === 0) return "9999-99-99";
+    return d;
+  }
+  var forwardRows = sameDay.concat(afterToday);
+  if (liveMonth && todayIso) {
+    forwardRows.sort(function (a, b) {
+      var ad = rowSortKey(a);
+      var bd = rowSortKey(b);
+      if (ad !== bd) return ad < bd ? -1 : 1;
+      if (a.kind !== b.kind) return a.kind === "in" ? -1 : 1;
+      return String(a.name).localeCompare(String(b.name));
+    });
+  }
   var histStart = books.start != null ? books.start : 0;
   walkRows(beforeToday, histStart, false);
   var nowBal = liveMonth ? anchor : (books.start != null ? books.start : anchor);
+  beforeToday.forEach(function (row) {
+    if (row && row.kind === "in" && row.posted) row.left = nowBal;
+  });
   var todayRow = null;
   if (liveMonth && todayIso) {
     todayRow = {
@@ -6077,11 +6178,11 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       left: nowBal
     };
   }
-  var forward = walkRows(sameDay.concat(afterToday), nowBal, true);
+  var forward = walkRows(forwardRows, nowBal, true);
   balance = forward.bal;
   var bodyRows = beforeToday.slice();
   if (todayRow) bodyRows.push(todayRow);
-  bodyRows = bodyRows.concat(sameDay, afterToday);
+  bodyRows = bodyRows.concat(forwardRows);
   var setAside = 0;
   var billsExtra = 0;
   if (!closed) {
@@ -6260,22 +6361,20 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     var extras = [];
     if (row.marker) extras.push(row.marker);
     if (row.chip) extras.push(row.chip);
-    if (row.chargedAfter) extras.push('<span class="tone-stop">Charged after cancel</span>');
-    var cancelBtn = "";
-    if (row.cancelKey && !row.today && !row.closing && !row.rollup && row.kind === "out") {
-      cancelBtn = ' <button type="button" class="book-chip" data-bank-cancel="' + bankEsc(row.cancelKey) +
-        '" data-bank-cancel-open="1" aria-label="Cancel ' + bankEsc(row.name) + '">Cancel</button>';
-    }
+    if (row.chargedAfter) extras.push(bankChargedFlagHtml());
     var amt = row.closing || row.pending ? '<td class="num"><span class="sub">\u2014</span></td>' : (function () {
       var flow = bankFundSigned(row.amount, row.kind === "in" ? "in" : "out");
       return '<td class="num ' + flow.cls + '">' + bankEsc(flow.text) + "</td>";
     })();
     var leftCls = row.left < -0.0001 ? " num tone-stop" : " num";
-    var todayAttr = row.today && !closed ? ' data-bank-today="1"' : "";
+    var rowMeta = ' data-bank-row-date="' + bankEsc(row.date || "") + '" data-bank-row-kind="' + bankEsc(row.kind || "") + '"';
+    if (row.left != null && !row.notFound) rowMeta += ' data-bank-row-left="' + bankRoundCents(row.left) + '"';
+    if (row.expected) rowMeta += ' data-bank-expected="1"';
+    if (row.today && !closed) rowMeta += ' data-bank-today="1"';
     var rowCls = row.notFound ? ' class="tone-flat"' : "";
     var leftCell = showBalance && !row.notFound ? '<td class="' + leftCls.trim() + '">' + bankEsc(bankMoney(row.left)) + "</td>" : (showBalance ? '<td class="num"><span class="sub">\u2014</span></td>' : "");
-    return "<tr" + todayAttr + rowCls + "><td><span class=\"sym\">" + bankEsc(row.name) + "</span>" +
-      (meta ? " " + meta : "") + (extras.length ? " " + extras.join(" ") : "") + cancelBtn + "</td>" + amt +
+    return "<tr" + rowMeta + rowCls + "><td><span class=\"sym\">" + bankEsc(row.name) + "</span>" +
+      (meta ? " " + meta : "") + (extras.length ? " " + extras.join(" ") : "") + "</td>" + amt +
       leftCell + "</tr>";
   }).join("");
   var head = showBalance
@@ -7594,18 +7693,34 @@ function bankAlsoInAmount(snap, period) {
   return any ? bankRoundCents(sum) : 0;
 }
 
+function bankNeedsKnown(snap, opts) {
+  if (!snap) return false;
+  if (bankCategoriesActive(snap)) return true;
+  var budget = snap.budget || {};
+  var tiers = budget.tiers && typeof budget.tiers === "object" ? budget.tiers : {};
+  if (bankNum(tiers.needs_plan) != null || bankNum(tiers.needs) != null) return true;
+  var plans = {};
+  try { plans = bankTierDoc(snap).plans || {}; } catch (e) { plans = {}; }
+  if (bankNum(plans.needs) != null || bankNum(plans.needs_plan) != null) return true;
+  var planned = budget.planned_by_category;
+  if (planned && typeof planned === "object" && !Array.isArray(planned) && Object.keys(planned).length) return true;
+  return false;
+}
+
 function bankPeriodMath(snap, opts, period) {
   var ev = period.focus;
   var bills = bankPeriodBillRows(snap, opts, ev.date, period.end);
   var billSum = 0;
   bills.forEach(function (row) { if (row.amount != null) billSum += row.amount; });
   billSum = bankRoundCents(billSum);
-  var needsFull = bankProratePlan(snap, ev.date, period.end, "needs", opts);
-  var spent = bankNeedsSpentInPeriod(snap, ev.date, period.end, period.today, period.started);
-  var needs = bankRoundCents(Math.max(0, needsFull - spent));
-  var aside = bankRoundCents(billSum + needs);
+  var known = bankNeedsKnown(snap, opts);
+  var needsFull = known ? bankProratePlan(snap, ev.date, period.end, "needs", opts) : null;
+  var spent = known ? bankNeedsSpentInPeriod(snap, ev.date, period.end, period.today, period.started) : 0;
+  var needs = needsFull == null ? null : bankRoundCents(Math.max(0, needsFull - spent));
+  var aside = needs == null && !(billSum > 0) ? null : bankRoundCents(billSum + (needs || 0));
   var deposit = bankNum(ev.amount);
-  var left = deposit == null ? null : bankLeftAfter(deposit, { kind: "out", amount: aside, counted: true, pending: false });
+  var asideForLeft = aside == null ? 0 : aside;
+  var left = deposit == null ? null : bankLeftAfter(deposit, { kind: "out", amount: asideForLeft, counted: true, pending: false });
   return { bills: bills, needs: needs, aside: aside, deposit: deposit, left: left };
 }
 
@@ -7630,18 +7745,20 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint) {
       '<td class="num ' + flow.cls + '">' + bankEsc(row.amount == null ? "\u2014" : flow.text) + "</td></tr>";
   }).join("");
   var also = bankAlsoInAmount(snap, period);
-  var alsoRow = "";
+  var alsoLine = "";
   if (also > 0) {
     var alsoFlow = bankFundSigned(also, "in");
-    alsoRow = '<tr data-bank-also-in="' + also + '"><td><span class="tone-go">Also in</span></td><td class="num ' +
-      alsoFlow.cls + '">' + bankEsc(alsoFlow.text) + "</td></tr>";
+    alsoLine = '<p class="mix-hint" data-bank-also-in="' + also + '">Also in this period ' + bankEsc(alsoFlow.text) + "</p>";
   }
   function moneyRow(label, amount, bold) {
     var name = bold ? "<b>" + bankEsc(label) + "</b>" : '<span class="sym">' + bankEsc(label) + "</span>";
-    var cell = !(amount > 0) ? '<td class="num"><span class="sub">\u2014</span></td>' : (function () {
+    var cell;
+    if (amount == null) cell = '<td class="num"><span class="sub">\u2014</span></td>';
+    else if (!(amount > 0)) cell = '<td class="num">' + bankEsc(bankMoney(0)) + "</td>";
+    else {
       var flow = bankFundSigned(amount, "out");
-      return '<td class="num ' + flow.cls + '">' + bankEsc(flow.text) + "</td>";
-    })();
+      cell = '<td class="num ' + flow.cls + '">' + bankEsc(flow.text) + "</td>";
+    }
     return "<tr><td>" + name + "</td>" + cell + "</tr>";
   }
   var leftFlow = left == null || left === 0 ? { text: "\u2014", cls: "" } : bankFundSigned(Math.abs(left), left < 0 ? "out" : "in");
@@ -7652,7 +7769,7 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint) {
     '<tr data-bank-check-left="' + (left == null ? "" : left) + '"' + leftAttr + '><td><b>Left from this check</b></td><td class="num ' +
     leftFlow.cls + '">' + bankEsc(leftFlow.text) + "</td></tr>";
   var billTable = '<table class="book bank-next-bills"><thead><tr><th>Bill</th><th class="num">Amount</th></tr></thead><tbody>' +
-    billTr + alsoRow + "</tbody><tfoot>" + foot + "</tfoot></table>";
+    billTr + "</tbody><tfoot>" + foot + "</tfoot></table>";
   if (bills.length > 10) billTable = bankCapList(billTable, bills.length, "Next pay bills");
   var hints = "";
   if (withHint) {
@@ -7665,9 +7782,8 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint) {
     if (roll) windowHint = windowHint + " " + roll;
     hints = '<p class="hint">' + bankEsc(windowHint) + "</p>";
   }
-  var title = "Next pay \u00b7 " + bankShortPayDate(ev.date);
   return '<div class="card" data-bank-next-card="' + (index + 1) + '" data-bank-next-date="' + bankEsc(ev.date) + '">' +
-    "<h3>" + bankEsc(title) + "</h3>" + payLine + billTable + hints + "</div>";
+    '<p class="mix-hint">' + bankEsc(bankShortPayDate(ev.date)) + "</p>" + payLine + billTable + alsoLine + hints + "</div>";
 }
 
 function bankNextPayHtml(snap, opts) {
@@ -7680,13 +7796,14 @@ function bankNextPayHtml(snap, opts) {
     return bankNextPayCardHtml(snap, opts, period, i, i === 0);
   }).join("");
   var dots = periods.map(function (period, i) {
-    var on = i === current ? ' aria-current="true"' : "";
-    return '<button type="button" class="book-chip" data-bank-next-dot="' + i + '"' + on + ' aria-label="Check ' + (i + 1) + '">' + (i + 1) + "</button>";
+    var on = i === current;
+    return '<button type="button" class="book-chip' + (on ? " on" : "") + '" data-bank-next-dot="' + i + '"' +
+      (on ? ' aria-current="true"' : "") + ' aria-label="Check ' + (i + 1) + '">' + (i + 1) + "</button>";
   }).join(" ");
-  var first = periods[0].focus;
+  var trackClass = "pay-carousel" + (periods.length >= 3 ? " pay-wide" : "");
   return '<section class="bank-next" aria-roledescription="carousel" aria-labelledby="bank-next-title" data-bank-next-count="' + periods.length + '">' +
-    '<h2 id="bank-next-title">Next pay \u00b7 ' + bankEsc(bankShortPayDate(first.date)) + "</h2>" +
-    '<div class="pay-carousel" tabindex="0" data-bank-next-track="1">' + cards + "</div>" +
+    '<h2 id="bank-next-title">Next pay</h2>' +
+    '<div class="' + trackClass + '" tabindex="0" data-bank-next-track="1">' + cards + "</div>" +
     '<div class="pay-dots" data-bank-next-dots="1">' + dots + "</div></section>";
 }
 
@@ -10054,18 +10171,14 @@ function bankSpendItemRowHtml(snap, raw) {
   try { openKey = bankTxOpenKey(raw); } catch (e2) { openKey = name; }
   var chip = bankTxChipLabel(snap, raw);
   var meta = [when, last].filter(Boolean).join(" \u00b7 ");
-  var target = null;
-  try { target = bankCancelTarget(snap, raw); } catch (e3) { target = null; }
   var flag = "";
-  try { if (bankTxChargedAfter(snap, raw)) flag = ' <span class="tone-stop">Charged after cancel</span>'; } catch (e4) { flag = ""; }
-  var cancel = "";
-  if (target && !isCancelled(target, raw.date || raw.month)) cancel = " " + bankCancelButton(target, bankBillDisplayName(target.name, target.display_label));
+  try { if (bankTxChargedAfter(snap, raw)) flag = " " + bankChargedFlagHtml(); } catch (e4) { flag = ""; }
   return '<li data-bank-cat-item="1" data-last4="' + bankEsc(last) + '">' +
     '<span data-bank-item-name="1">' + bankEsc(name) + "</span>" +
     (meta ? '<i data-bank-item-meta="1">' + bankEsc(meta) + "</i>" : "") +
     '<b class="' + tone + '">' + bankEsc(flow.text) + "</b>" +
     '<button type="button" class="fresh-chip" data-bank-cat-item-open="' + bankEsc(openKey) + '">' + bankEsc(chip) + "</button>" +
-    flag + cancel + "</li>";
+    flag + "</li>";
 }
 
 function bankSpendPopupHtml(snap, opts) {
@@ -10234,24 +10347,23 @@ function bankSpendEditorHtml(snap, opts) {
         var key = "";
         try { key = bankTxOpenKey(raw); } catch (e) { key = bankTxMerchantName(raw); }
         var when = bankShortDate(raw.date) || "";
-        return '<li><button type="button" class="mix-leg" data-bank-cat-item-open="' + bankEsc(key) + '">' +
+        return '<li><button type="button" class="mix-leg wrap" data-bank-cat-item-open="' + bankEsc(key) + '">' +
           '<span class="mix-leg-name">' + bankEsc(bankTxMerchantName(raw) || raw.name || "Item") + "</span> " +
           '<span class="sub">' + bankEsc(when) + "</span></button></li>";
       }).join("");
       openList = rows ? '<ul class="bank-edit-list" data-bank-uncat-list="1">' + rows + "</ul>" : "";
     }
-    uncat = '<li><button type="button" class="mix-leg" data-bank-uncat-open="1">' +
+    uncat = '<li><button type="button" class="mix-leg wrap" data-bank-uncat-open="1">' +
       '<span class="mix-leg-name">Uncategorized</span> <span class="fresh-chip" data-bank-uncat-badge="' + badge + '">' + badge + "</span></button>" +
       openList + "</li>";
   }
-  var add = '<li><button type="button" class="mix-leg" data-bank-spend-open="new">' +
+  var add = '<li><button type="button" class="mix-leg wrap" data-bank-spend-open="new">' +
     '<span class="mix-leg-name">Add a category</span></button></li>';
   var items = bankSpendVisible(cats).map(function (row) {
-    return '<li><button type="button" class="mix-leg" data-bank-cat-jump="' + bankEsc(row.id) + '">' +
+    return '<li><button type="button" class="mix-leg wrap" data-bank-cat-jump="' + bankEsc(row.id) + '">' +
       '<span class="mix-leg-name">' + bankEsc(row.name) + '</span>' +
       '<span class="fresh-chip">' + bankEsc(bankTierLabel(row.tier)) + '</span>' +
-      '<span class="mix-amt">' + bankEsc(bankMoney(row.budget)) + "</span></button> " +
-      '<button type="button" class="book-chip" data-bank-spend-edit="' + bankEsc(row.id) + '">Edit</button></li>';
+      '<span class="mix-amt">' + bankEsc(bankMoney(row.budget)) + "</span></button></li>";
   }).join("");
   var list = bankCapList('<ul class="bank-edit-list">' + uncat + add + items + "</ul>", bankSpendVisible(cats).length + 1 + (badge > 0 ? 1 : 0), "Categories");
   return '<section data-bank-spend-cats="1"><h2>Categories</h2><div class="card span">' + line + list + "</div></section>" +
@@ -10961,13 +11073,18 @@ function bankHeroHtml(snap, opts, flows) {
     ? '<span class="tone-stop" data-bank-hero-bar="1" data-bank-hero-paid="' + paid + '" data-bank-hero-plan="' + plan + '">Over by ' + bankEsc(bankMoney(bankRoundCents(paid - plan))) + "</span>"
     : '<span data-bank-hero-bar="1" data-bank-hero-paid="' + paid + '" data-bank-hero-plan="' + plan + '">Paid ' + bankEsc(bankMoney(paid)) + " of " + bankEsc(bankMoney(plan)) + " planned</span>";
   var monthKey = bankMonthKey(opts.month || bankScreenMonth(snap, opts));
+  var pill = "";
+  try { pill = bankChargedPillHtml(snap); } catch (ePill) { pill = ""; }
   var warnN = bankUncatMonthCount(snap, monthKey);
   var warn = warnN > 0
     ? '<p class="hint" data-bank-uncat-warn="' + warnN + '"><button type="button" class="book-chip" data-bank-tab="edits" data-bank-uncat-open="1">' +
       warnN + (warnN === 1 ? " item needs a category" : " items need a category") + "</button></p>"
     : "";
-  if (!rows.length && flows.left == null) return warn ? '<section data-bank-hero="1">' + warn + "</section>" : "";
-  return '<section data-bank-hero="1"><div class="card span">' +
+  if (!rows.length && flows.left == null) {
+    if (!pill && !warn) return "";
+    return '<section data-bank-hero="1">' + (pill ? '<div class="card span">' + pill + "</div>" : "") + warn + "</section>";
+  }
+  return '<section data-bank-hero="1"><div class="card span">' + pill +
     '<div class="books-head"><div class="overall-strip">' +
     '<div class="ov-hero"><span>In the bank now</span> <b data-bank-hero-now="' + (now == null ? "" : String(now)) + '" class="' + nowCls + '">' +
     bankEsc(bankMoney(now)) + "</b></div>" +
@@ -11308,8 +11425,9 @@ function bankBillStatusControls(b, ym, confirm) {
 }
 
 function bankEditBillHtml(bills, ym, edits, confirm, snap) {
-  if (!bills || !bills.length) return '<p class="bank-empty">No bills in this print.</p>';
-  var items = bills.map(function (b) {
+  var active = (bills || []).filter(function (b) { return b && !isCancelled(b, ym); });
+  if (!active.length) return '<p class="bank-empty">No bills in this print.</p>';
+  var items = active.map(function (b) {
     var key = bankBillKey(b.name);
     var label = bankBillDisplayName(b.name, b.display_label);
     var shown = bankBillLineAmount(b, ym, edits);
@@ -11337,14 +11455,17 @@ function bankEditBillHtml(bills, ym, edits, confirm, snap) {
       ? bankSpendItemCatHtml(snap, b, label)
       : '<select class="bank-chip" data-bank-kind="' + bankEsc(b.name) + '" aria-label="Tier for ' +
         bankEsc(label) + '">' + bankKindOptions(tier) + "</select>";
-    var cancelTap = bankBillRetired(b, ym) ? "" : (" " + bankCancelButton(b, label));
-    return "<li" + flag + "><details class=\"fills-more\"><summary><span class=\"fills-sum\"><span class=\"bank-merchant\">" + bankEsc(label) +
+    var control = bankBillControlKey(b);
+    var openAttr = (!bankBillRetired(b, ym) || isCancelled(b, ym)) && control
+      ? ' data-bank-cancel-open="1" data-bank-cancel="' + bankEsc(control) + '"'
+      : "";
+    return "<li" + flag + "><details class=\"fills-more\"" + openAttr + "><summary><span class=\"fills-sum\"><span class=\"bank-merchant\">" + bankEsc(label) +
       "</span></span> <span class=\"sub\">" + bankEsc(dayText) + "</span> <b" + (pending ? ' class="bank-pending"' : "") + ">" +
       bankEsc(bankBillAmount(shown)) + "</b> <span class=\"sub\">" + statusHtml + "</span> " +
       '<span class="fills-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
       '<span class="fills-lab-show">Show</span> <span class="fills-lab-hide">Hide</span></span></summary>' +
       '<div class="bank-edit-side"><span class="bank-kind-name">' + bankEsc(label) + "</span> " + dueControl + " " + tierPick + " " + bankBillStatusControls(b, ym, confirm) + "</div>" +
-      freshHtml + bankBillMatchHtml(b, snap) + "</details>" + cancelTap + "</li>";
+      freshHtml + bankBillMatchHtml(b, snap) + "</details></li>";
   }).join("");
   return bankCapList('<ul class="bank-edit-list">' + items + "</ul>", bills.length, "Bills");
 }
@@ -11368,38 +11489,55 @@ function bankPlanFieldHtml(snap, ym, key, label) {
     bankEsc(label) + '" value="' + bankEsc(value) + '">' + clear + "</label>";
 }
 
-function bankCancelledListHtml(snap, ym) {
-  var rows = [];
-  function add(list) {
-    (list || []).forEach(function (row) {
-      if (row && isCancelled(row, ym)) rows.push(row);
-    });
-  }
-  try { add(bankPreparedBills(snap, undefined)); } catch (e) {}
-  try { add(bankPreparedSubs(snap)); } catch (e2) {}
-  if (!rows.length) return "";
-  var items = rows.map(function (row) {
-    var key = bankBillControlKey(row);
-    var label = bankBillDisplayName(row.name, row.display_label);
-    var flag = "";
-    try { if (bankItemChargedAfter(snap, row)) flag = ' <span class="tone-stop">Charged after cancel</span>'; } catch (e3) { flag = ""; }
-    return "<li><span class=\"bank-merchant\">" + bankEsc(label) + "</span>" + flag +
-      ' <button type="button" class="book-chip" data-bank-status-undo="' + bankEsc(key) +
-      '" aria-label="Reactivate ' + bankEsc(label) + '">Reactivate</button></li>';
+function bankCancelledListHtml(snap, ym, edits, confirm, opts) {
+  opts = opts || {};
+  var bills = [];
+  var subs = [];
+  try { bills = bankPreparedBills(snap, undefined).filter(function (row) { return row && isCancelled(row, ym); }); } catch (e) { bills = []; }
+  try { subs = bankPreparedSubs(snap).filter(function (row) { return row && isCancelled(row, ym); }); } catch (e2) { subs = []; }
+  if (!bills.length && !subs.length) return "";
+  var billHtml = bills.map(function (b) {
+    return bankCancelledItemHtml(snap, b, ym, edits, confirm);
   }).join("");
-  return '<details data-bank-cancelled="1"><summary>Cancelled</summary><ul class="bank-edit-list">' + items + "</ul></details>";
+  var subHtml = subs.map(function (s) {
+    return bankCancelledItemHtml(snap, s, ym, edits, confirm);
+  }).join("");
+  var open = opts.reviewCancel ? " open" : "";
+  return '<details data-bank-cancelled="1"' + open + '><summary>Cancelled</summary><ul class="bank-edit-list">' +
+    billHtml + subHtml + "</ul></details>";
+}
+
+function bankCancelledItemHtml(snap, row, ym, edits, confirm) {
+  var key = bankBillControlKey(row);
+  var label = bankBillDisplayName(row.name, row.display_label);
+  var amount = null;
+  try { amount = row.sub_id ? bankNum(row.amount) : bankBillLineAmount(row, ym, edits); } catch (e) { amount = bankNum(row.amount); }
+  var flag = "";
+  try { if (bankItemChargedAfter(snap, row)) flag = " " + bankChargedFlagHtml(); } catch (e2) { flag = ""; }
+  var paidCap = "";
+  try { paidCap = bankBillPaidCaption(row, ym); } catch (e3) { paidCap = ""; }
+  var dayText = row.typical_day != null ? ("day " + row.typical_day) : "";
+  return "<li><details class=\"fills-more\" data-bank-cancel-open=\"1\" data-bank-cancel=\"" + bankEsc(key) + "\"><summary><span class=\"fills-sum\"><span class=\"bank-merchant\">" +
+    bankEsc(label) + "</span></span> " + (dayText ? '<span class="sub">' + bankEsc(dayText) + "</span> " : "") +
+    "<b>" + bankEsc(bankBillAmount(amount)) + "</b>" +
+    (paidCap ? ' <span class="sub">' + bankMetaHtml(paidCap) + "</span>" : "") + flag +
+    ' <span class="fills-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
+    '<span class="fills-lab-show">Show</span> <span class="fills-lab-hide">Hide</span></span></summary>' +
+    '<div class="bank-edit-side">' + bankBillStatusControls(row, ym, confirm) + "</div></details></li>";
 }
 
 function bankEditSubSection(snap, ym) {
   var subs = [];
   try { subs = bankPreparedSubs(snap); } catch (e) { subs = []; }
+  subs = subs.filter(function (s) { return s && !isCancelled(s, ym); });
   if (!subs.length) return "";
   var items = subs.map(function (s) {
+    var key = bankBillControlKey(s);
     var label = bankBillDisplayName(s.name);
-    var action = isCancelled(s, ym) ? "" : (" " + bankCancelButton(s, label));
     var flag = "";
-    try { if (bankItemChargedAfter(snap, s)) flag = ' <span class="tone-stop">Charged after cancel</span>'; } catch (e2) { flag = ""; }
-    return "<li><span class=\"bank-merchant\">" + bankEsc(label) + "</span> <b>" + bankMoney(s.amount) + "</b>" + flag + action + "</li>";
+    try { if (bankItemChargedAfter(snap, s)) flag = " " + bankChargedFlagHtml(); } catch (e2) { flag = ""; }
+    return '<li><button type="button" class="mix-leg wrap" data-bank-cancel-open="1" data-bank-cancel="' + bankEsc(key) + '">' +
+      '<span class="mix-leg-name">' + bankEsc(label) + '</span> <span class="mix-amt">' + bankMoney(s.amount) + "</span>" + flag + "</button></li>";
   }).join("");
   return '<section class="bank-edit-block"><h2>Subscriptions</h2><div class="card span"><ul class="bank-edit-list">' + items + "</ul></div></section>";
 }
@@ -11426,19 +11564,30 @@ function bankCancelSheetHtml(snap, opts) {
   if (!sheet || !sheet.key) return "";
   var row = bankDeskRowByKey(snap, sheet.key) || { name: sheet.name || sheet.key };
   var label = sheet.name || bankBillDisplayName(row.name, row.display_label);
+  var month = bankMonthKey(opts.planMonth || opts.month || bankScreenMonth(snap, opts));
+  var cancelled = isCancelled(row, month);
   var choice = sheet.fromChoice === "next" ? "next" : "this";
+  if (!sheet.fromChoice) choice = bankMonthHasCharge(snap, row, month) ? "next" : "this";
   var look = "";
   try { look = bankCancelAppearance(snap, row); } catch (e) { look = ""; }
+  function chip(value, text) {
+    var on = choice === value;
+    return '<button type="button" class="book-chip' + (on ? " on" : "") + '" data-bank-cancel-from="' + value +
+      '" aria-pressed="' + (on ? "true" : "false") + '">' + text + "</button>";
+  }
+  var key = bankBillControlKey(row) || sheet.key;
+  var actions = cancelled
+    ? '<button type="button" class="act" data-bank-status-undo="' + bankEsc(key) + '" aria-label="Reactivate ' + bankEsc(label) + '">Reactivate</button>'
+    : '<span class="sub">Stop from</span> ' + chip("this", "This month") + " " + chip("next", "Next month") +
+      ' <button type="button" class="act" data-bank-cancel-go="1">Confirm</button>';
+  var title = cancelled ? label : ("Cancel " + label);
   return '<div class="books-overlay on sheet-bottom" data-bank-cancel-sheet="1">' +
-    '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="Cancel ' + bankEsc(label) + '">' +
+    '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="' + bankEsc(title) + '">' +
     '<div class="books-head"><h2>' + bankEsc(label) + "</h2>" +
     '<button type="button" class="book-chip" data-bank-cancel-close="1">Close</button></div>' +
     (look ? '<span class="sub" data-bank-cancel-look="1">' + bankEsc(look) + "</span>" : "") +
-    '<p class="hint">Marks it cancelled here; it doesn\'t cancel with the company.</p>' +
-    '<span class="sub">Stop from</span> ' +
-    '<button type="button" class="book-chip" data-bank-cancel-from="this" aria-pressed="' + (choice === "this" ? "true" : "false") + '">This month</button> ' +
-    '<button type="button" class="book-chip" data-bank-cancel-from="next" aria-pressed="' + (choice === "next" ? "true" : "false") + '">Next month</button> ' +
-    '<button type="button" class="act" data-bank-cancel-go="1">Confirm</button></div></div>';
+    (cancelled ? "" : '<p class="hint">Marks it cancelled here; it doesn\'t cancel with the company.</p>') +
+    actions + "</div></div>";
 }
 
 function bankCancelToastHtml(toast) {
@@ -11448,10 +11597,7 @@ function bankCancelToastHtml(toast) {
 }
 
 function bankChargedAlertHtml(snap) {
-  var n = 0;
-  try { n = bankChargedAfterCount(snap); } catch (e) { n = 0; }
-  if (!(n > 0)) return "";
-  return '<p class="hint tone-stop" role="status" data-bank-charged-alert="' + n + '">Charged after cancel</p>';
+  return bankChargedPillHtml(snap);
 }
 
 function bankUnmatchedStatusHtml(snap) {
@@ -11559,10 +11705,9 @@ function bankTierEditSections(snap, ym, edits, confirm, opts) {
     if (!s || !bankBillCounted(s)) return;
     var tier = bankResolveTier(s.name, snap, ctx, s);
     var label = bankBillDisplayName(s.name);
-    var subTap = isCancelled(s, ym) ? "" : (" " + bankCancelButton(s, label));
     place(tier, {
       html: "<tr><td><span class=\"sym bank-merchant\">" + bankEsc(label) +
-        '</span></td><td class="num">' + bankMoney(s.amount) + "</td><td>" + bankTierPickHtml(s.name, tier, label) + subTap + "</td></tr>",
+        '</span></td><td class="num">' + bankMoney(s.amount) + "</td><td>" + bankTierPickHtml(s.name, tier, label) + "</td></tr>",
       amount: s.amount,
       days: s.typical_day == null ? [] : [s.typical_day],
       typical_day: s.typical_day,
@@ -12136,18 +12281,25 @@ function bankEditsPanelHtml(snap, opts) {
     '<p class="hint">A blank amount or day stays blank.</p>' +
     bankEditIncomeHtml(incomes, ym) + "</div></section>" +
     bankUnmatchedStatusHtml(snap));
-  return '<div class="bank-edit-grid">' + saveErr + undo + bankTxSearchHtml(snap, Object.assign({}, opts, { txAssign: txAssign })) +
-    bankSpendEditorHtml(snap, opts) +
-    '<section class="bank-edit-block"><h2>Bills</h2><div class="card span">' + dueNote + dueErr +
-    bankEditBillHtml(bills, ym, opts.edits, opts.statusConfirm, snap) + bankCancelledListHtml(snap, ym) + "</div></section>" +
-    bankEditSubSection(snap, ym) +
-    (tiers.other || "") +
-    '<div class="bank-edit-rules">' + (tiers.rules || "") +
-    "<section><h2>Rules</h2><div class=\"card span\">" +
-    (kindNote || "") + kindErr +
+  var pill = "";
+  try { pill = bankChargedPillHtml(snap); } catch (ePill) { pill = ""; }
+  var rulesBody = (kindNote || "") + kindErr +
     (bankCategoriesActive(snap) ? "" : ('<div class="bank-tier-plans">' + bankPlanFieldHtml(snap, ym, "required", "Required plan") + " " +
     bankPlanFieldHtml(snap, ym, "needs", "Needs plan") + " " + bankPlanFieldHtml(snap, ym, "wants", "Wants plan") + "</div>")) +
-    bankKindEditHtml(snap) + "</div></section></div>" + more + "</div>";
+    bankKindEditHtml(snap);
+  var rulesText = String(rulesBody || "").replace(/<[^>]+>/g, "").replace(/\s+/g, "");
+  var rulesSection = rulesText
+    ? '<div class="bank-edit-rules">' + (tiers.rules || "") +
+      "<section><h2>Rules</h2><div class=\"card span\">" + rulesBody + "</div></section></div>"
+    : (tiers.rules ? '<div class="bank-edit-rules">' + tiers.rules + "</div>" : "");
+  return '<div class="bank-edit-grid">' + pill + saveErr + undo + bankTxSearchHtml(snap, Object.assign({}, opts, { txAssign: txAssign })) +
+    bankSpendEditorHtml(snap, opts) +
+    '<section class="bank-edit-block"><h2>Bills</h2><div class="card span">' + dueNote + dueErr +
+    bankEditBillHtml(bills, ym, opts.edits, opts.statusConfirm, snap) +
+    bankCancelledListHtml(snap, ym, opts.edits, opts.statusConfirm, opts) + "</div></section>" +
+    bankEditSubSection(snap, ym) +
+    (tiers.other || "") +
+    rulesSection + more + "</div>";
 }
 
 function bankTabHint(tab) {
@@ -12180,7 +12332,7 @@ function bankPageHtml(snap, opts) {
     notice = '<p class="hint tone-stop" role="status">' + bankEsc(opts.tierSaveError) + "</p>";
   }
   return bankNavHtml(tab, opts.menuOpen, title, snap || {}, opts) + '<div class="bank-panel" data-panel="' + tab + '" aria-labelledby="bank-view-title">' +
-    bankChargedAlertHtml(snap) + bankCancelToastHtml(opts.cancelToast) + notice + bankTierStaleHtml(snap) + panel + "</div>" +
+    bankCancelToastHtml(opts.cancelToast) + notice + bankTierStaleHtml(snap) + panel + "</div>" +
     bankGroupPopupHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
     bankSpendPopupHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
     bankCancelSheetHtml(snap || {}, Object.assign({ tab: tab }, opts));
@@ -12290,6 +12442,7 @@ function bankPaint(root, paintOpts) {
     uncatOpen: !!st.uncatOpen,
     cancelSheet: st.cancelSheet || null,
     cancelToast: st.cancelToast || null,
+    reviewCancel: !!st.reviewCancel,
     nextIndex: st.nextIndex || 0
   });
   bankPaintTicker(st.data, { now: st.now });
@@ -12297,6 +12450,13 @@ function bankPaint(root, paintOpts) {
     try { MPListCap.refresh(root); } catch (e) {}
   }
   bankScrollLedgerToToday(root);
+  if (st.reviewCancel && st.tab === "edits" && root.querySelector) {
+    var reviewRow = root.querySelector("[data-bank-cancelled]");
+    if (reviewRow && reviewRow.scrollIntoView) {
+      try { reviewRow.scrollIntoView({ block: "nearest" }); } catch (eRev) {}
+    }
+  }
+  if (st.tab !== "edits") st.reviewCancel = false;
 }
 
 function bankScrollLedgerToToday(root) {
@@ -13887,6 +14047,7 @@ function bankMount(root, data, opts) {
       if (root._bank) {
         root._bank.menuOpen = false;
         if (tabBtn.getAttribute("data-bank-uncat-open") != null) root._bank.uncatOpen = true;
+        if (tabBtn.getAttribute("data-bank-charged-review") != null) root._bank.reviewCancel = true;
       }
       bankActivate(root, tabBtn.getAttribute("data-bank-tab"));
       return;
@@ -14137,16 +14298,22 @@ function bankMount(root, data, opts) {
     }
     var cancelOpen = t.closest("[data-bank-cancel-open]");
     if (cancelOpen && cancelOpen.getAttribute && root._bank) {
-      if (e.preventDefault) e.preventDefault();
-      var openKey = cancelOpen.getAttribute("data-bank-cancel");
-      var openRow = bankDeskRowByKey(root._bank.data, openKey);
-      root._bank.cancelSheet = {
-        key: openKey,
-        name: openRow ? bankBillDisplayName(openRow.name, openRow.display_label) : openKey,
-        fromChoice: "this"
-      };
-      bankPaint(root);
-      return;
+      var skipOpen = t.closest(".fills-affordance, input, select, textarea, button, a, label");
+      var blockedOpen = skipOpen && skipOpen !== cancelOpen && (!cancelOpen.contains || cancelOpen.contains(skipOpen));
+      if (!blockedOpen) {
+        if (e.preventDefault) e.preventDefault();
+        var openKey = cancelOpen.getAttribute("data-bank-cancel");
+        var openRow = bankDeskRowByKey(root._bank.data, openKey);
+        var screenYm = bankMonthKey(root._bank.planMonth || bankCalendarMonth(root._bank.data));
+        var fromChoice = openRow && bankMonthHasCharge(root._bank.data, openRow, screenYm) ? "next" : "this";
+        root._bank.cancelSheet = {
+          key: openKey,
+          name: openRow ? bankBillDisplayName(openRow.name, openRow.display_label) : openKey,
+          fromChoice: fromChoice
+        };
+        bankPaint(root);
+        return;
+      }
     }
     var cancelFrom = t.closest("[data-bank-cancel-from]");
     if (cancelFrom && cancelFrom.getAttribute && root._bank && root._bank.cancelSheet) {
@@ -14183,8 +14350,13 @@ function bankMount(root, data, opts) {
         var cardNodes = root.querySelectorAll("[data-bank-next-card]");
         var di;
         for (di = 0; di < dotNodes.length; di++) {
-          if (di === dotIndex) dotNodes[di].setAttribute("aria-current", "true");
-          else dotNodes[di].removeAttribute("aria-current");
+          if (di === dotIndex) {
+            dotNodes[di].setAttribute("aria-current", "true");
+            if (dotNodes[di].classList) dotNodes[di].classList.add("on");
+          } else {
+            dotNodes[di].removeAttribute("aria-current");
+            if (dotNodes[di].classList) dotNodes[di].classList.remove("on");
+          }
         }
         if (cardNodes[dotIndex] && cardNodes[dotIndex].scrollIntoView) {
           try { cardNodes[dotIndex].scrollIntoView({ inline: "start", block: "nearest" }); } catch (eDot) {}
@@ -14462,8 +14634,13 @@ function bankMount(root, data, opts) {
           var dots = root.querySelectorAll("[data-bank-next-dot]");
           var ki;
           for (ki = 0; ki < dots.length; ki++) {
-            if (ki === idx) dots[ki].setAttribute("aria-current", "true");
-            else dots[ki].removeAttribute("aria-current");
+            if (ki === idx) {
+              dots[ki].setAttribute("aria-current", "true");
+              if (dots[ki].classList) dots[ki].classList.add("on");
+            } else {
+              dots[ki].removeAttribute("aria-current");
+              if (dots[ki].classList) dots[ki].classList.remove("on");
+            }
           }
           if (cards[idx] && cards[idx].scrollIntoView) {
             try { cards[idx].scrollIntoView({ inline: "start", block: "nearest" }); } catch (eKey) {}
