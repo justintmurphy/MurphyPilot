@@ -4894,7 +4894,7 @@ function bankSortByDue(rows, opts) {
   return list;
 }
 
-/* The same rows feed Tier Summary and the More details lists. */
+/* Tier Summary is the only place these rows render. */
 function bankTierLineRows(groups, opts) {
   opts = opts || {};
   var seenRaw = {};
@@ -4959,24 +4959,6 @@ function bankTierLineRows(groups, opts) {
     out[tier] = rows;
   });
   return out;
-}
-
-function bankTierRowLists(groups, opts) {
-  opts = opts || {};
-  var lines = bankTierLineRows(groups, opts);
-  return ["required", "needs", "wants"].map(function (tier) {
-    var rows = lines[tier] || [];
-    if (!rows.length) return "";
-    var swatch = tier === "needs" ? "var(--mix-a)" : tier === "wants" ? "var(--mix-b)" : "var(--mix-c)";
-    var items = rows.map(function (r) {
-      return '<div class="mix-leg"><i style="background:' + swatch + '"></i>' +
-        '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(r.name) + "</span>" +
-        (r.when ? ' <span class="sub">' + bankEsc(r.when) + "</span>" : "") + "</span> " +
-        '<span class="mix-leg-fig"><span class="mix-amt">' + bankMoney(r.amount) + "</span></span></div>";
-    }).join("");
-    return '<h2>' + bankTierLabel(tier) + '</h2><div class="card span">' +
-      bankCapList('<div class="mix-legend">' + items + "</div>", rows.length, bankTierLabel(tier)) + "</div>";
-  }).join("");
 }
 
 function bankTierSumsFromCats(snap, list) {
@@ -5399,6 +5381,16 @@ function bankPeriodBillRows(snap, opts, start, end) {
     if (months.indexOf(slice.ym) < 0) months.push(slice.ym);
   });
   var ctx = bankKindContext(snap);
+  var paidByMonth = {};
+  function paidAmounts(month) {
+    if (!paidByMonth[month]) {
+      var bills = bankPreparedBills(snap, undefined).filter(function (b) {
+        return b && !bankBillRetired(b, month);
+      });
+      paidByMonth[month] = bankPaidMonthAmounts(snap, bills, month, opts);
+    }
+    return paidByMonth[month];
+  }
   bankPreparedBills(snap, undefined).forEach(function (b) {
     if (!b || b.set_aside || bankIsSetAside(b)) return;
     months.forEach(function (month) {
@@ -5422,6 +5414,8 @@ function bankPeriodBillRows(snap, opts, start, end) {
         }
         if (amount == null) amount = bankBillLineAmount(b, month, opts && opts.edits);
         if (amount == null || !(amount > 0)) return;
+        var face = bankTierKey(bankBillDisplayName(b.name, b.display_label));
+        if (bankSamePaidAmount(paidAmounts(month)[face], amount)) return;
         rows.push({
           name: bankBillDisplayName(b.name, b.display_label),
           due: due,
@@ -8838,19 +8832,6 @@ function bankMoreDetailsHtml(snap, opts, mode, month, view, actuals, missing) {
     var liveTiles = bankLiveAccountTiles(snap);
     var byBody = (liveTiles || "") + (blocks || "");
     if (byBody) bits.push(bankMixMore("By account", byBody));
-  }
-  if (!(mode === "historical" && missing)) {
-    var edits = mode === "historical" ? null : opts.edits;
-    var groups = bankAlignTierGroups(bankCollectTierRows(view, month, edits, false), snap, month);
-    var today = bankScreenToday(view, opts);
-    var todayIso = today ? bankDateKey(today.year, today.month, today.day) : "";
-    var lists = bankTierRowLists(groups, {
-      today: todayIso,
-      mode: mode === "historical" ? "historical" : (mode || "plan"),
-      month: month,
-      edits: edits
-    });
-    if (lists) bits.push(lists);
   }
   if (mode === "plan") {
     var budget = (snap && snap.budget) || {};
