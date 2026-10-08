@@ -68,7 +68,7 @@ test("edits search keeps the input while typing grocer at 390", { timeout: 30000
     await page.waitForTimeout(400);
     const state = await page.evaluate(function () {
       const el = document.querySelector("[data-bank-find]");
-      const results = document.querySelector("[data-bank-tx-results]");
+      const results = document.querySelector("[data-bank-find-results]");
       const text = results ? results.innerText.replace(/\s+/g, " ") : "";
       return {
         value: el ? el.value : "",

@@ -9815,14 +9815,14 @@ function bankTxSearchHtml(snap, opts) {
     '<select data-bank-find-filter="month" aria-label="Month"><option value="">Any month</option> ' + monthOpts + "</select> " +
     '<button type="button" class="book-chip" data-bank-find-order="' + (order === "asc" ? "desc" : "asc") + '">' +
     (order === "asc" ? "Oldest" : "Newest") + "</button></div>" +
-    '<div data-bank-tx-results>' + bankTxResultsHtml(snap, opts) + "</div>" +
+    '<div data-bank-find-results>' + bankTxResultsHtml(snap, opts) + "</div>" +
     assign + "</div></section>";
 }
 
 /* Refresh the results list without replacing the search input, so a phone keyboard stays up. */
 function bankPaintTxResults(root) {
   if (!root || !root._bank || !root.querySelector) return;
-  var slot = root.querySelector("[data-bank-tx-results]");
+  var slot = root.querySelector("[data-bank-find-results]");
   if (!slot) return;
   var st = root._bank;
   var input = root.querySelector("[data-bank-find]");
