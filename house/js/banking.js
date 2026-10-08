@@ -8183,13 +8183,14 @@ function bankAllocMoveHtml(move) {
     if (name && names.indexOf(name) < 0) names.push(name);
   });
   var nameHtml = names.map(function (name) {
-    return '<span class="mix-leg-name">' + bankEsc(name) + "</span>";
-  }).join(" ");
-  return '<p class="mix-leg wrap" data-bank-move="1" data-bank-move-amount="' + bankRoundCents(move.amount) +
+    return '<p class="mix-hint">' + bankEsc(name) + "</p>";
+  }).join("");
+  return '<div data-bank-move="1" data-bank-move-amount="' + bankRoundCents(move.amount) +
     '" data-bank-move-from="' + bankEsc(move.fromLast4 || move.from || "") +
     '" data-bank-move-to="' + bankEsc(move.toLast4 || move.to || "") +
     '" data-bank-move-date="' + bankEsc(move.date || "") + '">' +
-    nameHtml + (nameHtml ? " " : "") + '<span class="mix-leg-name">' + bankEsc(line) + "</span></p>";
+    '<p class="mix-leg wrap"><span class="mix-leg-name">' + bankEsc(line) + "</span></p>" +
+    nameHtml + "</div>";
 }
 
 function bankAllocMovesHtml(moves) {
@@ -8431,8 +8432,8 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried,
       var fromText = bankFromMask(bankPayFromForName(snap, row.name));
       if (fromText) fromHtml = ' <span class="sub' + (paid ? " tone-flat" : "") + '">' + bankEsc(fromText) + "</span>";
     } catch (eFrom) { fromHtml = ""; }
-    return "<tr" + (paid ? ' class="tone-flat" data-bank-bill-paid="1"' : ' data-bank-bill-paid="0"') + "><td><span class=\"mix-leg wrap\"><span class=\"mix-leg-name\"><span class=\"" + nameCls + "\">" +
-      bankEsc(row.name) + '</span></span> <span class="sub' + (paid ? " tone-flat" : "") + '">' + bankEsc(due) + "</span>" + fromHtml + mark + "</span></td>" +
+    return "<tr" + (paid ? ' class="tone-flat" data-bank-bill-paid="1"' : ' data-bank-bill-paid="0"') + "><td><span class=\"" + nameCls + "\">" +
+      bankEsc(row.name) + "</span>" + mark + ' <span class="sub' + (paid ? " tone-flat" : "") + '">' + bankEsc(due) + "</span>" + fromHtml + "</td>" +
       '<td class="' + amtCls + '">' + bankEsc(row.amount == null ? "\u2014" : flow.text) + "</td></tr>";
   }).join("");
   var also = math.also != null ? math.also : bankAlsoInAmount(snap, period);
@@ -12366,23 +12367,30 @@ function bankCancelSheetHtml(snap, opts) {
   var fromNow = "";
   try { fromNow = bankFromLabel(bankPayFrom(snap, row)); } catch (eFrom) { fromNow = ""; }
   var payError = opts.billAccountError || "";
-  var payBlock = '<p class="mix-leg wrap" data-bank-payfrom-row="1"><span class="mix-leg-name">' + bankEsc(label) + "</span>" +
+  var paySaved = !payError && opts.billAccountSaved ? opts.billAccountSaved : "";
+  var payStatus = payError
+    ? '<p class="hint tone-stop" role="status" data-bank-payfrom-error="1">' + bankEsc(payError) + "</p>"
+    : (paySaved ? '<p class="hint" role="status" data-bank-payfrom-saved="1">' + bankEsc(paySaved) + "</p>" : "");
+  var payBlock = '<section data-bank-payfrom-row="1"><h2>Pay from</h2>' +
+    '<p class="mix-leg wrap"><span class="mix-leg-name">' + bankEsc(label) + "</span>" +
     (fromNow ? ' <span class="sub">' + bankEsc(fromNow) + "</span>" : "") + "</p>" +
-    '<label class="mix-leg wrap">Pay from <select class="bank-chip" data-bank-payfrom="' + bankEsc(payKey) + '" aria-label="Pay from">' +
+    '<label><select data-bank-payfrom="' + bankEsc(payKey) + '" aria-label="Pay from">' +
     bankPayFromOptions(snap, row) + "</select></label>" +
-    (payError ? '<p class="hint tone-stop" role="status" data-bank-payfrom-error="1">' + bankEsc(payError) + "</p>" : "");
-  var actions = cancelled
-    ? '<button type="button" class="act" data-bank-status-undo="' + bankEsc(key) + '" aria-label="Reactivate ' + bankEsc(label) + '">Reactivate</button>'
-    : '<span class="sub">Stop from</span> ' + chip("this", "This month") + " " + chip("next", "Next month") +
-      ' <button type="button" class="act" data-bank-cancel-go="1">Confirm</button>';
+    payStatus + "</section>";
+  var cancelBlock = cancelled
+    ? '<section data-bank-cancel-block="1"><button type="button" class="act" data-bank-status-undo="' + bankEsc(key) +
+      '" aria-label="Reactivate ' + bankEsc(label) + '">Reactivate</button></section>'
+    : '<section data-bank-cancel-block="1"><h2>Cancel this bill</h2>' +
+      '<p class="hint">Marks it cancelled here; it doesn\'t cancel with the company.</p>' +
+      '<span class="sub">Stop from</span> ' + chip("this", "This month") + " " + chip("next", "Next month") +
+      ' <button type="button" class="act" data-bank-cancel-go="1">Cancel bill</button></section>';
   var title = cancelled ? label : ("Cancel " + label);
   return '<div class="books-overlay on sheet-bottom" data-bank-cancel-sheet="1">' +
     '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="' + bankEsc(title) + '">' +
     '<div class="books-head"><h2>' + bankEsc(label) + "</h2>" +
     '<button type="button" class="book-chip" data-bank-cancel-close="1">Close</button></div>' +
     (look ? '<span class="sub" data-bank-cancel-look="1">' + bankEsc(look) + "</span>" : "") +
-    (cancelled ? "" : '<p class="hint">Marks it cancelled here; it doesn\'t cancel with the company.</p>') +
-    payBlock + actions + "</div></div>";
+    payBlock + cancelBlock + "</div></div>";
 }
 
 function bankCancelToastHtml(toast) {
@@ -13342,6 +13350,7 @@ function bankPaint(root, paintOpts) {
     uncatOpen: !!st.uncatOpen,
     cancelSheet: st.cancelSheet || null,
     billAccountError: st.billAccountError || "",
+    billAccountSaved: st.billAccountSaved || "",
     cancelToast: st.cancelToast || null,
     reviewCancel: !!st.reviewCancel,
     nextIndex: st.nextIndex || 0
@@ -14269,6 +14278,7 @@ function bankSaveBillAccount(root, key, suffix) {
     var digits = bankLast4Digits(suffix);
     if (!digits || !bankKnownSuffix(snap, digits)) {
       root._bank.billAccountError = "bad_account";
+      root._bank.billAccountSaved = "";
       bankPaint(root);
       return Promise.resolve(false);
     }
@@ -14284,6 +14294,7 @@ function bankSaveBillAccount(root, key, suffix) {
   });
   if (suffix != null && !exists && n >= 200) {
     root._bank.billAccountError = "too_many_accounts";
+    root._bank.billAccountSaved = "";
     bankPaint(root);
     return Promise.resolve(false);
   }
@@ -14300,6 +14311,7 @@ function bankSaveBillAccount(root, key, suffix) {
       var code = bankSpendErrorCode(payload);
       if (code === "bad_account" || code === "too_many_accounts") root._bank.billAccountError = code;
       else root._bank.billAccountError = "Could not save tiers.json. The change is still on this screen.";
+      root._bank.billAccountSaved = "";
       bankPaint(root);
       return false;
     }
@@ -14311,11 +14323,13 @@ function bankSaveBillAccount(root, key, suffix) {
       else doc.bill_account[id] = suffix;
     }
     root._bank.billAccountError = "";
+    root._bank.billAccountSaved = "Saved";
     bankPaint(root);
     return true;
   }).catch(function () {
     if (!root._bank) return false;
     root._bank.billAccountError = "Could not save tiers.json. The change is still on this screen.";
+    root._bank.billAccountSaved = "";
     bankPaint(root);
     return false;
   });
@@ -15274,6 +15288,8 @@ function bankMount(root, data, opts) {
         var openRow = bankDeskRowByKey(root._bank.data, openKey);
         var screenYm = bankMonthKey(root._bank.planMonth || bankCalendarMonth(root._bank.data));
         var fromChoice = openRow && bankMonthHasCharge(root._bank.data, openRow, screenYm) ? "next" : "this";
+        root._bank.billAccountSaved = "";
+        root._bank.billAccountError = "";
         root._bank.cancelSheet = {
           key: openKey,
           name: openRow ? bankBillDisplayName(openRow.name, openRow.display_label) : openKey,

@@ -285,7 +285,7 @@ async function main() {
   if (!/POWER DRAFT/.test(sheetText)) throw new Error("sheet descriptor");
   if (!/2222/.test(sheetText)) throw new Error("sheet last4");
   if (!/Stop from/.test(sheetText)) throw new Error("sheet stop");
-  if (!/This month/.test(sheetText) || !/Next month/.test(sheetText) || !/Confirm/.test(sheetText)) throw new Error("sheet actions");
+  if (!/This month/.test(sheetText) || !/Next month/.test(sheetText) || !/Cancel bill/.test(sheetText)) throw new Error("sheet actions");
   const pressed = await page.locator('[data-bank-cancel-from="this"]').getAttribute("aria-pressed");
   const pressedClass = await page.locator('[data-bank-cancel-from="this"]').getAttribute("class");
   if (pressed !== "true" || String(pressedClass || "").split(/\s+/).indexOf("on") < 0) throw new Error("preselect " + pressed + " " + pressedClass);

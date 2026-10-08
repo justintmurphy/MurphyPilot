@@ -264,15 +264,20 @@ test("next pay moves match by account and the hero identity holds", function () 
   assert.equal(end, ledger);
   assert.equal(num("data-bank-alloc-total"), 70);
   assert.match(html, /data-bank-left-after="/);
-  const moveRow = (next.match(/<p class="mix-leg wrap" data-bank-move="1"[\s\S]*?<\/p>/) || [""])[0];
+  const moveBlock = (next.match(/<div data-bank-move="1"[\s\S]*?<\/div>/) || [""])[0];
+  const sentence = (moveBlock.match(/<p class="mix-leg wrap">[\s\S]*?<\/p>/) || [""])[0];
   const sheet = html.slice(html.indexOf('data-bank-cancel-sheet="1"'));
-  assert.match(moveRow, /mix-leg-name">Neighborhood Electric Cooperative</);
+  assert.match(sentence, /mix-leg-name">Move \$70\.00 ··1111 → ··2222 by Oct 19</);
+  assert.doesNotMatch(sentence, /Neighborhood Electric Cooperative/);
+  assert.match(moveBlock, /<p class="mix-hint">Neighborhood Electric Cooperative<\/p>/);
   assert.match(sheet, /data-bank-payfrom-row="1"[\s\S]*mix-leg-name">Neighborhood Electric Cooperative</);
   assert.match(sheet, /aria-label="Pay from"/);
   assert.match(sheet, /Default \(history\)/);
-  assert.doesNotMatch(moveRow + sheet.slice(0, 800), /…|\.\.\.|hellip/);
+  assert.doesNotMatch(moveBlock + sheet.slice(0, 1200), /…|\.\.\.|hellip/);
   const css = fs.readFileSync(path.join(root, "house/house.css"), "utf8");
   assert.match(css, /\.mix-leg\.wrap \.mix-leg-name[\s\S]{0,160}text-overflow:\s*unset/);
+  assert.match(css, /\[data-bank-move\] > \.mix-hint[\s\S]{0,220}text-overflow:\s*unset/);
+  assert.match(css, /\.books-sheet select\[data-bank-payfrom\][\s\S]{0,180}width:\s*100%/);
 });
 
 test("bill account save is a POST merge and null clears", async function () {
@@ -366,4 +371,77 @@ test("bill account save is a POST merge and null clears", async function () {
   assert.equal(calls.filter(function (c) { return c.method === "PUT"; }).length, 0);
   assert.match(el.innerHTML, /data-bank-payfrom-error="1">too_many_accounts</);
   assert.match(el.innerHTML, /data-bank-cancel-sheet="1"/);
+});
+
+test("pay from saves on its own and never writes bill status", async function () {
+  const ctx = boot();
+  const snap = moveSnap();
+  snap.tier_doc.bill_status = { power: { status: "active" } };
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    const method = init && init.method ? String(init.method).toUpperCase() : "GET";
+    calls.push({ url: String(url), method: method, body: init && init.body });
+    const u = String(url);
+    if (u.indexOf("/data/banking/tiers.json") >= 0 && method === "GET") {
+      return Promise.resolve({ ok: true, status: 200, type: "basic", json: function () { return Promise.resolve(snap.tier_doc); } });
+    }
+    if (u.indexOf("/data/banking/tiers.json") >= 0 && method === "POST") {
+      return Promise.resolve({ ok: true, status: 200, type: "basic", json: function () { return Promise.resolve({ ok: true }); } });
+    }
+    return Promise.resolve({ ok: false, status: 404, type: "basic", json: function () { return Promise.resolve(null); } });
+  };
+  const el = mount(ctx, snap, { tab: "edits", planMonth: "2026-10", now: NOW });
+  await el._bank.prune;
+  el._bank.billAccountSaved = "Saved";
+  el._bank.billAccountError = "bad_account";
+  await el.listeners.click({
+    target: {
+      closest: function (sel) {
+        if (sel === "[data-bank-cancel-open]") {
+          return { getAttribute: function (name) { return name === "data-bank-cancel" ? "power" : null; }, contains: function () { return false; } };
+        }
+        return null;
+      }
+    },
+    preventDefault: function () {}
+  });
+  assert.equal(el._bank.billAccountSaved, "");
+  assert.equal(el._bank.billAccountError, "");
+  const sheet = el.innerHTML.slice(el.innerHTML.indexOf('data-bank-cancel-sheet="1"'));
+  const payAt = sheet.indexOf('data-bank-payfrom-row="1"');
+  const cancelAt = sheet.indexOf('data-bank-cancel-block="1"');
+  assert.ok(payAt >= 0 && cancelAt > payAt);
+  const paySlice = sheet.slice(payAt, cancelAt);
+  const cancelSlice = sheet.slice(cancelAt);
+  assert.doesNotMatch(paySlice, /Marks it cancelled|data-bank-cancel-go|>Confirm</);
+  assert.match(paySlice, /<h2>Pay from<\/h2>/);
+  assert.match(paySlice, /<select data-bank-payfrom="power" aria-label="Pay from">/);
+  assert.doesNotMatch(paySlice, /class="mix-leg wrap"[^>]*>Pay from|class="bank-chip"/);
+  assert.match(cancelSlice, /<h2>Cancel this bill<\/h2>/);
+  assert.match(cancelSlice, /Marks it cancelled here; it doesn.t cancel with the company/);
+  assert.match(cancelSlice, /Stop from/);
+  assert.match(cancelSlice, /data-bank-cancel-go="1">Cancel bill</);
+  assert.doesNotMatch(sheet, />Confirm</);
+  calls.length = 0;
+  await el.listeners.change({
+    target: {
+      value: "1111",
+      getAttribute: function (name) { return name === "data-bank-payfrom" ? "power" : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, "POST");
+  const body = JSON.parse(calls[0].body);
+  assert.equal(JSON.stringify(Object.keys(body)), JSON.stringify(["bill_account"]));
+  assert.equal(JSON.stringify(body.bill_account), JSON.stringify({ power: "1111" }));
+  assert.equal(Object.prototype.hasOwnProperty.call(body, "bill_status"), false);
+  calls.forEach(function (call) {
+    assert.equal(String(call.body || "").indexOf("bill_status"), -1);
+  });
+  assert.equal(JSON.stringify(el._bank.data.tier_doc.bill_status), JSON.stringify({ power: { status: "active" } }));
+  assert.match(el.innerHTML, /data-bank-payfrom-saved="1">Saved</);
+  assert.doesNotMatch(el.innerHTML, /data-bank-payfrom-error/);
+  assert.match(el.innerHTML, /data-bank-cancel-go="1">Cancel bill</);
+  assert.doesNotMatch(el.innerHTML, />Confirm</);
 });
