@@ -1,15 +1,15 @@
 {
-  "asof": "2026-10-06",
+  "asof": "2026-10-07",
   "source": "Truthifi",
-  "note": "Both links complete. Fidelity scan 6ac6a7b84691bff6b3a2ae63 and Voya scan 6ac6a7b99621c3bc349fd59f finished 2026-10-07 ~16:13 ET. Holdings date range tops at 2026-10-06 (today ET not in range). Cash sweeps counted as cash. ESPP empty. RSU 2 BNY (cost basis null from Truthifi). names[] full Truthifi securityName; Fid accounts[]+suffix last-4. No FAULT. Forge Close repair 2026-10-07 ~16:3x ET: restored tape.overall history from 7b8080c (RH fixes 562b356/95ad74d for 09-12/13/14/16/18/19/22 + 10-01; 10-03 and 10-06 rows re-added) after desk tip ddb1493 rebuilt tape from a stale base; overall.live_equity refreshed to house 16:17 ET close print 2589a56 (combined 3373.32). Holdings/names/sleeves unchanged from ddb1493 scans.",
-  "scanned_at": "2026-10-07 16:14 ET",
-  "holdings_asof": "2026-10-06",
+  "note": "Fidelity-only. Scan 6ac7cf31f5e1bf77626cc2f8 link 6a97271f6f50340ade6d97f5 complete 2026-10-08 13:13 ET. Voya not scanned; voya block copied unchanged from 447310ff (asof 2026-10-06). Holdings date range tops at 2026-10-07. Cash sweeps and ESPP USD counted as cash. ESPP was empty, now 108.98 USD cash suffix 9907. RSU 2 BNY cost basis null. names[] full Truthifi securityName; Fid accounts[]+suffix last-4. No FAULT. live_equity left at prior house print 3373.32 (live_asof 2026-10-07T16:17:12-04:00); not refreshed.",
+  "scanned_at": "2026-10-08 13:14 ET",
+  "holdings_asof": "2026-10-07",
   "overall": {
-    "equity": 69328.085,
+    "equity": 69415.004,
     "live_equity": 3373.32,
-    "custodial_equity": 65954.765,
-    "asof": "2026-10-07T16:00:00-04:00",
-    "holdings_asof": "2026-10-06",
+    "custodial_equity": 66041.684,
+    "asof": "2026-10-08T13:14:00-04:00",
+    "holdings_asof": "2026-10-07",
     "live_asof": "2026-10-07T16:17:12-04:00"
   },
   "accounts": {
@@ -17,13 +17,13 @@
       "id": "fidelity",
       "label": "Fidelity",
       "source": "Truthifi",
-      "asof": "2026-10-06",
-      "equity": 2984.762,
-      "equity_value": 2982.192,
-      "cash": 2.57,
-      "buying_power": 2.57,
+      "asof": "2026-10-07",
+      "equity": 3071.681,
+      "equity_value": 2960.131,
+      "cash": 111.55,
+      "buying_power": 111.55,
       "pending_deposits": 0,
-      "invested_pct": 99.91,
+      "invested_pct": 96.37,
       "open_orders": 0,
       "names": [
         {
@@ -41,54 +41,12 @@
           ]
         },
         {
-          "symbol": "BNY",
-          "name": "Bank Of New York Mellon Corp",
-          "kind": "equity",
-          "qty": 8.755,
-          "last": 143.73,
-          "value": 1258.313,
-          "cost": 973.58,
-          "sleeve": "BNY",
-          "account": "fidelity",
-          "accounts": [
-            "9084"
-          ]
-        },
-        {
-          "symbol": "SPCX",
-          "name": "Space Exploration Technologies Corp. - Ordinary Shares - Class A",
-          "kind": "equity",
-          "qty": 3.208,
-          "last": 171.92,
-          "value": 551.519,
-          "cost": 516.06,
-          "sleeve": "BNY",
-          "account": "fidelity",
-          "accounts": [
-            "9084"
-          ]
-        },
-        {
-          "symbol": "MU",
-          "name": "Micron Technology Inc.",
-          "kind": "equity",
-          "qty": 0.065,
-          "last": 1045.56,
-          "value": 67.961,
-          "cost": 57.52,
-          "sleeve": "BNY",
-          "account": "fidelity",
-          "accounts": [
-            "9084"
-          ]
-        },
-        {
           "symbol": "LMT",
           "name": "Lockheed Martin Corp.",
           "kind": "equity",
           "qty": 0.095,
-          "last": 510.12,
-          "value": 48.461,
+          "last": 499.22,
+          "value": 47.426,
           "cost": 50.2,
           "sleeve": "BNY",
           "account": "fidelity",
@@ -101,9 +59,23 @@
           "name": "NVIDIA Corp",
           "kind": "equity",
           "qty": 0.222,
-          "last": 239.24,
-          "value": 53.111,
+          "last": 237.47,
+          "value": 52.718,
           "cost": 49.79,
+          "sleeve": "BNY",
+          "account": "fidelity",
+          "accounts": [
+            "9084"
+          ]
+        },
+        {
+          "symbol": "SPCX",
+          "name": "Space Exploration Technologies Corp. - Ordinary Shares - Class A",
+          "kind": "equity",
+          "qty": 3.208,
+          "last": 167.6,
+          "value": 537.661,
+          "cost": 516.06,
           "sleeve": "BNY",
           "account": "fidelity",
           "accounts": [
@@ -115,9 +87,37 @@
           "name": "Tesla Inc",
           "kind": "equity",
           "qty": 0.121,
-          "last": 380.68,
-          "value": 46.062,
+          "last": 377.81,
+          "value": 45.715,
           "cost": 49.99,
+          "sleeve": "BNY",
+          "account": "fidelity",
+          "accounts": [
+            "9084"
+          ]
+        },
+        {
+          "symbol": "BNY",
+          "name": "Bank Of New York Mellon Corp",
+          "kind": "equity",
+          "qty": 8.755,
+          "last": 142.72,
+          "value": 1249.471,
+          "cost": 973.58,
+          "sleeve": "BNY",
+          "account": "fidelity",
+          "accounts": [
+            "9084"
+          ]
+        },
+        {
+          "symbol": "MU",
+          "name": "Micron Technology Inc.",
+          "kind": "equity",
+          "qty": 0.065,
+          "last": 1088,
+          "value": 70.72,
+          "cost": 57.52,
           "sleeve": "BNY",
           "account": "fidelity",
           "accounts": [
@@ -129,8 +129,8 @@
           "name": "T-Mobile US Inc",
           "kind": "equity",
           "qty": 0.294,
-          "last": 165.93,
-          "value": 48.783,
+          "last": 167.65,
+          "value": 49.289,
           "cost": 55.05,
           "sleeve": "BNY",
           "account": "fidelity",
@@ -157,8 +157,8 @@
           "name": "Fidelity Concord Street Trust - Fidelity Flex 500 Index Fund USD",
           "kind": "equity",
           "qty": 5.389,
-          "last": 33.24,
-          "value": 179.13,
+          "last": 33.16,
+          "value": 178.699,
           "cost": 157.33,
           "sleeve": "Roth",
           "account": "fidelity",
@@ -171,8 +171,8 @@
           "name": "Fidelity Salem Street Trust - Fidelity Flex U.S. Bond Index Fund USD MNT",
           "kind": "equity",
           "qty": 5.331,
-          "last": 8.72,
-          "value": 46.486,
+          "last": 8.71,
+          "value": 46.433,
           "cost": 48.2,
           "sleeve": "Roth",
           "account": "fidelity",
@@ -185,8 +185,8 @@
           "name": "Fidelity Salem Street Trust - Fidelity Flex Small Cap Index Fund USD",
           "kind": "equity",
           "qty": 0.357,
-          "last": 20.61,
-          "value": 7.358,
+          "last": 20.31,
+          "value": 7.251,
           "cost": 6.86,
           "sleeve": "Roth",
           "account": "fidelity",
@@ -199,8 +199,8 @@
           "name": "Fidelity Salem Street Trust - Fidelity Flex International Index Fund USD",
           "kind": "equity",
           "qty": 4.173,
-          "last": 19.45,
-          "value": 81.165,
+          "last": 19.2,
+          "value": 80.122,
           "cost": 75.84,
           "sleeve": "Roth",
           "account": "fidelity",
@@ -213,8 +213,8 @@
           "name": "Fidelity Salem Street Trust - Fidelity Flex Mid Cap Index Fund USD",
           "kind": "equity",
           "qty": 0.454,
-          "last": 25.09,
-          "value": 11.391,
+          "last": 24.78,
+          "value": 11.25,
           "cost": 10.56,
           "sleeve": "Roth",
           "account": "fidelity",
@@ -241,8 +241,8 @@
           "name": "Abbott Laboratories",
           "kind": "equity",
           "qty": 0.225,
-          "last": 98.16,
-          "value": 22.086,
+          "last": 98.73,
+          "value": 22.214,
           "cost": 20.09,
           "sleeve": "PER",
           "account": "fidelity",
@@ -255,8 +255,8 @@
           "name": "Vistra Corp",
           "kind": "equity",
           "qty": 0.148,
-          "last": 160.5,
-          "value": 23.754,
+          "last": 166.72,
+          "value": 24.675,
           "cost": 19.96,
           "sleeve": "PER",
           "account": "fidelity",
@@ -269,9 +269,23 @@
           "name": "NRG Energy Inc.",
           "kind": "equity",
           "qty": 0.557,
-          "last": 103.6,
-          "value": 57.705,
+          "last": 108.61,
+          "value": 60.496,
           "cost": 74.37,
+          "sleeve": "PER",
+          "account": "fidelity",
+          "accounts": [
+            "6913"
+          ]
+        },
+        {
+          "symbol": "DXCM",
+          "name": "Dexcom Inc",
+          "kind": "equity",
+          "qty": 0.296,
+          "last": 84.3,
+          "value": 24.953,
+          "cost": 19.99,
           "sleeve": "PER",
           "account": "fidelity",
           "accounts": [
@@ -283,8 +297,8 @@
           "name": "Becton Dickinson & Co.",
           "kind": "equity",
           "qty": 0.068,
-          "last": 180.3,
-          "value": 12.26,
+          "last": 180.16,
+          "value": 12.251,
           "cost": 9.99,
           "sleeve": "PER",
           "account": "fidelity",
@@ -297,8 +311,8 @@
           "name": "Align Technology, Inc.",
           "kind": "equity",
           "qty": 0.129,
-          "last": 141.45,
-          "value": 18.247,
+          "last": 139.87,
+          "value": 18.043,
           "cost": 19.98,
           "sleeve": "PER",
           "account": "fidelity",
@@ -311,23 +325,9 @@
           "name": "Edwards Lifesciences Corp",
           "kind": "equity",
           "qty": 0.242,
-          "last": 86.48,
-          "value": 20.928,
+          "last": 85.78,
+          "value": 20.759,
           "cost": 19.94,
-          "sleeve": "PER",
-          "account": "fidelity",
-          "accounts": [
-            "6913"
-          ]
-        },
-        {
-          "symbol": "DXCM",
-          "name": "Dexcom Inc",
-          "kind": "equity",
-          "qty": 0.296,
-          "last": 83.39,
-          "value": 24.683,
-          "cost": 19.99,
           "sleeve": "PER",
           "account": "fidelity",
           "accounts": [
@@ -339,8 +339,8 @@
           "name": "TechnipFMC plc",
           "kind": "equity",
           "qty": 0.137,
-          "last": 69.89,
-          "value": 9.575,
+          "last": 68.4,
+          "value": 9.371,
           "cost": 9.98,
           "sleeve": "PER",
           "account": "fidelity",
@@ -367,23 +367,9 @@
           "name": "Fidelity Concord Street Trust - Fidelity Flex 500 Index Fund USD",
           "kind": "equity",
           "qty": 1.751,
-          "last": 33.24,
-          "value": 58.203,
+          "last": 33.16,
+          "value": 58.063,
           "cost": 56.53,
-          "sleeve": "Trad",
-          "account": "fidelity",
-          "accounts": [
-            "0306"
-          ]
-        },
-        {
-          "symbol": "FIBUX",
-          "name": "Fidelity Salem Street Trust - Fidelity Flex U.S. Bond Index Fund USD MNT",
-          "kind": "equity",
-          "qty": 1.731,
-          "last": 8.72,
-          "value": 15.094,
-          "cost": 15.54,
           "sleeve": "Trad",
           "account": "fidelity",
           "accounts": [
@@ -395,9 +381,23 @@
           "name": "Fidelity Salem Street Trust - Fidelity Flex Small Cap Index Fund USD",
           "kind": "equity",
           "qty": 0.116,
-          "last": 20.61,
-          "value": 2.391,
+          "last": 20.31,
+          "value": 2.356,
           "cost": 2.47,
+          "sleeve": "Trad",
+          "account": "fidelity",
+          "accounts": [
+            "0306"
+          ]
+        },
+        {
+          "symbol": "FIBUX",
+          "name": "Fidelity Salem Street Trust - Fidelity Flex U.S. Bond Index Fund USD MNT",
+          "kind": "equity",
+          "qty": 1.731,
+          "last": 8.71,
+          "value": 15.077,
+          "cost": 15.54,
           "sleeve": "Trad",
           "account": "fidelity",
           "accounts": [
@@ -409,8 +409,8 @@
           "name": "Fidelity Salem Street Trust - Fidelity Flex Mid Cap Index Fund USD",
           "kind": "equity",
           "qty": 0.147,
-          "last": 25.09,
-          "value": 3.688,
+          "last": 24.78,
+          "value": 3.643,
           "cost": 3.74,
           "sleeve": "Trad",
           "account": "fidelity",
@@ -423,8 +423,8 @@
           "name": "Fidelity Salem Street Trust - Fidelity Flex International Index Fund USD",
           "kind": "equity",
           "qty": 1.356,
-          "last": 19.45,
-          "value": 26.374,
+          "last": 19.2,
+          "value": 26.035,
           "cost": 26.07,
           "sleeve": "Trad",
           "account": "fidelity",
@@ -433,12 +433,26 @@
           ]
         },
         {
+          "symbol": "CUR:USD",
+          "name": "U S Dollar",
+          "kind": "cash",
+          "qty": 108.98,
+          "last": 1,
+          "value": 108.98,
+          "cost": 108.98,
+          "sleeve": "ESPP",
+          "account": "fidelity",
+          "accounts": [
+            "9907"
+          ]
+        },
+        {
           "symbol": "BNY",
           "name": "Bank Of New York Mellon Corp",
           "kind": "equity",
           "qty": 2,
-          "last": 143.73,
-          "value": 287.46,
+          "last": 142.72,
+          "value": 285.44,
           "cost": null,
           "sleeve": "RSU",
           "account": "fidelity",
@@ -453,8 +467,8 @@
           "accountId": "15838942",
           "type": "Retirement",
           "subType": "ira",
-          "endingBalance": 106.341,
-          "equity": 106.341,
+          "endingBalance": 105.764,
+          "equity": 105.764,
           "suffix": "0306"
         },
         {
@@ -462,8 +476,8 @@
           "accountId": "15838901",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 189.409,
-          "equity": 189.409,
+          "endingBalance": 192.932,
+          "equity": 192.932,
           "suffix": "6913"
         },
         {
@@ -471,8 +485,8 @@
           "accountId": "15838900",
           "type": "Retirement",
           "subType": "roth_ira",
-          "endingBalance": 327.24,
-          "equity": 327.24,
+          "endingBalance": 325.465,
+          "equity": 325.465,
           "suffix": "5550"
         },
         {
@@ -480,8 +494,8 @@
           "accountId": "15838899",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 2074.312,
-          "equity": 2074.312,
+          "endingBalance": 2053.1,
+          "equity": 2053.1,
           "suffix": "9084"
         },
         {
@@ -489,8 +503,8 @@
           "accountId": "15838943",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 0.0,
-          "equity": 0.0,
+          "endingBalance": 108.98,
+          "equity": 108.98,
           "suffix": "9907"
         },
         {
@@ -498,8 +512,8 @@
           "accountId": "15838944",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 287.46,
-          "equity": 287.46,
+          "endingBalance": 285.44,
+          "equity": 285.44,
           "suffix": "9382"
         }
       ]
@@ -632,43 +646,43 @@
     "fidelity_trad": {
       "id": "fidelity_trad",
       "label": "Trad",
-      "asof": "2026-10-06",
-      "equity": 106.341,
+      "asof": "2026-10-07",
+      "equity": 105.764,
       "cash": 0.59
     },
     "fidelity_per": {
       "id": "fidelity_per",
       "label": "PER",
-      "asof": "2026-10-06",
-      "equity": 189.409,
+      "asof": "2026-10-07",
+      "equity": 192.932,
       "cash": 0.17
     },
     "fidelity_roth": {
       "id": "fidelity_roth",
       "label": "Roth",
-      "asof": "2026-10-06",
-      "equity": 327.24,
+      "asof": "2026-10-07",
+      "equity": 325.465,
       "cash": 1.71
     },
     "fidelity_bny": {
       "id": "fidelity_bny",
       "label": "BNY",
-      "asof": "2026-10-06",
-      "equity": 2074.312,
+      "asof": "2026-10-07",
+      "equity": 2053.1,
       "cash": 0.1
     },
     "fidelity_espp": {
       "id": "fidelity_espp",
       "label": "ESPP",
-      "asof": "2026-10-06",
-      "equity": 0.0,
-      "cash": 0.0
+      "asof": "2026-10-07",
+      "equity": 108.98,
+      "cash": 108.98
     },
     "fidelity_rsu": {
       "id": "fidelity_rsu",
       "label": "RSU",
-      "asof": "2026-10-06",
-      "equity": 287.46,
+      "asof": "2026-10-07",
+      "equity": 285.44,
       "cash": 0.0
     },
     "voya_401k": {
@@ -862,6 +876,13 @@
         "equity": 69328.085,
         "live": 3373.32,
         "custodial": 65954.765
+      },
+      {
+        "t": "2026-10-08T13:14:00-04:00",
+        "dtg": "081314R OCT 26",
+        "equity": 69415.004,
+        "live": 3373.32,
+        "custodial": 66041.684
       }
     ]
   }
