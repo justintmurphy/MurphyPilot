@@ -198,3 +198,34 @@ test("a negative month-end uses the red class", function () {
   const accounts = html.slice(html.indexOf("data-bank-hero-accounts"), html.indexOf("</section>", html.indexOf("data-bank-hero-accounts")));
   assert.doesNotMatch(accounts, BRANDS);
 });
+
+test("account rows under the hero sum to the combined figure, including a negative account", function () {
+  const ctx = boot();
+  const fx = blank(loadFixture());
+  fx.asof = "2026-10-08T12:00:00-04:00";
+  fx.budget.account_funding = [
+    { nickname: "Check", last4: "1111", start_balance: 50, current_balance: 50, current_balance_asof: "2026-10-06T09:00:00-04:00" },
+    { nickname: "Debit", last4: "2222", start_balance: 0, current_balance: -10.5, current_balance_asof: "2026-10-05T09:00:00-04:00" },
+    { nickname: "Savings", last4: "3333", start_balance: 2.84, current_balance: 2.84, current_balance_asof: "2026-10-04T09:00:00-04:00" }
+  ];
+  fx.budget.account_funding_combined = 42.34;
+  const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  const now = Number((html.match(/data-bank-hero-now="([^"]*)"/) || [])[1]);
+  const rows = accountSum(html);
+  const sum = Math.round(rows.reduce(function (n, v) { return n + v; }, 0) * 100) / 100;
+  assert.deepEqual(rows, [50, -10.5, 2.84]);
+  assert.equal(sum, 42.34);
+  assert.equal(now, sum);
+  assert.doesNotMatch(html, /data-bank-hero-toggle/);
+  assert.doesNotMatch(html.slice(html.indexOf("data-bank-hero-accounts"), html.indexOf("</table>", html.indexOf("data-bank-hero-accounts"))), /hidden/);
+  assert.match(html, /Check ··1111/);
+  assert.match(html, /Debit ··2222[\s\S]{0,80}tone-stop/);
+  assert.match(html, /<p class="hint">as of Oct 4/);
+  const hero = html.slice(html.indexOf('data-bank-hero="1"'), html.indexOf('data-bank-hero-figs'));
+  assert.ok(hero.indexOf("data-bank-hero-accounts") > hero.indexOf("</div></div>"));
+  assert.ok(hero.indexOf("<p class=\"hint\">as of Oct 4") > hero.indexOf("</table>"));
+  assert.doesNotMatch(hero, /books-head/);
+  const accounts = html.slice(html.indexOf("data-bank-hero-accounts"), html.indexOf("</table>", html.indexOf("data-bank-hero-accounts")));
+  assert.doesNotMatch(accounts, BRANDS);
+  assert.doesNotMatch(accounts, /style=/);
+});

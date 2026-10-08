@@ -737,7 +737,9 @@ test("a fixture with no categories still balances bank plus in minus to pay", fu
   const today = due.slice(due.indexOf('data-bank-today="1"'), due.indexOf("</tr>", due.indexOf('data-bank-today="1"')));
   assert.match(today, /\$24\.68/);
   assert.doesNotMatch(due, /sym">Month-end/);
-  assert.match(html, /class="book-chip"[^>]*data-bank-hero-toggle/);
+  assert.doesNotMatch(html, /data-bank-hero-toggle/);
+  assert.match(html, /data-bank-hero-accounts="1"/);
+  assert.doesNotMatch(html, /data-bank-hero-accounts="1"[^>]*hidden/);
   assert.match(html, /To pay &amp; set aside/);
   assert.match(html, /data-bank-uncat-warn="4"/);
 });
@@ -808,4 +810,141 @@ test("a calendar day row wraps the name and shows category and last-4", function
   assert.doesNotMatch(name, /text-overflow|nowrap|ellipsis/);
   assert.match(html, /data-bank-day-meta="1">[^<]*\u00b7 \u00b7\u00b72222/);
   assert.ok((html.match(/data-bank-day-item="1"/g) || []).length >= 2);
+});
+
+test("the transaction sheet defaults to just this one and saves that transaction only", async function () {
+  const ctx = boot();
+  const snap = bare(ctx);
+  snap.current.edits_tx = [{
+    date: "2026-10-05", amount: 12.34, flow: "outflow", desc: "Corner Market", category: "Groceries", tx_key: HASH, last4: "2222"
+  }];
+  const html = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00", txOpen: HASH });
+  const sheet = html.slice(html.indexOf("data-bank-tx-sheet"));
+  const oneAt = sheet.indexOf('data-bank-tx-scope="one"');
+  const merchantAt = sheet.indexOf('data-bank-tx-scope="merchant"');
+  assert.ok(oneAt >= 0 && oneAt < merchantAt);
+  assert.match(sheet, /class="book-chip on"[^>]*data-bank-tx-scope="one"|data-bank-tx-scope="one"[^>]*class="book-chip on"/);
+  assert.equal((html.match(/data-bank-spend-undo|data-bank-tx-undo/g) || []).length, 0);
+  const calls = watch(ctx);
+  const root = {
+    innerHTML: "",
+    listeners: {},
+    addEventListener: function (type, fn) { this.listeners[type] = fn; },
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; }
+  };
+  ctx.bankMount(root, snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00" });
+  root._bank.tab = "edits";
+  root._bank.txOpen = HASH;
+  ctx.bankPaint(root);
+  const sheetNode = {
+    querySelectorAll: function () {
+      return [{
+        classList: { contains: function (name) { return name === "on"; } },
+        getAttribute: function (name) {
+          if (name === "data-bank-tx-scope") return "one";
+          if (name === "aria-pressed") return "true";
+          return null;
+        },
+        value: "one"
+      }];
+    },
+    querySelector: function (sel) {
+      if (sel === "[data-bank-tx-cat]") return { value: "groceries" };
+      return null;
+    }
+  };
+  await root.listeners.click({
+    preventDefault: function () {},
+    target: {
+      tagName: "BUTTON",
+      getAttribute: function () { return null; },
+      closest: function (sel) {
+        if (sel === "[data-bank-tx-save]") {
+          return {
+            getAttribute: function (name) {
+              if (name === "data-bank-tx-key") return HASH;
+              if (name === "data-bank-tx-merchant") return "corner-market";
+              return "1";
+            },
+            closest: function (inner) { return inner === "[data-bank-tx-sheet]" ? sheetNode : null; }
+          };
+        }
+        return null;
+      }
+    }
+  });
+  const saves = calls.filter(function (call) { return call.body && call.body.category_tx; });
+  assert.equal(saves.length, 1);
+  assert.equal(saves[0].body.category_rules, undefined);
+  assert.equal(saves[0].body.category_tx[HASH], "groceries");
+  assert.equal((root.innerHTML.match(/data-bank-spend-undo/g) || []).length, 1);
+});
+
+test("an empty transaction search lists the newest rows and caps the visible list at 10", function () {
+  const ctx = boot();
+  const snap = bare(ctx);
+  const rows = [];
+  for (let i = 0; i < 12; i++) {
+    rows.push({
+      date: "2026-10-" + String(i + 1).padStart(2, "0"),
+      amount: i + 1,
+      flow: "outflow",
+      desc: "Shop " + String(i).padStart(2, "0"),
+      category: "Groceries",
+      tx_key: "t" + i,
+      last4: "2222"
+    });
+  }
+  snap.current.edits_tx = rows;
+  const html = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00" });
+  const list = html.slice(html.indexOf("data-bank-find-results"), html.indexOf("</section>", html.indexOf("data-bank-find-results")));
+  const names = [];
+  const re = /data-bank-item-name="1">([^<]+)/g;
+  let hit;
+  while ((hit = re.exec(list))) names.push(hit[1]);
+  assert.equal(names[0], "Shop 11");
+  assert.equal(names[1], "Shop 10");
+  assert.equal(names.length, 12);
+  assert.match(list, /class="list-cap"/);
+  assert.match(list, /--list-cap-rows:10/);
+  assert.match(list, /Showing 10 of 12, scroll for more/);
+  const filtered = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00", txQuery: "Shop 01" });
+  const found = filtered.slice(filtered.indexOf("data-bank-find-results"), filtered.indexOf("</section>", filtered.indexOf("data-bank-find-results")));
+  assert.match(found, /Shop 01/);
+  assert.doesNotMatch(found, /Shop 11/);
+});
+
+test("transaction search filters by category and matches a category name in the typed query", function () {
+  const ctx = boot();
+  const snap = bare(ctx);
+  snap.current.edits_tx = [
+    { date: "2026-10-08", amount: 12.34, flow: "outflow", desc: "North Lot", category: "Groceries", tx_key: "g1", last4: "2222" },
+    { date: "2026-10-07", amount: 8, flow: "outflow", desc: "City Fuel", category: "Gas", tx_key: "f1", last4: "2222" },
+    { date: "2026-09-02", amount: 3, flow: "outflow", desc: "Old Market", category: "Groceries", tx_key: "g0", last4: "2222" },
+    { date: "2026-10-06", amount: 4, flow: "outflow", desc: "Zz Sample", category: "", category_basis: "spend", tx_key: "u1", last4: "2222" },
+    { date: "2026-10-05", amount: 2, flow: "outflow", desc: "Inside Move", category: "", category_basis: "not_spend", tx_key: "n1", last4: "2222" }
+  ];
+  const picked = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00", txCat: "groceries" });
+  const catSel = picked.slice(picked.indexOf('aria-label="Category"'), picked.indexOf("</select>", picked.indexOf('aria-label="Category"')));
+  assert.match(catSel, /Any category/);
+  assert.match(catSel, />Uncategorized</);
+  assert.ok(catSel.indexOf(">Dining<") < catSel.indexOf(">Groceries<"));
+  assert.doesNotMatch(catSel, /style=/);
+  const groceryList = picked.slice(picked.indexOf("data-bank-find-results"), picked.indexOf("</section>", picked.indexOf("data-bank-find-results")));
+  assert.match(groceryList, /North Lot/);
+  assert.match(groceryList, /Old Market/);
+  assert.doesNotMatch(groceryList, /City Fuel|Zz Sample|Inside Move/);
+  const both = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00", txCat: "groceries", txMonth: "2026-10" });
+  const bothList = both.slice(both.indexOf("data-bank-find-results"), both.indexOf("</section>", both.indexOf("data-bank-find-results")));
+  assert.match(bothList, /North Lot/);
+  assert.doesNotMatch(bothList, /Old Market|City Fuel/);
+  const typed = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00", txQuery: "grocer" });
+  const typedList = typed.slice(typed.indexOf("data-bank-find-results"), typed.indexOf("</section>", typed.indexOf("data-bank-find-results")));
+  assert.match(typedList, /North Lot/);
+  assert.doesNotMatch(typedList, /City Fuel|Zz Sample|Inside Move/);
+  const open = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00", txCat: "uncategorized" });
+  const openList = open.slice(open.indexOf("data-bank-find-results"), open.indexOf("</section>", open.indexOf("data-bank-find-results")));
+  assert.match(openList, /Zz Sample/);
+  assert.doesNotMatch(openList, /Inside Move|North Lot|City Fuel|Old Market/);
 });
