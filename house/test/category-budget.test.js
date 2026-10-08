@@ -950,3 +950,213 @@ test("transaction search filters by category and matches a category name in the 
   assert.match(openList, /Zz Sample/);
   assert.doesNotMatch(openList, /Inside Move|North Lot|City Fuel|Old Market/);
 });
+
+function rowHtml(html, name, nth) {
+  let from = 0;
+  let at = -1;
+  const want = nth || 1;
+  for (let i = 0; i < want; i++) {
+    at = html.indexOf(name, from);
+    assert.ok(at >= 0, name + " #" + (i + 1));
+    from = at + name.length;
+  }
+  return html.slice(html.lastIndexOf("<li", at), html.indexOf("</li>", at));
+}
+
+test("not-purchase rows open a category sheet and stay out of totals until an override", function () {
+  const ctx = boot();
+  const snap = bare(ctx);
+  const loanHash = "h:" + "cd".repeat(16);
+  const payHash = "h:" + "ef".repeat(16);
+  snap.current.month = "2026-10";
+  snap.history.months = [{ month: "2026-09", closed: true }];
+  snap.budget.tiers_mtd = { by_category: { groceries: { spent: 12.34 } } };
+  snap.current.edits_tx = [
+    { date: "2026-10-08", amount: 5, flow: "outflow", desc: "Corner Market", category: "Groceries", tx_key: "cm", last4: "2222" },
+    { date: "2026-10-07", amount: 40, flow: "inflow", desc: "Payroll", category: "Paycheck/Salary/Wages", category_basis: "not_spend", tx_override_key: payHash, tx_key: "pay", last4: "2222" },
+    { date: "2026-10-06", amount: 3, flow: "inflow", desc: "Corner Market", category_basis: "not_spend", refund: true, tx_key: "rf", last4: "2222" },
+    { date: "2026-10-05", amount: 2, flow: "outflow", desc: "Inside Move", category: "", category_basis: "not_spend", tx_override_key: HASH, tx_key: "n1", last4: "2222" },
+    { date: "2026-10-04", amount: 4, flow: "outflow", desc: "Cash Withdrawal", category_basis: "not_spend", tx_key: "cw", last4: "2222" },
+    { date: "2026-10-03", amount: 6, flow: "outflow", desc: "Loan Payment", transfer: true, tx_override_key: loanHash, tx_key: "lp", last4: "2222" },
+    { date: "2026-09-02", amount: 12.34, flow: "outflow", desc: "Rent", category: "Groceries", tx_key: "rent", last4: "2222" }
+  ];
+  assert.equal(ctx.bankSpendExcluded(snap.current.edits_tx[3], snap), true);
+  assert.equal(ctx.bankMapSpendCategory(snap.current.edits_tx[3], snap), null);
+  assert.equal(ctx.bankCategoryFigures(snap, "2026-10").groceries.spent, 12.34);
+  assert.equal(ctx.bankTxSearchLocked(snap, snap.current.edits_tx[1]), true);
+  assert.equal(ctx.bankTxDepositLocked(snap.current.edits_tx[1]), true);
+  assert.equal(ctx.bankTxSearchLocked(snap, snap.current.edits_tx[2]), false);
+  assert.equal(ctx.bankTxDepositLocked({ flow: "inflow", kind: "refund" }), false);
+  assert.equal(ctx.bankTxDepositLocked({ flow: "inflow", desc: "Payroll" }), true);
+  assert.equal(ctx.bankTxSearchLocked(snap, snap.current.edits_tx[6]), true);
+
+  const html = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00" });
+  const list = html.slice(html.indexOf("data-bank-find-results"), html.indexOf("</section>", html.indexOf("data-bank-find-results")));
+  const move = rowHtml(list, "Inside Move");
+  assert.match(move, /data-bank-tx-open=/);
+  assert.match(move, /Not a purchase/);
+  assert.doesNotMatch(move, /bank-tx-quiet/);
+  const payroll = rowHtml(list, "Payroll");
+  assert.match(payroll, /bank-tx-quiet/);
+  assert.match(payroll, /Not a purchase/);
+  assert.doesNotMatch(payroll, /data-bank-tx-open/);
+  const closed = rowHtml(list, "Rent");
+  assert.match(closed, /bank-tx-quiet/);
+  assert.match(closed, /Closed month/);
+  assert.doesNotMatch(closed, /data-bank-tx-open/);
+  const refund = rowHtml(list, "Corner Market", 2);
+  assert.match(refund, /data-bank-tx-open=/);
+  assert.match(refund, /Not a purchase/);
+  assert.doesNotMatch(refund, /bank-tx-quiet/);
+
+  const sheet = ctx.bankTxSheetHtml(snap, snap.current.edits_tx[3], {});
+  assert.match(sheet, /Not counted as spending now/);
+  assert.match(sheet, /value="not-purchase" selected/);
+  assert.match(sheet, /aria-label="Category"/);
+  assert.match(sheet, /class="book-chip on"[^>]*data-bank-tx-scope="one"|data-bank-tx-scope="one"[^>]*class="book-chip on"/);
+  assert.match(sheet, /Just this one/);
+  assert.equal(ctx.bankTxSheetHtml(snap, snap.current.edits_tx[1], {}), "");
+  assert.equal(ctx.bankTxSheetHtml(snap, snap.current.edits_tx[6], {}), "");
+  const grocerySheet = ctx.bankTxSheetHtml(snap, snap.current.edits_tx[0], {});
+  assert.match(grocerySheet, /Pick a category for this purchase/);
+  assert.doesNotMatch(grocerySheet, /value="not-purchase"/);
+
+  snap.tier_doc.category_tx[HASH] = "groceries";
+  snap.tier_doc.category_tx[loanHash] = "car-insurance-loans";
+  snap.tier_doc.category_tx[payHash] = "groceries";
+  assert.equal(ctx.bankSpendExcluded(snap.current.edits_tx[3], snap), false);
+  assert.equal(ctx.bankMapSpendCategory(snap.current.edits_tx[3], snap).id, "groceries");
+  assert.equal(ctx.bankSpendExcluded(snap.current.edits_tx[1], snap), true);
+  const figs = ctx.bankCategoryFigures(snap, "2026-10");
+  assert.equal(figs.groceries.spent, 14.34);
+  assert.equal(figs["car-insurance-loans"].spent, 6);
+  const budget = ctx.bankPageHtml(snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00", groupOpen: "needs" });
+  assert.match(budget, /data-bank-group="needs"[^>]*data-spent="14.34"/);
+  assert.match(budget, /data-bank-cat-row="groceries"[^>]*data-spent="14.34"/);
+  const required = ctx.bankPageHtml(snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00", groupOpen: "required" });
+  assert.match(required, /data-bank-group="required"[^>]*data-spent="6"/);
+  const payAfter = ctx.bankTxResultsHtml(snap, { txQuery: "Payroll" });
+  const payRow = rowHtml(payAfter, "Payroll");
+  assert.match(payRow, /bank-tx-quiet/);
+  assert.match(payRow, /Not a purchase/);
+  assert.doesNotMatch(payRow, /Groceries/);
+  const overridden = ctx.bankTxResultsHtml(snap, { txQuery: "Inside Move" });
+  const overriddenRow = rowHtml(overridden, "Inside Move");
+  assert.match(overriddenRow, /fresh-chip">Groceries/);
+  assert.doesNotMatch(overriddenRow, /Not a purchase/);
+  const kept = ctx.bankTxSheetHtml(snap, snap.current.edits_tx[3], {});
+  assert.match(kept, /Pick a category for this purchase/);
+  assert.doesNotMatch(kept, /Not counted as spending now/);
+  assert.match(kept, /value="not-purchase"/);
+  assert.match(kept, /value="groceries" selected/);
+  const filtered = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00", txCat: "groceries" });
+  const groceryList = filtered.slice(filtered.indexOf("data-bank-find-results"), filtered.indexOf("</section>", filtered.indexOf("data-bank-find-results")));
+  assert.match(groceryList, /Inside Move/);
+  assert.doesNotMatch(groceryList, /Payroll/);
+
+  delete snap.budget.tiers_mtd;
+  snap.current.edits_tx = [snap.current.edits_tx[3]];
+  assert.equal(ctx.bankCategoryFigures(snap, "2026-10").groceries.spent, 2);
+  snap.current.edits_tx[0].date = "2026-09-05";
+  assert.equal(ctx.bankCategoryFigures(snap, "2026-09").groceries.spent, 2);
+  delete snap.tier_doc.category_tx[HASH];
+  snap.current.edits_tx[0].date = "2026-10-05";
+  assert.equal(ctx.bankCategoryFigures(snap, "2026-10").groceries.spent, 0);
+  snap.tier_doc.category_rules["cash withdrawal"] = "shopping";
+  snap.current.edits_tx = [
+    { date: "2026-10-04", amount: 4, flow: "outflow", desc: "Cash Withdrawal", category_basis: "not_spend", tx_key: "cw", last4: "2222" }
+  ];
+  const cash = ctx.bankTxResultsHtml(snap, { txQuery: "Cash" });
+  assert.match(rowHtml(cash, "Cash Withdrawal"), /fresh-chip">Shopping/);
+  assert.equal(ctx.bankCategoryFigures(snap, "2026-10").shopping.spent, 4);
+});
+
+test("saving a not-purchase row posts the category and clearing it posts null", async function () {
+  const ctx = boot();
+  const snap = bare(ctx);
+  snap.current.month = "2026-10";
+  snap.budget.tiers_mtd = { by_category: { groceries: { spent: 12.34 } } };
+  snap.current.edits_tx = [{
+    date: "2026-10-05", amount: 2, flow: "outflow", desc: "Inside Move",
+    category: "", category_basis: "not_spend", tx_key: HASH, last4: "2222"
+  }];
+  const calls = watch(ctx, function (body) {
+    if (!body) return snap.tier_doc;
+    return { schema: "banking-tiers/v1" };
+  });
+  const root = {
+    innerHTML: "",
+    listeners: {},
+    addEventListener: function (type, fn) { this.listeners[type] = fn; },
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; }
+  };
+  function sheetNode(scope, value) {
+    return {
+      querySelectorAll: function () {
+        return [{
+          classList: { contains: function (name) { return name === "on"; } },
+          getAttribute: function (name) {
+            if (name === "data-bank-tx-scope") return scope;
+            if (name === "aria-pressed") return "true";
+            return null;
+          },
+          value: scope
+        }];
+      },
+      querySelector: function (sel) {
+        if (sel === "[data-bank-tx-cat]") return { value: value };
+        return null;
+      }
+    };
+  }
+  function click(scope, value, merchant) {
+    return root.listeners.click({
+      preventDefault: function () {},
+      target: {
+        tagName: "BUTTON",
+        getAttribute: function () { return null; },
+        closest: function (sel) {
+          if (sel === "[data-bank-tx-save]") {
+            return {
+              getAttribute: function (name) {
+                if (name === "data-bank-tx-key") return HASH;
+                if (name === "data-bank-tx-merchant") return merchant;
+                return "1";
+              },
+              closest: function (inner) { return inner === "[data-bank-tx-sheet]" ? sheetNode(scope, value) : null; }
+            };
+          }
+          return null;
+        }
+      }
+    });
+  }
+  ctx.bankMount(root, snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00" });
+  root._bank.tab = "edits";
+  root._bank.txOpen = HASH;
+  await click("one", "", "inside move");
+  assert.equal(calls.filter(function (call) { return call.body && call.body.category_tx; }).length, 0);
+  await click("one", "groceries", "inside move");
+  const saves = calls.filter(function (call) { return call.body && call.body.category_tx; });
+  assert.equal(saves.length, 1);
+  assert.equal(saves[0].body.category_tx[HASH], "groceries");
+  assert.equal(saves[0].body.category_rules, undefined);
+  assert.equal(ctx.bankCategoryFigures(root._bank.data, "2026-10").groceries.spent, 14.34);
+  const savedRow = rowHtml(root.innerHTML, "Inside Move");
+  assert.match(savedRow, /fresh-chip">Groceries/);
+  assert.doesNotMatch(savedRow, /Not a purchase/);
+  await click("one", "not-purchase", "inside move");
+  const cleared = calls.filter(function (call) { return call.body && call.body.category_tx; });
+  assert.equal(cleared.length, 2);
+  assert.equal(cleared[1].body.category_tx[HASH], null);
+  assert.equal(root._bank.data.tier_doc.category_tx[HASH], undefined);
+  assert.match(rowHtml(root.innerHTML, "Inside Move"), /Not a purchase/);
+  assert.equal(ctx.bankCategoryFigures(root._bank.data, "2026-10").groceries.spent, 12.34);
+  await click("merchant", "dining", "inside move");
+  const rules = calls.filter(function (call) { return call.body && call.body.category_rules; });
+  assert.equal(rules.length, 1);
+  assert.equal(rules[0].body.category_rules["inside move"], "dining");
+  assert.equal(rules[0].body.category_tx, undefined);
+  assert.match(rowHtml(root.innerHTML, "Inside Move"), /fresh-chip">Dining/);
+});
