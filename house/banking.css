@@ -1157,46 +1157,92 @@ span.bank-chip {
   padding: 0;
 }
 
-.bank-tx-results > li {
+/* Two lines in normal flow. The shared cat-item row is one clipped line, which let Change spill into the next result. */
+ul.bank-tx-results[data-bank-cat-items] > li {
+  display: block;
+  height: auto;
+  min-height: 44px;
+  padding: 0;
   border-bottom: 1px solid var(--rule);
+  overflow: visible;
 }
 
-.bank-tx-hit {
+.bank-tx-hit,
+.bank-tx-quiet {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 2px;
   width: 100%;
   min-height: 44px;
   margin: 0;
-  padding: 8px 4px;
+  padding: 8px 12px;
+  box-sizing: border-box;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  position: relative;
-  z-index: 1;
+  position: static;
   touch-action: manipulation;
 }
 
-.bank-tx-change {
-  margin-left: auto;
-  color: var(--ink-soft);
-  font-size: 12px;
+.bank-tx-quiet {
+  cursor: default;
+  background: var(--row);
+  opacity: 0.72;
+}
+
+.bank-tx-line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+ul.bank-tx-results[data-bank-cat-items] [data-bank-item-name] {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-weight: 600;
 }
 
-.bank-tx-quiet {
+.bank-tx-line > b {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+ul.bank-tx-results[data-bank-cat-items] [data-bank-item-meta] {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--ink-soft);
+  white-space: normal;
+}
+
+.bank-tx-end {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 8px;
-  min-height: 44px;
-  padding: 8px 4px;
-  background: var(--row);
-  opacity: 0.62;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.bank-tx-change {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 @media (max-width: 720px) {
@@ -1528,7 +1574,7 @@ span.bank-chip {
 .bank-day-scrim {
   position: fixed;
   inset: 0;
-  background: color-mix(in srgb, var(--ink) 35%, transparent);
+  background: color-mix(in srgb, var(--header) 80%, transparent);
   z-index: 4;
 }
 

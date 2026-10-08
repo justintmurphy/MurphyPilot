@@ -121,12 +121,12 @@ test("a search redraw keeps the row handler, and the open key stays the raw tx_k
   assert.match(opened, /data-bank-tx-sheet/);
   assert.match(opened, /class="book-chip on" data-bank-tx-scope="one"/);
   assert.match(opened, /data-bank-tx-key="2026-10-08\|acct-check\|12\.34\|Neighborhood Grocer"/);
-  assert.match(opened, />Change</);
+  assert.match(opened, /Change \u203a/);
   const oneOff = ctx.bankTxResultsHtml(data, { txQuery: "One Off" });
   assert.match(oneOff, /data-bank-tx-open="2026-10-06\|acct-check\|9\|One Off Shop"/);
   const quiet = ctx.bankTxResultsHtml(data, { txQuery: "" });
-  assert.match(quiet, /class="bank-tx-quiet"[\s\S]{0,240}Inside Move/);
-  assert.match(quiet, /class="bank-tx-quiet"[\s\S]{0,240}Not a purchase/);
+  assert.match(quiet, /class="bank-tx-quiet"[\s\S]{0,500}Inside Move/);
+  assert.match(quiet, /class="bank-tx-quiet"[\s\S]{0,500}Not a purchase/);
   assert.doesNotMatch(quiet.slice(quiet.indexOf("Inside Move") - 80, quiet.indexOf("Inside Move") + 80), /data-bank-tx-open/);
 
   const slot = {
