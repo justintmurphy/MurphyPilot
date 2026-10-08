@@ -5353,6 +5353,7 @@ function blankBudget(fx) {
   delete fx.budget.mtd_actual_by_category_month;
   delete fx.budget.paid_status_month;
   fx.budget.account_funding = [];
+  delete fx.budget.account_funding_combined;
   if (fx.current) fx.current.month_flow = null;
   fx.budget.income_monthly = [];
   fx.budget.insights = [];
@@ -5409,12 +5410,12 @@ test("a calendar day opens a popup and Escape closes it", function () {
   fx.budget.subscriptions = [{ name: "Stream Club", amount: 5, typical_day: 4, usual_account: { last4: "1111" } }];
   const day4 = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", openDay: 4 });
   assert.match(day4, /class="bank-day-dialog"/);
-  assert.match(day4, /Payroll \$40\.00<\/b> <i>[\s\S]*?Income[\s\S]*?Expected[\s\S]*?Pay/);
-  assert.match(day4, /Rent<\/b> <i>\$22\.00[\s\S]*?Bill[\s\S]*?Estimated[\s\S]*?House/);
-  assert.match(day4, /Stream Club<\/b> <i>\$5\.00[\s\S]*?Sub[\s\S]*?Estimated[\s\S]*?··1111/);
+  assert.match(day4, /data-bank-day-name="1">Payroll \$40\.00<\/b><i data-bank-day-meta="1">Income<\/i>[\s\S]*?tone-go">\$40\.00/);
+  assert.match(day4, /data-bank-day-name="1">Rent<\/b><i data-bank-day-meta="1">Bill<\/i>[\s\S]*?tone-stop">\$22\.00/);
+  assert.match(day4, /data-bank-day-name="1">Stream Club<\/b><i data-bank-day-meta="1">Bill \u00b7 \u00b7\u00b71111<\/i>[\s\S]*?tone-stop">\$5\.00/);
   assert.match(day4, /data-bank-day-close="1"/);
   const day9 = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", openDay: 9 });
-  assert.match(day9, /Power<\/b> <i>\$6\.00[\s\S]*?Bill[\s\S]*?Paid[\s\S]*?Oct 2[\s\S]*?··4242/);
+  assert.match(day9, /data-bank-day-name="1">Power<\/b><i data-bank-day-meta="1">Bill \u00b7 \u00b7\u00b74242<\/i>[\s\S]*?tone-stop">\$6\.00/);
 
   const el = mount(ctx, fx, { tab: "budget", planMonth: "2026-10" });
   const day = {
@@ -5426,7 +5427,7 @@ test("a calendar day opens a popup and Escape closes it", function () {
     preventDefault: function () {}
   });
   assert.match(el.innerHTML, /class="bank-day-dialog"/);
-  assert.match(el.innerHTML, /Rent<\/b> <i>\$22\.00[\s\S]*?Bill[\s\S]*?Estimated[\s\S]*?House/);
+  assert.match(el.innerHTML, /data-bank-day-name="1">Rent<\/b><i data-bank-day-meta="1">Bill<\/i>/);
   el.listeners.keydown({
     key: "Escape",
     target: day,
@@ -6920,7 +6921,7 @@ test("lists cap at ten rows and a short list stays open", function () {
   fx.budget.bills = many;
   const longHtml = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-06T16:00:00Z" });
   assert.match(longHtml, /class="list-cap"[^>]*aria-label="Due this month"/);
-  assert.match(longHtml, /Showing 10 of 27, scroll for more/);
+  assert.match(longHtml, /Showing 10 of 26, scroll for more/);
   fx.budget.bills = many.slice(0, 5);
   const shortHtml = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
   assert.doesNotMatch(shortHtml, /aria-label="Due this month"/);
@@ -7848,24 +7849,25 @@ test("the dated list walks left-after to the funding month-end", function () {
   const due = dueSlice(html);
   assert.match(due, /sym">Rent[\s\S]{0,160}due Oct 4/);
   assert.match(due, /Rent[\s\S]{0,220}−\$50\.00/);
-  assert.match(due, /data-bank-today="1"[\s\S]{0,320}\$50\.00/);
+  assert.match(due, /data-bank-today="1"[\s\S]{0,320}\$100\.00/);
   assert.doesNotMatch(due, /sym">Payroll<\/span>[\s\S]{0,80}today/);
   assert.match(due, /Payroll[\s\S]{0,160}\+\$40\.00/);
   const every = due.indexOf("Remaining Needs");
-  const end = due.indexOf("Month-end");
-  assert.ok(every > 0 && end > every);
+  assert.ok(every > 0);
   assert.doesNotMatch(due, /Remaining Required/);
-  assert.match(due.slice(every, end), /−\$20\.00/);
-  assert.match(due.slice(end), /\$70\.00/);
+  assert.doesNotMatch(due, /sym">Month-end/);
+  assert.match(due.slice(every), /−\$20\.00/);
+  assert.equal(Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]), 120);
   const red = blankBudget(loadFixture());
   red.budget.account_funding = [{ nickname: "Bills", last4: "2222", start_balance: 20, end_balance: -10 }];
   red.budget.bills = [{ name: "Rent", amount: 40, typical_day: 4, cadence: "monthly", tier: "required" }];
   const low = ctx.bankPageHtml(red, { tab: "budget", planMonth: "2026-10", now: "2026-10-06T12:00:00-04:00" });
   const lowDue = dueSlice(low);
   assert.match(lowDue, /sym">Rent[\s\S]{0,160}due Oct 4/);
-  assert.match(lowDue, /data-bank-today="1"[\s\S]{0,320}−\$20\.00/);
+  assert.match(lowDue, /data-bank-today="1"[\s\S]{0,320}\$20\.00/);
   assert.doesNotMatch(lowDue, /Remaining Required/);
-  assert.match(lowDue.slice(lowDue.indexOf("Month-end")), /−\$20\.00/);
+  assert.doesNotMatch(lowDue, /sym">Month-end/);
+  assert.equal(Number((low.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]), 20);
 });
 
 test("next pay prorates needs, splits a month boundary, and caps the bill rows", function () {
@@ -8156,7 +8158,8 @@ test("the today row matches left now and month-end is the running result", funct
   const futureRent = 40;
   const monthEnd = leftNow + futureIn - futureRent;
   assert.equal(monthEnd, 230);
-  assert.match(due.slice(due.indexOf("Month-end")), /\$230\.00/);
+  assert.doesNotMatch(due, /sym">Month-end/);
+  assert.equal(Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]), 230);
   assert.doesNotMatch(due, /sym">Example Shop/);
 });
 
@@ -8189,13 +8192,12 @@ test("a paid past bill stays out of the list and remaining uses spent", function
   const due = dueSlice(html);
   const today = due.slice(due.indexOf('data-bank-today="1"'), due.indexOf("</tr>", due.indexOf('data-bank-today="1"')));
   const leftAttr = Number((fund.match(/data-fund-left="([^"]*)"/) || [])[1]);
-  const endAt = due.indexOf("Month-end");
-  const endHits = due.slice(endAt).replace(/−/g, "-").match(/-?\$[0-9,]+\.[0-9]{2}/g) || [];
-  const endLeft = Number(String(endHits[endHits.length - 1] || "").replace(/[$,]/g, ""));
+  const endLeft = Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]);
   assert.equal(leftAttr, endLeft);
   assert.match(today, /\$250\.00/);
   assert.match(due, /Mortgage[\s\S]{0,240}paid Oct 6/);
-  assert.match(due.slice(due.indexOf("Month-end")), /\$187\.00/);
+  assert.doesNotMatch(due, /sym">Month-end/);
+  assert.equal(endLeft, 187);
   assert.doesNotMatch(due, /Posted so far/);
   assert.match(due, /Groceries[\s\S]{0,400}−\$5\.00/);
   assert.match(due, /Remaining Needs[\s\S]{0,160}−\$12\.00/);
@@ -8615,7 +8617,9 @@ test("funding start plus in minus out equals the month-end", function () {
   const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-06T12:00:00-04:00" });
   const table = html.match(/data-fund-start="([^"]*)" data-fund-in="([^"]*)" data-fund-out="([^"]*)" data-fund-left="([^"]*)"/);
   assert.ok(table);
-  assert.equal(Number(table[4]), books.leftNow);
+  assert.equal(Math.round((Number(table[1]) + Number(table[2]) - Number(table[3])) * 100), Math.round(Number(table[4]) * 100));
+  assert.equal(Number(table[4]), Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]));
+  assert.equal(Number((html.match(/data-bank-hero-now="([^"]*)"/) || [])[1]), books.leftNow);
   const fund = html.slice(html.indexOf('class="bank-funding"'), html.indexOf('data-bank-part="calendar"'));
   assert.doesNotMatch(fund, /<span>Month-end<\/span>/);
   assert.doesNotMatch(fund, /<span>In<\/span>/);
@@ -8641,7 +8645,8 @@ test("a required set-aside with no bill row still reduces month-end", function (
     assert.match(due, /class="sym">Rent/);
     assert.doesNotMatch(due, /Town Power/);
     assert.match(due, /Remaining Required[\s\S]{0,180}−\$20\.00/);
-    assert.match(due.slice(due.indexOf("Month-end")), /\$70\.00/);
+    assert.doesNotMatch(due, /sym">Month-end/);
+    assert.equal(Number((due.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]), 70);
   });
 });
 
@@ -8667,7 +8672,8 @@ test("a recurring item already on account funding counts once", function () {
   const remain = /Remaining Needs[\s\S]{0,180}−\$15\.00/.test(due) ? 1 : 0;
   assert.equal(listed + remain, 1);
   assert.equal((due.match(/−\$15\.00/g) || []).length, 1);
-  assert.match(due.slice(due.indexOf("Month-end")), /\$85\.00/);
+  assert.doesNotMatch(due, /sym">Month-end/);
+  assert.equal(Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]), 85);
 });
 
 test("overspend on one required item does not shrink another item's remainder", function () {
@@ -8688,7 +8694,8 @@ test("overspend on one required item does not shrink another item's remainder", 
   assert.doesNotMatch(due, /Town Power/);
   assert.match(due, /Remaining Required[\s\S]{0,180}−\$285\.00/);
   assert.doesNotMatch(due, /−\$270\.00|−\$269\.79/);
-  assert.match(due.slice(due.indexOf("Month-end")), /\$15\.00/);
+  assert.doesNotMatch(due, /sym">Month-end/);
+  assert.equal(Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]), 115);
 });
 
 test("a closed month shows a matched posted debit and hides the rest", function () {
@@ -8987,7 +8994,7 @@ test("tier summary meters are div rows and do not repeat progress vs limits", fu
   assert.match(sum, /data-bar="Mortgage"/);
   assert.match(sum, /data-bar="Groceries"/);
   assert.match(sum, /data-bar="Shopping"/);
-  assert.match(sum, /style="padding-left:22px"/);
+  assert.match(sum, /class="mix-legend nest"/);
   assert.match(sum, /data-tier="needs"[^>]*data-tone="stop"/);
   assert.match(sum, /data-tier="wants"[^>]*data-tone="go"/);
   assert.doesNotMatch(html, /<h2>Progress vs limits<\/h2>/);
@@ -9082,10 +9089,8 @@ test("fixture funding start plus in minus out equals the list month-end", functi
   assert.ok(Number.isFinite(start) && Number.isFinite(inn) && Number.isFinite(out) && Number.isFinite(left));
   assert.equal(Math.round((start + inn - out) * 100) / 100, left);
   const due = dueSlice(html);
-  const endAt = due.indexOf('class="sym">Month-end');
-  assert.ok(endAt >= 0);
-  const endHits = due.slice(endAt, due.indexOf("</tr>", endAt)).replace(/−/g, "-").match(/-?\$[0-9,]+\.[0-9]{2}/g) || [];
-  const endLeft = Number(String(endHits[endHits.length - 1] || "").replace(/[$,]/g, ""));
+  assert.doesNotMatch(due, /sym">Month-end/);
+  const endLeft = Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]);
   assert.equal(endLeft, left);
   const hasIn = /tone-go">\+\$/.test(due);
   const hasOut = /tone-stop">−\$/.test(due);

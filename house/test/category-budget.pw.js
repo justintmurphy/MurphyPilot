@@ -154,7 +154,7 @@ async function main() {
   fs.writeFileSync(mobile, pageHtml(docWith(0)));
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto("file://" + mobile);
-  await page.locator('[data-bank-cat-row="groceries"]').waitFor();
+  await page.locator('[data-bank-group="needs"]').waitFor();
   await page.locator("[data-bank-hero]").waitFor();
   const before = await heroFacts(page);
   if (before.now !== before.sum) throw new Error("hero now " + before.now + " != account sum " + before.sum);
@@ -175,15 +175,39 @@ async function main() {
   await assertNoOverflow(page, "360-budget-expanded");
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await page.locator('[data-bank-cat-row="groceries"]').click();
+  async function oneLine(label) {
+    const lines = await page.evaluate(function () {
+      function count(el) { return el ? el.getClientRects().length : 0; }
+      var heroLabel = document.querySelector(".ov-hero span");
+      var asof = document.querySelector("[data-bank-hero] .books-head .sub");
+      return { label: count(heroLabel), asof: count(asof) };
+    });
+    if (lines.label !== 1 || lines.asof !== 1) throw new Error(label + " lines " + JSON.stringify(lines));
+  }
+  await oneLine("390");
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.waitForTimeout(100);
+  await oneLine("360");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await elementShot(page, ".bank-tier-summary", "tier-summary-390.png");
+  const today = page.locator("[data-bank-today]");
+  await today.evaluate(function (node) { node.scrollIntoView({ block: "center" }); });
+  await elementShot(page, ".bank-due-month", "budget-list-390.png");
+  await page.locator('[data-bank-group="needs"]').click();
+  await page.locator('[data-bank-group-pop="needs"]').waitFor();
+  await shot(page, "[data-bank-group-pop]", "group-popup-390.png");
+  await page.locator('[data-bank-group-pop="needs"] [data-bank-cat-row="groceries"]').click();
   await page.locator('[data-bank-cat-budget="groceries"]').waitFor();
+  await page.locator("[data-bank-cat-item]").first().waitFor();
+  const last4 = await page.locator("[data-bank-item-meta]").first().innerText();
+  if (!/\u00b7\u00b7\d{4}/.test(last4)) throw new Error("item last-4 missing " + last4);
+  await shot(page, "[data-bank-cat-pop]", "category-popup-items-390.png");
   await page.locator('[data-bank-cat-budget="groceries"]').fill("12.34");
   await page.locator('[data-bank-cat-save="groceries"]').click();
   await page.waitForFunction(function () {
     var left = document.querySelector('[data-cat-fig="left"]');
     var bar = document.querySelector("[data-bank-cat-pop] .mix-bar");
-    var row = document.querySelector('[data-bank-cat-row="groceries"]');
-    return left && /Left/.test(left.textContent) && /\$0\.00/.test(left.textContent) && bar && row && row.getAttribute("data-budget") === "12.34";
+    return left && /Left/.test(left.textContent) && /\$0\.00/.test(left.textContent) && bar;
   });
   const sheet = await page.locator(".books-sheet").evaluate(function (node) {
     var overlay = node.parentNode;
@@ -212,7 +236,11 @@ async function main() {
   await page.locator('[data-bank-tab="edits"]').click();
   await page.locator("[data-bank-spend-cats]").waitFor();
   await shot(page, "[data-bank-spend-cats]", "edits-categories-390.png");
-  await page.locator('[data-bank-spend-open="groceries"]').click();
+  await page.locator('[data-bank-cat-jump="groceries"]').click();
+  await page.locator("[data-bank-cat-pop] [data-bank-cat-item]").first().waitFor();
+  await page.locator("[data-bank-cat-close]").click();
+  await page.locator("[data-bank-cat-pop]").waitFor({ state: "detached" });
+  await page.locator('[data-bank-spend-edit="groceries"]').click();
   await page.locator("[data-bank-spend-sheet]").waitFor();
   await shot(page, "[data-bank-spend-sheet]", "edits-category-sheet-390.png");
   await assertNoOverflow(page, "390-category-sheet");
@@ -251,14 +279,17 @@ async function main() {
   fs.writeFileSync(wideFile, pageHtml(docWith(12.34)));
   const wide = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await wide.goto("file://" + wideFile);
-  await wide.locator('[data-bank-cat-row="groceries"]').waitFor();
+  await wide.locator('[data-bank-group="needs"]').waitFor();
   await wide.locator("[data-bank-hero]").waitFor();
   const wideHero = await heroFacts(wide);
   if (wideHero.now !== wideHero.sum) throw new Error("wide hero now " + wideHero.now + " != " + wideHero.sum);
   if (wideHero.end !== wideHero.left) throw new Error("wide hero end " + wideHero.end + " != " + wideHero.left);
   await elementShot(wide, "[data-bank-hero]", "banking-hero-1280.png");
   await wide.screenshot({ path: path.join(artifacts, "budget-categories-1280.png"), fullPage: true });
-  await wide.locator('[data-bank-cat-row="groceries"]').click();
+  await wide.locator('[data-bank-group="needs"]').click();
+  await wide.locator('[data-bank-group-pop="needs"]').waitFor();
+  await shot(wide, "[data-bank-group-pop]", "group-popup-1280.png");
+  await wide.locator('[data-bank-group-pop="needs"] [data-bank-cat-row="groceries"]').click();
   await wide.locator(".books-sheet").waitFor();
   await wide.waitForFunction(function () {
     var left = document.querySelector('[data-cat-fig="left"]');
@@ -271,6 +302,87 @@ async function main() {
   console.log("SHEET1280", wideSheet);
   if (wideSheet > 480) throw new Error("desktop sheet " + wideSheet);
   await shot(wide, "[data-bank-cat-pop]", "category-popup-1280.png");
+
+  const uncat = docWith(0);
+  uncat.current.edits_tx.push(
+    { date: "2026-10-08", amount: 12.34, flow: "outflow", desc: "Odd Purchase", category: null, category_basis: "spend", tx_key: "u4", last4: "2222" },
+    { date: "2026-10-09", amount: 12.34, flow: "outflow", desc: "Another Odd Purchase", category: null, category_basis: "spend", tx_key: "u5", last4: "0831" }
+  );
+  const uncatFile = path.join(os.tmpdir(), "category-uncat-390.html");
+  fs.writeFileSync(uncatFile, pageHtml(uncat));
+  const warnPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await warnPage.goto("file://" + uncatFile);
+  await warnPage.locator("[data-bank-uncat-warn]").waitFor();
+  await elementShot(warnPage, "[data-bank-hero]", "banking-uncat-warning-390.png");
+  await warnPage.locator("[data-bank-uncat-warn] button").click();
+  await warnPage.locator("[data-bank-uncat-list]").waitFor();
+  await elementShot(warnPage, "[data-bank-spend-cats]", "edits-uncategorized-390.png");
+
+  const day = docWith(0);
+  day.budget.bills.push({
+    name: "Example Household Supply Run For The Month And Another Week",
+    amount: 12.34,
+    typical_day: 20,
+    cadence: "monthly",
+    category: "Groceries",
+    usual_account: { last4: "2222" }
+  });
+  day.budget.subscriptions = [{ name: "Stream Club", amount: 12.34, typical_day: 20, usual_account: { last4: "0831" } }];
+  const dayFile = path.join(os.tmpdir(), "category-day-390.html");
+  fs.writeFileSync(dayFile, pageHtml(day));
+  const dayPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await dayPage.goto("file://" + dayFile);
+  await dayPage.locator('.bank-day[aria-label^="Oct 20"]').click();
+  await dayPage.locator("[data-bank-day-name]").first().waitFor();
+  await elementShot(dayPage, ".bank-day-dialog", "calendar-day-popup-390.png");
+
+  const many = docWith(0);
+  for (let i = 0; i < 12; i++) {
+    many.current.edits_tx.push({
+      date: "2026-10-" + String(i + 1).padStart(2, "0"),
+      amount: 1,
+      flow: "outflow",
+      desc: "Corner Market " + i,
+      category: "Groceries",
+      last4: "2222",
+      tx_key: "cap" + i
+    });
+  }
+  const capFile = path.join(os.tmpdir(), "category-cap-390.html");
+  fs.writeFileSync(capFile, pageHtml(many));
+  const capPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await capPage.goto("file://" + capFile);
+  await capPage.locator('[data-bank-group="needs"]').click();
+  await capPage.locator('[data-bank-group-pop="needs"] [data-bank-cat-row="groceries"]').click();
+  await capPage.locator("[data-bank-cat-pop] .list-cap").waitFor();
+  const cap = await capPage.locator("[data-bank-cat-pop] .list-cap").evaluate(function (node) {
+    var rows = node.querySelectorAll("[data-bank-cat-item]");
+    var box = node.getBoundingClientRect();
+    var visible = 0;
+    var i;
+    for (i = 0; i < rows.length; i++) {
+      var r = rows[i].getBoundingClientRect();
+      if (r.top >= box.top - 1 && r.bottom <= box.bottom + 1) visible += 1;
+    }
+    var sheet = node.parentNode;
+    var save = sheet.querySelector("[data-bank-cat-save]");
+    var head = sheet.querySelector("h2");
+    return {
+      visible: visible,
+      count: rows.length,
+      scroll: node.scrollHeight,
+      client: node.clientHeight,
+      head: head ? Math.round(head.getBoundingClientRect().top) : 0,
+      save: save ? Math.round(save.getBoundingClientRect().top) : 0,
+      capTop: Math.round(box.top),
+      capBottom: Math.round(box.bottom)
+    };
+  });
+  console.log("CAP", JSON.stringify(cap));
+  if (cap.count <= 10) throw new Error("expected more than 10 items");
+  if (cap.visible !== 10) throw new Error("visible rows " + cap.visible);
+  if (!(cap.scroll > cap.client + 1)) throw new Error("list does not scroll " + cap.scroll + "/" + cap.client);
+  if (!(cap.head < cap.capTop && cap.save > cap.capBottom - 2)) throw new Error("header or save scrolled " + JSON.stringify(cap));
   await browser.close();
   console.log("PLAYWRIGHT_OK");
 }

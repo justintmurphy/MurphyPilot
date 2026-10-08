@@ -136,10 +136,9 @@ test("hero month-end matches funding left and the list month-end", function () {
   const fund = html.slice(html.indexOf('class="bank-funding"'), html.indexOf('data-bank-part="calendar"'));
   const left = Number((fund.match(/data-fund-left="([^"]*)"/) || [])[1]);
   const end = heroEnd(html);
-  const dueAt = html.indexOf('class="sym">Month-end');
-  assert.ok(dueAt >= 0);
-  const dueMoney = moneyHits(html.slice(dueAt, html.indexOf("</tr>", dueAt)));
-  const listEnd = Number(String(dueMoney[dueMoney.length - 1] || "").replace(/[$,]/g, ""));
+  const ledger = html.match(/data-bank-ledger-end="([^"]*)"/);
+  assert.ok(ledger);
+  const listEnd = Number(ledger[1]);
   assert.equal(end.value, left);
   assert.equal(end.value, listEnd);
   assert.equal(end.cls.indexOf("tone-stop") >= 0, end.value < 0);
