@@ -1904,8 +1904,20 @@ span.bank-chip {
   }
 
   .bank-due-list li,
-  .bank-bill-list li {
+  .bank-bill-list li,
+  .bank-edit-list li {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bank-edit-list > li > .bank-merchant,
+  .bank-edit-list > li > .bank-edit-id,
+  .bank-edit-list > li > .bank-kind-name {
+    min-width: 120px;
+  }
+
+  .bank-edit-list .bank-edit-side {
+    margin-left: 0;
+    justify-content: flex-start;
   }
 
   .bank-due-list li i,

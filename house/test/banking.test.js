@@ -903,8 +903,8 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
   assert.match(investments, /\/house\/house\.css\?v=20261007ei/);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261007ep/);
-  assert.match(page, /\/house\/banking\.css\?v=20261007ep/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008eq/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008eq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -4146,7 +4146,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20261007ep/);
+  assert.match(page, /banking\.js\?v=20261008eq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
@@ -4309,8 +4309,8 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20261007ep/);
-  assert.match(page, /banking\.css\?v=20261007ep/);
+  assert.match(page, /banking\.js\?v=20261008eq/);
+  assert.match(page, /banking\.css\?v=20261008eq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4464,8 +4464,8 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261007ep/);
-  assert.match(page, /\/house\/banking\.css\?v=20261007ep/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008eq/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008eq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4649,8 +4649,8 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261007ep/);
-  assert.match(page, /banking\.css\?v=20261007ep/);
+  assert.match(page, /banking\.js\?v=20261008eq/);
+  assert.match(page, /banking\.css\?v=20261008eq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4941,8 +4941,8 @@ test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261007ep/);
-  assert.match(page, /banking\.css\?v=20261007ep/);
+  assert.match(page, /banking\.js\?v=20261008eq/);
+  assert.match(page, /banking\.css\?v=20261008eq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -5028,8 +5028,8 @@ test("tip dy plan blocks follow the selected month", function () {
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261007ep/);
-  assert.match(page, /banking\.css\?v=20261007ep/);
+  assert.match(page, /banking\.js\?v=20261008eq/);
+  assert.match(page, /banking\.css\?v=20261008eq/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
 
@@ -5966,8 +5966,8 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 
 test("banking assets use the ec cache bust", function () {
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261007ep/);
-  assert.match(page, /\/house\/banking\.css\?v=20261007ep/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261008eq/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008eq/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /ticker\.js\?v=20261007ei/);
   assert.match(page, /ticker\.css\?v=20261007ei/);
@@ -6856,8 +6856,9 @@ test("bank_match confidence, misses, and basis captions", function () {
   assert.match(html, /RENT PAY/);
   assert.match(html, /Rent pay/);
   assert.match(html, /Usually around day 4, about \$40\.00/);
-  assert.match(html, /Matched from descriptors\./);
-  assert.match(html, /Slugs follow the bill name\./);
+  assert.doesNotMatch(html, /Matched from descriptors\./);
+  assert.doesNotMatch(html, /Slugs follow the bill name\./);
+  assert.doesNotMatch(html, /bank_match_basis|bill_id_basis|class="bank-basis"/);
   assert.doesNotMatch(html, /No matching payments found/);
   fx.budget.bills = [bill("med", [{ date: "2026-10-04", amount: 40, description: "Rent pay", tx_key: "r1" }])];
   assert.match(ctx.bankPageHtml(fx, { tab: "edits" }), /Likely match/);
@@ -7095,8 +7096,8 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.doesNotMatch(html, /<th class="num">Month-end<\/th>/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261007ep/);
-  assert.match(page, /banking\.css\?v=20261007ep/);
+  assert.match(page, /banking\.js\?v=20261008eq/);
+  assert.match(page, /banking\.css\?v=20261008eq/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);
   assert.doesNotMatch(css, /--mp-in:\s*#|--mp-out:\s*#|--bank-required:/);
@@ -9305,4 +9306,149 @@ test("a bill paid this month leaves next-out and sits on its paid date", functio
   assert.match(next, new RegExp("Set aside[\\s\\S]{0,80}" + usd(aside)));
   assert.match(next, new RegExp("Left from this check[\\s\\S]{0,80}" + usd(left)));
   assert.doesNotMatch(next, new RegExp("Set aside[\\s\\S]{0,80}" + usd(Math.round((aside + 12.34) * 100) / 100)));
+});
+
+test("edits rows stack at 390 and name columns stay at least 120px", async function () {
+  const os = require("os");
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.budget.income_monthly = [
+    { label: "Paycheck", editable: true, amount: 40, cadence: "twice_monthly" },
+    { label: "Fostering Per Diem Stipend", editable: true, amount: 10, cadence: "twice_monthly" }
+  ];
+  fx.budget.bills = [{ name: "Rent", amount: 22, typical_day: 4, cadence: "monthly", tier: "required" }];
+  fx.current.edits_tx = [
+    { date: "2026-10-05", id: "acct-check", desc: "Corner Market", amount: 12.34, flow: "outflow", category: "Groceries", tx_key: "g1" },
+    { date: "2026-10-04", id: "acct-check", desc: "City Fuel", amount: 8, flow: "outflow", category: "Gas", tx_key: "f1" }
+  ];
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  const narrowCss = css.split("@media (max-width: 390px)").pop();
+  assert.match(narrowCss, /\.bank-edit-list li \{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+  assert.match(narrowCss, /\.bank-edit-list \.bank-edit-side \{[^}]*margin-left:\s*0;/);
+  const pageHtml = ctx.bankPageHtml(fx, { tab: "edits", planMonth: "2026-10", now: "2026-10-16T15:00:00-04:00" })
+    .replace(/<details\b/g, "<details open");
+  const html = "<!DOCTYPE html><html data-theme=\"justin\"><head><meta charset=\"utf-8\">" +
+    '<link rel="stylesheet" href="file://' + path.join(root, "house/house.css") + '">' +
+    '<link rel="stylesheet" href="file://' + path.join(root, "house/list-cap.css") + '">' +
+    '<link rel="stylesheet" href="file://' + path.join(root, "house/banking.css") + '">' +
+    "</head><body class=\"bank-page\"><main class=\"desk bank-desk\">" + pageHtml + "</main></body></html>";
+  const file = path.join(os.tmpdir(), "edits-income-layout.html");
+  fs.writeFileSync(file, html);
+  /* Headless Chrome's window floor is 500px, so --window-size never matches max-width: 390px. */
+  module.paths.unshift("/tmp/pw-eq/node_modules");
+  const { chromium } = require("playwright");
+  const browser = await chromium.launch({ channel: "chrome", headless: true });
+  try {
+    for (const width of [360, 390, 1280]) {
+      const page = await browser.newPage({ viewport: { width: width, height: 900 } });
+      await page.goto("file://" + file);
+      const box = await page.evaluate(function () {
+        document.querySelectorAll("details").forEach(function (d) { d.open = true; });
+        const sel = ".bank-edit-list > li > .bank-merchant, .bank-edit-list > li > .bank-edit-id, .bank-edit-list > li > .bank-kind-name";
+        const bad = [];
+        document.querySelectorAll(sel).forEach(function (el) {
+          const w = el.getBoundingClientRect().width;
+          if (w < 120) bad.push((el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 48) + " " + Math.round(w));
+        });
+        const input = document.querySelector('[data-bank-income="Paycheck"]');
+        const row = input && input.closest("li");
+        const label = row && row.querySelector(".bank-merchant");
+        const help = row && row.querySelector(".bank-income-fixed");
+        function edge(el, key) {
+          return el ? Math.round(el.getBoundingClientRect()[key]) : 0;
+        }
+        return {
+          count: document.querySelectorAll(sel).length,
+          bad: bad.join(" | "),
+          nameW: edge(label, "width"),
+          nameT: edge(label, "top"),
+          nameB: edge(label, "bottom"),
+          nameR: edge(label, "right"),
+          inT: edge(input, "top"),
+          inB: edge(input, "bottom"),
+          inL: edge(input, "left"),
+          helpT: edge(help, "top")
+        };
+      });
+      assert.ok(box.count >= 3, width + " names " + box.count);
+      assert.equal(box.bad, "", width + " narrow " + box.bad);
+      assert.ok(box.nameW >= 120, width + " paycheck name " + box.nameW);
+      if (width <= 390) {
+        assert.ok(box.nameW >= 240, width + " name should span the row " + box.nameW);
+        assert.ok(box.inT >= box.nameB - 1, width + " input below name " + box.inT + "/" + box.nameB);
+        assert.ok(box.helpT >= box.inB - 1, width + " helper below input " + box.helpT + "/" + box.inB);
+      } else {
+        assert.ok(box.inT < box.nameB && box.nameT < box.inB, width + " name and amount share a row");
+        assert.ok(box.inL > box.nameR - 8, width + " amount sits beside the name");
+      }
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+test("internal field notes stay off rendered pages", function () {
+  const ctx = boot();
+  const words = ["bank_match", "edits_tx", "recent_tx", "recent_hits", "tx_key", "tier_doc", "plan_dedupe", "descriptors", "credits", "bill_id_basis", "pay_history", "one_off", "account_funding_basis"];
+  function visible(html) {
+    return String(html || "")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&[#a-z0-9]+;/gi, " ")
+      .toLowerCase();
+  }
+  function assertClean(text, where) {
+    words.forEach(function (word) {
+      const at = text.indexOf(word);
+      assert.equal(at, -1, where + " shows " + word);
+    });
+  }
+  function walk(dir, out) {
+    fs.readdirSync(dir, { withFileTypes: true }).forEach(function (ent) {
+      if (ent.name === "node_modules" || ent.name === ".git" || ent.name === "test") return;
+      const abs = path.join(dir, ent.name);
+      if (ent.isDirectory()) walk(abs, out);
+      else if (ent.name.endsWith(".html")) out.push(abs);
+    });
+  }
+  const files = [];
+  walk(root, files);
+  assert.ok(files.length >= 4);
+  files.forEach(function (file) {
+    assertClean(visible(fs.readFileSync(file, "utf8")), path.relative(root, file));
+  });
+  const fx = blankBudget(loadFixture());
+  const note = words.join(" ");
+  fx.budget.bank_match_basis = note;
+  fx.budget.bill_id_basis = note;
+  fx.budget.account_funding_basis = note;
+  fx.budget.bills = [{
+    name: "Rent",
+    amount: 40,
+    typical_day: 4,
+    cadence: "monthly",
+    bank_match: {
+      descriptors: ["RENT PAY"],
+      recent_hits: [{ date: "2026-10-04", amount: 40, description: "Rent pay" }],
+      typical_day: 4,
+      typical_amount: 40,
+      typical_basis: "edits_tx",
+      confidence: "high"
+    }
+  }];
+  fx.budget.income_monthly = [
+    { label: "Paycheck", editable: true, amount: 40, cadence: "twice_monthly" }
+  ];
+  ["budget", "current", "edits", "historical"].forEach(function (tab) {
+    const html = ctx.bankPageHtml(fx, { tab: tab, planMonth: "2026-10", histMonth: "2026-08", now: "2026-10-16T15:00:00-04:00" });
+    assertClean(visible(html), tab);
+  });
+  const edits = ctx.bankPageHtml(fx, { tab: "edits", planMonth: "2026-10", now: "2026-10-16T15:00:00-04:00" });
+  const at = edits.indexOf("<h2>Income</h2>");
+  const income = edits.slice(at, edits.indexOf("</section>", at));
+  assert.equal((income.match(/<p class="hint">/g) || []).length, 1);
+  assert.match(income, /A blank amount or day stays blank/);
+  assert.match(income, /Days 15 and the last day of the month/);
 });
