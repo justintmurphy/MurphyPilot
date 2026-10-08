@@ -393,7 +393,7 @@ test("next pay cards cover the month, share left after, and hide paid or cancell
   assert.match(next, /data-bank-also-in="12.34"/);
   assert.equal((next.match(/<p class="hint">/g) || []).length, 1);
   assert.doesNotMatch(next, /sym">Rent/);
-  assert.doesNotMatch(next.slice(0, next.indexOf('data-bank-next-card="3"')), /Paid Off Item/);
+  assert.match(next.slice(0, next.indexOf('data-bank-next-card="3"')), /Paid Off Item[\s\S]{0,120}data-bank-bill-paid="1"|data-bank-bill-paid="1"[\s\S]{0,200}Paid Off Item/);
   const periods = ctx.bankPayPeriods(snap, opts);
   assert.equal(periods.length, count);
   const cards = next.split('data-bank-next-card="').slice(1);
@@ -404,10 +404,21 @@ test("next pay cards cover the month, share left after, and hide paid or cancell
     const check = (chunk.match(/data-bank-check-left="([^"]*)"/) || [])[1];
     const shared = (chunk.match(/data-bank-left-after="([^"]*)"/) || [])[1];
     const period = periods[i];
-    const math = ctx.bankPeriodMath(snap, opts, period);
+    const prevLeft = i === 0 ? 0 : ctx.bankPeriodMath(snap, opts, periods[i - 1], i === 1 ? 0 : undefined).left;
+    const math = ctx.bankPeriodMath(snap, opts, period, i === 0 ? 0 : periods.slice(0, i).reduce(function (carry, earlier, ei) {
+      return ctx.bankPeriodMath(snap, opts, earlier, ei === 0 ? 0 : carry).left;
+    }, 0));
     assert.equal(date, period.focus.date);
     assert.equal(Number(check), math.left);
-    assert.equal(math.left, ctx.bankLeftAfter(math.deposit, { kind: "out", amount: math.aside, counted: true, pending: false }));
+    if (i > 0) assert.equal(Number((chunk.match(/data-bank-carried="([^"]*)"/) || [])[1]), periods.slice(0, i).reduce(function (carry, earlier, ei) {
+      return ctx.bankPeriodMath(snap, opts, earlier, ei === 0 ? 0 : carry).left;
+    }, 0));
+    var stepped = math.carried || 0;
+    stepped = ctx.bankLeftAfter(stepped, { kind: "in", amount: math.deposit || 0, counted: true, pending: false });
+    stepped = ctx.bankLeftAfter(stepped, { kind: "in", amount: math.also || 0, counted: true, pending: false });
+    stepped = ctx.bankLeftAfter(stepped, { kind: "out", amount: math.aside || 0, counted: true, pending: false });
+    assert.equal(math.left, stepped);
+    if (prevLeft) assert.ok(prevLeft != null);
     const ledger = ctx.bankLedgerLeftOn(snap, date);
     if (date.slice(0, 7) === "2026-10" && ledger != null) {
       assert.equal(Number(shared), ledger);
@@ -521,12 +532,12 @@ test("next pay includes every active window bill, and left plus also-in is the p
   assert.match(card, /Power/);
   assert.doesNotMatch(card, /sym">Rent/);
   assert.match(card, /Set aside[\s\S]{0,40}−\$15\.00/);
-  assert.match(card, /data-bank-check-left="25"/);
-  assert.match(card, /Left from this check[\s\S]{0,80}\+\$25\.00/);
+  assert.match(card, /data-bank-check-left="37.34"/);
+  assert.match(card, /Left from this pay[\s\S]{0,80}\+\$37\.34/);
   assert.match(card, /Needs \(groceries, etc\.\)[\s\S]{0,40}\$0\.00/);
   assert.doesNotMatch(card, /Needs \(groceries, etc\.\)[\s\S]{0,40}<span class="sub">—/);
-  assert.ok(card.indexOf("Also in this period") > card.indexOf("Left from this check"));
-  assert.match(card, /Also in this period \+\$12\.34/);
+  assert.ok(card.indexOf("Also in") > card.indexOf("Left from this pay"));
+  assert.match(card, /Also in[\s\S]{0,80}\+\$12\.34/);
   const rows = ledgerRows(dueSlice(html));
   const todayIdx = rows.findIndex(function (row) { return row.today; });
   const payIdx = rows.findIndex(function (row) { return row.kind === "in" && row.date === "2026-10-15"; });
@@ -548,7 +559,7 @@ test("next pay includes every active window bill, and left plus also-in is the p
   const goneCard = gone.slice(gone.indexOf('data-bank-next-card="1"'), gone.indexOf('data-bank-next-card="2"'));
   assert.doesNotMatch(gone, /Stream Club/);
   assert.match(goneCard, /Set aside[\s\S]{0,40}−\$10\.00/);
-  assert.match(goneCard, /data-bank-check-left="30"/);
+  assert.match(goneCard, /data-bank-check-left="42.34"/);
   assert.doesNotMatch(dueSlice(ctx.bankPageHtml(snap, opts)), /Stream Club/);
 });
 
@@ -594,4 +605,164 @@ test("a posted early payroll stays above today, and a zero plan prints $0.00", f
     assert.match(chunk, /Needs \(groceries, etc\.\)[\s\S]{0,40}\$0\.00/);
     assert.match(chunk, /Set aside[\s\S]{0,40}\$0\.00/);
   });
+});
+
+test("bills and subscriptions sort by the next due date, with cancelled last", function () {
+  const ctx = boot();
+  const snap = baseSnap(ctx);
+  snap.budget.bills = [
+    { name: "Zebra", bill_id: "zebra", amount: 4, typical_day: 20, cadence: "monthly", tier: "required" },
+    { name: "Alpha", bill_id: "alpha", amount: 3, typical_day: 5, cadence: "monthly", tier: "required" },
+    { name: "Middle", bill_id: "middle", amount: 2, typical_day: 28, cadence: "monthly", tier: "required" },
+    { name: "Alpha Twin", bill_id: "twin", amount: 1, typical_day: 20, cadence: "monthly", tier: "required" },
+    { name: "Gone", bill_id: "gone", amount: 9, typical_day: 1, cadence: "monthly", tier: "required", status: "cancelled", status_from: "2026-10" }
+  ];
+  snap.budget.subscriptions = [
+    { name: "Late Sub", sub_id: "late", amount: 2, typical_day: 4 },
+    { name: "Soon Sub", sub_id: "soon", amount: 2, typical_day: 18 }
+  ];
+  const html = ctx.bankPageHtml(snap, { tab: "edits", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  const bills = html.slice(html.indexOf("<h2>Bills</h2>"), html.indexOf("<h2>Subscriptions</h2>"));
+  const names = [];
+  const re = /bank-merchant">([^<]+)/g;
+  let hit;
+  while ((hit = re.exec(bills))) names.push(hit[1]);
+  assert.deepEqual(names.slice(0, 4), ["Alpha Twin", "Zebra", "Middle", "Alpha"]);
+  assert.ok(names.indexOf("Gone") > names.indexOf("Alpha"));
+  assert.match(bills, /data-bank-cancelled="1"/);
+  assert.ok(bills.indexOf("data-bank-cancelled") > bills.indexOf("Alpha</span>"));
+  const subs = html.slice(html.indexOf("<h2>Subscriptions</h2>"), html.indexOf("</section>", html.indexOf("<h2>Subscriptions</h2>")));
+  assert.ok(subs.indexOf("Soon Sub") < subs.indexOf("Late Sub"));
+});
+
+test("card 1 is this pay from the posted check and later cards carry that left", function () {
+  const ctx = boot();
+  const snap = baseSnap(ctx);
+  snap.tier_doc.categories.forEach(function (row) { row.budget = 0; });
+  snap.budget.account_funding = [{ nickname: "Bills", last4: "2222", start_balance: 0, current_balance: 32 }];
+  snap.budget.account_funding_combined = 32;
+  snap.budget.bills = [
+    {
+      name: "Paid Bill",
+      bill_id: "paidbill",
+      amount: 8,
+      typical_day: 16,
+      cadence: "monthly",
+      tier: "required",
+      paid_current_month: { month: "2026-10", status: "paid", source: "manual", paid_date: "2026-10-16" }
+    },
+    { name: "Due Bill", bill_id: "duebill", amount: 6, typical_day: 22, cadence: "monthly", tier: "required" }
+  ];
+  snap.budget.subscriptions = [];
+  snap.budget.paid_status_month = "2026-10";
+  snap.budget.tiers = { needs_plan: 0, wants_plan: 0 };
+  snap.current.recent_tx = [{
+    date: "2026-10-15", amount: 40, flow: "inflow", desc: "Payroll", category: "Payroll", tx_key: "pay"
+  }];
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" };
+  const html = ctx.bankPageHtml(snap, opts);
+  const next = nextSlice(html);
+  const card1 = next.slice(next.indexOf('data-bank-next-card="1"'), next.indexOf('data-bank-next-card="2"'));
+  const card2 = next.slice(next.indexOf('data-bank-next-card="2"'), next.indexOf('data-bank-next-card="3"') < 0 ? next.length : next.indexOf('data-bank-next-card="3"'));
+  assert.match(card1, /data-bank-next-date="2026-10-15"/);
+  assert.match(card1, /data-bank-this-pay="1"/);
+  assert.match(card1, /This pay/);
+  assert.match(card1, /class="ov-hero"[\s\S]{0,80}Left from this pay/);
+  assert.match(card1, /Paid Bill/);
+  assert.match(card1, /data-bank-bill-paid="1"/);
+  assert.match(card1, /tone-go" aria-label="Paid"/);
+  assert.match(card1, /Due Bill/);
+  assert.match(card1, /data-bank-bill-paid="0"/);
+  assert.doesNotMatch(card1, /Carried over/);
+  assert.match(next, /class="book-chip on" data-bank-next-dot="0"/);
+  assert.match(card2, /data-bank-next-date="2026-10-30"/);
+  assert.match(card2, /Carried over/);
+  const periods = ctx.bankPayPeriods(snap, opts);
+  let carry = 0;
+  const maths = periods.map(function (period, i) {
+    const math = ctx.bankPeriodMath(snap, opts, period, carry);
+    if (i > 0) assert.equal(math.carried, carry);
+    carry = math.left;
+    return math;
+  });
+  const left1 = Number((card1.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
+  const left2 = Number((card2.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
+  const carried2 = Number((card2.match(/data-bank-carried="([^"]*)"/) || [])[1]);
+  assert.equal(carried2, maths[0].left);
+  assert.equal(left1, maths[0].left);
+  assert.equal(left2, maths[1].left);
+  const paidSoFar = 8;
+  const remain = 6;
+  let ident = 0;
+  ident = ctx.bankLeftAfter(ident, { kind: "in", amount: 40, counted: true, pending: false });
+  ident = ctx.bankLeftAfter(ident, { kind: "in", amount: maths[0].also, counted: true, pending: false });
+  ident = ctx.bankLeftAfter(ident, { kind: "out", amount: paidSoFar, counted: true, pending: false });
+  ident = ctx.bankLeftAfter(ident, { kind: "out", amount: remain, counted: true, pending: false });
+  assert.equal(left1, ident);
+  const rows = ledgerRows(dueSlice(html));
+  const today = rows.filter(function (row) { return row.today; })[0];
+  const pay = rows.filter(function (row) { return row.kind === "in" && row.date === "2026-10-15"; })[0];
+  let contribution = 0;
+  contribution = ctx.bankLeftAfter(contribution, { kind: "in", amount: 40, counted: true, pending: false });
+  contribution = ctx.bankLeftAfter(contribution, { kind: "out", amount: paidSoFar, counted: true, pending: false });
+  assert.equal(today.left, contribution);
+  assert.equal(pay.left, today.left);
+  let fromToday = contribution;
+  fromToday = ctx.bankLeftAfter(fromToday, { kind: "in", amount: maths[0].also, counted: true, pending: false });
+  fromToday = ctx.bankLeftAfter(fromToday, { kind: "out", amount: remain, counted: true, pending: false });
+  assert.equal(left1, fromToday);
+  const last = maths[maths.length - 1];
+  const lastDate = periods[periods.length - 1].focus.date;
+  const ledgerEnd = Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]);
+  const paydayRow = rows.filter(function (row) { return row.date === lastDate && row.kind === "in"; })[0];
+  if (String(periods[periods.length - 1].end || "") > "2026-10-31") assert.equal(last.left, ledgerEnd);
+  else if (paydayRow) assert.equal(last.left, paydayRow.left);
+  else assert.equal(last.left, ledgerEnd);
+});
+
+test("remaining group rows break out categories without moving left after", function () {
+  const ctx = boot();
+  const snap = baseSnap(ctx);
+  snap.tier_doc.categories = [
+    { id: "groceries", name: "Groceries", tier: "needs", budget: 20, merged_into: "" },
+    { id: "dining", name: "Dining", tier: "needs", budget: 10, merged_into: "" },
+    { id: "shopping", name: "Shopping", tier: "wants", budget: 8, merged_into: "" },
+    { id: "mortgage", name: "Mortgage", tier: "required", budget: 30, merged_into: "" },
+    { id: "quiet", name: "Quiet Zero", tier: "needs", budget: 0, merged_into: "" }
+  ];
+  snap.budget.bills = [{
+    name: "House Note",
+    bill_id: "house",
+    amount: 30,
+    kind: "set_aside",
+    tier: "required",
+    category: "Mortgage"
+  }];
+  snap.budget.subscriptions = [];
+  snap.current.edits_tx = [
+    { date: "2026-10-02", amount: 4, flow: "outflow", desc: "Corner Market", category: "Groceries", tx_key: "g1" },
+    { date: "2026-10-03", amount: 15, flow: "outflow", desc: "Sample Cafe", category: "Dining", tx_key: "d1" }
+  ];
+  const html = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  const due = dueSlice(html);
+  assert.doesNotMatch(due, /Quiet Zero/);
+  assert.match(due, /Over \$5\.00/);
+  assert.match(due, /tone-stop">Over \$5\.00/);
+  ["required", "needs", "wants"].forEach(function (tier) {
+    const group = due.match(new RegExp('data-bank-remain-group="' + tier + '" data-bank-remain="([^"]+)"'));
+    assert.ok(group, tier);
+    const re = new RegExp('data-bank-remain-cat="' + tier + '" data-bank-remain="([^"]+)"', "g");
+    let sum = 0;
+    let hit;
+    while ((hit = re.exec(due))) sum += Number(hit[1]);
+    assert.equal(Math.round(sum * 100) / 100, Number(group[1]));
+  });
+  const catRows = due.split('data-bank-remain-cat="').slice(1);
+  catRows.forEach(function (chunk) {
+    assert.doesNotMatch(chunk.slice(0, chunk.indexOf(">")), /data-bank-row-left/);
+  });
+  const reqLeft = Number((due.match(/data-bank-remain-group="required"[^>]*data-bank-row-left="([^"]+)"|data-bank-row-left="([^"]+)"[^>]*data-bank-remain-group="required"/) || []).slice(1).filter(Boolean)[0]);
+  const needsLeft = Number((due.match(/data-bank-remain-group="needs"[^>]*data-bank-row-left="([^"]+)"|data-bank-row-left="([^"]+)"[^>]*data-bank-remain-group="needs"/) || []).slice(1).filter(Boolean)[0]);
+  const needsAmt = Number((due.match(/data-bank-remain-group="needs" data-bank-remain="([^"]+)"/) || [])[1]);
+  assert.equal(Math.round((reqLeft - needsLeft) * 100) / 100, needsAmt);
 });
