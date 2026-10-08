@@ -6824,7 +6824,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       (meta ? " " + meta : "") + fromHtml + (extras.length ? " " + extras.join(" ") : "");
     var nameCell = "<td class=\"bank-fund-name\">" + nameBits + "</td>";
     if (row.pay && row.pay.key && row.kind === "out" && !row.rollup && !row.closing) {
-      nameCell = "<td class=\"bank-fund-name\">" + bankPayTapHtml(row.pay, nameBits) + "</td>";
+      nameCell = "<td class=\"bank-fund-name\">" + bankFundCheckHtml(row.pay, nameBits) + "</td>";
     }
     var main = "<tr" + rowMeta + rowCls + ">" + nameCell + amt + leftCell + "</tr>";
     var kids = (row.breakouts || []).map(function (part) {
@@ -8927,15 +8927,28 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried,
     var pay = row.pay || { on: paid, bank: paid, manual: false, key: "" };
     var nameCls = paid ? "sym tone-flat" : "sym";
     var amtCls = paid ? "num tone-flat" : ("num " + flow.cls);
-    var fromHtml = "";
+    var metaBits = [];
+    if (due) metaBits.push(due);
     try {
       var fromText = bankFromMask(bankPayFromForName(snap, row.name));
-      if (fromText) fromHtml = ' <span class="sub' + (paid ? " tone-flat" : "") + '">' + bankEsc(fromText) + "</span>";
-    } catch (eFrom) { fromHtml = ""; }
-    var inner = '<span class="' + nameCls + '">' + bankEsc(row.name) + '</span> <span class="sub' + (paid ? " tone-flat" : "") + '">' +
-      bankEsc(due) + "</span>" + fromHtml + ' <b class="' + amtCls + '">' + bankEsc(row.amount == null ? "\u2014" : flow.text) + "</b>";
-    var body = pay.bank ? inner + ' <span class="tone-go" aria-label="Paid">\u2713</span>' : bankPayTapHtml(pay, inner);
-    return "<tr" + (paid ? ' class="tone-flat" data-bank-bill-paid="1"' : ' data-bank-bill-paid="0"') + "><td colspan=\"2\">" + body + "</td></tr>";
+      if (fromText) metaBits.push(fromText);
+    } catch (eFrom) {}
+    var meta = metaBits.length ? '<span class="sub' + (paid ? " tone-flat" : "") + '">' + bankEsc(metaBits.join(" \u00b7 ")) + "</span>" : "";
+    var nameHtml = '<span class="' + nameCls + '">' + bankEsc(row.name) + "</span>" + meta;
+    var mark = pay.on
+      ? '<span class="tone-flat" aria-label="Paid">\u2713</span>'
+      : '<span class="bank-pay-box" aria-hidden="true"></span>';
+    var amtText = row.amount == null ? "\u2014" : flow.text;
+    var amtInner = '<b class="' + amtCls + '">' + bankEsc(amtText) + "</b>" + mark;
+    var amtHtml = '<span class="bank-next-amt">' + amtInner + "</span>";
+    var rowAttr = paid ? ' class="tone-flat" data-bank-bill-paid="1"' : ' data-bank-bill-paid="0"';
+    if (!pay.bank && pay.key) {
+      var attr = pay.manual ? "data-bank-status-undo" : "data-bank-paid-month";
+      var aria = (pay.on ? "Paid " : "Mark paid ") + row.name + (due ? ", " + due : "") + ", " + amtText;
+      amtHtml = '<button type="button" class="bank-pay-tap bank-next-amt" ' + attr + '="' + bankEsc(pay.key) + '" aria-label="' + bankEsc(aria) + '">' + amtInner + "</button>";
+      rowAttr += " " + attr + '="' + bankEsc(pay.key) + '"';
+    }
+    return "<tr" + rowAttr + '><td class="bank-next-name">' + nameHtml + '</td><td class="num">' + amtHtml + "</td></tr>";
   }).join("");
   var carriedN = index > 0 ? (math.carried != null ? math.carried : (carried || 0)) : 0;
   function moneyRow(label, amount, bold) {
@@ -9534,6 +9547,19 @@ function bankPayTapHtml(state, inner) {
   var attr = state.manual ? "data-bank-status-undo" : "data-bank-paid-month";
   return '<button type="button" class="bank-pay-tap" ' + attr + '="' + bankEsc(state.key) + '">' +
     inner + box + "</button>";
+}
+
+/* Account funding: the check leads the name inside the name cell. */
+function bankFundCheckHtml(state, inner) {
+  state = state || {};
+  var box = state.on
+    ? '<span class="tone-go bank-pay-lead" aria-label="Paid">\u2713</span>'
+    : '<span class="bank-pay-box bank-pay-lead" aria-hidden="true"></span>';
+  var body = box + inner;
+  if (state.bank || !state.key) return '<span class="bank-fund-check">' + body + "</span>";
+  var attr = state.manual ? "data-bank-status-undo" : "data-bank-paid-month";
+  return '<button type="button" class="bank-pay-tap bank-fund-check" ' + attr + '="' + bankEsc(state.key) + '">' +
+    body + "</button>";
 }
 
 function bankBillPaidStatus(row, ym) {
