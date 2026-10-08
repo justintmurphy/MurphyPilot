@@ -177,6 +177,28 @@ table.book td.name-cell.tone-stop .sym { color: var(--stop); }
 .books-sheet { background: var(--paper); color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; max-width: 860px; width: 100%; max-height: 88vh; overflow: auto; padding: 16px; }
 .books-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .books-head h2 { margin: 0; }
+.books-sheet select[data-bank-payfrom] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: block;
+}
+.books-sheet [data-bank-cancel-block] {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+[data-bank-move] > .mix-leg.wrap { width: 100%; max-width: 100%; box-sizing: border-box; }
+[data-bank-move] > .mix-leg.wrap .mix-leg-name { flex: 1 1 100%; }
+[data-bank-move] > .mix-hint {
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  margin: 2px 2px 8px;
+}
 .books-head .overall-strip { text-align: left; }
 .books-head .overall-strip .ov-hero { padding-left: 0; padding-right: 0; }
 .mix-legend.nest { padding-left: 22px; }
