@@ -895,7 +895,7 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /canonical/);
   assert.match(investments, /\/house\/house\.css\?v=20261008ey/);
   assert.match(page, /\/house\/js\/banking\.js\?v=20261008fa/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008ez/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008fa/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -4307,7 +4307,7 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
   assert.match(page, /banking\.js\?v=20261008fa/);
-  assert.match(page, /banking\.css\?v=20261008ez/);
+  assert.match(page, /banking\.css\?v=20261008fa/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4462,7 +4462,7 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
   assert.match(page, /\/house\/js\/banking\.js\?v=20261008fa/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008ez/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008fa/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4648,7 +4648,7 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /banking\.js\?v=20261008fa/);
-  assert.match(page, /banking\.css\?v=20261008ez/);
+  assert.match(page, /banking\.css\?v=20261008fa/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4940,7 +4940,7 @@ test("tip dy plan blocks follow the selected month", function () {
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /banking\.js\?v=20261008fa/);
-  assert.match(page, /banking\.css\?v=20261008ez/);
+  assert.match(page, /banking\.css\?v=20261008fa/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -5027,7 +5027,7 @@ test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /banking\.js\?v=20261008fa/);
-  assert.match(page, /banking\.css\?v=20261008ez/);
+  assert.match(page, /banking\.css\?v=20261008fa/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
 
@@ -5848,7 +5848,7 @@ test("due rows and next pay bills keep a space between the name, amount, and met
   const dueAt = html.indexOf('class="bank-due-month"');
   const due = dueSlice(html);
   assert.ok(dueAt >= 0);
-  assert.match(due, /<table class="book"/);
+  assert.match(due, /<table class="book bank-fund-grid"/);
   assert.match(due, /Left after/);
   assert.match(due, /due Oct 5/);
   assert.match(rowText(due), /Electric/);
@@ -5968,7 +5968,7 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 test("banking assets use the ec cache bust", function () {
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /\/house\/js\/banking\.js\?v=20261008fa/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008ez/);
+  assert.match(page, /\/house\/banking\.css\?v=20261008fa/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /ticker\.js\?v=20261007ei/);
   assert.match(page, /ticker\.css\?v=20261007ei/);
@@ -7105,7 +7105,7 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   assert.match(page, /banking\.js\?v=20261008fa/);
-  assert.match(page, /banking\.css\?v=20261008ez/);
+  assert.match(page, /banking\.css\?v=20261008fa/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);
   assert.doesNotMatch(css, /--mp-in:\s*#|--mp-out:\s*#|--bank-required:/);
@@ -8087,6 +8087,116 @@ test("funding sits beside the calendar at desktop and the due list does not scro
   });
 });
 
+test("account funding rows share one amount column", async function () {
+  const ctx = boot();
+  const fx = blankBudget(loadFixture());
+  fx.asof = "2026-10-16T12:00:00-04:00";
+  fx.accounts = [{ nickname: "Spending", last4: "2222", balance: 80 }];
+  fx.current.balances = [{ nickname: "Spending", last4: "2222", balance: 80 }];
+  fx.budget.account_funding = [{ nickname: "Spending", last4: "2222", start_balance: 80, current_balance: 80 }];
+  fx.budget.bills = [{ name: "Rent", bill_id: "rent", amount: 22, typical_day: 20, cadence: "monthly", tier: "required" }];
+  fx.budget.income_monthly = [{ label: "Payroll", amount: 40, deposits: [{ day: 15, amount: 40 }] }];
+  fx.budget.pay_schedule = [{ name: "Payroll", kind: "payroll", date: "2026-10-15", amount: 40 }];
+  fx.tier_doc = {
+    rules: {},
+    plans: {},
+    categories: [
+      { id: "groceries", name: "Groceries", tier: "needs", budget: 20, merged_into: "" },
+      { id: "dining", name: "Dining", tier: "needs", budget: 10, merged_into: "" }
+    ],
+    category_rules: {},
+    category_tx: {},
+    manual_paid: {}
+  };
+  fx.current.edits_tx = [{ date: "2026-10-02", amount: 4, flow: "outflow", desc: "Corner Market", category: "Groceries", tx_key: "g1" }];
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" };
+  const budgetHtml = ctx.bankPageHtml(fx, opts);
+  const due = dueSlice(budgetHtml);
+  assert.match(due, /<table class="book bank-fund-grid"><colgroup><col class="bank-fund-name"><col class="bank-fund-amt"><col class="bank-fund-left"><\/colgroup>/);
+  assert.doesNotMatch(due, /colspan=/);
+  assert.match(due, /class="[^"]*bank-fund-line/);
+  assert.match(due, /class="[^"]*bank-fund-remain/);
+  assert.match(due, /class="[^"]*bank-fund-sub/);
+  const closed = blankBudget(loadFixture());
+  closed.budget.snapshots = {
+    "2026-09": {
+      month: "2026-09",
+      bills: [{ name: "Rent", amount: 22, due_day: 4, counted: true, tier: "required" }]
+    }
+  };
+  closed.budget.actuals_by_month = { "2026-09": { opening_balance: 50, by_category: { Rent: 22 } } };
+  const histHtml = ctx.bankPageHtml(closed, { tab: "historical", histMonth: "2026-09", now: "2026-10-16T16:00:00Z" });
+  const histDue = dueSlice(histHtml);
+  assert.match(histDue, /bank-fund-grid/);
+  assert.match(histDue, /bank-fund-total/);
+  assert.match(histDue, /Month-end/);
+  const file = path.join(require("os").tmpdir(), "bank-fund-grid.html");
+  const doc = "<!DOCTYPE html><html data-theme=\"justin\"><head><meta charset=\"utf-8\">" +
+    '<link rel="stylesheet" href="file://' + path.join(root, "house/house.css") + '">' +
+    '<link rel="stylesheet" href="file://' + path.join(root, "house/banking.css") + '">' +
+    "</head><body class=\"bank-page\"><main class=\"desk bank-desk\">" + budgetHtml + histHtml + "</main></body></html>";
+  fs.writeFileSync(file, doc);
+  module.paths.unshift("/tmp/pw-eq/node_modules");
+  const { chromium } = require("playwright");
+  const browser = await chromium.launch({ channel: "chrome", headless: true });
+  try {
+    for (const width of [390, 1280]) {
+      const page = await browser.newPage({ viewport: { width: width, height: 900 } });
+      await page.goto("file://" + file);
+      const report = await page.evaluate(function () {
+        function boxes(table, index) {
+          var head = table.querySelector("thead tr");
+          var live = index === 0;
+          function nums(tr) {
+            var cells = tr.querySelectorAll(":scope > th.num, :scope > td.num");
+            return Array.prototype.map.call(cells, function (el) {
+              var r = el.getBoundingClientRect();
+              return { left: Math.round(r.left), right: Math.round(r.right) };
+            });
+          }
+          function nameLeft(tr) {
+            var cell = tr.querySelector(":scope > td.bank-fund-name, :scope > th");
+            return cell ? Math.round(cell.getBoundingClientRect().left) : null;
+          }
+          var headNums = nums(head);
+          var headName = nameLeft(head);
+          var bad = [];
+          [".bank-fund-line", ".bank-fund-group", ".bank-fund-remain", ".bank-fund-sub", ".bank-fund-total"].forEach(function (sel) {
+            var tr = table.querySelector(trSel(sel));
+            if (!tr) {
+              if (sel === ".bank-fund-total" && live) return;
+              if (sel !== ".bank-fund-total" && !live) return;
+              bad.push("missing " + sel);
+              return;
+            }
+            var got = nums(tr);
+            if (got.length !== headNums.length) bad.push(sel + " cols " + got.length + "/" + headNums.length);
+            got.forEach(function (box, i) {
+              if (Math.abs(box.left - headNums[i].left) > 1 || Math.abs(box.right - headNums[i].right) > 1) {
+                bad.push(sel + " col " + i + " " + box.left + "-" + box.right + " vs " + headNums[i].left + "-" + headNums[i].right);
+              }
+            });
+            var left = nameLeft(tr);
+            if (left != null && Math.abs(left - headName) > 1) bad.push(sel + " name " + left + " vs " + headName);
+          });
+          return bad;
+        }
+        function trSel(sel) { return "tr" + sel; }
+        var tables = document.querySelectorAll(".bank-due-month table.bank-fund-grid");
+        var out = [];
+        tables.forEach(function (table, index) {
+          boxes(table, index).forEach(function (item) { out.push(item); });
+        });
+        return out.join(" | ");
+      });
+      assert.equal(report, "", width + " " + report);
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
 test("the running balance interleaves payroll, stipend, and other income", function () {
   const ctx = boot();
   const fx = blankBudget(loadFixture());
@@ -8104,11 +8214,12 @@ test("the running balance interleaves payroll, stipend, and other income", funct
     const cellRe = /<td class="([^"]*)">([\s\S]*?)<\/td>/g;
     let c;
     while ((c = cellRe.exec(chunk))) cells.push({ cls: c[1], text: c[2].replace(/<[^>]+>/g, "") });
+    const nums = cells.filter(function (cell) { return cell.cls.indexOf("bank-fund-name") < 0; });
     return {
       name: name,
-      amtClass: cells[0] ? cells[0].cls : "",
-      amt: cells[0] ? cells[0].text : "",
-      left: cells[1] ? cells[1].text : ""
+      amtClass: nums[0] ? nums[0].cls : "",
+      amt: nums[0] ? nums[0].text : "",
+      left: nums[1] ? nums[1].text : ""
     };
   }).filter(function (r) { return r.name && r.name !== "Today" && r.name !== "Month-end"; });
   assert.doesNotMatch(due, /Posted so far/);
@@ -8275,7 +8386,7 @@ test("a closed month shows actuals and the same status word as Budget", function
   assert.match(due, /Education[\s\S]{0,240}paid/);
   assert.doesNotMatch(due, /bank-paid-mark/);
   assert.doesNotMatch(due, /Old Loan|not counted/);
-  assert.match(due, /Education[\s\S]{0,220}\$58\.00/);
+  assert.match(due, /Education[\s\S]{0,500}class="num">\$58\.00/);
   assert.match(due.slice(due.indexOf("Month-end")), /\$98\.00/);
   const open = blankBudget(loadFixture());
   open.budget.snapshots = {

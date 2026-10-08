@@ -6813,40 +6813,39 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     if (row.remainGroup) rowMeta += ' data-bank-remain-group="' + bankEsc(row.remainGroup) + '" data-bank-remain="' + bankRoundCents(row.amount) + '"';
     if (row.expected) rowMeta += ' data-bank-expected="1"';
     if (row.today && !closed) rowMeta += ' data-bank-today="1"';
-    var rowCls = row.notFound ? ' class="tone-flat"' : "";
+    var classes = [];
+    if (row.notFound) classes.push("tone-flat");
+    if (row.remainGroup) classes.push("bank-fund-group bank-fund-remain");
+    if (row.closing) classes.push("bank-fund-total");
+    if (!row.remainGroup && !row.closing && row.kind === "out" && !row.rollup) classes.push("bank-fund-line");
+    var rowCls = classes.length ? ' class="' + classes.join(" ") + '"' : "";
     var leftCell = showBalance && !row.notFound ? '<td class="' + leftCls.trim() + '">' + bankEsc(bankMoney(row.left)) + "</td>" : (showBalance ? '<td class="num"><span class="sub">\u2014</span></td>' : "");
-    var nameCell = "<td><span class=\"sym\">" + bankEsc(row.name) + "</span>" +
-      (meta ? " " + meta : "") + fromHtml + (extras.length ? " " + extras.join(" ") : "") + "</td>";
-    var main;
+    var nameBits = "<span class=\"sym\">" + bankEsc(row.name) + "</span>" +
+      (meta ? " " + meta : "") + fromHtml + (extras.length ? " " + extras.join(" ") : "");
+    var nameCell = "<td class=\"bank-fund-name\">" + nameBits + "</td>";
     if (row.pay && row.pay.key && row.kind === "out" && !row.rollup && !row.closing) {
-      var span = showBalance ? "3" : "2";
-      var payInner = '<span class="sym">' + bankEsc(row.name) + "</span>" +
-        (meta ? " " + meta : "") + fromHtml + (extras.length ? " " + extras.join(" ") : "") + " " +
-        (row.closing || row.pending ? '<span class="num sub">\u2014</span>' : (function () {
-          var flow = bankFundSigned(row.amount, "out");
-          return '<b class="num ' + flow.cls + '">' + bankEsc(flow.text) + "</b>";
-        })()) +
-        (showBalance && !row.notFound ? ' <span class="num">' + bankEsc(bankMoney(row.left)) + "</span>" : "");
-      main = "<tr" + rowMeta + rowCls + '><td colspan="' + span + '">' + bankPayTapHtml(row.pay, payInner) + "</td></tr>";
-    } else {
-      main = "<tr" + rowMeta + rowCls + ">" + nameCell + amt + leftCell + "</tr>";
+      nameCell = "<td class=\"bank-fund-name\">" + bankPayTapHtml(row.pay, nameBits) + "</td>";
     }
+    var main = "<tr" + rowMeta + rowCls + ">" + nameCell + amt + leftCell + "</tr>";
     var kids = (row.breakouts || []).map(function (part) {
       var over = part.over > 0.004;
       var kidAmt = over
         ? '<td class="num tone-stop">' + bankEsc("Over " + bankMoney(part.over)) + "</td>"
         : '<td class="num tone-flat">' + bankEsc(bankFundSigned(part.remain || 0, "out").text) + "</td>";
       var kidLeft = showBalance ? '<td class="num"></td>' : "";
-      return '<tr class="tone-flat" data-bank-remain-cat="' + bankEsc(part.tier) + '" data-bank-remain="' + bankRoundCents(part.remain || 0) +
+      return '<tr class="tone-flat bank-fund-sub" data-bank-remain-cat="' + bankEsc(part.tier) + '" data-bank-remain="' + bankRoundCents(part.remain || 0) +
         '" data-bank-cat-over="' + bankRoundCents(part.over || 0) + '" data-bank-cat-name="' + bankEsc(part.name) +
-        '"><td><span class="mix-legend nest"><span class="sub">' + bankEsc(part.name) + "</span></span></td>" + kidAmt + kidLeft + "</tr>";
+        '"><td class="bank-fund-name"><span class="sub">' + bankEsc(part.name) + "</span></td>" + kidAmt + kidLeft + "</tr>";
     }).join("");
     return main + kids;
   }).join("");
   var head = showBalance
     ? "<tr><th>Item</th><th class=\"num\">Amount</th><th class=\"num\">Left after</th></tr>"
     : "<tr><th>Item</th><th class=\"num\">Amount</th></tr>";
-  var table = '<table class="book"><thead>' + head + "</thead><tbody>" + trs + "</tbody></table>";
+  var cols = showBalance
+    ? '<colgroup><col class="bank-fund-name"><col class="bank-fund-amt"><col class="bank-fund-left"></colgroup>'
+    : '<colgroup><col class="bank-fund-name"><col class="bank-fund-amt"></colgroup>';
+  var table = '<table class="book bank-fund-grid">' + cols + "<thead>" + head + "</thead><tbody>" + trs + "</tbody></table>";
   var ledgerEnd = "";
   var lastLeft = null;
   bodyRows.forEach(function (row) {
