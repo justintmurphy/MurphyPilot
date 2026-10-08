@@ -1,6 +1,8 @@
 /* tip fa — Every due-calendar deposit chip uses the income name. A weekday payroll says Payroll, the same as a rolled one.
    The Next Pay header uses that name, as in Payroll · Thu Oct 15. A rolled stipend stays Stipend · Fri Oct 23 (for Sun 25th).
    One-off deposits keep the name they already have.
+   A bill due in a card's window subtracts from Left whether it is paid or not. Checking it off does not change Left.
+   The hero To pay figure still counts only what is unpaid.
    tip ez — A pay_schedule row counts only in a month it dates.
    Any other month uses that income's deposits or typical days, rolled back to the prior business day.
    Each scheduled deposit, payroll and stipend, is its own Next Pay card. The window runs from that deposit to the next deposit of any kind.
@@ -8330,8 +8332,8 @@ function bankPeriodMath(snap, opts, period, carried) {
   var bills = bankPeriodBillRows(snap, opts, ev.date, period.end);
   var billSum = 0;
   bills.forEach(function (row) {
-    if (!row || row.paid) return;
-    if (row.amount != null) billSum += row.amount;
+    if (!row || row.amount == null) return;
+    billSum += row.amount;
   });
   billSum = bankRoundCents(billSum);
   var known = bankNeedsKnown(snap, opts);

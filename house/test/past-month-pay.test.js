@@ -228,3 +228,91 @@ test("a deposit chip uses the income name, including a weekday payroll, and the 
   assert.match(priorCal, /<b>30<\/b> <em class="pay pay-named" title="Payroll[^"]*" aria-label="Payroll[^"]*">Payroll<\/em>/);
   assert.doesNotMatch(priorCal, />Pay<\/em>/);
 });
+
+test("a posted card subtracts paid bills, and checking one off does not change Left", function () {
+  const ctx = boot();
+  const data = snap([
+    { name: "Payroll", kind: "payroll", date: "2026-09-30", pay_date: "2026-09-30", amount: 40 },
+    { name: "Payroll", kind: "payroll", date: "2026-10-15", pay_date: "2026-10-15", amount: 40 }
+  ]);
+  data.history.months = [
+    { month: "2026-09", history_tx: [{ date: "2026-09-30", amount: 40, flow: "inflow", desc: "Payroll", category: "Payroll", tx_key: "pay-sep" }] },
+    { month: "2026-10", history_tx: [{ date: "2026-10-15", amount: 40, flow: "inflow", desc: "Payroll", category: "Payroll", tx_key: "pay-oct" }] }
+  ];
+  data.budget.bills = [
+    {
+      name: "Rent",
+      bill_id: "rent",
+      amount: 30,
+      typical_day: 6,
+      cadence: "monthly",
+      tier: "required",
+      paid_current_month: { month: "2026-10", status: "paid", source: "bank", paid_date: "2026-10-06" }
+    },
+    { name: "Power", bill_id: "power", amount: 8, typical_day: 20, cadence: "monthly", tier: "required" }
+  ];
+  data.budget.account_funding = [{ nickname: "Spending", last4: "2222", start_balance: 80, current_balance: 80 }];
+  data.budget.other_income = [{ name: "Refund", amount: 4, date: "2026-10-03" }];
+  data.budget.paid_status_month = "2026-10";
+  data.budget.tiers = { needs_plan: 31, wants_plan: 0 };
+  delete data.tier_doc.categories;
+  data.tier_doc.plans = { needs: 31 };
+  data.tier_doc.manual_paid = {};
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" };
+  function round(n) { return Math.round(Number(n) * 100) / 100; }
+  function formula(math) {
+    var bills = 0;
+    (math.bills || []).forEach(function (row) {
+      if (row && row.amount != null) bills += row.amount;
+    });
+    return round((math.deposit || 0) + (math.also || 0) + (math.carried || 0) - bills - (math.needs || 0));
+  }
+  const periods = ctx.bankPayPeriods(data, opts);
+  const postedIdx = periods.findIndex(function (p) { return p.focus && p.focus.date === "2026-09-30"; });
+  const nextIdx = periods.findIndex(function (p) { return p.focus && p.focus.date === "2026-10-15"; });
+  assert.ok(postedIdx >= 0 && nextIdx === postedIdx + 1);
+  let carry = 0;
+  const maths = periods.map(function (period, i) {
+    const math = ctx.bankPeriodMath(data, opts, period, i === 0 ? 0 : carry);
+    assert.equal(math.left, formula(math));
+    carry = math.left == null ? 0 : math.left;
+    return math;
+  });
+  const posted = maths[postedIdx];
+  const paidRows = posted.bills.filter(function (row) { return row.paid; });
+  assert.ok(paidRows.length >= 1);
+  assert.equal(paidRows[0].name, "Rent");
+  assert.equal(paidRows[0].amount, 30);
+  assert.ok(posted.also >= 4);
+  assert.ok(posted.needs > 0);
+  const unpaidOnly = round((posted.deposit || 0) + (posted.also || 0) + (posted.carried || 0) - (posted.bills.filter(function (row) { return row && !row.paid; }).reduce(function (sum, row) { return sum + row.amount; }, 0)) - (posted.needs || 0));
+  assert.equal(posted.left, round(unpaidOnly - 30));
+  assert.equal(maths[nextIdx].carried, posted.left);
+  const html = ctx.bankPageHtml(data, opts);
+  const next = html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="calendar"'));
+  const postedAt = next.indexOf('data-bank-next-date="2026-09-30"');
+  const postedCard = next.slice(next.lastIndexOf('<div class="card"', postedAt), next.indexOf('data-bank-next-card="', postedAt + 20));
+  const nextAt = next.indexOf('data-bank-next-date="2026-10-15"');
+  const nextCard = next.slice(next.lastIndexOf('<div class="card"', nextAt), next.indexOf('data-bank-next-card="', nextAt + 20));
+  assert.match(postedCard, /data-bank-past="1"/);
+  assert.match(postedCard, /Payroll · Wed Sep 30/);
+  assert.doesNotMatch(postedCard, /Pay ·/);
+  assert.match(postedCard, /Rent[\s\S]{0,240}aria-label="Paid"/);
+  assert.match(postedCard, /data-bank-bill-paid="1"/);
+  assert.equal(Number((postedCard.match(/data-bank-check-left="([^"]*)"/) || [])[1]), posted.left);
+  assert.equal(Number((nextCard.match(/data-bank-carried="([^"]*)"/) || [])[1]), posted.left);
+  const heroBefore = Number((html.match(/data-bank-hero-out="([^"]*)"/) || [])[1]);
+  const leftBefore = Number((nextCard.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
+  data.tier_doc.manual_paid.power = { month: "2026-10", paid_date: "2026-10-20" };
+  const after = ctx.bankPageHtml(data, opts);
+  const afterNext = after.slice(after.indexOf('class="bank-next"'), after.indexOf('data-bank-part="calendar"'));
+  const afterPayAt = afterNext.indexOf('data-bank-next-date="2026-10-15"');
+  const afterPay = afterNext.slice(afterNext.lastIndexOf('<div class="card"', afterPayAt), afterNext.indexOf('data-bank-next-card="', afterPayAt + 20));
+  const afterPostedAt = afterNext.indexOf('data-bank-next-date="2026-09-30"');
+  const afterPosted = afterNext.slice(afterNext.lastIndexOf('<div class="card"', afterPostedAt), afterNext.indexOf('data-bank-next-card="', afterPostedAt + 20));
+  const heroAfter = Number((after.match(/data-bank-hero-out="([^"]*)"/) || [])[1]);
+  assert.equal(Number((afterPay.match(/data-bank-check-left="([^"]*)"/) || [])[1]), leftBefore);
+  assert.equal(Number((afterPosted.match(/data-bank-check-left="([^"]*)"/) || [])[1]), posted.left);
+  assert.equal(round(heroBefore - heroAfter), 8);
+  assert.match(afterPay, /Power[\s\S]{0,240}aria-label="Paid"/);
+});
