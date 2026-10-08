@@ -621,9 +621,9 @@ test("touched assets use the ei cache bust", function () {
   const bank = read("index.html");
   const inv = read("investments/index.html");
   assert.match(bank, /\/js\/nav\.js\?v=20261007ep/);
-  assert.match(bank, /\/house\/house\.css\?v=20261008ex/);
-  assert.match(bank, /\/house\/js\/banking\.js\?v=20261008ex/);
-  assert.match(bank, /\/house\/banking\.css\?v=20261008ex/);
+  assert.match(bank, /\/house\/house\.css\?v=20261008ey/);
+  assert.match(bank, /\/house\/js\/banking\.js\?v=20261008ey/);
+  assert.match(bank, /\/house\/banking\.css\?v=20261008ey/);
   assert.match(bank, /id="mpNav" class="mp-nav" data-section="banking"/);
   assert.match(bank, /<a class="brand-block" href="\/">/);
   assert.match(bank, /aria-label="Murphy Pilot"/);
@@ -632,7 +632,7 @@ test("touched assets use the ei cache bust", function () {
   assert.match(inv, /\/js\/nav\.js\?v=20261007ep/);
   assert.match(inv, /list-cap\.js\?v=20261007eh/);
   assert.match(inv, /list-cap\.css\?v=20261007eh/);
-  assert.match(inv, /\/house\/house\.css\?v=20261008ex/);
+  assert.match(inv, /\/house\/house\.css\?v=20261008ey/);
   assert.match(inv, /\/house\/js\/board-b\.js\?v=20261007ei/);
   assert.match(inv, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(inv, /Murphy Pilot House/);

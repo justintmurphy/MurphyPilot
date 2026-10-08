@@ -1659,6 +1659,32 @@ ul.bank-tx-results[data-bank-cat-items] [data-bank-item-meta] {
   line-height: 1.35;
 }
 
+.bank-pay-tap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bank-pay-tap .num,
+.bank-pay-tap b.num { margin-left: auto; }
+.bank-pay-box {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  flex: 0 0 22px;
+}
+
 .bank-next-bills li {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) auto minmax(0, 1.1fr);
@@ -1902,8 +1928,24 @@ ul.bank-tx-results[data-bank-cat-items] [data-bank-item-meta] {
   }
 
   .bank-next .book {
-    max-width: 560px;
+    max-width: 420px;
   }
+
+  .pay-carousel {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+  .pay-carousel::after { content: none; }
+  .pay-carousel > .card {
+    flex: 0 0 420px;
+    width: 420px;
+    max-width: 420px;
+    min-width: 420px;
+    max-height: 28rem;
+    padding: 8px 12px;
+  }
+  .pay-carousel > .card .ov-hero { padding: 4px 4px 2px; }
+  .pay-carousel > .card .ov-hero b { font-size: 28px; margin-top: 2px; }
 
 }
 

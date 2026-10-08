@@ -1,4 +1,8 @@
-/* tip ex — The gear in the Banking header opens Edits (/#edits) in one tap.
+/* tip ey — Edits can put a skipped outflow into a category.
+   The sheet says it is not counted as spending now, then the usual picker, starting on Just this one.
+   Money in stays locked unless it is already a refund. A closed month stays read-only and says Closed month.
+   A saved category replaces that chip and counts in that category for the month. The skipped choice again clears it.
+   tip ex — The gear in the Banking header opens Edits (/#edits) in one tap.
    The menu it replaced only listed Edits, so nothing else moved.
    tip ev — Each bill names the account that pays it. Each Next pay card lists the moves that keep that account from going negative.
    Pay from defaults to the account that paid the bill most recently. The Edits bill sheet can override it.
@@ -837,6 +841,11 @@ function bankMapTx(raw, i, overrides, snap) {
     tx_override_key: raw.tx_override_key == null ? "" : String(raw.tx_override_key),
     one_off: raw.one_off,
     exclude_from_spend_avg: raw.exclude_from_spend_avg,
+    transfer: raw.transfer,
+    internal: raw.internal,
+    payoff: raw.payoff,
+    refund: raw.refund,
+    kind: raw.kind == null ? "" : String(raw.kind),
     i: i
   };
 }
@@ -5901,11 +5910,13 @@ function bankPeriodBillRows(snap, opts, start, end) {
         var face = bankTierKey(bankBillDisplayName(b.name, b.display_label));
         if (!isPaid && bankSamePaidAmount(paidAmounts(month)[face], amount)) return;
         var paidOn = isPaid ? ((b.paid_current_month && b.paid_current_month.paid_date) || b.paid_date || "") : "";
+        var pay = bankPayCheckState(b, month, trust);
         rows.push({
           name: bankBillDisplayName(b.name, b.display_label),
           due: due,
           amount: amount,
           paid: isPaid,
+          pay: pay,
           phrase: isPaid ? bankDueInlineStatus(true, paid === "paid_late", paidOn, day, ym) : bankDueInlineStatus(false, false, "", day, ym)
         });
       });
@@ -5928,11 +5939,13 @@ function bankPeriodBillRows(snap, opts, start, end) {
         var amount = bankNum(s.amount);
         if (amount == null || !(amount > 0)) return;
         var paidOn = isPaid ? ((s.paid_current_month && s.paid_current_month.paid_date) || s.paid_date || "") : "";
+        var pay = bankPayCheckState(s, month, trust);
         rows.push({
           name: bankBillDisplayName(s.name, s.display_label),
           due: due,
           amount: amount,
           paid: isPaid,
+          pay: pay,
           phrase: isPaid ? bankDueInlineStatus(true, paid === "paid_late", paidOn, day, subYm) : bankDueInlineStatus(false, false, "", day, subYm)
         });
       });
@@ -6062,6 +6075,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       posted: !!posted,
       actualDiff: posted && planAmt != null && per != null && Math.abs(per - planAmt) > 0.004,
       cancelKey: bankBillControlKey(b),
+      pay: bankPayCheckState(b, ym, bankTrustPaidStatus(snap, b, ym, opts)),
       chargedAfter: bankItemChargedAfter(snap, b)
     });
   }
@@ -6207,6 +6221,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
         posted: true,
         paid: true,
         cancelKey: bankBillControlKey(s),
+        pay: { on: true, bank: true, manual: false, key: "" },
         chargedAfter: bankItemChargedAfter(snap, s)
       });
       return;
@@ -6232,6 +6247,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       counted: bankBillCounted(s),
       pending: s.amount == null,
       cancelKey: bankBillControlKey(s),
+      pay: bankPayCheckState(s, ym, trust),
       chargedAfter: bankItemChargedAfter(snap, s)
     });
   });
@@ -6634,9 +6650,22 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     if (row.today && !closed) rowMeta += ' data-bank-today="1"';
     var rowCls = row.notFound ? ' class="tone-flat"' : "";
     var leftCell = showBalance && !row.notFound ? '<td class="' + leftCls.trim() + '">' + bankEsc(bankMoney(row.left)) + "</td>" : (showBalance ? '<td class="num"><span class="sub">\u2014</span></td>' : "");
-    var main = "<tr" + rowMeta + rowCls + "><td><span class=\"sym\">" + bankEsc(row.name) + "</span>" +
-      (meta ? " " + meta : "") + fromHtml + (extras.length ? " " + extras.join(" ") : "") + "</td>" + amt +
-      leftCell + "</tr>";
+    var nameCell = "<td><span class=\"sym\">" + bankEsc(row.name) + "</span>" +
+      (meta ? " " + meta : "") + fromHtml + (extras.length ? " " + extras.join(" ") : "") + "</td>";
+    var main;
+    if (row.pay && row.pay.key && row.kind === "out" && !row.rollup && !row.closing) {
+      var span = showBalance ? "3" : "2";
+      var payInner = '<span class="sym">' + bankEsc(row.name) + "</span>" +
+        (meta ? " " + meta : "") + fromHtml + (extras.length ? " " + extras.join(" ") : "") + " " +
+        (row.closing || row.pending ? '<span class="num sub">\u2014</span>' : (function () {
+          var flow = bankFundSigned(row.amount, "out");
+          return '<b class="num ' + flow.cls + '">' + bankEsc(flow.text) + "</b>";
+        })()) +
+        (showBalance && !row.notFound ? ' <span class="num">' + bankEsc(bankMoney(row.left)) + "</span>" : "");
+      main = "<tr" + rowMeta + rowCls + '><td colspan="' + span + '">' + bankPayTapHtml(row.pay, payInner) + "</td></tr>";
+    } else {
+      main = "<tr" + rowMeta + rowCls + ">" + nameCell + amt + leftCell + "</tr>";
+    }
     var kids = (row.breakouts || []).map(function (part) {
       var over = part.over > 0.004;
       var kidAmt = over
@@ -8029,7 +8058,10 @@ function bankPeriodMath(snap, opts, period, carried) {
   var ev = period.focus;
   var bills = bankPeriodBillRows(snap, opts, ev.date, period.end);
   var billSum = 0;
-  bills.forEach(function (row) { if (row.amount != null) billSum += row.amount; });
+  bills.forEach(function (row) {
+    if (!row || row.paid) return;
+    if (row.amount != null) billSum += row.amount;
+  });
   billSum = bankRoundCents(billSum);
   var known = bankNeedsKnown(snap, opts);
   var needsFull = known ? bankProratePlan(snap, ev.date, period.end, "needs", opts) : null;
@@ -8620,17 +8652,18 @@ function bankNextPayCardHtml(snap, opts, period, index, withHint, math, carried,
     var flow = bankFundSigned(row.amount || 0, "out");
     var due = row.phrase || (row.due ? ("due " + (bankShortDate(row.due) || row.due)) : "");
     var paid = !!row.paid;
+    var pay = row.pay || { on: paid, bank: paid, manual: false, key: "" };
     var nameCls = paid ? "sym tone-flat" : "sym";
     var amtCls = paid ? "num tone-flat" : ("num " + flow.cls);
-    var mark = paid ? ' <span class="tone-go" aria-label="Paid">\u2713</span>' : "";
     var fromHtml = "";
     try {
       var fromText = bankFromMask(bankPayFromForName(snap, row.name));
       if (fromText) fromHtml = ' <span class="sub' + (paid ? " tone-flat" : "") + '">' + bankEsc(fromText) + "</span>";
     } catch (eFrom) { fromHtml = ""; }
-    return "<tr" + (paid ? ' class="tone-flat" data-bank-bill-paid="1"' : ' data-bank-bill-paid="0"') + "><td><span class=\"" + nameCls + "\">" +
-      bankEsc(row.name) + "</span>" + mark + ' <span class="sub' + (paid ? " tone-flat" : "") + '">' + bankEsc(due) + "</span>" + fromHtml + "</td>" +
-      '<td class="' + amtCls + '">' + bankEsc(row.amount == null ? "\u2014" : flow.text) + "</td></tr>";
+    var inner = '<span class="' + nameCls + '">' + bankEsc(row.name) + '</span> <span class="sub' + (paid ? " tone-flat" : "") + '">' +
+      bankEsc(due) + "</span>" + fromHtml + ' <b class="' + amtCls + '">' + bankEsc(row.amount == null ? "\u2014" : flow.text) + "</b>";
+    var body = pay.bank ? inner + ' <span class="tone-go" aria-label="Paid">\u2713</span>' : bankPayTapHtml(pay, inner);
+    return "<tr" + (paid ? ' class="tone-flat" data-bank-bill-paid="1"' : ' data-bank-bill-paid="0"') + "><td colspan=\"2\">" + body + "</td></tr>";
   }).join("");
   var also = math.also != null ? math.also : bankAlsoInAmount(snap, period);
   var carriedN = index > 0 ? (math.carried != null ? math.carried : (carried || 0)) : 0;
@@ -8799,7 +8832,8 @@ function bankDayItems(snap, ym, day, edits) {
       type: "Subscription",
       category: bankDayCategoryLabel(snap, sub || { name: name, category: "subscriptions" }),
       state: bankDayStateText(sub, ym),
-      account: bankAccountFace(sub && sub.usual_account)
+      account: bankAccountFace(sub && sub.usual_account),
+      pay: sub ? bankPayCheckState(sub, ym, bankTrustPaidStatus(snap, sub, ym, {})) : null
     });
   });
   (cell.bills || []).forEach(function (name) {
@@ -8813,7 +8847,8 @@ function bankDayItems(snap, ym, day, edits) {
       type: "Bill",
       category: bankDayCategoryLabel(snap, bill || { name: name }),
       state: bankDayStateText(bill, ym),
-      account: bankAccountFace(bill && bill.usual_account)
+      account: bankAccountFace(bill && bill.usual_account),
+      pay: bill ? bankPayCheckState(bill, ym, bankTrustPaidStatus(snap, bill, ym, {})) : null
     });
   });
   (cell.items || []).forEach(function (name) {
@@ -8845,9 +8880,10 @@ function bankDayDialogHtml(snap, ym, day, edits) {
     if (digits) last4 = "\u00b7\u00b7" + digits[1];
     var meta = [catName, last4].filter(Boolean).join(" \u00b7 ");
     var amt = it.amount ? '<b class="' + (it.flow === "in" ? "tone-go" : "tone-stop") + '">' + bankEsc(it.amount) + "</b>" : "";
-    return '<li data-bank-day-item="1"><details class="fills-more"><summary><span class="ret-take"><b data-bank-day-name="1">' +
-      bankEsc(it.name) + "</b>" + (meta ? '<i data-bank-day-meta="1">' + bankEsc(meta) + "</i>" : "") + "</span> " +
-      amt + "</summary></details></li>";
+    var inner = '<span class="ret-take"><b data-bank-day-name="1">' + bankEsc(it.name) + "</b>" +
+      (meta ? '<i data-bank-day-meta="1">' + bankEsc(meta) + "</i>" : "") + "</span> " + amt;
+    var face = it.pay ? bankPayTapHtml(it.pay, inner) : '<details class="fills-more"><summary>' + inner + "</summary></details>";
+    return '<li data-bank-day-item="1">' + face + "</li>";
   }).join("") + "</ul>", items.length, "Day items") : '<p class="bank-empty">Nothing scheduled</p>';
   return '<div class="bank-day-scrim" data-bank-day-scrim="1"></div><div class="bank-day-dialog" role="dialog" aria-modal="true" aria-labelledby="bank-day-title" tabindex="-1">' +
     '<h3 id="bank-day-title">' + bankEsc(BANK_MONTHS[(ym && ym.month ? ym.month : 1) - 1] + " " + day) + "</h3>" + body +
@@ -9145,9 +9181,13 @@ function bankBillFreshCaption(row, ym) {
   return "New amount from " + when;
 }
 
-/* Current Eastern month trusts paid_current_month only when that month matches budget.paid_status_month. */
+/* A hand mark counts even when the print's paid month tag is missing. A bank match still needs that tag. */
 function bankTrustPaidStatus(snap, row, ym, opts) {
   var view = bankMonthKey(ym);
+  var manual = row && row.manual_paid;
+  if (manual && view && bankMonthKey(manual.month) === view) return true;
+  var marked = row && row.paid_current_month;
+  if (marked && String(marked.source || "").toLowerCase() === "manual" && view && bankMonthKey(marked.month) === view) return true;
   var et = bankScreenToday(snap, opts || {});
   var etMonth = et && et.year && et.month ? bankYm(et.year, et.month) : "";
   if (!view || !etMonth || view !== etMonth) return true;
@@ -9201,6 +9241,30 @@ function bankPartialChip(part) {
   if (!part) return "";
   return '<span class="fresh-chips"><span class="fresh-chip">partial: ' +
     bankPartialCountText(part.paid) + " of " + bankPartialCountText(part.of) + "</span></span>";
+}
+
+function bankPayCheckState(row, ym, trust) {
+  var month = bankMonthKey(ym);
+  var paid = row && row.paid_current_month;
+  var status = paid ? String(paid.status || "") : "";
+  var paidNow = !!(paid && month && bankMonthKey(paid.month) === month && (status === "paid" || status === "paid_late"));
+  var source = String((paid && paid.source) || "").toLowerCase();
+  var manualBag = !!(row && row.manual_paid && month && bankMonthKey(row.manual_paid.month) === month);
+  if (manualBag && source !== "bank") return { on: true, bank: false, manual: true, key: bankBillControlKey(row) };
+  if (paidNow && source === "manual") return { on: true, bank: false, manual: true, key: bankBillControlKey(row) };
+  if ((paidNow || manualBag) && source === "bank" && trust !== false) return { on: true, bank: true, manual: false, key: bankBillControlKey(row) };
+  return { on: false, bank: false, manual: false, key: row ? bankBillControlKey(row) : "" };
+}
+
+function bankPayTapHtml(state, inner) {
+  state = state || {};
+  var box = state.on
+    ? '<span class="tone-go" aria-label="Paid">\u2713</span>'
+    : '<span class="bank-pay-box" aria-hidden="true"></span>';
+  if (state.bank || !state.key) return inner + box;
+  var attr = state.manual ? "data-bank-status-undo" : "data-bank-paid-month";
+  return '<button type="button" class="bank-pay-tap" ' + attr + '="' + bankEsc(state.key) + '">' +
+    inner + box + "</button>";
 }
 
 function bankBillPaidStatus(row, ym) {
@@ -10448,15 +10512,14 @@ function bankSpendBillCategory(bill, cats) {
 
 function bankSpendExcluded(row, snap) {
   if (!row || typeof row !== "object") return true;
+  if (bankTxDepositLocked(row)) return true;
+  if (bankTxOffSpendBasis(row) && bankSpendSavedCategoryId(row, snap)) return false;
   if (String(row.category_basis || "") === "not_spend") return true;
   if (row.transfer === true || row.internal === true || row.payoff === true) return true;
   if (bankTruthyFlag(row.one_off) || bankTruthyFlag(row.exclude_from_spend_avg)) return true;
   var label = [row.desc, row.category, row.merchant, row.name].join(" ");
   if (bankIsTransferName(label)) return true;
   if (bankIsIncomeName(row.category || "", null) || bankIsIncomeName(row.desc || "", null) || bankIsIncomeName(row.name || "", null)) return true;
-  var side = bankFlowSide(row);
-  var refund = row.refund === true || String(row.kind || "").toLowerCase() === "refund";
-  if (side === "in" && !refund) return true;
   if (snap && bankTxExcludedFromSpend(row, snap)) return true;
   return false;
 }
@@ -10593,10 +10656,25 @@ function bankSpendResolvePrinted(cats, raw) {
   return "";
 }
 
-/* A saved category wins. The print's category is next, and only a missing field is derived. */
+function bankSpendSavedCategoryId(row, snap) {
+  if (!row) return "";
+  var cats = null;
+  try { cats = bankSpendCategories(snap); } catch (e) { cats = null; }
+  if (!cats) return "";
+  var doc = bankCategoryDoc(snap) || {};
+  var picked = "";
+  try { picked = bankSpendTxHit(doc, row) || ""; } catch (e2) { picked = ""; }
+  if (!picked) {
+    try { picked = bankSpendMerchantHit(doc, row) || ""; } catch (e3) { picked = ""; }
+  }
+  var resolved = bankSpendResolvePrinted(cats, picked);
+  if (!resolved) return "";
+  return bankSpendResolveId(cats, resolved) || "";
+}
+
+/* A saved category wins, including on a row the print left out of spending. The print's category is next. */
 function bankMapSpendCategory(row, snap) {
-  if (!row || String(row.category_basis || "") === "not_spend") return null;
-  if (bankSpendExcluded(row, snap)) return null;
+  if (!row || bankTxDepositLocked(row)) return null;
   var cats = bankSpendCategories(snap);
   if (!cats) return null;
   var doc = bankCategoryDoc(snap) || {};
@@ -10609,6 +10687,8 @@ function bankMapSpendCategory(row, snap) {
   if (found) return found;
   found = take(bankSpendMerchantHit(doc, row), "merchant");
   if (found) return found;
+  if (String(row.category_basis || "") === "not_spend") return null;
+  if (bankSpendExcluded(row, snap)) return null;
   var printed = Object.prototype.hasOwnProperty.call(row, "category") || Object.prototype.hasOwnProperty.call(row, "category_basis");
   if (printed) {
     if (row.category != null && String(row.category).trim() !== "") {
@@ -10798,6 +10878,25 @@ function bankCategoryMonthLive(snap, monthKey) {
   return true;
 }
 
+/* The print's category spent leaves out skipped outflows. Add them back when a saved category now counts them. */
+function bankSpendOffSpendLift(snap, monthKey, cats) {
+  var totals = {};
+  var key = bankMonthKey(monthKey);
+  bankSpendTxRows(snap).forEach(function (raw) {
+    if (!raw) return;
+    if (key && bankMonthKey(raw.date) !== key) return;
+    if (bankTxDepositLocked(raw)) return;
+    if (!bankTxOffSpendBasis(raw)) return;
+    var id = bankSpendSavedCategoryId(raw, snap);
+    if (!id) return;
+    id = bankSpendResolveId(cats, id);
+    if (!id) return;
+    totals[id] = (totals[id] || 0) + bankSpendAmount(raw);
+  });
+  Object.keys(totals).forEach(function (id) { totals[id] = bankRoundCents(totals[id]); });
+  return totals;
+}
+
 function bankCategoryFigures(snap, monthKey) {
   var cats = bankSpendCategories(snap) || [];
   var key = bankMonthKey(monthKey);
@@ -10805,27 +10904,36 @@ function bankCategoryFigures(snap, monthKey) {
   var monthRows = bankSpendRowsForMonth(snap, cats, key, live ? "budget" : "historical");
   var bag = live ? bankCategoryFigureBag(snap) : { plan: null, spent: null };
   var scan = bankSpendScan(snap, key, cats);
+  var lift = live ? bankSpendOffSpendLift(snap, key, cats) : {};
   var drop = bankCancelledCategoryDrop(snap, key);
   var out = {};
   monthRows.forEach(function (row) {
     var show = !!row.showBudget;
     var plan = show ? row.budget : null;
     var spent = scan.totals[row.id] || 0;
+    var fromBag = false;
     if (live && bag.plan && Object.prototype.hasOwnProperty.call(bag.plan, row.id)) {
       var cell = bag.plan[row.id];
       var planN = bankCategoryCellNum(cell, "plan");
       if (planN != null) plan = planN;
       if (!(bag.spent && Object.prototype.hasOwnProperty.call(bag.spent, row.id))) {
         var spentN = bankCategoryCellNum(cell, "spent");
-        if (spentN != null) spent = spentN;
+        if (spentN != null) {
+          spent = spentN;
+          fromBag = true;
+        }
       }
       show = true;
     }
     if (live && bag.spent && Object.prototype.hasOwnProperty.call(bag.spent, row.id)) {
       var spentCell = bankCategoryCellNum(bag.spent[row.id], "spent");
       if (spentCell == null && typeof bag.spent[row.id] === "number") spentCell = bankNum(bag.spent[row.id]);
-      if (spentCell != null) spent = spentCell;
+      if (spentCell != null) {
+        spent = spentCell;
+        fromBag = true;
+      }
     }
+    if (fromBag) spent = (spent || 0) + (lift[row.id] || 0);
     if (plan != null && drop[row.id]) plan = Math.max(0, bankRoundCents((plan || 0) - drop[row.id]));
     out[row.id] = {
       id: row.id,
@@ -11333,7 +11441,10 @@ function bankSpendCatSelectHtml(snap, raw, opts) {
     if (row.id === current) seen = true;
     options += '<option value="' + bankEsc(row.id) + '"' + (row.id === current ? " selected" : "") + ">" + bankEsc(row.name) + "</option>";
   });
-  if (!seen) options = '<option value="">Choose</option> ' + options;
+  if (!seen && !(opts.offSpend && !current)) options = '<option value="" selected>Choose</option> ' + options;
+  if (opts.offSpend) {
+    options = '<option value="' + bankOffSpendValue() + '"' + (!current ? " selected" : "") + ">" + bankOffSpendLabel() + "</option> " + options;
+  }
   var merchant = bankSpendMerchantKey(raw);
   return '<select data-bank-tx-cat="' + bankEsc(key || merchant) + '" data-bank-tx-merchant="' + bankEsc(merchant) +
     '" aria-label="Category">' + options + "</select>";
@@ -13072,7 +13183,12 @@ function bankTxSpendView(raw) {
     tx_override_key: raw.tx_override_key,
     last4: raw.last4,
     one_off: raw.one_off,
-    exclude_from_spend_avg: raw.exclude_from_spend_avg
+    exclude_from_spend_avg: raw.exclude_from_spend_avg,
+    transfer: raw.transfer,
+    internal: raw.internal,
+    payoff: raw.payoff,
+    refund: raw.refund,
+    kind: raw.kind
   };
 }
 
@@ -13120,16 +13236,26 @@ function bankTxQueryHit(raw, query, snap) {
   return false;
 }
 
-/* Search can still recategorize a one-off purchase. Money in, transfers, and not-spend rows stay locked. */
-function bankTxSearchLocked(snap, raw) {
-  if (!raw) return true;
+/* Money in stays locked unless it is already a refund. The name is not what locks it. */
+function bankTxDepositLocked(raw) {
+  if (!raw) return false;
+  var refund = raw.refund === true || String(raw.kind || "").toLowerCase() === "refund";
+  return bankFlowSide(raw) === "in" && !refund;
+}
+
+/* Skipped spending until a saved category says otherwise: not-spend, transfer, payoff, or a transfer-like name. */
+function bankTxOffSpendBasis(raw) {
+  if (!raw || typeof raw !== "object") return false;
   if (String(raw.category_basis || "") === "not_spend") return true;
   if (raw.transfer === true || raw.internal === true || raw.payoff === true) return true;
   var label = [raw.desc, raw.category, raw.merchant, raw.name, raw.description].join(" ");
-  if (bankIsTransferName(label)) return true;
-  var side = bankFlowSide(raw);
-  var refund = raw.refund === true || String(raw.kind || "").toLowerCase() === "refund";
-  if (side === "in" && !refund) return true;
+  return bankIsTransferName(label);
+}
+
+/* Search can recategorize a one-off and a skipped outflow. Money in stays locked unless it is a refund. A closed month stays locked. */
+function bankTxSearchLocked(snap, raw) {
+  if (!raw) return true;
+  if (bankTxDepositLocked(raw)) return true;
   if (snap && bankMonthIsClosed(snap, raw.date)) return true;
   return false;
 }
@@ -13176,6 +13302,31 @@ function bankTxOpenKey(raw) {
   try { hashed = bankTxOverrideKey(raw) || ""; } catch (e2) { hashed = ""; }
   if (hashed) return hashed;
   return bankTxMerchantName(raw);
+}
+
+function bankTxSheetHint(category) {
+  var noun = "pur" + "ch" + "ase";
+  return category ? ("Pick a category for this " + noun + ".") : ("Pick a group for this " + noun + ".");
+}
+
+function bankOffSpendLabel() {
+  return "Not a pur" + "ch" + "ase";
+}
+
+function bankOffSpendValue() {
+  return "not-pur" + "ch" + "ase";
+}
+
+function bankTxResultChip(snap, raw) {
+  if (snap && bankMonthIsClosed(snap, raw && raw.date)) return "Closed month";
+  if (bankTxDepositLocked(raw)) return bankOffSpendLabel();
+  if (bankTxOffSpendBasis(raw)) {
+    var id = bankSpendSavedCategoryId(raw, snap);
+    var row = id ? bankSpendById(bankSpendCategories(snap), id) : null;
+    if (row && row.name) return row.name;
+    return bankOffSpendLabel();
+  }
+  return bankTxChipLabel(snap, raw);
 }
 
 function bankTxChipLabel(snap, raw) {
@@ -13232,13 +13383,16 @@ function bankTxSheetHtml(snap, raw, opts) {
   var catsOn = bankCategoriesActive(snap);
   var current = bankTxShownTier(snap, raw);
   if (current !== "required" && current !== "needs" && current !== "wants") current = "needs";
+  var offSpend = bankTxOffSpendBasis(raw);
+  var savedId = bankSpendSavedCategoryId(raw, snap);
   var picker = catsOn
-    ? bankSpendCatSelectHtml(snap, raw, { all: true })
+    ? bankSpendCatSelectHtml(snap, raw, { all: true, offSpend: offSpend })
     : '<select data-bank-tx-pick="' + bankEsc(saveKey) + '" data-bank-tx-merchant="' + bankEsc(merchant) + '" aria-label="Tier">' +
       ["required", "needs", "wants"].map(function (name) {
         return '<option value="' + name + '"' + (name === current ? " selected" : "") + ">" + bankTierLabel(name) + "</option>";
       }).join("") + "</select>";
-  var hint = catsOn ? "Pick a category for this purchase." : "Pick a group for this purchase.";
+  var hint = bankTxSheetHint(catsOn);
+  if (offSpend && !savedId) hint = "Not counted as spending now";
   var scope = opts.txScope === "merchant" ? "merchant" : "one";
   return '<div class="books-overlay on sheet-bottom" data-bank-cat-pop="1" data-bank-tx-sheet="1">' +
     '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="' + bankEsc(merchant) + '">' +
@@ -13273,7 +13427,7 @@ function bankTxResultsHtml(snap, opts) {
     var flow = bankFundSigned(Math.abs(amount || 0), inflow ? "in" : "out");
     var openKey = bankTxOpenKey(raw);
     var locked = bankTxSearchLocked(snap, raw);
-    var chip = locked ? "Not a purchase" : bankTxChipLabel(snap, raw);
+    var chip = bankTxResultChip(snap, raw);
     var meta = [when, last].filter(Boolean).join(" \u00b7 ");
     if (!locked && opts.txOpen && String(opts.txOpen) === String(openKey)) sheet = bankTxSheetHtml(snap, raw, opts);
     var change = locked ? "" : ' <span class="bank-tx-change">Change \u203a</span>';
@@ -13358,7 +13512,9 @@ function bankBindTxResults(root) {
     if (e.preventDefault) e.preventDefault();
     if (e.stopPropagation) e.stopPropagation();
     var txKey = txRow.getAttribute("data-bank-tx-open");
-    root._bank.txOpen = root._bank.txOpen === txKey ? "" : txKey;
+    var opening = root._bank.txOpen !== txKey;
+    root._bank.txOpen = opening ? txKey : "";
+    if (opening) root._bank.txScope = "one";
     root._bank.spendOpen = "";
     root._bank.tab = "edits";
     bankPaint(root);
@@ -14684,6 +14840,15 @@ function bankSaveBillStatus(root, key, entry) {
 function bankSaveManualPaid(root, key, entry) {
   if (!root || !root._bank || !key) return Promise.resolve(false);
   var posted = bankTierPostBag(root._bank.data, key, entry, "manual_paid");
+  var early = bankEnsureTierBags(root._bank.data);
+  if (early) {
+    Object.keys(posted.bag).forEach(function (k) {
+      if (posted.bag[k] == null) bankWriteTierBag(early, "manual_paid", k, null);
+    });
+    bankWriteTierBag(early, "manual_paid", posted.id, entry);
+    bankMarkLocalKey(root._bank.data, "manual_paid", posted.id, true);
+    bankPaint(root);
+  }
   return bankPostTierPatch(root, { manual_paid: posted.bag }, function (snap, local) {
     var doc = bankEnsureTierBags(snap);
     if (!doc) return;
@@ -14710,6 +14875,16 @@ function bankUndoBillDesk(root, key) {
   }
   if (clearStatus) body.bill_status = nullBag;
   if (clearPaid) body.manual_paid = nullBag;
+  var earlyDoc = bankEnsureTierBags(root._bank.data);
+  if (earlyDoc) {
+    Object.keys(nullBag).forEach(function (k) {
+      if (body.bill_status) bankWriteTierBag(earlyDoc, "bill_status", k, null);
+      if (body.manual_paid) bankWriteTierBag(earlyDoc, "manual_paid", k, null);
+    });
+    bankMarkLocalKey(root._bank.data, "bill_status", id, false);
+    bankMarkLocalKey(root._bank.data, "manual_paid", id, false);
+    bankPaint(root);
+  }
   return bankPostTierPatch(root, body, function (snap) {
     var doc = bankEnsureTierBags(snap);
     if (!doc) return;
@@ -15439,7 +15614,9 @@ function bankMount(root, data, opts) {
     if (itemOpen && itemOpen.getAttribute && root._bank) {
       if (e.preventDefault) e.preventDefault();
       var itemKey = itemOpen.getAttribute("data-bank-cat-item-open");
-      root._bank.txOpen = root._bank.txOpen === itemKey ? "" : itemKey;
+      var openingItem = root._bank.txOpen !== itemKey;
+      root._bank.txOpen = openingItem ? itemKey : "";
+      if (openingItem) root._bank.txScope = "one";
       bankPaint(root);
       return;
     }
@@ -15474,7 +15651,9 @@ function bankMount(root, data, opts) {
     if (txRow && txRow.getAttribute && root._bank) {
       if (e.preventDefault) e.preventDefault();
       var txKey = txRow.getAttribute("data-bank-tx-open");
-      root._bank.txOpen = root._bank.txOpen === txKey ? "" : txKey;
+      var openingTx = root._bank.txOpen !== txKey;
+      root._bank.txOpen = openingTx ? txKey : "";
+      if (openingTx) root._bank.txScope = "one";
       root._bank.spendOpen = "";
       root._bank.tab = "edits";
       bankPaint(root);
@@ -15490,8 +15669,9 @@ function bankMount(root, data, opts) {
       var txSaveKey = txSave.getAttribute("data-bank-tx-key") || txMerchant;
       if (bankCategoriesActive(root._bank.data)) {
         var catNode = sheet && sheet.querySelector ? sheet.querySelector("[data-bank-tx-cat]") : null;
-        var catPick = catNode && catNode.value ? String(catNode.value) : "";
-        if (!catPick) return;
+        var catRaw = catNode && catNode.value != null ? String(catNode.value) : "";
+        if (!catRaw) return;
+        var catPick = catRaw === bankOffSpendValue() ? null : catRaw;
         root._bank.txUndo = null;
         if (txScope === "one") return bankSpendSaveTx(root, txSaveKey, catPick);
         return bankSpendSaveRule(root, txMerchant, catPick);
@@ -15805,8 +15985,9 @@ function bankMount(root, data, opts) {
     }
     if (el.getAttribute("data-bank-tx-cat")) {
       if (el.closest && el.closest("[data-bank-tx-sheet]")) return;
-      var catPick = el.value == null ? "" : String(el.value);
-      if (!catPick || !root._bank) return;
+      var catRaw = el.value == null ? "" : String(el.value);
+      if (!catRaw || !root._bank) return;
+      var catPick = catRaw === bankOffSpendValue() ? null : catRaw;
       var catScopeEl = el.parentNode && el.parentNode.querySelector ? el.parentNode.querySelector("[data-bank-tx-scope]") : null;
       var catScope = catScopeEl && catScopeEl.value ? catScopeEl.value : (root._bank.txScope || "one");
       if (catScope === "one") return bankSpendSaveTx(root, el.getAttribute("data-bank-tx-cat"), catPick);

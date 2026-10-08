@@ -125,9 +125,25 @@ test("a search redraw keeps the row handler, and the open key stays the raw tx_k
   const oneOff = ctx.bankTxResultsHtml(data, { txQuery: "One Off" });
   assert.match(oneOff, /data-bank-tx-open="2026-10-06\|acct-check\|9\|One Off Shop"/);
   const quiet = ctx.bankTxResultsHtml(data, { txQuery: "" });
-  assert.match(quiet, /class="bank-tx-quiet"[\s\S]{0,500}Inside Move/);
-  assert.match(quiet, /class="bank-tx-quiet"[\s\S]{0,500}Not a purchase/);
-  assert.doesNotMatch(quiet.slice(quiet.indexOf("Inside Move") - 80, quiet.indexOf("Inside Move") + 80), /data-bank-tx-open/);
+  function rowHtml(html, name) {
+    const at = html.indexOf(name);
+    assert.ok(at >= 0, name);
+    return html.slice(html.lastIndexOf("<li", at), html.indexOf("</li>", at));
+  }
+  const move = rowHtml(quiet, "Inside Move");
+  assert.match(move, /data-bank-tx-open=/);
+  assert.match(move, /Not a purchase/);
+  assert.match(move, /Change \u203a/);
+  assert.doesNotMatch(move, /bank-tx-quiet/);
+  const payroll = rowHtml(quiet, "Payroll");
+  assert.match(payroll, /class="bank-tx-quiet"/);
+  assert.match(payroll, /Not a purchase/);
+  assert.doesNotMatch(payroll, /data-bank-tx-open/);
+  const moveKey = "2026-10-04|acct-check|12.34|Inside Move";
+  const sheet = ctx.bankTxResultsHtml(data, { txOpen: moveKey });
+  assert.match(sheet, /Not counted as spending now/);
+  assert.match(sheet, /value="not-purchase" selected/);
+  assert.match(sheet, /Just this one/);
 
   const slot = {
     innerHTML: "",
@@ -148,6 +164,7 @@ test("a search redraw keeps the row handler, and the open key stays the raw tx_k
   assert.equal(typeof handler, "function");
   ctx.bankPaintTxResults(root);
   assert.equal(slot.listeners.click, handler);
+  root._bank.txScope = "merchant";
   handler({
     preventDefault: function () {},
     stopPropagation: function () {},
@@ -161,6 +178,7 @@ test("a search redraw keeps the row handler, and the open key stays the raw tx_k
     }
   });
   assert.equal(root._bank.txOpen, grocer);
+  assert.equal(root._bank.txScope, "one");
   assert.match(root.innerHTML, /data-bank-tx-sheet/);
   assert.match(slot.innerHTML, /Neighborhood Grocer/);
   ctx.bankPaintTxResults(root);

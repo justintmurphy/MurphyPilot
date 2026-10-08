@@ -701,7 +701,6 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   let ident = 0;
   ident = ctx.bankLeftAfter(ident, { kind: "in", amount: 40, counted: true, pending: false });
   ident = ctx.bankLeftAfter(ident, { kind: "in", amount: maths[0].also, counted: true, pending: false });
-  ident = ctx.bankLeftAfter(ident, { kind: "out", amount: paidSoFar, counted: true, pending: false });
   ident = ctx.bankLeftAfter(ident, { kind: "out", amount: remain, counted: true, pending: false });
   assert.equal(left1, ident);
   const rows = ledgerRows(dueSlice(html));
@@ -715,14 +714,14 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   let fromToday = contribution;
   fromToday = ctx.bankLeftAfter(fromToday, { kind: "in", amount: maths[0].also, counted: true, pending: false });
   fromToday = ctx.bankLeftAfter(fromToday, { kind: "out", amount: remain, counted: true, pending: false });
-  assert.equal(left1, fromToday);
+  assert.equal(left1, ctx.bankRoundCents(fromToday + paidSoFar));
   const last = maths[maths.length - 1];
   const lastDate = periods[periods.length - 1].focus.date;
   const ledgerEnd = Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]);
   const paydayRow = rows.filter(function (row) { return row.date === lastDate && row.kind === "in"; })[0];
-  if (String(periods[periods.length - 1].end || "") > "2026-10-31") assert.equal(last.left, ledgerEnd);
-  else if (paydayRow) assert.equal(last.left, paydayRow.left);
-  else assert.equal(last.left, ledgerEnd);
+  if (String(periods[periods.length - 1].end || "") > "2026-10-31") assert.equal(last.left, ctx.bankRoundCents(ledgerEnd + paidSoFar));
+  else if (paydayRow) assert.equal(last.left, ctx.bankRoundCents(paydayRow.left + paidSoFar));
+  else assert.equal(last.left, ctx.bankRoundCents(ledgerEnd + paidSoFar));
 });
 
 test("remaining group rows break out categories without moving left after", function () {
@@ -770,4 +769,80 @@ test("remaining group rows break out categories without moving left after", func
   const needsLeft = Number((due.match(/data-bank-remain-group="needs"[^>]*data-bank-row-left="([^"]+)"|data-bank-row-left="([^"]+)"[^>]*data-bank-remain-group="needs"/) || []).slice(1).filter(Boolean)[0]);
   const needsAmt = Number((due.match(/data-bank-remain-group="needs" data-bank-remain="([^"]+)"/) || [])[1]);
   assert.equal(Math.round((reqLeft - needsLeft) * 100) / 100, needsAmt);
+});
+
+test("a main-page tap marks a bill paid and a second tap clears it", async function () {
+  const ctx = boot();
+  const snap = baseSnap(ctx);
+  snap.budget.bills = [
+    { name: "Rent", bill_id: "rent", amount: 8, typical_day: 20, cadence: "monthly", tier: "required", usual_account: { last4: "2222" } },
+    {
+      name: "Power",
+      bill_id: "power",
+      amount: 4,
+      typical_day: 18,
+      cadence: "monthly",
+      tier: "required",
+      paid_current_month: { month: "2026-10", status: "paid", source: "bank", paid_date: "2026-10-16" }
+    }
+  ];
+  snap.budget.subscriptions = [];
+  snap.budget.paid_status_month = "2026-10";
+  snap.budget.tiers = { needs_plan: 0, wants_plan: 0 };
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z", openDay: 20 };
+  const before = ctx.bankPageHtml(snap, opts);
+  const outBefore = Number((before.match(/data-bank-hero-out="([^"]*)"/) || [])[1]);
+  const nextBefore = before.slice(before.indexOf('class="bank-next"'), before.indexOf('data-bank-part="calendar"'));
+  const cardBefore = nextBefore.slice(nextBefore.indexOf('data-bank-next-card="1"'), nextBefore.indexOf('data-bank-next-card="2"'));
+  const leftBefore = Number((cardBefore.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
+  assert.match(cardBefore, /data-bank-paid-month="rent"/);
+  assert.match(cardBefore, /Rent/);
+  assert.match(cardBefore, /Power[\s\S]{0,200}aria-label="Paid"/);
+  assert.doesNotMatch(cardBefore, /data-bank-paid-month="power"|data-bank-status-undo="power"/);
+  const dayBefore = before.slice(before.indexOf('class="bank-day-dialog"'));
+  assert.match(dayBefore, /data-bank-paid-month="rent"/);
+  assert.match(dayBefore, /data-bank-day-name="1">Rent/);
+  const dueAt = before.indexOf('class="bank-due-month"');
+  assert.ok(dueAt >= 0);
+  const dueBefore = before.slice(dueAt, before.indexOf("</section>", dueAt));
+  assert.match(dueBefore, /data-bank-paid-month="rent"/);
+  snap.tier_doc.manual_paid.rent = { month: "2026-10", paid_date: "2026-10-16" };
+  const after = ctx.bankPageHtml(snap, opts);
+  const outAfter = Number((after.match(/data-bank-hero-out="([^"]*)"/) || [])[1]);
+  const nextAfter = after.slice(after.indexOf('class="bank-next"'), after.indexOf('data-bank-part="calendar"'));
+  const cardAfter = nextAfter.slice(nextAfter.indexOf('data-bank-next-card="1"'), nextAfter.indexOf('data-bank-next-card="2"'));
+  const leftAfter = Number((cardAfter.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
+  assert.ok(outAfter < outBefore, outAfter + " vs " + outBefore);
+  assert.ok(leftAfter > leftBefore, leftAfter + " vs " + leftBefore);
+  assert.match(cardAfter, /data-bank-status-undo="rent"/);
+  assert.match(cardAfter, /aria-label="Paid"/);
+  assert.match(after.slice(after.indexOf('class="bank-day-dialog"')), /data-bank-status-undo="rent"/);
+  const dueAfterAt = after.indexOf('class="bank-due-month"');
+  assert.match(after.slice(dueAfterAt, after.indexOf("</section>", dueAfterAt)), /data-bank-status-undo="rent"/);
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    const body = init && init.body ? JSON.parse(init.body) : null;
+    calls.push({ url: String(url), body: body });
+    const method = init && init.method ? String(init.method).toUpperCase() : "GET";
+    const payload = method === "GET" ? snap.tier_doc : { schema: "banking-tiers/v1" };
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () { return Promise.resolve(payload); }
+    });
+  };
+  const rootEl = mount(ctx, snap, { tab: "budget", now: opts.now });
+  rootEl._bank.tab = "budget";
+  await click(rootEl, function (sel) {
+    if (sel === "[data-bank-status-undo]") return { getAttribute: function () { return "rent"; } };
+    return null;
+  });
+  assert.equal(snap.tier_doc.manual_paid.rent, undefined);
+  const cleared = ctx.bankPageHtml(snap, opts);
+  assert.match(cleared, /data-bank-paid-month="rent"/);
+  assert.doesNotMatch(cleared.slice(cleared.indexOf('class="bank-next"'), cleared.indexOf('data-bank-part="calendar"')), /data-bank-status-undo="rent"/);
+  const posted = calls.filter(function (call) { return call.body && call.body.manual_paid; });
+  assert.equal(posted.length, 1);
+  assert.equal(posted[0].body.manual_paid.rent, null);
 });
