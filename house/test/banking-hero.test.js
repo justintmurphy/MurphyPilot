@@ -65,6 +65,7 @@ function blank(fx) {
   fx.budget.insights = [];
   fx.budget.tiers = {};
   fx.budget.pay_schedule = [];
+  delete fx.budget.account_funding_combined;
   fx.current.recent_tx = [];
   fx.current.edits_tx = [];
   fx.current.balances = [
@@ -144,6 +145,45 @@ test("hero month-end matches funding left and the list month-end", function () {
   assert.equal(end.cls.indexOf("tone-stop") >= 0, end.value < 0);
   assert.doesNotMatch(fund, /<span>Left<\/span>/);
   assert.doesNotMatch(fund, /<span>Start<\/span>/);
+});
+
+test("print balances sum to the headline and the as-of is the oldest", function () {
+  const ctx = boot();
+  const fx = blank(loadFixture());
+  fx.asof = "2026-10-01T12:00:00-04:00";
+  fx.budget.account_funding = [
+    {
+      nickname: "Checking",
+      last4: "0831",
+      start_balance: 80,
+      current_balance: 12.34,
+      current_balance_asof: "2026-10-07T21:40:00-04:00",
+      current_balance_asof_source: "print"
+    },
+    {
+      nickname: "Bills",
+      last4: "2222",
+      start_balance: 40,
+      current_balance: 30,
+      current_balance_asof: "2026-10-05T09:15:00-04:00",
+      current_balance_asof_source: "print"
+    }
+  ];
+  fx.budget.account_funding_combined = 42.34;
+  const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  const now = Number((html.match(/data-bank-hero-now="([^"]*)"/) || [])[1]);
+  const rows = accountSum(html);
+  const sum = Math.round(rows.reduce(function (n, v) { return n + v; }, 0) * 100) / 100;
+  assert.deepEqual(rows, [12.34, 30]);
+  assert.equal(now, sum);
+  assert.match(html, /as of Oct 5, 9:15 AM/);
+  assert.doesNotMatch(html, /as of Oct 7, 9:40 PM/);
+  delete fx.budget.account_funding_combined;
+  const again = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  const now2 = Number((again.match(/data-bank-hero-now="([^"]*)"/) || [])[1]);
+  const sum2 = Math.round(accountSum(again).reduce(function (n, v) { return n + v; }, 0) * 100) / 100;
+  assert.equal(now2, sum2);
+  assert.equal(now2, 42.34);
 });
 
 test("a negative month-end uses the red class", function () {

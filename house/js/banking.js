@@ -6611,24 +6611,14 @@ function bankFundingHtml(snap, opts, extra) {
     short = '<span class="fresh-chips"><span class="fresh-chip fresh-stale">Short ' + bankMoney(books.shortBy) +
       (when ? " by " + bankEsc(when) : "") + "</span></span>";
   }
-  function kpiCell(label, text, cls) {
-    return "<div><span>" + bankEsc(label) + '</span> <b class="' + bankEsc(cls || "") + '">' + bankEsc(text) + "</b></div>";
-  }
   var flowBag = opts.flows && opts.flows.ready ? opts.flows : null;
   var innN = flowBag ? flowBag.inn : books.inn;
   var outN = flowBag ? flowBag.out : books.out;
   var leftN = flowBag ? flowBag.left : books.leftNow;
-  var showIn = flowBag ? flowBag.hasIn : books.inn > 0;
-  var showOut = flowBag ? flowBag.hasOut : books.out > 0;
-  var innFlow = showIn ? bankFundSigned(innN, "in") : { text: "\u2014", cls: "" };
-  var outFlow = showOut ? bankFundSigned(outN, "out") : { text: "\u2014", cls: "" };
   var table = showBooks
-    ? '<div class="kpi" data-fund-start="' + bankEsc(books.start == null ? "" : String(books.start)) +
+    ? '<div hidden data-fund-start="' + bankEsc(books.start == null ? "" : String(books.start)) +
       '" data-fund-in="' + bankEsc(innN == null ? "" : String(innN)) + '" data-fund-out="' + bankEsc(outN == null ? "" : String(outN)) +
-      '" data-fund-left="' + bankEsc(leftN == null ? "" : String(leftN)) + '">' +
-      kpiCell("In", innFlow.text, innFlow.cls) +
-      kpiCell("Out", outFlow.text, outFlow.cls) +
-      "</div>" + short
+      '" data-fund-left="' + bankEsc(leftN == null ? "" : String(leftN)) + '"></div>' + short
     : "";
   var moveLines = opts.hideMoves ? [] : bankFundMoveNotes(view);
   var notes = moveLines.length ? '<p class="hint">' + bankEsc(moveLines.join(" \u00b7 ")) + "</p>" : "";
@@ -9430,8 +9420,8 @@ function bankSpendSheetHtml(snap, opts) {
       '<button type="button" data-bank-spend-merge="' + bankEsc(id) + '">Merge</button> ' +
       '<label>Move spending to <select data-bank-spend-dest="' + bankEsc(id) + '" aria-label="Move ' + bankEsc(row.name) + ' spending">' +
       bankSpendChoiceOptions(cats, id, "other") + "</select></label> " +
-      '<label style="display:block;width:100%"><input type="radio" name="bank-spend-keep" data-bank-spend-keep="' + bankEsc(id) + '" value="add" checked> Add it on</label>' +
-      '<label style="display:block;width:100%"><input type="radio" name="bank-spend-keep" data-bank-spend-keep="' + bankEsc(id) + '" value="drop"> Drop it</label>' +
+      '<label class="check"><input type="radio" name="bank-spend-keep" data-bank-spend-keep="' + bankEsc(id) + '" value="add" checked> Add it on</label>' +
+      '<label class="check"><input type="radio" name="bank-spend-keep" data-bank-spend-keep="' + bankEsc(id) + '" value="drop"> Drop it</label>' +
       '<button type="button" data-bank-spend-delete="' + bankEsc(id) + '">Delete</button></details>';
   }
   var save = isNew
@@ -9443,7 +9433,7 @@ function bankSpendSheetHtml(snap, opts) {
     '<button type="button" class="book-chip" data-bank-cat-close="1">Close</button></div>' +
     err +
     '<label>Name <input data-bank-spend-name="' + bankEsc(id) + '" maxlength="40" aria-label="Category name" value="' + bankEsc(nameVal) + '"></label> ' +
-    '<label>Group <select data-bank-spend-tier="' + bankEsc(id) + '" aria-label="Group">' + bankSpendTierOptions(tierVal) + "</select></label> " +
+    '<label>Group <select data-bank-spend-tier="' + bankEsc(id) + '" aria-label="Group" style="display:block;width:100%">' + bankSpendTierOptions(tierVal) + "</select></label> " +
     '<label>Monthly budget <input data-bank-spend-budget="' + bankEsc(id) + '" inputmode="decimal" aria-label="Monthly budget" value="' +
     bankEsc(budgetVal) + '"></label> ' + save + more + "</div></div>";
 }
@@ -10054,7 +10044,7 @@ function bankHeroExplicit(raws, acct) {
   var last = String(acct && acct.last4 || "");
   var found = null;
   (raws || []).forEach(function (row) {
-    if (found != null || !row) return;
+    if (found || !row) return;
     var rowLast = String(bankPickField(row, ["last4", "last_4", "mask"]) || "").replace(/\D/g, "");
     if (rowLast.length > 4) rowLast = rowLast.slice(-4);
     var rowNick = String(bankPickField(row, ["nickname", "name", "label"]) || "").trim();
@@ -10062,9 +10052,27 @@ function bankHeroExplicit(raws, acct) {
     var sameNick = acct.nickname && rowNick && bankTierKey(acct.nickname) === bankTierKey(rowNick);
     if (!sameLast && !sameNick) return;
     var n = bankNum(bankPickField(row, ["current_balance", "latest_balance", "balance", "running_balance"]));
-    if (n != null) found = n;
+    var asof = row.current_balance_asof == null || row.current_balance_asof === "" ? "" : String(row.current_balance_asof);
+    if (n == null && !asof) return;
+    found = { balance: n, asof: asof };
   });
   return found;
+}
+
+function bankHeroWhen(rows, snap) {
+  var best = null;
+  var raw = "";
+  (rows || []).forEach(function (row) {
+    if (!row || !row.asof) return;
+    var t = bankParseTime(row.asof);
+    if (t == null) return;
+    if (best == null || t < best) {
+      best = t;
+      raw = row.asof;
+    }
+  });
+  if (raw) return bankHeroAsof(raw);
+  return bankHeroAsof(snap && snap.asof);
 }
 
 function bankHeroRows(snap, opts) {
@@ -10085,14 +10093,15 @@ function bankHeroRows(snap, opts) {
     var nick = String(acct.nickname || "").trim();
     if (/overdraft/i.test(nick)) return;
     var explicit = bankHeroExplicit(raws, acct);
-    var amount = explicit != null ? explicit : bankFundingBalanceOn(acct, today);
+    var amount = explicit && explicit.balance != null ? explicit.balance : bankFundingBalanceOn(acct, today);
     if (amount == null) amount = acct.start;
     var mask = bankAccountMask(acct.last4);
     var label = nick && mask ? nick + " " + mask : (mask || nick || "Account");
     out.push({
       label: label,
       balance: amount == null ? null : bankRoundCents(amount),
-      source: explicit != null ? "field" : "derived"
+      asof: explicit && explicit.asof ? explicit.asof : "",
+      source: explicit && explicit.balance != null ? "field" : "derived"
     });
   });
   return out;
@@ -10111,13 +10120,15 @@ function bankHeroHtml(snap, opts, flows) {
     anyNow = true;
   });
   now = anyNow ? bankRoundCents(now) : null;
+  var combined = bankNum((snap && snap.budget && snap.budget.account_funding_combined));
+  if (combined != null) now = bankRoundCents(combined);
   var end = flows.left == null ? null : bankRoundCents(flows.left);
   var stillOut = bankRoundCents(flows.remainOut || 0);
   var stillIn = bankRoundCents(flows.remainIn || 0);
   var paid = bankRoundCents(flows.postedOut || 0);
   var plan = bankRoundCents(paid + stillOut);
-  var asof = bankHeroAsof(snap && snap.asof);
-  var nowCls = now != null && now < -0.004 ? " tone-stop" : "";
+  var asof = bankHeroWhen(rows, snap);
+  var nowCls = now != null && now < -0.004 ? "tone-stop" : "";
   var endCls = end != null && end < -0.004 ? "tone-stop" : "";
   var outFlow = stillOut > 0.004 ? bankFundSigned(stillOut, "out") : { text: bankMoney(0), cls: "" };
   var inFlow = stillIn > 0.004 ? bankFundSigned(stillIn, "in") : { text: bankMoney(0), cls: "" };
@@ -10128,24 +10139,30 @@ function bankHeroHtml(snap, opts, flows) {
   var accounts = rows.map(function (row) {
     var cls = row.balance != null && row.balance < -0.004 ? " tone-stop" : "";
     return '<div class="mix-leg" data-bank-hero-acct="1" data-balance="' + (row.balance == null ? "" : String(row.balance)) +
-      '" style="grid-template-columns:minmax(0,1fr) auto;min-width:0"><span class="mix-leg-name">' + bankEsc(row.label) +
+      '" style="grid-template-columns:minmax(0,1fr) auto;min-width:0;background:transparent"><span class="mix-leg-name">' + bankEsc(row.label) +
       '</span> <b class="mix-amt' + cls + '">' + bankEsc(bankMoney(row.balance)) + "</b></div>";
   }).join("");
   var list = open && accounts ? '<div data-bank-hero-accounts="1">' + accounts + "</div>" : (accounts ? '<div data-bank-hero-accounts="1" hidden>' + accounts + "</div>" : "");
-  var bar = plan > 0 ? bankSpendBarHtml(paid, plan) : "";
+  var bar = bankSpendBarHtml(paid, plan > 0 ? plan : 1);
+  if (plan > 0) bar = bar.replace('class="mix-bar"', 'class="mix-bar" style="height:6px;width:100%"');
+  else bar = "";
+  var chev = "display:inline-block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid currentColor" +
+    (open ? ";transform:rotate(180deg)" : "");
   return '<section data-bank-hero="1"><div class="card span" style="min-width:0;max-width:100%">' +
-    '<button type="button" class="mix-leg" data-bank-hero-toggle="1" aria-expanded="' + (open ? "true" : "false") +
-    '" style="grid-template-columns:minmax(0,1fr) auto;width:100%;min-width:0">' +
-    '<span class="mix-leg-meta"><span class="mix-leg-name">In the bank now</span> ' +
-    (asof ? '<span class="sub">' + bankEsc(asof) + "</span>" : "") + "</span> " +
-    '<span class="mix-leg-fig"><b data-bank-hero-now="' + (now == null ? "" : String(now)) + '" class="mix-amt' + nowCls + '">' +
-    bankEsc(bankMoney(now)) + "</b></span></button>" +
-    '<div class="kpi" data-bank-hero-figs="1">' +
-    fig("Still to pay", outFlow.text, outFlow.cls, ' data-bank-hero-out="' + stillOut + '"') +
-    fig("Still coming in", inFlow.text, inFlow.cls, ' data-bank-hero-in="' + stillIn + '"') +
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0">' +
+    '<div class="overall-strip" style="text-align:left;flex:1 1 auto;min-width:0">' +
+    '<div class="ov-hero" style="text-align:left;padding:0 0 2px"><span>In the bank now</span> ' +
+    '<b data-bank-hero-now="' + (now == null ? "" : String(now)) + '" class="' + nowCls + '">' + bankEsc(bankMoney(now)) + "</b></div>" +
+    (asof ? '<span class="sub">' + bankEsc(asof) + "</span>" : "") + "</div>" +
+    '<button type="button" class="ghost" data-bank-hero-toggle="1" aria-expanded="' + (open ? "true" : "false") +
+    '" aria-label="Accounts" style="margin:0;min-height:32px;padding:6px 8px;display:inline-flex;align-items:center;gap:6px">' +
+    '<i class="cf-chev" aria-hidden="true" style="' + chev + '"></i> Accounts</button></div>' +
+    '<div class="kpi" data-bank-hero-figs="1" style="grid-template-columns:repeat(3,minmax(0,1fr))">' +
+    fig("To pay", outFlow.text, outFlow.cls, ' data-bank-hero-out="' + stillOut + '"') +
+    fig("Coming in", inFlow.text, inFlow.cls, ' data-bank-hero-in="' + stillIn + '"') +
     fig("Month-end", bankMoney(end), endCls, ' data-bank-hero-end="' + (end == null ? "" : String(end)) + '"') +
     "</div>" + bar +
-    '<span class="hint">Tap for each account.</span>' +
+    '<span class="hint">Paid ' + bankEsc(bankMoney(paid)) + " of " + bankEsc(bankMoney(plan)) + "</span>" +
     list + "</div></section>";
 }
 
@@ -10983,14 +11000,20 @@ function bankTxSearchRows(snap, opts) {
     if (acct && raw.last4 !== acct) return false;
     return true;
   });
-  var asc = opts.order === "asc";
+  var order = opts.order === "asc" ? "asc" : (opts.order === "amount" ? "amount" : "desc");
   rows.sort(function (a, b) {
+    if (order === "amount") {
+      var aa = Math.abs(Number(a.amount) || 0);
+      var bb = Math.abs(Number(b.amount) || 0);
+      if (aa !== bb) return bb - aa;
+    }
     if (a.date !== b.date) {
       if (!a.date) return 1;
       if (!b.date) return -1;
-      return asc ? (a.date < b.date ? -1 : 1) : (a.date < b.date ? 1 : -1);
+      var olderFirst = order === "asc";
+      return olderFirst ? (a.date < b.date ? -1 : 1) : (a.date < b.date ? 1 : -1);
     }
-    return asc ? a.i - b.i : b.i - a.i;
+    return order === "asc" ? a.i - b.i : b.i - a.i;
   });
   return rows;
 }
@@ -11035,8 +11058,8 @@ function bankTxSheetHtml(snap, raw) {
     '<button type="button" class="book-chip" data-bank-cat-close="1">Close</button></div>' +
     '<p class="hint">' + hint + "</p>" +
     picker +
-    '<label style="display:block;width:100%"><input type="radio" name="bank-tx-scope" data-bank-tx-scope value="merchant" checked> All from this merchant</label>' +
-    '<label style="display:block;width:100%"><input type="radio" name="bank-tx-scope" data-bank-tx-scope value="one"' + (key ? "" : " disabled") + "> Just this one</label>" +
+    '<label class="check"><input type="radio" name="bank-tx-scope" data-bank-tx-scope value="merchant" checked> All from this merchant</label>' +
+    '<label class="check"><input type="radio" name="bank-tx-scope" data-bank-tx-scope value="one"' + (key ? "" : " disabled") + "> Just this one</label>" +
     '<button type="button" class="act" data-bank-tx-save="1" data-bank-tx-key="' + bankEsc(key || merchant) + '" data-bank-tx-merchant="' +
     bankEsc(catsOn ? ruleKey : merchant) + '">Save</button></div></div>';
 }
@@ -11047,23 +11070,27 @@ function bankTxResultsHtml(snap, opts) {
   var tier = opts.txTier || "";
   var account = opts.txAcct || "";
   var month = opts.txMonth || "";
-  var order = opts.txOrder === "asc" ? "asc" : "desc";
+  var order = opts.txOrder === "asc" ? "asc" : (opts.txOrder === "amount" ? "amount" : "desc");
   var rows = bankTxSearchRows(snap, { q: q, tier: tier, account: account, month: month, order: order });
   var note = bankTxMovesOn(snap) && opts.txNote ? '<p class="bank-tx-note">' + bankEsc(opts.txNote) + "</p>" : "";
   var sheet = "";
+  var lineStyle = "display:grid;grid-template-columns:4.5rem minmax(120px,1fr) auto;gap:8px;align-items:center;width:100%;min-width:0;background:transparent;border:0;padding:2px 0;margin:0;text-align:left;color:inherit;font:inherit";
   var list = rows.map(function (raw) {
     var when = bankShortDate(raw.date) || raw.date || "";
     var tone = bankFlowSide(raw) === "in" ? "tone-go" : "tone-stop";
     var name = bankEsc(bankTxMerchantName(raw));
-    var chip = '<span class="fresh-chip" data-bank-tx-chip="' + bankEsc(bankTxOpenKey(raw)) + '">' + bankEsc(bankTxChipLabel(snap, raw)) + "</span>";
-    var amount = '<b class="' + tone + '">' + bankMoney(raw.amount) + "</b>";
+    var chip = '<span class="fresh-chip" data-bank-tx-chip="' + bankEsc(bankTxOpenKey(raw)) + '" style="width:auto">' + bankEsc(bankTxChipLabel(snap, raw)) + "</span>";
+    var amount = '<b class="' + tone + '" style="font-variant-numeric:tabular-nums;text-align:right">' + bankMoney(raw.amount) + "</b>";
     var openKey = bankTxOpenKey(raw);
+    var mid = '<span style="display:flex;flex-direction:column;align-items:flex-start;min-width:0;gap:2px"><span class="bank-merchant" style="display:block;min-width:120px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+      name + "</span>" + chip + "</span>";
+    var date = '<span class="sub" style="width:4.5rem">' + bankEsc(when) + "</span>";
     if (opts.txOpen && String(opts.txOpen) === String(openKey)) sheet = bankTxSheetHtml(snap, raw);
     if (bankTxRetierBlocked(snap, raw)) {
-      return "<li><span class=\"sub\">" + bankEsc(when) + '</span><span class="bank-merchant">' + name + "</span>" + amount + chip + "</li>";
+      return '<li style="display:block"><div style="' + lineStyle + '">' + date + " " + mid + " " + amount + "</div></li>";
     }
-    return "<li><span class=\"sub\">" + bankEsc(when) + '</span><button type="button" class="bank-merchant" data-bank-tx-open="' +
-      bankEsc(openKey) + '">' + name + "</button>" + amount + chip + "</li>";
+    return '<li style="display:block"><button type="button" data-bank-tx-open="' + bankEsc(openKey) + '" style="' + lineStyle + '">' +
+      date + " " + mid + " " + amount + "</button></li>";
   }).join("");
   var body = rows.length
     ? bankCapList('<ul class="bank-edit-list bank-tx-results">' + list + "</ul>", rows.length, "Transactions")
@@ -11078,7 +11105,7 @@ function bankTxSearchHtml(snap, opts) {
   var tier = opts.txTier || "";
   var account = opts.txAcct || "";
   var month = opts.txMonth || "";
-  var order = opts.txOrder === "asc" ? "asc" : "desc";
+  var order = opts.txOrder === "asc" ? "asc" : (opts.txOrder === "amount" ? "amount" : "desc");
   var accounts = {};
   var months = {};
   bankTxRows(snap).forEach(function (raw) {
@@ -11103,8 +11130,10 @@ function bankTxSearchHtml(snap, opts) {
     '<option value="wants"' + (tier === "wants" ? " selected" : "") + ">Wants</option></select> " +
     '<select data-bank-find-filter="account" aria-label="Account"><option value="">Any account</option> ' + acctOpts + "</select> " +
     '<select data-bank-find-filter="month" aria-label="Month"><option value="">Any month</option> ' + monthOpts + "</select> " +
-    '<button type="button" class="book-chip" data-bank-find-order="' + (order === "asc" ? "desc" : "asc") + '">' +
-    (order === "asc" ? "Oldest" : "Newest") + "</button></div>" +
+    '<select data-bank-find-filter="order" aria-label="Sort">' +
+    '<option value="desc"' + (order === "desc" ? " selected" : "") + ">Newest</option> " +
+    '<option value="asc"' + (order === "asc" ? " selected" : "") + ">Oldest</option> " +
+    '<option value="amount"' + (order === "amount" ? " selected" : "") + ">Largest</option></select></div>" +
     '<div data-bank-find-results>' + bankTxResultsHtml(snap, opts) + "</div>" +
     assign + "</div></section>";
 }
@@ -13179,6 +13208,7 @@ function bankMount(root, data, opts) {
       if (which === "tier") root._bank.txTier = el.value || "";
       if (which === "account") root._bank.txAcct = el.value || "";
       if (which === "month") root._bank.txMonth = el.value || "";
+      if (which === "order") root._bank.txOrder = el.value === "asc" || el.value === "amount" ? el.value : "desc";
       root._bank.tab = "edits";
       bankPaint(root);
       return;

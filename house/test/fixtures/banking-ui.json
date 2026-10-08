@@ -168,7 +168,8 @@
     "mtd_actual_by_category_month": "2026-10",
     "paid_status_month": "2026-10",
     "tiers": {"required_plan": 100, "needs_plan": 24.68, "wants_plan": 24},
-    "account_funding": [{"nickname": "Bills", "last4": "2222", "start_balance": 80}],
+    "account_funding": [{"nickname": "Bills", "last4": "2222", "start_balance": 80, "current_balance": 24.68, "current_balance_asof": "2026-10-07T21:40:00-04:00", "current_balance_asof_source": "print"}],
+    "account_funding_combined": 24.68,
     "income_total": 12.34,
     "bills_total": 12.34
   }

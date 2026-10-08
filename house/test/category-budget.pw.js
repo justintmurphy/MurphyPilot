@@ -220,7 +220,8 @@ async function main() {
   await page.locator("[data-bank-spend-sheet]").waitFor({ state: "detached" });
 
   await page.locator("[data-bank-find]").fill("Corner");
-  await page.locator('button.bank-merchant[data-bank-tx-open]', { hasText: "Corner Market" }).first().waitFor();
+  await page.locator('button[data-bank-tx-open]', { hasText: "Corner Market" }).first().waitFor();
+  await shot(page, ".bank-tx-search", "edits-tx-rows-390.png");
   await shot(page, ".bank-tx-search", "edits-category-picker-390.png");
   await assertNoOverflow(page, "390-tx-rows");
   await page.setViewportSize({ width: 360, height: 800 });
@@ -228,7 +229,7 @@ async function main() {
   await assertNoOverflow(page, "360-tx-rows");
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await page.locator('button.bank-merchant[data-bank-tx-open]', { hasText: "Corner Market" }).first().click();
+  await page.locator('button[data-bank-tx-open]', { hasText: "Corner Market" }).first().click();
   await page.locator("[data-bank-tx-sheet]").waitFor();
   await shot(page, "[data-bank-tx-sheet]", "edits-tx-sheet-390.png");
   await assertNoOverflow(page, "390-tx-sheet");

@@ -6111,8 +6111,10 @@ test("account funding paints after the plan bar and next pay shows a move", func
   assert.doesNotMatch(html, /class="bank-fit"/);
   assert.ok(html.indexOf('class="bank-funding"') < html.indexOf('class="bank-cal"'));
   assert.doesNotMatch(html, /All accounts/);
-  assert.match(html, /<span>In<\/span>/);
-  assert.match(html, /<span>Out<\/span>/);
+  assert.match(html, /data-fund-in="/);
+  assert.match(html, /data-fund-out="/);
+  assert.doesNotMatch(html.slice(html.indexOf('class="bank-funding"'), html.indexOf('data-bank-part="calendar"')), /<span>In<\/span>/);
+  assert.doesNotMatch(html.slice(html.indexOf('class="bank-funding"'), html.indexOf('data-bank-part="calendar"')), /<span>Out<\/span>/);
   assert.match(html, /In the bank now/);
   assert.match(html, /data-bank-hero-end=/);
   assert.doesNotMatch(html.slice(html.indexOf('class="bank-funding"'), html.indexOf('data-bank-part="calendar"')), /<span>Month-end<\/span>/);
@@ -8614,7 +8616,10 @@ test("funding start plus in minus out equals the month-end", function () {
   const table = html.match(/data-fund-start="([^"]*)" data-fund-in="([^"]*)" data-fund-out="([^"]*)" data-fund-left="([^"]*)"/);
   assert.ok(table);
   assert.equal(Number(table[4]), books.leftNow);
-  assert.doesNotMatch(html.slice(html.indexOf('class="kpi"'), html.indexOf("</div>", html.indexOf('class="kpi"'))), /Month-end/);
+  const fund = html.slice(html.indexOf('class="bank-funding"'), html.indexOf('data-bank-part="calendar"'));
+  assert.doesNotMatch(fund, /<span>Month-end<\/span>/);
+  assert.doesNotMatch(fund, /<span>In<\/span>/);
+  assert.doesNotMatch(fund, /<span>Out<\/span>/);
 });
 
 test("a required set-aside with no bill row still reduces month-end", function () {
