@@ -220,12 +220,12 @@ test("pay from defaults to the latest history account and an override wins", fun
   assert.equal(ctx.bankPayFrom(snap, row).suffix, "3333");
 
   const html = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: NOW });
-  const next = html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="funding"'));
+  const next = html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="calendar"'));
   assert.match(next, /from ··3333/);
   assert.doesNotMatch(next, /from House|from Bills|from Pay/);
   snap.tier_doc.bill_account = { power: "2222" };
   const over = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: NOW });
-  const overNext = over.slice(over.indexOf('class="bank-next"'), over.indexOf('data-bank-part="funding"'));
+  const overNext = over.slice(over.indexOf('class="bank-next"'), over.indexOf('data-bank-part="calendar"'));
   assert.match(overNext, /from ··2222/);
 });
 
@@ -241,7 +241,7 @@ test("next pay moves match by account and the hero identity holds", function () 
     while ((m = re.exec(chunk))) out.push(m[1] + "|" + m[2] + "|" + m[3] + "|" + m[4]);
     return out;
   }
-  const next = html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="funding"'));
+  const next = html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="calendar"'));
   const byAt = html.indexOf('fills-sum">By account');
   assert.ok(byAt >= 0);
   const by = html.slice(byAt, html.indexOf("</details>", byAt));
