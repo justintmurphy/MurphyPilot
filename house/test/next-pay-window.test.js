@@ -257,3 +257,18 @@ test("October 20 keeps September 30 as a past card and lands on October 15", fun
   assert.equal(periods[1].thisPay, true);
   assert.equal(periods[2].focus.date, "2026-10-30");
 });
+
+test("desktop next pay cards cap at 420px and phones keep the peek width", function () {
+  const house = fs.readFileSync(path.join(root, "house/house.css"), "utf8");
+  const bank = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  assert.match(house, /\.pay-carousel > \.card \{\s*flex: 0 0 86%;\s*max-width: 86%;/);
+  assert.match(house, /@media \(max-width: 720px\) \{\s*\.overall-strip \.ov-hero b \{ font-size: 28px; \}/);
+  assert.doesNotMatch(house + bank, /calc\(\(100% - 24px\) \/ 3\)/);
+  const desk = bank.match(/\.pay-carousel > \.card \{\s*flex: 0 0 420px;[\s\S]*?\}/);
+  assert.ok(desk, "desktop card rule");
+  assert.match(desk[0], /max-width:\s*420px/);
+  assert.match(desk[0], /min-width:\s*420px/);
+  assert.match(desk[0], /max-height:\s*28rem/);
+  assert.match(desk[0], /padding:\s*8px 12px/);
+  assert.match(bank, /\.pay-carousel > \.card \.ov-hero b \{ font-size: 28px; margin-top: 2px; \}/);
+});

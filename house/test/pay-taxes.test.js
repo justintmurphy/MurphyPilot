@@ -796,7 +796,7 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/house\/js\/paydesk\.js\?v=20261007en/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
     assert.match(html, /\/house\/js\/banking\.js\?v=20261008ey/);
-    assert.match(html, /\/house\/house\.css\?v=20261008ex/);
+    assert.match(html, /\/house\/house\.css\?v=20261008ey/);
     assert.match(html, /list-cap\.js\?v=20261007eh/);
     assert.match(html, /id="clock"/);
     assert.match(html, /id="mp-ticker"/);
@@ -827,7 +827,7 @@ test("pay and taxes number and control rules stay off Investments", function () 
 });
 
 test("house.css and banking.js share one cache bust", function () {
-  const houseVersion = "20261008ex";
+  const houseVersion = "20261008ey";
   const bankVersion = "20261008ey";
   const pages = ["index.html", "investments/index.html", "pay/index.html", "taxes/index.html"];
   const house = new Set();

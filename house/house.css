@@ -1514,22 +1514,6 @@ body.inv-page > header .clock { grid-area: clock; }
   font-weight: 800;
   color: var(--ink);
 }
-@media (min-width: 1280px) {
-  .pay-carousel {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: stretch;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-  }
-  .pay-carousel::after { content: none; }
-  .pay-carousel > .card {
-    flex: 1 0 calc((100% - 24px) / 3);
-    width: auto;
-    max-width: none;
-    min-width: calc((100% - 24px) / 3);
-  }
-}
 button.mix-leg.wrap,
 .mix-leg.wrap {
   display: flex;

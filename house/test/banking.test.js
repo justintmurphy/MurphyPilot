@@ -893,7 +893,7 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /location\.replace/);
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
-  assert.match(investments, /\/house\/house\.css\?v=20261008ex/);
+  assert.match(investments, /\/house\/house\.css\?v=20261008ey/);
   assert.match(page, /\/house\/js\/banking\.js\?v=20261008ey/);
   assert.match(page, /\/house\/banking\.css\?v=20261008ey/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
@@ -946,7 +946,7 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.doesNotMatch(page, /banking\.css\?v=20260904dc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904db/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904db/);
-  assert.match(page, /\/house\/house\.css\?v=20261008ex/);
+  assert.match(page, /\/house\/house\.css\?v=20261008ey/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cn/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904cp/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904cp/);
