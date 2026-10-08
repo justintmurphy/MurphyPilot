@@ -11262,11 +11262,11 @@ function bankHeroHtml(snap, opts, flows) {
     return '<section data-bank-hero="1">' + (pill ? '<div class="card span">' + pill + "</div>" : "") + warn + "</section>";
   }
   return '<section data-bank-hero="1"><div class="card span">' + pill +
-    '<div class="books-head"><div class="overall-strip">' +
+    '<div class="overall-strip">' +
     '<div class="ov-hero"><span>In the bank now</span> <b data-bank-hero-now="' + (now == null ? "" : String(now)) + '" class="' + nowCls + '">' +
-    bankEsc(bankMoney(now)) + "</b></div>" +
+    bankEsc(bankMoney(now)) + "</b></div></div>" +
     list +
-    (asof ? '<span class="sub">' + bankEsc(asof) + "</span>" : "") + "</div></div>" +
+    (asof ? '<p class="hint">' + bankEsc(asof) + "</p>" : "") +
     '<div class="kpi" data-bank-hero-figs="1" style="grid-template-columns:repeat(3,minmax(0,1fr))">' +
     fig("To pay & set aside", outFlow.text, outFlow.cls, ' data-bank-hero-out="' + stillOut + '"') +
     fig("Coming in", inFlow.text, inFlow.cls, ' data-bank-hero-in="' + stillIn + '"') +

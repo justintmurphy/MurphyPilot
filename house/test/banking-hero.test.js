@@ -220,7 +220,11 @@ test("account rows under the hero sum to the combined figure, including a negati
   assert.doesNotMatch(html.slice(html.indexOf("data-bank-hero-accounts"), html.indexOf("</table>", html.indexOf("data-bank-hero-accounts"))), /hidden/);
   assert.match(html, /Check ··1111/);
   assert.match(html, /Debit ··2222[\s\S]{0,80}tone-stop/);
-  assert.match(html, /as of Oct 4/);
+  assert.match(html, /<p class="hint">as of Oct 4/);
+  const hero = html.slice(html.indexOf('data-bank-hero="1"'), html.indexOf('data-bank-hero-figs'));
+  assert.ok(hero.indexOf("data-bank-hero-accounts") > hero.indexOf("</div></div>"));
+  assert.ok(hero.indexOf("<p class=\"hint\">as of Oct 4") > hero.indexOf("</table>"));
+  assert.doesNotMatch(hero, /books-head/);
   const accounts = html.slice(html.indexOf("data-bank-hero-accounts"), html.indexOf("</table>", html.indexOf("data-bank-hero-accounts")));
   assert.doesNotMatch(accounts, BRANDS);
   assert.doesNotMatch(accounts, /style=/);
