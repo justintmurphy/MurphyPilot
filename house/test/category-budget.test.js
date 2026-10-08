@@ -350,6 +350,11 @@ test("mapping prefers a transaction, then a merchant, a bill, an installment, a 
   assert.equal(via(), "other:other");
   row.transfer = true;
   assert.equal(ctx.bankMapSpendCategory(row, snap), null);
+  const named = { date: "2026-10-05", amount: 12.34, flow: "outflow", desc: "Corner Market", category: "Groceries" };
+  snap.tier_doc.category_rules["corner market"] = "dining";
+  const namedHit = ctx.bankMapSpendCategory(named, snap);
+  assert.equal(String(namedHit.id) + ":" + String(namedHit.via), "dining:merchant");
+  delete snap.tier_doc.category_rules["corner market"];
   const childcare = { date: "2026-10-05", amount: 12.34, flow: "outflow", desc: "Day program", category: "Childcare" };
   const childHit = ctx.bankMapSpendCategory(childcare, snap);
   assert.equal(String(childHit.id) + ":" + String(childHit.via), "education-needs:feed");
@@ -458,8 +463,10 @@ test("the category pop-up uses desk totals for this month and the two before it"
   assert.match(html, /data-cat-fig="spent">Spent this month <b>\$12\.34<\/b>/);
   assert.match(html, /data-cat-fig="left">Left <b>\$12\.34<\/b>/);
   assert.match(html, /50% used/);
-  assert.match(html, /data-cat-fig="2026-09">September 2026 <b>\$12\.34<\/b>/);
-  assert.match(html, /data-cat-fig="2026-08">August 2026 <b>\$12\.34<\/b>/);
+  assert.match(html, /class="mix-bar"/);
+  assert.match(html, /data-cat-fig="2026-09"><td>September 2026<\/td><td class="num">\$12\.34<\/td>/);
+  assert.match(html, /data-cat-fig="2026-08"><td>August 2026<\/td><td class="num">\$12\.34<\/td>/);
+  assert.match(html, /class="book-chip"[^>]*data-bank-cat-close/);
   assert.match(html, /Monthly budget for this category\./);
   assert.doesNotMatch(html, /category_rules|category_tx|merged_into/);
   const plain = ctx.bankPageHtml(loadFixture(), { tab: "budget", now: "2026-10-16T12:00:00-04:00" });

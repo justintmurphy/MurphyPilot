@@ -5949,6 +5949,19 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     opts.flows.left = startN == null ? null : bankRoundCents(startN + tileIn - tileOut);
     opts.flows.hasIn = hasIn;
     opts.flows.hasOut = hasOut;
+    opts.flows.remainIn = bankRoundCents(listIn);
+    opts.flows.remainOut = bankRoundCents(listOut);
+    opts.flows.now = anchorN == null ? null : bankRoundCents(anchorN);
+    var postedOut = 0;
+    (books.accounts || []).forEach(function (acct) {
+      (acct.rows || []).forEach(function (row) {
+        if (!row || row.kind === "in" || !(row.amount > 0)) return;
+        var day = bankDayKey(row.date);
+        if (todayIso && day && day > todayIso) return;
+        postedOut += row.amount;
+      });
+    });
+    opts.flows.postedOut = bankRoundCents(postedOut);
   }
   var listTitle = opts.listTitle || "Due this month";
   if (!bodyRows.length) {
@@ -6609,15 +6622,12 @@ function bankFundingHtml(snap, opts, extra) {
   var showOut = flowBag ? flowBag.hasOut : books.out > 0;
   var innFlow = showIn ? bankFundSigned(innN, "in") : { text: "\u2014", cls: "" };
   var outFlow = showOut ? bankFundSigned(outN, "out") : { text: "\u2014", cls: "" };
-  var leftFlowCls = leftN != null && leftN < -0.0001 ? "tone-stop" : "";
   var table = showBooks
     ? '<div class="kpi" data-fund-start="' + bankEsc(books.start == null ? "" : String(books.start)) +
       '" data-fund-in="' + bankEsc(innN == null ? "" : String(innN)) + '" data-fund-out="' + bankEsc(outN == null ? "" : String(outN)) +
       '" data-fund-left="' + bankEsc(leftN == null ? "" : String(leftN)) + '">' +
-      kpiCell("Start", bankMoney(books.start), "") +
       kpiCell("In", innFlow.text, innFlow.cls) +
       kpiCell("Out", outFlow.text, outFlow.cls) +
-      kpiCell("Left", bankMoney(leftN), leftFlowCls) +
       "</div>" + short
     : "";
   var moveLines = opts.hideMoves ? [] : bankFundMoveNotes(view);
@@ -8825,6 +8835,11 @@ function bankCategoriesActive(snap) {
   return !!(doc && Array.isArray(doc.categories));
 }
 
+function bankSpendLive(snap) {
+  if (!bankCategoriesActive(snap)) return false;
+  return bankSpendVisible(bankSpendCategories(snap) || []).length > 0;
+}
+
 function bankSpendById(cats, id) {
   var want = String(id || "");
   var found = null;
@@ -8981,10 +8996,16 @@ function bankSpendTxHit(doc, row) {
   return String(bag[key]);
 }
 
+function bankSpendMerchantKey(row) {
+  if (!row) return "";
+  if (row.merchant_key != null && String(row.merchant_key).trim()) return String(row.merchant_key).trim();
+  return bankTierKey(bankTxMerchantName(row));
+}
+
 function bankSpendMerchantHit(doc, row) {
   var bag = doc && doc.category_rules;
   if (!bag || typeof bag !== "object" || Array.isArray(bag) || !row) return "";
-  var key = row.merchant_key == null ? "" : String(row.merchant_key);
+  var key = bankSpendMerchantKey(row);
   if (!key || !Object.prototype.hasOwnProperty.call(bag, key) || bag[key] == null) return "";
   return String(bag[key]);
 }
@@ -9203,11 +9224,12 @@ function bankSpendRowHtml(row, spent, unsorted) {
   var attrs = ' data-bank-cat-row="' + bankEsc(row.id) + '" data-spent="' + bankRoundCents(spent) + '"';
   if (show) attrs += ' data-budget="' + bankRoundCents(row.budget) + '"';
   if (tone) attrs += ' data-tone="' + tone + '"';
+  if (!tone) attrs += ' style="grid-template-columns:minmax(0,1fr) auto"';
   return '<button type="button" class="mix-leg"' + attrs + ">" +
-    '<i style="background:' + bankVsColor(tone) + '"></i>' +
+    (tone ? '<i style="background:' + bankVsColor(tone) + '"></i>' : "") +
     '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(row.name) + "</span>" +
-    (show ? bankSpendBarHtml(spent, row.budget) : "") + "</span> " +
-    '<span class="mix-leg-fig"><span class="' + amtCls + '">' + bankEsc(bankSpendFigText(spent, row.budget, show)) + "</span>" +
+    (show && row.budget > 0 ? bankSpendBarHtml(spent, row.budget) : "") + "</span> " +
+    '<span class="mix-leg-fig"><span class="' + amtCls + '">' + bankEsc(bankSpendFigText(spent, row.budget, show && row.budget > 0)) + "</span>" +
     over + nudge + "</span></button>";
 }
 
@@ -9225,10 +9247,10 @@ function bankSpendHeadHtml(tier, spent, plan, hasPlan) {
   if (show && plan != null) attrs += ' data-plan="' + bankRoundCents(plan) + '"';
   if (tone) attrs += ' data-tone="' + tone + '"';
   var amtCls = tone === "stop" ? "mix-amt tone-stop" : "mix-amt";
-  return '<div class="mix-leg"' + attrs + ">" +
-    '<i style="background:' + bankVsColor(tone) + '"></i>' +
+  return '<div class="mix-leg"' + attrs + (tone ? "" : ' style="grid-template-columns:minmax(0,1fr) auto"') + ">" +
+    (tone ? '<i style="background:' + bankVsColor(tone) + '"></i>' : "") +
     '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(bankTierLabel(tier)) + "</span>" +
-    (show ? bankSpendBarHtml(spent, plan) : "") + "</span> " +
+    (show && plan > 0 ? bankSpendBarHtml(spent, plan) : "") + "</span> " +
     '<span class="mix-leg-fig"><span class="' + amtCls + '">' + bankEsc(bankSpendFigText(spent, plan, show)) + "</span>" +
     over + "</span></div>";
 }
@@ -9341,28 +9363,33 @@ function bankSpendPopupHtml(snap, opts) {
   if (!model) return "";
   var draft = opts.catDraft && opts.catDraft.id === model.id ? opts.catDraft.budget : null;
   var shownBudget = draft != null ? String(draft) : (model.budget == null ? "" : String(model.budget));
-  var tone = model.showBudget ? bankSpendTone(model.spent, model.budget) : "";
+  var leftLabel = "Left";
   var leftText = "\u2014";
-  if (model.left != null && model.left < -0.004) leftText = "Over " + bankMoney(bankRoundCents(-model.left));
-  else if (model.left != null) leftText = bankMoney(model.left);
-  var pctText = model.pct == null ? "" : (model.pct > 999 ? "999%+ used" : (Math.round(model.pct) + "% used"));
+  if (model.left != null && model.left < -0.004) {
+    leftLabel = "Over";
+    leftText = bankMoney(bankRoundCents(-model.left));
+  } else if (model.left != null) leftText = bankMoney(model.left);
+  var showBar = !!(model.showBudget && model.budget > 0);
+  var pctText = !showBar || model.pct == null ? "" : (model.pct > 999 ? "999%+ used" : (Math.round(model.pct) + "% used"));
   var err = opts.catError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.catError) + "</p>" : '<p class="hint">Monthly budget for this category.</p>';
-  var prev = model.prevKey ? '<p data-cat-fig="' + bankEsc(model.prevKey) + '">' + bankEsc(bankSpendMonthName(model.prevKey)) +
-    " <b>" + bankMoney(model.prevSpent) + "</b></p>" : "";
-  var prev2 = model.prev2Key ? '<p data-cat-fig="' + bankEsc(model.prev2Key) + '">' + bankEsc(bankSpendMonthName(model.prev2Key)) +
-    " <b>" + bankMoney(model.prev2Spent) + "</b></p>" : "";
+  function monthRow(key, amount) {
+    if (!key) return "";
+    return '<tr data-cat-fig="' + bankEsc(key) + '"><td>' + bankEsc(bankSpendMonthName(key)) + '</td><td class="num">' +
+      bankMoney(amount) + "</td></tr>";
+  }
+  var months = '<table class="book"><tbody>' + monthRow(model.prevKey, model.prevSpent) + monthRow(model.prev2Key, model.prev2Spent) + "</tbody></table>";
   return '<div class="books-overlay on" data-bank-cat-pop="1">' +
     '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="' + bankEsc(model.name) + '">' +
     '<div class="books-head"><h2 style="margin:0">' + bankEsc(model.name) + "</h2>" +
-    '<button type="button" class="ov-close" data-bank-cat-close="1">Close</button></div>' +
+    '<button type="button" class="book-chip" data-bank-cat-close="1">Close</button></div>' +
     err +
     '<label>Monthly budget <input data-bank-cat-budget="' + bankEsc(model.id) + '" inputmode="decimal" aria-label="Monthly budget" value="' +
     bankEsc(shownBudget) + '"></label> ' +
     '<button type="button" class="act" data-bank-cat-save="' + bankEsc(model.id) + '">Save</button>' +
     '<p data-cat-fig="spent">Spent this month <b>' + bankMoney(model.spent) + "</b></p>" +
-    '<p data-cat-fig="left">Left <b>' + bankEsc(leftText) + "</b></p>" +
-    (pctText ? '<p data-cat-fig="pct">' + bankEsc(pctText) + "</p>" + bankSpendBarHtml(model.spent, model.showBudget ? model.budget : 0) : "") +
-    prev + prev2 + "</div></div>";
+    '<p data-cat-fig="left">' + leftLabel + " <b>" + bankEsc(leftText) + "</b></p>" +
+    (showBar ? '<p data-cat-fig="pct">' + bankEsc(pctText) + "</p>" + bankSpendBarHtml(model.spent, model.budget) : "") +
+    months + "</div></div>";
 }
 
 function bankSpendTierOptions(selected) {
@@ -9380,41 +9407,66 @@ function bankSpendChoiceOptions(cats, skipId, selected) {
   return html;
 }
 
+function bankSpendSheetHtml(snap, opts) {
+  opts = opts || {};
+  var open = opts.spendOpen || "";
+  if (!open || !bankCategoriesActive(snap)) return "";
+  var cats = bankSpendCategories(snap) || [];
+  var isNew = open === "new";
+  var row = isNew ? null : bankSpendById(cats, open);
+  if (!isNew && !row) return "";
+  var draft = opts.catDraft && String(opts.catDraft.id || "") === String(open) ? opts.catDraft : null;
+  var nameVal = draft && draft.name != null ? draft.name : (row ? row.name : "");
+  var tierVal = draft && draft.tier ? draft.tier : (row ? row.tier : "needs");
+  var budgetVal = draft && draft.budget != null ? draft.budget : (row ? String(row.budget) : "");
+  var id = isNew ? "new" : row.id;
+  var title = isNew ? "New category" : row.name;
+  var err = opts.catError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.catError) + "</p>" : '<p class="hint">Name, group, and monthly budget.</p>';
+  var more = "";
+  if (!isNew) {
+    more = '<details><summary>More</summary>' +
+      '<label>Merge into <select data-bank-spend-into="' + bankEsc(id) + '" aria-label="Merge ' + bankEsc(row.name) + ' into">' +
+      bankSpendChoiceOptions(cats, id, "") + "</select></label> " +
+      '<button type="button" data-bank-spend-merge="' + bankEsc(id) + '">Merge</button> ' +
+      '<label>Move spending to <select data-bank-spend-dest="' + bankEsc(id) + '" aria-label="Move ' + bankEsc(row.name) + ' spending">' +
+      bankSpendChoiceOptions(cats, id, "other") + "</select></label> " +
+      '<label style="display:block;width:100%"><input type="radio" name="bank-spend-keep" data-bank-spend-keep="' + bankEsc(id) + '" value="add" checked> Add it on</label>' +
+      '<label style="display:block;width:100%"><input type="radio" name="bank-spend-keep" data-bank-spend-keep="' + bankEsc(id) + '" value="drop"> Drop it</label>' +
+      '<button type="button" data-bank-spend-delete="' + bankEsc(id) + '">Delete</button></details>';
+  }
+  var save = isNew
+    ? '<button type="button" class="act" data-bank-spend-add="1">Save</button>'
+    : '<button type="button" class="act" data-bank-spend-save="' + bankEsc(id) + '">Save</button>';
+  return '<div class="books-overlay on" data-bank-cat-pop="1" data-bank-spend-sheet="1">' +
+    '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="' + bankEsc(title) + '">' +
+    '<div class="books-head"><h2 style="margin:0">' + bankEsc(title) + "</h2>" +
+    '<button type="button" class="book-chip" data-bank-cat-close="1">Close</button></div>' +
+    err +
+    '<label>Name <input data-bank-spend-name="' + bankEsc(id) + '" maxlength="40" aria-label="Category name" value="' + bankEsc(nameVal) + '"></label> ' +
+    '<label>Group <select data-bank-spend-tier="' + bankEsc(id) + '" aria-label="Group">' + bankSpendTierOptions(tierVal) + "</select></label> " +
+    '<label>Monthly budget <input data-bank-spend-budget="' + bankEsc(id) + '" inputmode="decimal" aria-label="Monthly budget" value="' +
+    bankEsc(budgetVal) + '"></label> ' + save + more + "</div></div>";
+}
+
 function bankSpendEditorHtml(snap, opts) {
   if (!bankCategoriesActive(snap)) return "";
   var cats = bankSpendCategories(snap) || [];
   opts = opts || {};
-  var line = opts.catError && !opts.catOpen
+  var line = opts.catError && !opts.spendOpen
     ? '<p class="bank-override-err" role="status">' + bankEsc(opts.catError) + "</p>"
-    : '<p class="hint">Add a category, or rename, merge, or delete one.</p>';
+    : '<span class="hint">Tap a row to change it.</span>';
+  var add = '<li><button type="button" class="mix-leg" data-bank-spend-open="new" style="grid-template-columns:minmax(0,1fr) auto;width:100%;min-width:0">' +
+    '<span class="mix-leg-name">Add a category</span></button></li>';
   var items = bankSpendVisible(cats).map(function (row) {
-    var nameVal = opts.catDraft && opts.catDraft.id === row.id && opts.catDraft.name != null ? opts.catDraft.name : row.name;
-    var budgetVal = opts.catDraft && opts.catDraft.id === row.id && opts.catDraft.budget != null ? opts.catDraft.budget : String(row.budget);
-    var tierVal = opts.catDraft && opts.catDraft.id === row.id && opts.catDraft.tier ? opts.catDraft.tier : row.tier;
-    return "<li><label>Name <input data-bank-spend-name=\"" + bankEsc(row.id) + '" maxlength="40" aria-label="Name for ' +
-      bankEsc(row.name) + '" value="' + bankEsc(nameVal) + '"></label> ' +
-      '<label>Group <select data-bank-spend-tier="' + bankEsc(row.id) + '" aria-label="Group for ' + bankEsc(row.name) + '">' +
-      bankSpendTierOptions(tierVal) + "</select></label> " +
-      '<label>Monthly budget <input data-bank-spend-budget="' + bankEsc(row.id) + '" inputmode="decimal" aria-label="Monthly budget for ' +
-      bankEsc(row.name) + '" value="' + bankEsc(budgetVal) + '"></label> ' +
-      '<button type="button" class="act" data-bank-spend-save="' + bankEsc(row.id) + '">Save</button> ' +
-      '<label>Merge into <select data-bank-spend-into="' + bankEsc(row.id) + '" aria-label="Merge ' + bankEsc(row.name) + ' into">' +
-      bankSpendChoiceOptions(cats, row.id, "") + "</select></label> " +
-      '<button type="button" data-bank-spend-merge="' + bankEsc(row.id) + '">Merge</button> ' +
-      '<label>Move spending to <select data-bank-spend-dest="' + bankEsc(row.id) + '" aria-label="Move ' + bankEsc(row.name) + ' spending">' +
-      bankSpendChoiceOptions(cats, row.id, "other") + "</select></label> " +
-      '<label>Budget <select data-bank-spend-keep="' + bankEsc(row.id) + '" aria-label="Budget for ' + bankEsc(row.name) + '">' +
-      '<option value="add">Add it on</option><option value="drop">Drop it</option></select></label> ' +
-      '<button type="button" data-bank-spend-delete="' + bankEsc(row.id) + '">Delete</button></li>';
+    return '<li><button type="button" class="mix-leg" data-bank-spend-open="' + bankEsc(row.id) +
+      '" style="grid-template-columns:minmax(0,1fr) auto auto;width:100%;min-width:0">' +
+      '<span class="mix-leg-name">' + bankEsc(row.name) + '</span>' +
+      '<span class="fresh-chip">' + bankEsc(bankTierLabel(row.tier)) + '</span>' +
+      '<span class="mix-amt">' + bankEsc(bankMoney(row.budget)) + "</span></button></li>";
   }).join("");
-  var undo = opts.catUndo ? '<button type="button" class="act ghost" data-bank-spend-undo="1">Undo</button>' : "";
-  var list = items
-    ? bankCapList('<ul class="bank-edit-list">' + items + "</ul>", bankSpendVisible(cats).length, "Categories")
-    : '<p class="bank-empty">No categories yet.</p>';
-  return '<section data-bank-spend-cats="1"><h2>Categories</h2><div class="card span">' + line +
-    '<label>New category <input data-bank-spend-new maxlength="40" aria-label="New category"></label> ' +
-    '<label>Group <select data-bank-spend-new-tier aria-label="Group for the new category">' + bankSpendTierOptions("needs") + "</select></label> " +
-    '<button type="button" class="act" data-bank-spend-add="1">Add</button>' + list + undo + "</div></section>";
+  var list = bankCapList('<ul class="bank-edit-list">' + add + items + "</ul>", bankSpendVisible(cats).length + 1, "Categories");
+  return '<section data-bank-spend-cats="1"><h2>Categories</h2><div class="card span">' + line + list + "</div></section>" +
+    bankSpendSheetHtml(snap, opts);
 }
 
 function bankSpendCatSelectHtml(snap, raw, opts) {
@@ -9422,11 +9474,11 @@ function bankSpendCatSelectHtml(snap, raw, opts) {
   opts = opts || {};
   var key = "";
   try { key = bankTxOverrideKey(raw) || bankTxBagKey(raw) || ""; } catch (e) { key = ""; }
-  var narrow = opts.catNarrow && String(opts.catNarrow.key || "") === String(key || bankTxMerchantName(raw)) ? opts.catNarrow.tier : "";
+  var narrow = opts.all ? "" : (opts.catNarrow && String(opts.catNarrow.key || "") === String(key || bankTxMerchantName(raw)) ? opts.catNarrow.tier : "");
   var mapped = bankMapSpendCategory(raw, snap);
   var current = mapped && mapped.id ? bankSpendResolveId(bankSpendCategories(snap), mapped.id) : "";
   var currentRow = bankSpendById(bankSpendCategories(snap), current);
-  if (!narrow && currentRow) narrow = currentRow.tier;
+  if (!opts.all && !narrow && currentRow) narrow = currentRow.tier;
   var options = "";
   var seen = false;
   cats.forEach(function (row) {
@@ -9435,7 +9487,7 @@ function bankSpendCatSelectHtml(snap, raw, opts) {
     options += '<option value="' + bankEsc(row.id) + '"' + (row.id === current ? " selected" : "") + ">" + bankEsc(row.name) + "</option>";
   });
   if (!seen) options = '<option value="">Choose</option> ' + options;
-  var merchant = raw && raw.merchant_key ? String(raw.merchant_key) : bankTierKey(bankTxMerchantName(raw));
+  var merchant = bankSpendMerchantKey(raw);
   return '<select data-bank-tx-cat="' + bankEsc(key || merchant) + '" data-bank-tx-merchant="' + bankEsc(merchant) +
     '" aria-label="Category">' + options + "</select>";
 }
@@ -9646,7 +9698,11 @@ function bankSpendCommit(root, nextList, rulesPatch, txPatch) {
       bankSpendApply(root._bank.data || snap, body);
       root._bank.catUndo = undo;
       root._bank.catError = err || "";
-      if (!err) root._bank.catDraft = null;
+      if (!err) {
+        root._bank.catDraft = null;
+        root._bank.spendOpen = "";
+        root._bank.txOpen = "";
+      }
       if (typeof bankPaint === "function") bankPaint(root);
       return !err;
     }
@@ -9700,16 +9756,19 @@ function bankSpendSaveRow(root, id, name, tier, rawBudget) {
   return bankSpendCommit(root, list, null, null);
 }
 
-function bankSpendAdd(root, name, tier) {
+function bankSpendAdd(root, name, tier, rawBudget) {
   if (!root || !root._bank) return Promise.resolve(false);
   var list = bankSpendClone(bankSpendCategories(root._bank.data) || []);
-  if (list.length >= BANK_SPEND_MAX) return bankSpendFail(root, "bad_category", { name: name == null ? "" : String(name) });
+  if (list.length >= BANK_SPEND_MAX) return bankSpendFail(root, "bad_category", { id: "new", name: name == null ? "" : String(name) });
   var nextName = String(name == null ? "" : name).trim();
   var nextTier = tier === "required" || tier === "needs" || tier === "wants" ? tier : "needs";
-  if (!nextName || nextName.length > BANK_SPEND_NAME_MAX) return bankSpendFail(root, "bad_category_name", { name: name == null ? "" : String(name) });
+  var amount = rawBudget == null || rawBudget === "" ? 0 : bankSpendParseBudget(rawBudget);
+  root._bank.catDraft = { id: "new", name: name == null ? "" : String(name), tier: nextTier, budget: rawBudget == null ? "" : String(rawBudget) };
+  if (!nextName || nextName.length > BANK_SPEND_NAME_MAX) return bankSpendFail(root, "bad_category_name", root._bank.catDraft);
+  if (amount == null) return bankSpendFail(root, "bad_category_budget", root._bank.catDraft);
   var id = bankSpendSlug(nextName, list);
-  if (!id) return bankSpendFail(root, "bad_category_id");
-  list.push({ id: id, name: nextName, tier: nextTier, budget: 0, merged_into: "" });
+  if (!id) return bankSpendFail(root, "bad_category_id", root._bank.catDraft);
+  list.push({ id: id, name: nextName, tier: nextTier, budget: amount, merged_into: "" });
   return bankSpendCommit(root, list, null, null);
 }
 
@@ -9900,7 +9959,7 @@ function bankMoreDetailsHtml(snap, opts, mode, month, view, actuals, missing) {
     if (histTiles) bits.push(bankMixMore("By account", histTiles));
   } else {
     var blocks = bankFundingAccountBlocks(snap, { monthKey: bankMonthKey(month), now: opts.now });
-    var liveTiles = bankLiveAccountTiles(snap);
+    var liveTiles = mode === "plan" ? "" : bankLiveAccountTiles(snap);
     var byBody = (liveTiles || "") + (blocks || "");
     if (byBody) bits.push(bankMixMore("By account", byBody));
   }
@@ -9961,6 +10020,135 @@ function bankMonthToDateCard(snap, opts, month) {
     "</p>" + recentHtml + "</div></section>";
 }
 
+function bankHeroAsof(asof) {
+  var t = bankParseTime(asof);
+  if (t == null) return "";
+  try {
+    var text = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    }).format(new Date(t));
+    return "as of " + text;
+  } catch (e) {
+    return "";
+  }
+}
+
+function bankHeroRawRows(budget) {
+  var raw = budget && budget.account_funding;
+  var list = [];
+  if (Array.isArray(raw)) list = raw.slice();
+  else if (raw && typeof raw === "object") {
+    Object.keys(raw).forEach(function (k) {
+      var row = raw[k];
+      if (row && typeof row === "object" && !Array.isArray(row)) list.push(row);
+    });
+  }
+  return list;
+}
+
+function bankHeroExplicit(raws, acct) {
+  var last = String(acct && acct.last4 || "");
+  var found = null;
+  (raws || []).forEach(function (row) {
+    if (found != null || !row) return;
+    var rowLast = String(bankPickField(row, ["last4", "last_4", "mask"]) || "").replace(/\D/g, "");
+    if (rowLast.length > 4) rowLast = rowLast.slice(-4);
+    var rowNick = String(bankPickField(row, ["nickname", "name", "label"]) || "").trim();
+    var sameLast = last && rowLast && last === rowLast;
+    var sameNick = acct.nickname && rowNick && bankTierKey(acct.nickname) === bankTierKey(rowNick);
+    if (!sameLast && !sameNick) return;
+    var n = bankNum(bankPickField(row, ["current_balance", "latest_balance", "balance", "running_balance"]));
+    if (n != null) found = n;
+  });
+  return found;
+}
+
+function bankHeroRows(snap, opts) {
+  opts = opts || {};
+  var budget = (snap && snap.budget) || {};
+  var monthKey = bankMonthKey(opts.month || bankScreenMonth(snap, opts));
+  var books = bankCombinedBooks(snap, { monthKey: monthKey, now: opts.now });
+  var raws = bankHeroRawRows(budget);
+  var today = "";
+  if (opts.now) {
+    var et = bankEtYmd(opts.now);
+    if (et) today = bankDateKey(et.year, et.month, et.day);
+  }
+  if (!today) today = bankTodayIso(snap, opts);
+  var out = [];
+  (books.accounts || []).forEach(function (acct) {
+    if (!acct) return;
+    var nick = String(acct.nickname || "").trim();
+    if (/overdraft/i.test(nick)) return;
+    var explicit = bankHeroExplicit(raws, acct);
+    var amount = explicit != null ? explicit : bankFundingBalanceOn(acct, today);
+    if (amount == null) amount = acct.start;
+    var mask = bankAccountMask(acct.last4);
+    var label = nick && mask ? nick + " " + mask : (mask || nick || "Account");
+    out.push({
+      label: label,
+      balance: amount == null ? null : bankRoundCents(amount),
+      source: explicit != null ? "field" : "derived"
+    });
+  });
+  return out;
+}
+
+function bankHeroHtml(snap, opts, flows) {
+  opts = opts || {};
+  flows = flows || {};
+  var rows = bankHeroRows(snap, opts);
+  if (!rows.length && flows.left == null) return "";
+  var now = 0;
+  var anyNow = false;
+  rows.forEach(function (row) {
+    if (row.balance == null) return;
+    now += row.balance;
+    anyNow = true;
+  });
+  now = anyNow ? bankRoundCents(now) : null;
+  var end = flows.left == null ? null : bankRoundCents(flows.left);
+  var stillOut = bankRoundCents(flows.remainOut || 0);
+  var stillIn = bankRoundCents(flows.remainIn || 0);
+  var paid = bankRoundCents(flows.postedOut || 0);
+  var plan = bankRoundCents(paid + stillOut);
+  var asof = bankHeroAsof(snap && snap.asof);
+  var nowCls = now != null && now < -0.004 ? " tone-stop" : "";
+  var endCls = end != null && end < -0.004 ? "tone-stop" : "";
+  var outFlow = stillOut > 0.004 ? bankFundSigned(stillOut, "out") : { text: bankMoney(0), cls: "" };
+  var inFlow = stillIn > 0.004 ? bankFundSigned(stillIn, "in") : { text: bankMoney(0), cls: "" };
+  function fig(label, text, cls, attr) {
+    return "<div><span>" + bankEsc(label) + '</span> <b class="' + bankEsc(cls || "") + '"' + attr + ">" + bankEsc(text) + "</b></div>";
+  }
+  var open = !!opts.heroOpen;
+  var accounts = rows.map(function (row) {
+    var cls = row.balance != null && row.balance < -0.004 ? " tone-stop" : "";
+    return '<div class="mix-leg" data-bank-hero-acct="1" data-balance="' + (row.balance == null ? "" : String(row.balance)) +
+      '" style="grid-template-columns:minmax(0,1fr) auto;min-width:0"><span class="mix-leg-name">' + bankEsc(row.label) +
+      '</span> <b class="mix-amt' + cls + '">' + bankEsc(bankMoney(row.balance)) + "</b></div>";
+  }).join("");
+  var list = open && accounts ? '<div data-bank-hero-accounts="1">' + accounts + "</div>" : (accounts ? '<div data-bank-hero-accounts="1" hidden>' + accounts + "</div>" : "");
+  var bar = plan > 0 ? bankSpendBarHtml(paid, plan) : "";
+  return '<section data-bank-hero="1"><div class="card span" style="min-width:0;max-width:100%">' +
+    '<button type="button" class="mix-leg" data-bank-hero-toggle="1" aria-expanded="' + (open ? "true" : "false") +
+    '" style="grid-template-columns:minmax(0,1fr) auto;width:100%;min-width:0">' +
+    '<span class="mix-leg-meta"><span class="mix-leg-name">In the bank now</span> ' +
+    (asof ? '<span class="sub">' + bankEsc(asof) + "</span>" : "") + "</span> " +
+    '<span class="mix-leg-fig"><b data-bank-hero-now="' + (now == null ? "" : String(now)) + '" class="mix-amt' + nowCls + '">' +
+    bankEsc(bankMoney(now)) + "</b></span></button>" +
+    '<div class="kpi" data-bank-hero-figs="1">' +
+    fig("Still to pay", outFlow.text, outFlow.cls, ' data-bank-hero-out="' + stillOut + '"') +
+    fig("Still coming in", inFlow.text, inFlow.cls, ' data-bank-hero-in="' + stillIn + '"') +
+    fig("Month-end", bankMoney(end), endCls, ' data-bank-hero-end="' + (end == null ? "" : String(end)) + '"') +
+    "</div>" + bar +
+    '<span class="hint">Tap for each account.</span>' +
+    list + "</div></section>";
+}
+
 function bankSharedLayout(snap, opts, mode, month) {
   opts = opts || {};
   var monthKey = bankMonthKey(month);
@@ -9978,7 +10166,10 @@ function bankSharedLayout(snap, opts, mode, month) {
   var ledger = bankRenderDueList(planView, ledgerOpts, mode, month, missing);
   var incomeOpts = Object.assign({}, opts, { edits: past ? null : opts.edits });
   var parts = [];
-  if (mode !== "historical") parts.push(bankPart("next", mode, bankRenderNextPay(snap, opts, mode)));
+  if (mode !== "historical") {
+    var hero = mode === "plan" ? bankHeroHtml(snap, Object.assign({}, opts, { month: month }), flows) : "";
+    parts.push(bankPart("next", mode, (hero || "") + bankRenderNextPay(snap, opts, mode)));
+  }
   parts.push(bankPart("funding", mode, bankFundingHtml(past ? planView : snap, fundOpts, ledger)));
   if (mode === "plan") parts.push(bankPart("mtd", mode, bankMonthToDateCard(snap, opts, month)));
   parts.push(bankPart("calendar", mode, bankRenderCalendar(planView, opts, mode, month, missing)));
@@ -10804,25 +10995,50 @@ function bankTxSearchRows(snap, opts) {
   return rows;
 }
 
-function bankTxPickHtml(snap, raw, opts) {
-  var tier = bankTxShownTier(snap, raw);
-  if (bankTxRetierBlocked(snap, raw)) return '<span class="bank-tx-fixed">Not re-tierable</span>';
-  var key = bankTxOverrideKey(raw);
-  var singles = bankTxMovesOn(snap) && !!key;
-  var current = tier === "required" || tier === "needs" || tier === "wants" ? tier : "needs";
-  var catsOn = bankCategoriesActive(snap);
-  var scope = '<select data-bank-tx-scope="' + bankEsc(key) + '" aria-label="Move scope"' + (key ? "" : " disabled") + ">" +
-    '<option value="merchant">All from this merchant</option>' +
-    '<option value="one"' + (singles ? "" : " disabled") + ">Just this one</option></select>";
-  var pick = '<select data-bank-tx-pick="' + bankEsc(key || bankTxMerchantName(raw)) + '" data-bank-tx-merchant="' +
-    bankEsc(bankTxMerchantName(raw)) + '" aria-label="Tier"' + (catsOn ? ' data-bank-tx-narrow="1"' : "") + ">" +
-    ["required", "needs", "wants"].map(function (name) {
-      return '<option value="' + name + '"' + (name === current ? " selected" : "") + ">" + bankTierLabel(name) + "</option>";
-    }).join("") + "</select>";
-  var cat = catsOn ? bankSpendCatSelectHtml(snap, raw, opts) : "";
-  var undo = '<button type="button" class="act ghost" data-bank-tx-undo="' + bankEsc(key || bankTxMerchantName(raw)) + '" data-bank-tx-merchant="' +
-    bankEsc(bankTxMerchantName(raw)) + '">Undo</button>';
-  return '<span style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">' + scope + pick + cat + undo + "</span>";
+function bankTxOpenKey(raw) {
+  var key = "";
+  try { key = bankTxOverrideKey(raw) || ""; } catch (e) { key = ""; }
+  if (!key) key = bankTxMerchantName(raw);
+  return key;
+}
+
+function bankTxChipLabel(snap, raw) {
+  if (bankSpendLive(snap)) {
+    var mapped = bankMapSpendCategory(raw, snap);
+    var id = mapped && mapped.id ? bankSpendResolveId(bankSpendCategories(snap), mapped.id) : "";
+    var row = id ? bankSpendById(bankSpendCategories(snap), id) : null;
+    return row && row.name ? row.name : "Other";
+  }
+  if (bankFlowSide(raw) === "in" || bankTxShownTier(snap, raw) === "other_income") return "Other income";
+  return bankTierLabel(bankTxShownTier(snap, raw)) || "Needs";
+}
+
+function bankTxSheetHtml(snap, raw) {
+  if (!raw || bankTxRetierBlocked(snap, raw)) return "";
+  var key = "";
+  try { key = bankTxOverrideKey(raw) || ""; } catch (e2) { key = ""; }
+  var merchant = bankTxMerchantName(raw);
+  var ruleKey = bankSpendMerchantKey(raw);
+  var catsOn = bankSpendLive(snap);
+  var current = bankTxShownTier(snap, raw);
+  if (current !== "required" && current !== "needs" && current !== "wants") current = "needs";
+  var picker = catsOn
+    ? bankSpendCatSelectHtml(snap, raw, { all: true })
+    : '<select data-bank-tx-pick="' + bankEsc(key || merchant) + '" data-bank-tx-merchant="' + bankEsc(merchant) + '" aria-label="Tier">' +
+      ["required", "needs", "wants"].map(function (name) {
+        return '<option value="' + name + '"' + (name === current ? " selected" : "") + ">" + bankTierLabel(name) + "</option>";
+      }).join("") + "</select>";
+  var hint = catsOn ? "Pick a category for this purchase." : "Pick a group for this purchase.";
+  return '<div class="books-overlay on" data-bank-cat-pop="1" data-bank-tx-sheet="1">' +
+    '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="' + bankEsc(merchant) + '">' +
+    '<div class="books-head"><h2 style="margin:0">' + bankEsc(merchant) + "</h2>" +
+    '<button type="button" class="book-chip" data-bank-cat-close="1">Close</button></div>' +
+    '<p class="hint">' + hint + "</p>" +
+    picker +
+    '<label style="display:block;width:100%"><input type="radio" name="bank-tx-scope" data-bank-tx-scope value="merchant" checked> All from this merchant</label>' +
+    '<label style="display:block;width:100%"><input type="radio" name="bank-tx-scope" data-bank-tx-scope value="one"' + (key ? "" : " disabled") + "> Just this one</label>" +
+    '<button type="button" class="act" data-bank-tx-save="1" data-bank-tx-key="' + bankEsc(key || merchant) + '" data-bank-tx-merchant="' +
+    bankEsc(catsOn ? ruleKey : merchant) + '">Save</button></div></div>';
 }
 
 function bankTxResultsHtml(snap, opts) {
@@ -10834,23 +11050,26 @@ function bankTxResultsHtml(snap, opts) {
   var order = opts.txOrder === "asc" ? "asc" : "desc";
   var rows = bankTxSearchRows(snap, { q: q, tier: tier, account: account, month: month, order: order });
   var note = bankTxMovesOn(snap) && opts.txNote ? '<p class="bank-tx-note">' + bankEsc(opts.txNote) + "</p>" : "";
+  var sheet = "";
   var list = rows.map(function (raw) {
-    var tierName = bankFlowSide(raw) === "in" || bankTxShownTier(snap, raw) === "other_income"
-      ? "Other income"
-      : (bankTierLabel(bankTxShownTier(snap, raw)) || "Needs");
     var when = bankShortDate(raw.date) || raw.date || "";
-    var tone = bankFlowSide(raw) === "in" ? " num tone-go" : " num tone-stop";
-    return "<tr><td><span class=\"sub\">" + bankEsc(when) + '</span></td><td><span class="sym">' +
-      bankEsc(bankTxMerchantName(raw)) + "</span> <span class=\"sub\">" + bankEsc(raw.last4 ? bankAccountMask(raw.last4) : "") +
-      "</span></td><td class=\"" + tone.trim() + "\">" + bankMoney(raw.amount) + "</td><td>" + bankEsc(tierName) +
-      "</td><td>" + bankTxPickHtml(snap, raw, opts) + "</td></tr>";
+    var tone = bankFlowSide(raw) === "in" ? "tone-go" : "tone-stop";
+    var name = bankEsc(bankTxMerchantName(raw));
+    var chip = '<span class="fresh-chip" data-bank-tx-chip="' + bankEsc(bankTxOpenKey(raw)) + '">' + bankEsc(bankTxChipLabel(snap, raw)) + "</span>";
+    var amount = '<b class="' + tone + '">' + bankMoney(raw.amount) + "</b>";
+    var openKey = bankTxOpenKey(raw);
+    if (opts.txOpen && String(opts.txOpen) === String(openKey)) sheet = bankTxSheetHtml(snap, raw);
+    if (bankTxRetierBlocked(snap, raw)) {
+      return "<li><span class=\"sub\">" + bankEsc(when) + '</span><span class="bank-merchant">' + name + "</span>" + amount + chip + "</li>";
+    }
+    return "<li><span class=\"sub\">" + bankEsc(when) + '</span><button type="button" class="bank-merchant" data-bank-tx-open="' +
+      bankEsc(openKey) + '">' + name + "</button>" + amount + chip + "</li>";
   }).join("");
   var body = rows.length
-    ? bankCapList('<table class="book bank-tx-results"><thead><tr><th>Date</th><th>Name</th><th class="num">Amount</th><th>Tier</th><th></th></tr></thead><tbody>' +
-      list + "</tbody></table>", rows.length, "Transactions")
+    ? bankCapList('<ul class="bank-edit-list bank-tx-results">' + list + "</ul>", rows.length, "Transactions")
     : '<p class="hint">No matching transactions.</p>';
   if (!String(q || "").trim() && !tier && !account && !month) body = '<p class="hint">Type to search.</p>';
-  return note + body;
+  return note + body + sheet;
 }
 
 function bankTxSearchHtml(snap, opts) {
@@ -10874,7 +11093,7 @@ function bankTxSearchHtml(snap, opts) {
   var monthOpts = Object.keys(months).sort().reverse().map(function (ym) {
     return '<option value="' + ym + '"' + (ym === month ? " selected" : "") + ">" + bankEsc(ym) + "</option>";
   }).join(" ");
-  var assign = opts.txAssign || "";
+  var assign = bankSpendLive(snap) ? "" : (opts.txAssign || "");
   return '<section class="bank-tx-search"><h2>Transactions</h2><div class="card span">' +
     '<label>Search <input type="search" data-bank-find value="' + bankEsc(q) + '" aria-label="Search" autocomplete="off"></label>' +
     '<div class="row2">' +
@@ -10906,7 +11125,10 @@ function bankPaintTxResults(root) {
     txAcct: st.txAcct || "",
     txMonth: st.txMonth || "",
     txOrder: st.txOrder || "",
-    txNote: st.txNote || ""
+    txNote: st.txNote || "",
+    txOpen: st.txOpen || "",
+    catUndo: st.catUndo || null,
+    txUndo: st.txUndo || null
   });
   if (typeof MPListCap !== "undefined" && MPListCap && MPListCap.refresh) {
     try { MPListCap.refresh(root); } catch (e) {}
@@ -10939,7 +11161,14 @@ function bankEditsPanelHtml(snap, opts) {
   var kindErr = opts.kindError ? '<p class="bank-override-err" role="status">' + bankEsc(opts.kindError) + "</p>" : "";
   var saveErr = opts.tierSaveError ? '<p class="bank-save-notice" role="status">' + bankEsc(opts.tierSaveError) + "</p>" : "";
   var tiers = bankTierEditSections(snap, ym, opts.edits, opts.statusConfirm, Object.assign({}, opts, { editCat: picked }));
-  var txAssign = bankEditTxListHtml(rows, known, picked, opts.rowAdd);
+  var txAssign = bankSpendLive(snap) ? "" : bankEditTxListHtml(rows, known, picked, opts.rowAdd);
+  var undo = "";
+  if (bankCategoriesActive(snap) && opts.catUndo) {
+    undo = '<p class="hint">Updated. <button type="button" class="book-chip" data-bank-spend-undo="1">Undo</button></p>';
+  } else if (opts.txUndo && opts.txUndo.key) {
+    undo = '<p class="hint">Updated. <button type="button" class="book-chip" data-bank-tx-undo="' + bankEsc(opts.txUndo.key) +
+      '" data-bank-tx-merchant="' + bankEsc(opts.txUndo.merchant || "") + '">Undo</button></p>';
+  }
   var more = bankMixMore("More details",
     "<section><h2>Categories</h2><div class=\"card span\">" + catErr + addErr +
     '<p class="hint">Categories sync across your seats.</p>' +
@@ -10948,7 +11177,7 @@ function bankEditsPanelHtml(snap, opts) {
     '<p class="hint">A blank amount or day stays blank.</p>' +
     bankEditIncomeHtml(incomes, ym) + "</div></section>" +
     bankUnmatchedStatusHtml(snap));
-  return '<div class="bank-edit-grid">' + saveErr + bankTxSearchHtml(snap, Object.assign({}, opts, { txAssign: txAssign })) +
+  return '<div class="bank-edit-grid">' + saveErr + undo + bankTxSearchHtml(snap, Object.assign({}, opts, { txAssign: txAssign })) +
     bankSpendEditorHtml(snap, opts) +
     '<section class="bank-edit-block"><h2>Bills</h2><div class="card span">' + dueNote + dueErr +
     bankEditBillHtml(bills, ym, opts.edits, opts.statusConfirm, snap) + "</div></section>" +
@@ -11085,7 +11314,11 @@ function bankPaint(root, paintOpts) {
     catError: st.catError || "",
     catDraft: st.catDraft || null,
     catUndo: st.catUndo || null,
-    catNarrow: st.catNarrow || null
+    catNarrow: st.catNarrow || null,
+    spendOpen: st.spendOpen || "",
+    txOpen: st.txOpen || "",
+    txUndo: st.txUndo || null,
+    heroOpen: !!st.heroOpen
   });
   bankPaintTicker(st.data, { now: st.now });
   if (typeof MPListCap !== "undefined" && MPListCap && MPListCap.refresh) {
@@ -12596,6 +12829,10 @@ function bankMount(root, data, opts) {
     catDraft: opts.catDraft || null,
     catUndo: opts.catUndo || null,
     catNarrow: opts.catNarrow || null,
+    spendOpen: opts.spendOpen || "",
+    txOpen: opts.txOpen || "",
+    txUndo: opts.txUndo || null,
+    heroOpen: !!opts.heroOpen,
     prune: Promise.resolve()
   };
   if (root._bank.tab === "edits") root._bank.prune = bankRefreshEmptyCustoms(root);
@@ -12670,6 +12907,7 @@ function bankMount(root, data, opts) {
     var txUndo = t.closest("[data-bank-tx-undo]");
     if (txUndo && txUndo.getAttribute && root._bank) {
       if (e.preventDefault) e.preventDefault();
+      root._bank.txUndo = null;
       if (bankCategoriesActive(root._bank.data)) {
         var catScopeEl = txUndo.parentNode && txUndo.parentNode.querySelector ? txUndo.parentNode.querySelector("[data-bank-tx-scope]") : null;
         var catScope = catScopeEl && catScopeEl.value ? catScopeEl.value : (root._bank.txScope || "merchant");
@@ -12682,6 +12920,8 @@ function bankMount(root, data, opts) {
     if (catClose && root._bank) {
       if (e.preventDefault) e.preventDefault();
       root._bank.catOpen = "";
+      root._bank.spendOpen = "";
+      root._bank.txOpen = "";
       root._bank.catDraft = null;
       root._bank.catError = "";
       bankPaint(root);
@@ -12689,8 +12929,65 @@ function bankMount(root, data, opts) {
     }
     if (t.getAttribute && t.getAttribute("data-bank-cat-pop") != null && root._bank) {
       root._bank.catOpen = "";
+      root._bank.spendOpen = "";
+      root._bank.txOpen = "";
       root._bank.catDraft = null;
       root._bank.catError = "";
+      bankPaint(root);
+      return;
+    }
+    var heroToggle = t.closest("[data-bank-hero]");
+    if (heroToggle && root._bank && !t.closest("[data-bank-hero-accounts]")) {
+      if (e.preventDefault) e.preventDefault();
+      root._bank.heroOpen = !root._bank.heroOpen;
+      bankPaint(root);
+      return;
+    }
+    var txRow = t.closest("[data-bank-tx-open]");
+    if (txRow && txRow.getAttribute && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      var txKey = txRow.getAttribute("data-bank-tx-open");
+      root._bank.txOpen = root._bank.txOpen === txKey ? "" : txKey;
+      root._bank.spendOpen = "";
+      root._bank.tab = "edits";
+      bankPaint(root);
+      return;
+    }
+    var txSave = t.closest("[data-bank-tx-save]");
+    if (txSave && txSave.getAttribute && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      var sheet = txSave.closest ? txSave.closest("[data-bank-tx-sheet]") : null;
+      var scopeNode = null;
+      if (sheet && sheet.querySelectorAll) {
+        var radios = sheet.querySelectorAll("[data-bank-tx-scope]");
+        var ri;
+        for (ri = 0; ri < radios.length; ri++) if (radios[ri].checked) scopeNode = radios[ri];
+      }
+      var txScope = scopeNode && scopeNode.value ? scopeNode.value : "merchant";
+      var txMerchant = txSave.getAttribute("data-bank-tx-merchant") || "";
+      var txSaveKey = txSave.getAttribute("data-bank-tx-key") || txMerchant;
+      if (bankSpendLive(root._bank.data)) {
+        var catNode = sheet && sheet.querySelector ? sheet.querySelector("[data-bank-tx-cat]") : null;
+        var catPick = catNode && catNode.value ? String(catNode.value) : "";
+        if (!catPick) return;
+        root._bank.txUndo = null;
+        if (txScope === "one") return bankSpendSaveTx(root, txSaveKey, catPick);
+        return bankSpendSaveRule(root, txMerchant, catPick);
+      }
+      var tierNode = sheet && sheet.querySelector ? sheet.querySelector("[data-bank-tx-pick]") : null;
+      var tierPick = bankTierWord(tierNode && tierNode.value);
+      root._bank.txUndo = { key: txSaveKey, merchant: txMerchant };
+      if (txScope === "one") return bankSaveTxOverride(root, txSaveKey, tierPick);
+      return bankSaveTier(root, txMerchant || txSaveKey, tierPick);
+    }
+    var spendOpenBtn = t.closest("[data-bank-spend-open]");
+    if (spendOpenBtn && spendOpenBtn.getAttribute && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      root._bank.spendOpen = spendOpenBtn.getAttribute("data-bank-spend-open");
+      root._bank.txOpen = "";
+      root._bank.catError = "";
+      root._bank.catDraft = null;
+      root._bank.tab = "edits";
       bankPaint(root);
       return;
     }
@@ -12720,9 +13017,9 @@ function bankMount(root, data, opts) {
     var spendAdd = t.closest("[data-bank-spend-add]");
     if (spendAdd && root._bank) {
       if (e.preventDefault) e.preventDefault();
-      var addName = bankSpendRead(bankSpendField(root, "[data-bank-spend-new]"));
-      var addTier = bankSpendRead(bankSpendField(root, "[data-bank-spend-new-tier]"));
-      return bankSpendAdd(root, addName, addTier);
+      var addName = bankSpendRead(bankSpendField(root, '[data-bank-spend-name="new"]'));
+      var addTier = bankSpendRead(bankSpendField(root, '[data-bank-spend-tier="new"]'));
+      return bankSpendAdd(root, addName, addTier, bankSpendRead(bankSpendField(root, '[data-bank-spend-budget="new"]')));
     }
     var spendSave = t.closest("[data-bank-spend-save]");
     if (spendSave && spendSave.getAttribute && root._bank) {
@@ -12743,9 +13040,15 @@ function bankMount(root, data, opts) {
     if (spendDelete && spendDelete.getAttribute && root._bank) {
       if (e.preventDefault) e.preventDefault();
       var deleteId = spendDelete.getAttribute("data-bank-spend-delete");
+      var keep = "add";
+      if (root.querySelectorAll) {
+        var keepNodes = root.querySelectorAll('[data-bank-spend-keep="' + deleteId + '"]');
+        var ki;
+        for (ki = 0; ki < keepNodes.length; ki++) if (keepNodes[ki].checked) keep = keepNodes[ki].value || "add";
+      }
       return bankSpendDelete(root, deleteId,
         bankSpendRead(bankSpendField(root, '[data-bank-spend-dest="' + deleteId + '"]')),
-        bankSpendRead(bankSpendField(root, '[data-bank-spend-keep="' + deleteId + '"]')));
+        keep);
     }
     var dayClose = t.closest("[data-bank-day-close], [data-bank-day-scrim]");
     if (dayClose) {
@@ -12885,6 +13188,7 @@ function bankMount(root, data, opts) {
       return;
     }
     if (el.getAttribute("data-bank-tx-pick")) {
+      if (el.closest && el.closest("[data-bank-tx-sheet]")) return;
       if (el.getAttribute("data-bank-tx-narrow") === "1" && root._bank && bankCategoriesActive(root._bank.data)) {
         root._bank.catNarrow = { key: el.getAttribute("data-bank-tx-pick"), tier: bankTierWord(el.value) || "" };
         root._bank.tab = "edits";
@@ -12898,6 +13202,7 @@ function bankMount(root, data, opts) {
       return bankSaveTier(root, el.getAttribute("data-bank-tx-merchant") || el.getAttribute("data-bank-tx-pick"), picked);
     }
     if (el.getAttribute("data-bank-tx-cat")) {
+      if (el.closest && el.closest("[data-bank-tx-sheet]")) return;
       var catPick = el.value == null ? "" : String(el.value);
       if (!catPick || !root._bank) return;
       var catScopeEl = el.parentNode && el.parentNode.querySelector ? el.parentNode.querySelector("[data-bank-tx-scope]") : null;
@@ -12993,9 +13298,11 @@ function bankMount(root, data, opts) {
   root.addEventListener("keydown", function (e) {
     var el = e && e.target;
     if (!el) return;
-    if (e.key === "Escape" && root._bank && root._bank.catOpen) {
+    if (e.key === "Escape" && root._bank && (root._bank.catOpen || root._bank.spendOpen || root._bank.txOpen)) {
       if (e.preventDefault) e.preventDefault();
       root._bank.catOpen = "";
+      root._bank.spendOpen = "";
+      root._bank.txOpen = "";
       root._bank.catDraft = null;
       root._bank.catError = "";
       bankPaint(root);
