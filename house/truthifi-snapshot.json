@@ -1,1 +1,15 @@
-PLACEHOLDER
+{
+  "asof": "2026-10-10",
+  "source": "Truthifi",
+  "note": "Fidelity-only refresh via Truthifi linkId 6a97271f6f50340ade6d97f5. Did NOT scan Voya. Holdings still as of 2026-10-08 (max available). names[] full Truthifi securityName; accounts[]/suffix last-4. Voya section left untouched. No new scan run (data current, credits preserved).",
+  "scanned_at": "2026-10-10 13:13 ET",
+  "holdings_asof": "2026-10-08",
+  "overall": {
+    "equity": 68772.361,
+    "live_equity": 3373.32,
+    "custodial_equity": 65399.041,
+    "asof": "2026-10-10T13:13:00-04:00",
+    "holdings_asof": "2026-10-08",
+    "live_asof": "2026-10-07T16:17:12-04:00"
+  }
+}
