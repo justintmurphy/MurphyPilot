@@ -517,6 +517,380 @@
           "suffix": "9382"
         }
       ]
+    },
+    "voya": {
+      "id": "voya",
+      "label": "Voya",
+      "source": "Truthifi",
+      "asof": "2026-10-08",
+      "equity": 62348.444,
+      "equity_value": 62348.444,
+      "cash": 0.0,
+      "buying_power": 0.0,
+      "pending_deposits": 0,
+      "invested_pct": 100.0,
+      "open_orders": 0,
+      "names": [
+        {
+          "symbol": "Aggregate Bond Index",
+          "name": "BNY 401(k) Plan Aggregate Bond Index Fund",
+          "kind": "equity",
+          "qty": 21.658,
+          "last": 266.96,
+          "value": 5781.9,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ]
+        },
+        {
+          "symbol": "Core Plus Bond",
+          "name": "BNY 401(k) Plan Core Plus Bond Fund",
+          "kind": "equity",
+          "qty": 246.605,
+          "last": 18.194,
+          "value": 4486.683,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ]
+        },
+        {
+          "symbol": "Intl ACWI Ex-U.S. Index",
+          "name": "BNY 401(k) Plan Intl ACWI Ex-U.S. Index Fund",
+          "kind": "equity",
+          "qty": 36.072,
+          "last": 487.19,
+          "value": 17574.113,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ]
+        },
+        {
+          "symbol": "Small-Mid Cap Stock Index",
+          "name": "BNY 401(k) Plan Small-Mid Cap Stock Index Fund",
+          "kind": "equity",
+          "qty": 8.603,
+          "last": 978.87,
+          "value": 8421.023,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ]
+        },
+        {
+          "symbol": "Large Cap Stock Index",
+          "name": "BNY 401(k) Plan Large Cap Stock Index Fund",
+          "kind": "equity",
+          "qty": 8.683,
+          "last": 2530.51,
+          "value": 21971.912,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ]
+        },
+        {
+          "symbol": "Large Cap Value Equity",
+          "name": "BNY 401(k) Plan Large Cap Value Equity Fund",
+          "kind": "equity",
+          "qty": 31.965,
+          "last": 101.952,
+          "value": 3258.866,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ]
+        },
+        {
+          "symbol": "International Growth Equity",
+          "name": "BNY 401(k) Plan International Growth Equity Fund",
+          "kind": "equity",
+          "qty": 16.87,
+          "last": 50.62,
+          "value": 853.948,
+          "cost": null,
+          "sleeve": "401k",
+          "account": "voya",
+          "accounts": [
+            "voya"
+          ]
+        }
+      ],
+      "accounts": [
+        {
+          "name": "BNY 401(k) Savings Plan",
+          "accountId": "15838945",
+          "type": "Retirement",
+          "subType": "401k",
+          "endingBalance": 62348.444,
+          "equity": 62348.444
+        }
+      ]
     }
+  },
+  "sleeves": {
+    "fidelity_trad": {
+      "id": "fidelity_trad",
+      "label": "Trad",
+      "asof": "2026-10-08",
+      "equity": 105.279,
+      "cash": 0.59
+    },
+    "fidelity_per": {
+      "id": "fidelity_per",
+      "label": "PER",
+      "asof": "2026-10-08",
+      "equity": 190.19,
+      "cash": 0.17
+    },
+    "fidelity_roth": {
+      "id": "fidelity_roth",
+      "label": "Roth",
+      "asof": "2026-10-08",
+      "equity": 323.971,
+      "cash": 1.71
+    },
+    "fidelity_bny": {
+      "id": "fidelity_bny",
+      "label": "BNY",
+      "asof": "2026-10-08",
+      "equity": 2034.957,
+      "cash": 0.1
+    },
+    "fidelity_espp": {
+      "id": "fidelity_espp",
+      "label": "ESPP",
+      "asof": "2026-10-08",
+      "equity": 108.98,
+      "cash": 108.98
+    },
+    "fidelity_rsu": {
+      "id": "fidelity_rsu",
+      "label": "RSU",
+      "asof": "2026-10-08",
+      "equity": 287.22,
+      "cash": 0.0
+    },
+    "voya_401k": {
+      "id": "voya_401k",
+      "label": "401k",
+      "asof": "2026-10-08",
+      "equity": 62348.444,
+      "cash": 0.0
+    }
+  },
+  "tape": {
+    "overall": [
+      {
+        "t": "2026-09-03T16:00:00-04:00",
+        "dtg": "031600R SEP 26",
+        "equity": 67627.26,
+        "live": 2911.39,
+        "custodial": 64715.88
+      },
+      {
+        "t": "2026-09-04T16:00:00-04:00",
+        "dtg": "041600R SEP 26",
+        "equity": 68177.65,
+        "live": 2911.39,
+        "custodial": 65266.26
+      },
+      {
+        "t": "2026-09-07T16:00:00-04:00",
+        "dtg": "071600R SEP 26",
+        "equity": 68242.62,
+        "live": 2995.77,
+        "custodial": 65246.85
+      },
+      {
+        "t": "2026-09-08T16:00:00-04:00",
+        "dtg": "081600R SEP 26",
+        "equity": 68357.36,
+        "live": 3110.5,
+        "custodial": 65246.86
+      },
+      {
+        "t": "2026-09-09T16:00:00-04:00",
+        "dtg": "091600R SEP 26",
+        "equity": 68458.22,
+        "live": 3068.75,
+        "custodial": 65389.47
+      },
+      {
+        "t": "2026-09-10T16:00:00-04:00",
+        "dtg": "101600R SEP 26",
+        "equity": 68036.51,
+        "live": 2997.68,
+        "custodial": 65038.83
+      },
+      {
+        "t": "2026-09-11T16:00:00-04:00",
+        "dtg": "111600R SEP 26",
+        "equity": 67683.85,
+        "live": 3080.18,
+        "custodial": 64603.67
+      },
+      {
+        "t": "2026-09-12T16:00:00-04:00",
+        "dtg": "121600R SEP 26",
+        "equity": 67686.97,
+        "live": 3083.3,
+        "custodial": 64603.67
+      },
+      {
+        "t": "2026-09-13T16:00:00-04:00",
+        "dtg": "131600R SEP 26",
+        "equity": 67686.97,
+        "live": 3083.3,
+        "custodial": 64603.67
+      },
+      {
+        "t": "2026-09-14T16:00:00-04:00",
+        "dtg": "141600R SEP 26",
+        "equity": 67959.98,
+        "live": 3092.96,
+        "custodial": 64867.02
+      },
+      {
+        "t": "2026-09-15T16:00:00-04:00",
+        "dtg": "151600R SEP 26",
+        "equity": 67655.12,
+        "live": 3217.58,
+        "custodial": 64437.54
+      },
+      {
+        "t": "2026-09-16T16:00:00-04:00",
+        "dtg": "161600R SEP 26",
+        "equity": 67652.98,
+        "live": 3215.44,
+        "custodial": 64437.54
+      },
+      {
+        "t": "2026-09-18T16:00:00-04:00",
+        "dtg": "181600R SEP 26",
+        "equity": 68315.66,
+        "live": 3216.07,
+        "custodial": 65099.59
+      },
+      {
+        "t": "2026-09-19T16:00:00-04:00",
+        "dtg": "191600R SEP 26",
+        "equity": 68317.91,
+        "live": 3216.07,
+        "custodial": 65101.84
+      },
+      {
+        "t": "2026-09-21T16:00:00-04:00",
+        "dtg": "211600R SEP 26",
+        "equity": 68224.18,
+        "live": 3242.04,
+        "custodial": 64982.14
+      },
+      {
+        "t": "2026-09-22T16:00:00-04:00",
+        "dtg": "221600R SEP 26",
+        "equity": 68249.035,
+        "live": 3259.82,
+        "custodial": 64989.215
+      },
+      {
+        "t": "2026-09-23T16:00:00-04:00",
+        "dtg": "231600R SEP 26",
+        "equity": 68887.93,
+        "live": 3196.55,
+        "custodial": 65691.38
+      },
+      {
+        "t": "2026-09-25T16:00:00-04:00",
+        "dtg": "251600R SEP 26",
+        "equity": 68232.27,
+        "live": 3321.91,
+        "custodial": 64910.36
+      },
+      {
+        "t": "2026-09-28T16:00:00-04:00",
+        "dtg": "281600R SEP 26",
+        "equity": 68217.89,
+        "live": 3301.88,
+        "custodial": 64916.01
+      },
+      {
+        "t": "2026-09-29T16:00:00-04:00",
+        "dtg": "291600R SEP 26",
+        "equity": 68446.018,
+        "live": 3292.88,
+        "custodial": 65153.138
+      },
+      {
+        "t": "2026-09-30T16:00:00-04:00",
+        "dtg": "301600R SEP 26",
+        "equity": 67905.314,
+        "live": 3319.88,
+        "custodial": 64585.434
+      },
+      {
+        "t": "2026-10-01T13:19:00-04:00",
+        "dtg": "011319R OCT 26",
+        "equity": 67856.329,
+        "live": 3294.24,
+        "custodial": 64562.089
+      },
+      {
+        "t": "2026-10-02T16:00:00-04:00",
+        "dtg": "021600R OCT 26",
+        "equity": 68293.792,
+        "live": 3318.36,
+        "custodial": 64975.432
+      },
+      {
+        "t": "2026-10-03T13:14:00-04:00",
+        "dtg": "031314R OCT 26",
+        "equity": 68346.551,
+        "live": 3316.92,
+        "custodial": 65029.631
+      },
+      {
+        "t": "2026-10-06T13:14:30-04:00",
+        "dtg": "061314R OCT 26",
+        "equity": 68469.588,
+        "live": 3411.67,
+        "custodial": 65057.918
+      },
+      {
+        "t": "2026-10-07T16:00:00-04:00",
+        "dtg": "071600R OCT 26",
+        "equity": 69328.085,
+        "live": 3373.32,
+        "custodial": 65954.765
+      },
+      {
+        "t": "2026-10-08T13:14:00-04:00",
+        "dtg": "081314R OCT 26",
+        "equity": 69415.004,
+        "live": 3373.32,
+        "custodial": 66041.684
+      },
+      {
+        "t": "2026-10-09T16:00:00-04:00",
+        "dtg": "091600R OCT 26",
+        "equity": 68772.361,
+        "live": 3373.32,
+        "custodial": 65399.041
+      }
+    ]
   }
 }
