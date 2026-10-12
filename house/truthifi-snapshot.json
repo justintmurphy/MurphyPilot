@@ -1,1 +1,424 @@
-PLACEHOLDER_FOR_FULL_CONTENT
+{
+  "asof": "2026-10-12",
+  "holdingsAsOf": "2026-10-10",
+  "linkId": "6a97271f6f50340ade6d97f5",
+  "provider": "Fidelity Investments",
+  "note": "Fidelity-only; Voya untouched",
+  "names": [
+    "Abbott Laboratories",
+    "Align Technology, Inc.",
+    "Bank Of New York Mellon Corp",
+    "Becton Dickinson & Co.",
+    "Dexcom Inc",
+    "Edwards Lifesciences Corp",
+    "FIDELITY CASH FUND",
+    "Fidelity Concord Street Trust - Fidelity Flex 500 Index Fund USD",
+    "Fidelity Hereford Street Trust - Fidelity Flex Government Money Mkt Fd USD MNT",
+    "Fidelity Hereford Street Trust - Fidelity Government Money Market Fund USD MNT",
+    "Fidelity Salem Street Trust - Fidelity Flex International Index Fund USD",
+    "Fidelity Salem Street Trust - Fidelity Flex Mid Cap Index Fund USD",
+    "Fidelity Salem Street Trust - Fidelity Flex Small Cap Index Fund USD",
+    "Fidelity Salem Street Trust - Fidelity Flex U.S. Bond Index Fund USD MNT",
+    "Lockheed Martin Corp.",
+    "Micron Technology Inc.",
+    "NRG Energy Inc.",
+    "NVIDIA Corp",
+    "Space Exploration Technologies Corp. - Ordinary Shares - Class A",
+    "T-Mobile US Inc",
+    "TechnipFMC plc",
+    "Tesla Inc",
+    "U S Dollar",
+    "Vistra Corp"
+  ],
+  "accounts": [
+    {
+      "name": "INDIVIDUAL - BNY",
+      "suffix": "9084",
+      "type": "Investing",
+      "endingBalance": 2027.19,
+      "holdings": [
+        {
+          "symbol": "FCASH",
+          "securityName": "FIDELITY CASH FUND",
+          "quantity": 0.1,
+          "balance": 0.1,
+          "price": 1,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 0.1,
+          "date": "2026-10-10",
+          "securityType": "sweep_account"
+        },
+        {
+          "symbol": "LMT",
+          "securityName": "Lockheed Martin Corp.",
+          "quantity": 0.095,
+          "balance": 48.411,
+          "price": 509.59,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 50.2,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "TMUS",
+          "securityName": "T-Mobile US Inc",
+          "quantity": 0.294,
+          "balance": 43.683,
+          "price": 148.58,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 55.05,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "NVDA",
+          "securityName": "NVIDIA Corp",
+          "quantity": 0.222,
+          "balance": 50.9,
+          "price": 229.28,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 49.79,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "TSLA",
+          "securityName": "Tesla Inc",
+          "quantity": 0.121,
+          "balance": 46.307,
+          "price": 382.7,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 49.99,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "SPCX",
+          "securityName": "Space Exploration Technologies Corp. - Ordinary Shares - Class A",
+          "quantity": 3.208,
+          "balance": 521.525,
+          "price": 162.57,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 516.06,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "BNY",
+          "securityName": "Bank Of New York Mellon Corp",
+          "quantity": 8.755,
+          "balance": 1249.383,
+          "price": 142.71,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 973.58,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "MU",
+          "securityName": "Micron Technology Inc.",
+          "quantity": 0.065,
+          "balance": 66.885,
+          "price": 1029,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 57.52,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        }
+      ]
+    },
+    {
+      "name": "Justin's Roth IRA Fidelity Go",
+      "suffix": "5550",
+      "type": "Retirement",
+      "endingBalance": 325.98,
+      "holdings": [
+        {
+          "symbol": "FLGXX",
+          "securityName": "Fidelity Hereford Street Trust - Fidelity Flex Government Money Mkt Fd USD MNT",
+          "quantity": 1.71,
+          "balance": 1.71,
+          "price": 1,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 1.71,
+          "date": "2026-10-10",
+          "securityType": "money_market_fund"
+        },
+        {
+          "symbol": "FDFIX",
+          "securityName": "Fidelity Concord Street Trust - Fidelity Flex 500 Index Fund USD",
+          "quantity": 5.389,
+          "balance": 178.969,
+          "price": 33.21,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 157.33,
+          "date": "2026-10-10",
+          "securityType": "mutual_fund"
+        },
+        {
+          "symbol": "FIBUX",
+          "securityName": "Fidelity Salem Street Trust - Fidelity Flex U.S. Bond Index Fund USD MNT",
+          "quantity": 5.331,
+          "balance": 46.593,
+          "price": 8.74,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 48.2,
+          "date": "2026-10-10",
+          "securityType": "mutual_fund"
+        },
+        {
+          "symbol": "FITFX",
+          "securityName": "Fidelity Salem Street Trust - Fidelity Flex International Index Fund USD",
+          "quantity": 4.173,
+          "balance": 80.08,
+          "price": 19.19,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 75.84,
+          "date": "2026-10-10",
+          "securityType": "mutual_fund"
+        },
+        {
+          "symbol": "FLAPX",
+          "securityName": "Fidelity Salem Street Trust - Fidelity Flex Mid Cap Index Fund USD",
+          "quantity": 0.454,
+          "balance": 11.355,
+          "price": 25.01,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 10.56,
+          "date": "2026-10-10",
+          "securityType": "mutual_fund"
+        },
+        {
+          "symbol": "FLXSX",
+          "securityName": "Fidelity Salem Street Trust - Fidelity Flex Small Cap Index Fund USD",
+          "quantity": 0.357,
+          "balance": 7.276,
+          "price": 20.38,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 6.86,
+          "date": "2026-10-10",
+          "securityType": "mutual_fund"
+        }
+      ]
+    },
+    {
+      "name": "INDIVIDUAL - PER",
+      "suffix": "6913",
+      "type": "Investing",
+      "endingBalance": 192.57,
+      "holdings": [
+        {
+          "symbol": "SPAXX",
+          "securityName": "Fidelity Hereford Street Trust - Fidelity Government Money Market Fund USD MNT",
+          "quantity": 0.17,
+          "balance": 0.17,
+          "price": 1,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 0.17,
+          "date": "2026-10-10",
+          "securityType": "money_market_fund"
+        },
+        {
+          "symbol": "ABT",
+          "securityName": "Abbott Laboratories",
+          "quantity": 0.225,
+          "balance": 22.41,
+          "price": 99.6,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 20.09,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "NRG",
+          "securityName": "NRG Energy Inc.",
+          "quantity": 0.557,
+          "balance": 60.139,
+          "price": 107.97,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 74.37,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "DXCM",
+          "securityName": "Dexcom Inc",
+          "quantity": 0.296,
+          "balance": 24.897,
+          "price": 84.11,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 19.99,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "VST",
+          "securityName": "Vistra Corp",
+          "quantity": 0.148,
+          "balance": 23.899,
+          "price": 161.48,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 19.96,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "BDX",
+          "securityName": "Becton Dickinson & Co.",
+          "quantity": 0.068,
+          "balance": 12.495,
+          "price": 183.75,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 9.99,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "ALGN",
+          "securityName": "Align Technology, Inc.",
+          "quantity": 0.129,
+          "balance": 18.41,
+          "price": 142.71,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 19.98,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "EW",
+          "securityName": "Edwards Lifesciences Corp",
+          "quantity": 0.242,
+          "balance": 20.621,
+          "price": 85.21,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 19.94,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        },
+        {
+          "symbol": "FTI",
+          "securityName": "TechnipFMC plc",
+          "quantity": 0.137,
+          "balance": 9.531,
+          "price": 69.57,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 9.98,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        }
+      ]
+    },
+    {
+      "name": "Justin's Trad IRA Fidelity Go",
+      "suffix": "0306",
+      "type": "Retirement",
+      "endingBalance": 105.93,
+      "holdings": [
+        {
+          "symbol": "FLGXX",
+          "securityName": "Fidelity Hereford Street Trust - Fidelity Flex Government Money Mkt Fd USD MNT",
+          "quantity": 0.59,
+          "balance": 0.59,
+          "price": 1,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 0.59,
+          "date": "2026-10-10",
+          "securityType": "money_market_fund"
+        },
+        {
+          "symbol": "FDFIX",
+          "securityName": "Fidelity Concord Street Trust - Fidelity Flex 500 Index Fund USD",
+          "quantity": 1.751,
+          "balance": 58.151,
+          "price": 33.21,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 56.53,
+          "date": "2026-10-10",
+          "securityType": "mutual_fund"
+        },
+        {
+          "symbol": "FITFX",
+          "securityName": "Fidelity Salem Street Trust - Fidelity Flex International Index Fund USD",
+          "quantity": 1.356,
+          "balance": 26.022,
+          "price": 19.19,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 26.07,
+          "date": "2026-10-10",
+          "securityType": "mutual_fund"
+        },
+        {
+          "symbol": "FLXSX",
+          "securityName": "Fidelity Salem Street Trust - Fidelity Flex Small Cap Index Fund USD",
+          "quantity": 0.116,
+          "balance": 2.364,
+          "price": 20.38,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 2.47,
+          "date": "2026-10-10",
+          "securityType": "mutual_fund"
+        },
+        {
+          "symbol": "FIBUX",
+          "securityName": "Fidelity Salem Street Trust - Fidelity Flex U.S. Bond Index Fund USD MNT",
+          "quantity": 1.731,
+          "balance": 15.129,
+          "price": 8.74,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 15.54,
+          "date": "2026-10-10",
+          "securityType": "mutual_fund"
+        },
+        {
+          "symbol": "FLAPX",
+          "securityName": "Fidelity Salem Street Trust - Fidelity Flex Mid Cap Index Fund USD",
+          "quantity": 0.147,
+          "balance": 3.676,
+          "price": 25.01,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 3.74,
+          "date": "2026-10-10",
+          "securityType": "mutual_fund"
+        }
+      ]
+    },
+    {
+      "name": "BNY ESPP",
+      "suffix": "9907",
+      "type": "Investing",
+      "endingBalance": 108.98,
+      "holdings": [
+        {
+          "symbol": "CUR:USD",
+          "securityName": "U S Dollar",
+          "quantity": 108.98,
+          "balance": 108.98,
+          "price": 1,
+          "priceAsOf": "2026-10-10",
+          "costBasis": 108.98,
+          "date": "2026-10-10",
+          "securityType": "currency"
+        }
+      ]
+    },
+    {
+      "name": "BNY RSU",
+      "suffix": "9382",
+      "type": "Investing",
+      "endingBalance": 285.42,
+      "holdings": [
+        {
+          "symbol": "BNY",
+          "securityName": "Bank Of New York Mellon Corp",
+          "quantity": 2,
+          "balance": 285.42,
+          "price": 142.71,
+          "priceAsOf": "2026-10-10",
+          "costBasis": null,
+          "date": "2026-10-10",
+          "securityType": "equity"
+        }
+      ]
+    }
+  ]
+}
