@@ -198,7 +198,7 @@ test("next pay scrolls to this pay, cards match, and the calendar dialog is cent
     const phone = await openBudget(browser, served.port, "2026-10-08T16:00:00Z", 390, 844);
     const page = phone.page;
     const at390 = await carouselState(page);
-    assert.deepEqual(at390.dates, ["2026-09-30", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"]);
+    assert.deepEqual(at390.dates, ["2026-09-29", "2026-10-09", "2026-10-15", "2026-10-23", "2026-10-30"]);
     assert.equal(at390.current, 0);
     const align = await page.evaluate(function () {
       var track = document.querySelector("[data-bank-next-track]");
@@ -223,7 +223,7 @@ test("next pay scrolls to this pay, cards match, and the calendar dialog is cent
       var offset = card.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft;
       return { scroll: track.scrollLeft, offset: offset, date: card.getAttribute("data-bank-next-date") };
     });
-    assert.equal(parked.date, "2026-09-30");
+    assert.equal(parked.date, "2026-09-29");
     assert.ok(Math.abs(parked.scroll - parked.offset) <= 1, JSON.stringify(parked));
     await page.locator(".bank-next").screenshot({ path: path.join(shots, "nextpay-carousel-390.png") });
     await page.locator(".bank-next").screenshot({ path: path.join(shots, "nextpay-cards-oct8-390.png") });
@@ -300,7 +300,7 @@ test("next pay scrolls to this pay, cards match, and the calendar dialog is cent
         dot: dot ? dot.getAttribute("data-bank-next-dot") : ""
       };
     });
-    assert.equal(stuck.date, "2026-09-30");
+    assert.equal(stuck.date, "2026-09-29");
     assert.equal(stuck.dot, "0");
     assert.ok(Math.abs(stuck.scroll - stuck.offset) <= 1, JSON.stringify(stuck));
     assert.ok(stuck.gap <= 2, JSON.stringify(stuck));
@@ -355,14 +355,14 @@ test("next pay scrolls to this pay, cards match, and the calendar dialog is cent
     sameSize(at1280.heights, "1280 height");
     sameSize(at1280.widths, "1280 width");
     assert.ok(at1280.widths[0] > 200);
-    assert.equal(at1280.dates[at1280.current], "2026-09-30");
+    assert.equal(at1280.dates[at1280.current], "2026-09-29");
     await desk.page.locator(".bank-next").screenshot({ path: path.join(shots, "nextpay-carousel-1280.png") });
     await desk.context.close();
 
     const midServed = await serve(livePaySnap(["2026-10-15"]));
     const mid = await openBudget(browser, midServed.port, "2026-10-20T16:00:00Z", 390, 844);
     const oct20 = await carouselState(mid.page);
-    assert.equal(oct20.dates[0], "2026-09-30");
+    assert.equal(oct20.dates[0], "2026-09-29");
     assert.equal(oct20.past, "1");
     assert.equal(oct20.dates[oct20.current], "2026-10-15");
     assert.ok(oct20.gap <= 2, "oct20 gap " + oct20.gap + " scroll " + oct20.scroll);

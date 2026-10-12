@@ -300,7 +300,7 @@ test("a posted card subtracts paid bills, and checking one off does not change L
   assert.match(postedCard, /Rent[\s\S]{0,240}aria-label="Paid"/);
   assert.match(postedCard, /data-bank-bill-paid="1"/);
   assert.equal(Number((postedCard.match(/data-bank-check-left="([^"]*)"/) || [])[1]), posted.left);
-  assert.equal(Number((nextCard.match(/data-bank-carried="([^"]*)"/) || [])[1]), posted.left);
+  assert.equal(Number((nextCard.match(/data-bank-carried="([^"]*)"/) || [])[1]), ctx.bankRoundCents(ctx.bankHeroNow(data, opts) - ctx.bankPendingOutTotal(data)));
   const heroBefore = Number((html.match(/data-bank-hero-out="([^"]*)"/) || [])[1]);
   const leftBefore = Number((nextCard.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
   data.tier_doc.manual_paid.power = { month: "2026-10", paid_date: "2026-10-20" };
