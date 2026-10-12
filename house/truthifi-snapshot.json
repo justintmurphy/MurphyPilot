@@ -1,15 +1,1 @@
-{
-  "asof": "2026-10-11",
-  "source": "Truthifi",
-  "note": "Both links complete. Fidelity scan 6acd3f4b5fc7f5e6dc80c119 and Voya scan 6acd3f4c7ddae8dcae9543b5 finished 2026-10-12 ~16:13 ET. Holdings date range tops at 2026-10-11 (today ET not in range). Cash sweeps counted as cash. ESPP holds USD cash 108.98. RSU 2 BNY (cost basis null from Truthifi). names[] full Truthifi securityName; Fid accounts[]+suffix last-4. No FAULT. Live books from house-snapshot 2026-10-09 16:21 ET (GitHub main; no newer print).",
-  "scanned_at": "2026-10-12 16:13 ET",
-  "holdings_asof": "2026-10-11",
-  "overall": {
-    "equity": 69113.722,
-    "live_equity": 3388.26,
-    "custodial_equity": 65725.462,
-    "asof": "2026-10-12T16:00:00-04:00",
-    "holdings_asof": "2026-10-11",
-    "live_asof": "2026-10-09T16:21:56-04:00"
-  }
-}
+PLACEHOLDER
