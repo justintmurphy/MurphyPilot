@@ -894,8 +894,8 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
   assert.match(investments, /\/house\/house\.css\?v=20261008ey/);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008fb/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008fb/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261012fc/);
+  assert.match(page, /\/house\/banking\.css\?v=20261012fc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -4143,7 +4143,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20261008fb/);
+  assert.match(page, /banking\.js\?v=20261012fc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
@@ -4306,8 +4306,8 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20261008fb/);
-  assert.match(page, /banking\.css\?v=20261008fb/);
+  assert.match(page, /banking\.js\?v=20261012fc/);
+  assert.match(page, /banking\.css\?v=20261012fc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4461,8 +4461,8 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008fb/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008fb/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261012fc/);
+  assert.match(page, /\/house\/banking\.css\?v=20261012fc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4647,8 +4647,8 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008fb/);
-  assert.match(page, /banking\.css\?v=20261008fb/);
+  assert.match(page, /banking\.js\?v=20261012fc/);
+  assert.match(page, /banking\.css\?v=20261012fc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4939,8 +4939,8 @@ test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008fb/);
-  assert.match(page, /banking\.css\?v=20261008fb/);
+  assert.match(page, /banking\.js\?v=20261012fc/);
+  assert.match(page, /banking\.css\?v=20261012fc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -5026,8 +5026,8 @@ test("tip dy plan blocks follow the selected month", function () {
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008fb/);
-  assert.match(page, /banking\.css\?v=20261008fb/);
+  assert.match(page, /banking\.js\?v=20261012fc/);
+  assert.match(page, /banking\.css\?v=20261012fc/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
 
@@ -5967,8 +5967,8 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 
 test("banking assets use the ec cache bust", function () {
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261008fb/);
-  assert.match(page, /\/house\/banking\.css\?v=20261008fb/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261012fc/);
+  assert.match(page, /\/house\/banking\.css\?v=20261012fc/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /ticker\.js\?v=20261007ei/);
   assert.match(page, /ticker\.css\?v=20261007ei/);
@@ -6342,9 +6342,21 @@ test("a paid next pay row keeps the amount and check in the amount column", func
   const idx = periods.findIndex(function (p) { return p.focus && p.focus.date === "2026-10-15"; });
   assert.ok(idx >= 0);
   let carry = 0;
+  let restarted = false;
+  const hero = ctx.bankHeroNow(snap, opts);
+  const pending = ctx.bankPendingOutTotal(snap);
+  const opening = ctx.bankCheckingBalanceBefore(snap, periods[0] && periods[0].focus && periods[0].focus.date);
   let math = null;
   periods.forEach(function (period, i) {
-    const step = ctx.bankPeriodMath(snap, opts, period, i === 0 ? 0 : carry);
+    const past = !!(period && period.past);
+    let seed;
+    if (i === 0 && past) seed = opening == null ? 0 : opening;
+    else if (!past && !restarted) {
+      restarted = true;
+      seed = hero != null ? ctx.bankRoundCents(hero - pending) : (i === 0 ? (opening == null ? 0 : opening) : carry);
+    } else if (i === 0) seed = opening == null ? 0 : opening;
+    else seed = carry;
+    const step = ctx.bankPeriodMath(snap, opts, period, seed);
     if (i === idx) math = step;
     carry = step.left == null ? 0 : step.left;
   });
@@ -7051,7 +7063,7 @@ test("lists cap at ten rows and a short list stays open", function () {
   fx.budget.bills = many;
   const longHtml = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-06T16:00:00Z" });
   assert.match(longHtml, /class="list-cap"[^>]*aria-label="Due this month"/);
-  assert.match(longHtml, /Showing 10 of 26, scroll for more/);
+  assert.match(longHtml, /Showing 10 of 25, scroll for more/);
   fx.budget.bills = many.slice(0, 5);
   const shortHtml = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10" });
   assert.doesNotMatch(shortHtml, /aria-label="Due this month"/);
@@ -7234,8 +7246,8 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.doesNotMatch(html, /<th class="num">Month-end<\/th>/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261008fb/);
-  assert.match(page, /banking\.css\?v=20261008fb/);
+  assert.match(page, /banking\.js\?v=20261012fc/);
+  assert.match(page, /banking\.css\?v=20261012fc/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);
   assert.doesNotMatch(css, /--mp-in:\s*#|--mp-out:\s*#|--bank-required:/);
@@ -7311,7 +7323,7 @@ test("tip ec3 reads expected_total, merges one move, and drops the confirm minus
   assert.match(next, /Set aside/);
   assert.match(next, /−\$50\.00/);
   assert.match(next, /Left from this pay/);
-  assert.match(next, /\+\$350\.00/);
+  assert.match(next, /\+\$850\.00/);
   assert.doesNotMatch(next, /Bills ··3333|from Household to ··3333/);
   const fund = budget.slice(budget.indexOf('class="bank-funding"'), budget.indexOf('data-bank-part="income"'));
   assert.match(fund, /Move \$120\.00 to Bills ··3333 by Oct 14/);
@@ -7980,7 +7992,8 @@ test("the dated list walks left-after to the funding month-end", function () {
   const due = dueSlice(html);
   assert.match(due, /sym">Rent[\s\S]{0,160}due Oct 4/);
   assert.match(due, /Rent[\s\S]{0,220}−\$50\.00/);
-  assert.match(due, /data-bank-today="1"[\s\S]{0,320}\$100\.00/);
+  assert.doesNotMatch(due, /data-bank-today/);
+  assert.match(due, /data-bank-chain-prev="100"[^>]*data-bank-forward="1"/);
   assert.doesNotMatch(due, /sym">Payroll<\/span>[\s\S]{0,80}today/);
   assert.match(due, /Payroll[\s\S]{0,160}\+\$40\.00/);
   assert.doesNotMatch(due, /Remaining Needs/);
@@ -7993,7 +8006,9 @@ test("the dated list walks left-after to the funding month-end", function () {
   const low = ctx.bankPageHtml(red, { tab: "budget", planMonth: "2026-10", now: "2026-10-06T12:00:00-04:00" });
   const lowDue = dueSlice(low);
   assert.match(lowDue, /sym">Rent[\s\S]{0,160}due Oct 4/);
-  assert.match(lowDue, /data-bank-today="1"[\s\S]{0,320}\$20\.00/);
+  assert.doesNotMatch(lowDue, /data-bank-today/);
+  assert.match(lowDue, /data-bank-chain-prev="20"/);
+  assert.match(lowDue, /data-bank-row-left="-20"/);
   assert.doesNotMatch(lowDue, /Remaining Required/);
   assert.doesNotMatch(lowDue, /sym">Month-end/);
   assert.equal(Number((low.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]), 20);
@@ -8012,7 +8027,7 @@ test("next pay prorates needs, splits a month boundary, and caps the bill rows",
   assert.match(quietNext, /Needs \(groceries, etc\.\)[\s\S]{0,80}−\$100\.00/);
   assert.doesNotMatch(quietNext, />Wants</);
   assert.match(quietNext, /Set aside[\s\S]{0,40}−\$100\.00/);
-  assert.match(quietNext, /Left from this pay[\s\S]{0,40}\+\$100\.00/);
+  assert.match(quietNext, /Left from this pay[\s\S]{0,40}\+\$112\.34/);
   assert.equal((quietNext.match(/<p class="hint">/g) || []).length, 1);
 
   fx.current.recent_tx = [{ date: "2026-10-16", amount: 20, flow: "outflow", category: "Groceries", desc: "Market", tx_key: "g1" }];
@@ -8039,7 +8054,7 @@ test("next pay prorates needs, splits a month boundary, and caps the bill rows",
   assert.match(crossedNext, /Needs \(groceries, etc\.\)[\s\S]{0,80}−\$100\.00/);
   assert.doesNotMatch(crossedNext, />Wants</);
   assert.match(crossedNext, /Set aside[\s\S]{0,40}−\$112\.00/);
-  assert.match(crossedNext, /Left from this pay[\s\S]{0,40}−\$12\.00/);
+  assert.match(crossedNext, /Left from this pay[\s\S]{0,40}\+\$0\.34/);
 
   const many = blankBudget(loadFixture());
   many.budget.tiers = { needs_plan: 0, wants_plan: 0 };
@@ -8056,7 +8071,7 @@ test("next pay prorates needs, splits a month boundary, and caps the bill rows",
   assert.equal((cappedNext.match(/<span class="sym">Bill /g) || []).length, 10);
   assert.match(cappedNext, /Showing 10 of 12/);
   assert.match(cappedNext, /Set aside[\s\S]{0,40}−\$120\.00/);
-  assert.match(cappedNext, /Left from this pay[\s\S]{0,40}\+\$380\.00/);
+  assert.match(cappedNext, /Left from this pay[\s\S]{0,40}\+\$392\.34/);
 });
 
 test("next pay renders a prorated needs share when it is above zero", function () {
@@ -8353,7 +8368,8 @@ test("the running balance interleaves payroll, stipend, and other income", funct
     };
   }).filter(function (r) { return r.name && r.name !== "Today" && r.name !== "Month-end"; });
   assert.doesNotMatch(due, /Posted so far/);
-  assert.match(due, /data-bank-today="1"[\s\S]{0,80}sym">Today<\/span>/);
+  assert.doesNotMatch(due, /data-bank-today/);
+  assert.match(due, /data-bank-chain-prev="100"[^>]*data-bank-forward="1"/);
   assert.match(due, /sym">Rent/);
   assert.doesNotMatch(due, /sym">Payroll<\/span>[\s\S]{0,80}today/);
   ["Stipend", "Payroll"].forEach(function (name) {
@@ -8390,12 +8406,12 @@ test("the today row matches left now and month-end is the running result", funct
   const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
   const fund = html.slice(html.indexOf('class="bank-funding"'), html.indexOf('data-bank-part="income"'));
   const due = dueSlice(html);
-  const today = due.slice(due.indexOf('data-bank-today="1"'), due.indexOf("</tr>", due.indexOf('data-bank-today="1"')));
   assert.match(html, /data-bank-hero-end="230"/);
   assert.match(html, /data-bank-hero-end="230"[^>]*>\$230\.00/);
   assert.doesNotMatch(fund, /<span>Month-end<\/span>/);
   assert.doesNotMatch(due, /Posted so far/);
-  assert.match(today, /\$170\.00/);
+  assert.doesNotMatch(due, /data-bank-today/);
+  assert.match(due, /data-bank-chain-prev="170"[^>]*data-bank-forward="1"/);
   const leftNow = 170;
   const futureIn = 100;
   const futureRent = 40;
@@ -8433,11 +8449,11 @@ test("a paid past bill stays out of the list and remaining uses spent", function
   const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
   const fund = html.slice(html.indexOf('class="bank-funding"'), html.indexOf('data-bank-part="income"'));
   const due = dueSlice(html);
-  const today = due.slice(due.indexOf('data-bank-today="1"'), due.indexOf("</tr>", due.indexOf('data-bank-today="1"')));
   const leftAttr = Number((fund.match(/data-fund-left="([^"]*)"/) || [])[1]);
   const endLeft = Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]);
   assert.equal(leftAttr, endLeft);
-  assert.match(today, /\$250\.00/);
+  assert.doesNotMatch(due, /data-bank-today/);
+  assert.match(due, /data-bank-chain-prev="250"[^>]*data-bank-forward="1"/);
   assert.match(due, /Mortgage[\s\S]{0,240}paid Oct 6/);
   assert.doesNotMatch(due, /sym">Month-end/);
   assert.equal(endLeft, 205);
@@ -9347,35 +9363,53 @@ test("fixture funding start plus in minus out equals the list month-end", functi
   assert.doesNotMatch(mtd, /Total cash|data-acct=/);
 });
 
-test("fixture paid rows stay above today and are not subtracted", function () {
+test("fixture paid rows stay on the opening chain and every left after adds up", function () {
   const ctx = boot();
   const fx = loadFixture();
   const html = ctx.bankPageHtml(fx, { tab: "budget", now: "2026-10-16T15:00:00-04:00" });
   const due = dueSlice(html);
-  const todayAt = due.indexOf('data-bank-today="1"');
-  assert.ok(todayAt >= 0);
+  assert.doesNotMatch(due, /data-bank-today/);
   const rows = due.split(/<tr\b/).slice(1).map(function (chunk) {
+    function attr(name) {
+      const hit = chunk.match(new RegExp(name + '="([^"]*)"'));
+      return hit ? hit[1] : "";
+    }
     const name = (chunk.match(/class="sym">([^<]*)/) || [])[1] || "";
     const phrase = chunk.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-    const hits = chunk.replace(/−/g, "-").match(/-?\$[0-9,]+\.[0-9]{2}/g) || [];
-    const left = hits.length ? Number(hits[hits.length - 1].replace(/[$,]/g, "")) : null;
-    return { name: name, phrase: phrase, left: left, paid: /\bpaid\b/i.test(phrase) && !/\bunpaid\b/i.test(phrase) };
-  }).filter(function (row) { return row.name; });
-  const todayIndex = rows.findIndex(function (row) { return row.name === "Today"; });
-  assert.ok(todayIndex >= 0);
+    const prev = attr("data-bank-chain-prev");
+    const leftAttr = attr("data-bank-row-left");
+    const delta = attr("data-bank-chain-delta");
+    return {
+      name: name,
+      prev: prev === "" ? null : Number(prev),
+      left: leftAttr === "" ? null : Number(leftAttr),
+      delta: delta === "" ? null : Number(delta),
+      seg: attr("data-bank-chain-seg"),
+      forward: /data-bank-forward="1"/.test(chunk),
+      paid: /\bpaid\b/i.test(phrase) && !/\bunpaid\b/i.test(phrase)
+    };
+  }).filter(function (row) { return row.name && row.prev != null && row.left != null && row.delta != null; });
+  assert.ok(rows.length >= 2);
+  let seg = "";
   let prevLeft = null;
   let paidCount = 0;
+  const forwardAt = rows.findIndex(function (row) { return row.forward; });
   rows.forEach(function (row, i) {
+    if (row.seg !== seg) {
+      seg = row.seg;
+      prevLeft = row.prev;
+    }
+    assert.equal(Math.round((prevLeft + row.delta) * 100), Math.round(row.left * 100), row.name);
+    if (i > 0 && rows[i - 1].seg === row.seg) assert.equal(row.prev, rows[i - 1].left);
+    prevLeft = row.left;
     if (row.paid) {
       paidCount += 1;
-      assert.ok(i < todayIndex, row.name);
-      if (prevLeft != null) assert.equal(row.left, prevLeft);
+      assert.ok(forwardAt < 0 || i < forwardAt, row.name);
     }
-    if (row.left != null && (row.name === "Today" || row.name === "Month-end" || row.paid)) prevLeft = row.left;
-    else if (row.left != null) prevLeft = row.left;
   });
   assert.ok(paidCount >= 1);
-  assert.doesNotMatch(due.slice(todayAt), /\bpaid\b/i);
+  assert.ok(forwardAt >= 0);
+  assert.doesNotMatch(due.slice(due.indexOf('data-bank-forward="1"')), /\bpaid\b/i);
 });
 
 test("a bill paid this month has no duplicate due row", function () {
@@ -9566,9 +9600,21 @@ test("a bill paid this month leaves next-out and sits on its paid date", functio
   const aside = Math.round((billSum + needs) * 100) / 100;
   const periods = ctx.bankPayPeriods(fx, { now: now });
   let carriedIn = 0;
+  let restarted = false;
+  const hero = ctx.bankHeroNow(fx, { now: now });
+  const pending = ctx.bankPendingOutTotal(fx);
+  const opening = ctx.bankCheckingBalanceBefore(fx, periods[0] && periods[0].focus && periods[0].focus.date);
   let shown = null;
   periods.forEach(function (p, i) {
-    const math = ctx.bankPeriodMath(fx, { now: now }, p, i === 0 ? 0 : carriedIn);
+    const past = !!(p && p.past);
+    let seed;
+    if (i === 0 && past) seed = opening == null ? 0 : opening;
+    else if (!past && !restarted) {
+      restarted = true;
+      seed = hero != null ? ctx.bankRoundCents(hero - pending) : (i === 0 ? (opening == null ? 0 : opening) : carriedIn);
+    } else if (i === 0) seed = opening == null ? 0 : opening;
+    else seed = carriedIn;
+    const math = ctx.bankPeriodMath(fx, { now: now }, p, seed);
     if (p.focus && p.focus.date === period.focus.date) shown = math;
     carriedIn = math.left == null ? 0 : math.left;
   });

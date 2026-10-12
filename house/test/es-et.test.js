@@ -406,26 +406,38 @@ test("next pay cards cover the month, share left after, and hide paid or cancell
   const cards = next.split('data-bank-next-card="').slice(1);
   assert.equal(cards.length, count);
   let monthEndCovered = false;
+  let carry = 0;
+  let restarted = false;
+  const hero = ctx.bankHeroNow(snap, opts);
+  const pending = ctx.bankPendingOutTotal(snap);
+  const opening = ctx.bankCheckingBalanceBefore(snap, periods[0] && periods[0].focus && periods[0].focus.date);
   cards.forEach(function (chunk, i) {
     const date = (chunk.match(/data-bank-next-date="([^"]+)"/) || [])[1];
     const check = (chunk.match(/data-bank-check-left="([^"]*)"/) || [])[1];
     const shared = (chunk.match(/data-bank-left-after="([^"]*)"/) || [])[1];
     const period = periods[i];
-    const prevLeft = i === 0 ? 0 : ctx.bankPeriodMath(snap, opts, periods[i - 1], i === 1 ? 0 : undefined).left;
-    const math = ctx.bankPeriodMath(snap, opts, period, i === 0 ? 0 : periods.slice(0, i).reduce(function (carry, earlier, ei) {
-      return ctx.bankPeriodMath(snap, opts, earlier, ei === 0 ? 0 : carry).left;
-    }, 0));
+    const past = !!(period && period.past);
+    let seed;
+    if (i === 0 && past) seed = opening == null ? 0 : opening;
+    else if (!past && !restarted) {
+      restarted = true;
+      seed = hero != null ? ctx.bankRoundCents(hero - pending) : (i === 0 ? (opening == null ? 0 : opening) : carry);
+    } else if (i === 0) seed = opening == null ? 0 : opening;
+    else seed = carry;
+    const math = ctx.bankPeriodMath(snap, opts, period, seed);
     assert.equal(date, period.focus.date);
     assert.equal(Number(check), math.left);
-    if (i > 0) assert.equal(Number((chunk.match(/data-bank-carried="([^"]*)"/) || [])[1]), periods.slice(0, i).reduce(function (carry, earlier, ei) {
-      return ctx.bankPeriodMath(snap, opts, earlier, ei === 0 ? 0 : carry).left;
-    }, 0));
+    if (i > 0) assert.equal(Number((chunk.match(/data-bank-carried="([^"]*)"/) || [])[1]), seed);
+    else {
+      const openAttr = (chunk.match(/data-bank-opening="([^"]*)"/) || [])[1];
+      if (openAttr != null && openAttr !== "") assert.equal(Number(openAttr), seed);
+    }
     var stepped = math.carried || 0;
     stepped = ctx.bankLeftAfter(stepped, { kind: "in", amount: math.deposit || 0, counted: true, pending: false });
     stepped = ctx.bankLeftAfter(stepped, { kind: "in", amount: math.also || 0, counted: true, pending: false });
     stepped = ctx.bankLeftAfter(stepped, { kind: "out", amount: math.aside || 0, counted: true, pending: false });
     assert.equal(math.left, stepped);
-    if (prevLeft) assert.ok(prevLeft != null);
+    carry = math.left == null ? 0 : math.left;
     const ledger = ctx.bankLedgerLeftOn(snap, date);
     if (date.slice(0, 7) === "2026-10" && ledger != null) {
       assert.equal(Number(shared), ledger);
@@ -469,13 +481,16 @@ function ledgerRows(due) {
       const hit = attrs.match(new RegExp(name + '="([^"]*)"'));
       return hit ? hit[1] : "";
     }
-    if (!/data-bank-row-date|data-bank-today/.test(attrs)) continue;
+    if (!/data-bank-row-date|data-bank-forward/.test(attrs)) continue;
     rows.push({
       date: attr("data-bank-row-date"),
       kind: attr("data-bank-row-kind"),
       left: attr("data-bank-row-left") === "" ? null : Number(attr("data-bank-row-left")),
+      prev: attr("data-bank-chain-prev") === "" ? null : Number(attr("data-bank-chain-prev")),
+      delta: attr("data-bank-chain-delta") === "" ? null : Number(attr("data-bank-chain-delta")),
+      seg: attr("data-bank-chain-seg"),
       expected: /data-bank-expected="1"/.test(attrs),
-      today: /data-bank-today="1"/.test(attrs)
+      forward: /data-bank-forward="1"/.test(attrs)
     });
   }
   return rows;
@@ -546,7 +561,7 @@ test("next pay includes every active window bill, and left plus also-in is the p
   assert.doesNotMatch(card, /sym">Power/);
   assert.doesNotMatch(card, /sym">Rent/);
   assert.match(card, /Set aside[\s\S]{0,40}−\$5\.00/);
-  assert.match(card, /data-bank-check-left="75"/);
+  assert.match(card, /data-bank-check-left="135"/);
   assert.match(stipendCard, /Stipend · Tue Oct 20/);
   assert.match(stipendCard, /Power/);
   assert.doesNotMatch(stipendCard, /data-bank-also-row|Also in/);
@@ -555,14 +570,15 @@ test("next pay includes every active window bill, and left plus also-in is the p
   assert.doesNotMatch(card, /Stipend|Also in|data-bank-also-row/);
   assert.match(stipendCard, /\+\$12\.34/);
   const rows = ledgerRows(dueSlice(html));
-  const todayIdx = rows.findIndex(function (row) { return row.today; });
+  const forwardIdx = rows.findIndex(function (row) { return row.forward; });
   const payIdx = rows.findIndex(function (row) { return row.kind === "in" && row.date === "2026-10-15"; });
-  assert.ok(todayIdx >= 0 && payIdx > todayIdx);
+  assert.ok(forwardIdx >= 0 && payIdx >= forwardIdx);
   assert.equal(rows[payIdx].expected, true);
-  rows.slice(0, todayIdx).forEach(function (row) { assert.equal(row.expected, false); });
+  rows.slice(0, forwardIdx).forEach(function (row) { assert.equal(row.expected, false); });
   const nextPay = rows.findIndex(function (row, i) { return i > payIdx && row.kind === "in" && row.date === "2026-10-30"; });
   assert.ok(nextPay > payIdx);
-  const change = Math.round((rows[nextPay - 1].left - rows[payIdx - 1].left) * 100) / 100;
+  const beforePay = payIdx > 0 ? rows[payIdx - 1].left : rows[payIdx].prev;
+  const change = Math.round((rows[nextPay - 1].left - beforePay) * 100) / 100;
   assert.equal(change, Math.round((25 + 12.34) * 100) / 100);
   const fig = nums(html);
   assert.equal(Math.round((fig.now + fig.inn - fig.out) * 100) / 100, fig.end);
@@ -576,7 +592,7 @@ test("next pay includes every active window bill, and left plus also-in is the p
   const goneCard = gone.slice(gone.lastIndexOf('<div class="card"', goneAt), gone.indexOf('data-bank-next-card="', goneAt + 20));
   assert.doesNotMatch(gone, /Stream Club/);
   assert.match(goneCard, /Set aside[\s\S]{0,40}\$0\.00/);
-  assert.match(goneCard, /data-bank-check-left="80"/);
+  assert.match(goneCard, /data-bank-check-left="140"/);
   assert.doesNotMatch(dueSlice(ctx.bankPageHtml(snap, opts)), /Stream Club/);
 });
 
@@ -593,12 +609,13 @@ test("a posted early payroll stays above today, and a zero plan prints $0.00", f
   }];
   const html = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
   const rows = ledgerRows(dueSlice(html));
-  const todayIdx = rows.findIndex(function (row) { return row.today; });
   const payIdx = rows.findIndex(function (row) { return row.kind === "in" && row.date === "2026-10-15"; });
-  assert.ok(payIdx >= 0 && payIdx < todayIdx);
+  const forwardIdx = rows.findIndex(function (row) { return row.forward; });
+  assert.ok(payIdx >= 0 && forwardIdx > payIdx);
   assert.equal(rows[payIdx].expected, false);
-  assert.equal(rows[payIdx].left, nums(html).now);
-  rows.slice(0, todayIdx).forEach(function (row) { assert.equal(row.expected, false); });
+  assert.equal(rows[payIdx].seg, "prior");
+  assert.equal(rows[payIdx].left, ctx.bankRoundCents((rows[payIdx].prev || 0) + 40));
+  rows.slice(0, forwardIdx).forEach(function (row) { assert.equal(row.expected, false); });
 
   const bare = {
     asof: "2026-10-16T12:00:00-04:00",
@@ -703,52 +720,66 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   assert.match(card2, /Carried over/);
   const periods = ctx.bankPayPeriods(snap, opts);
   let carry = 0;
+  let restarted = false;
+  const hero = ctx.bankHeroNow(snap, opts);
+  const pending = ctx.bankPendingOutTotal(snap);
+  const opening = ctx.bankCheckingBalanceBefore(snap, periods[0] && periods[0].focus && periods[0].focus.date);
   const maths = periods.map(function (period, i) {
-    const math = ctx.bankPeriodMath(snap, opts, period, carry);
-    if (i > 0) assert.equal(math.carried, carry);
+    const past = !!(period && period.past);
+    let seed;
+    if (i === 0 && past) seed = opening == null ? 0 : opening;
+    else if (!past && !restarted) {
+      restarted = true;
+      seed = hero != null ? ctx.bankRoundCents(hero - pending) : (i === 0 ? (opening == null ? 0 : opening) : carry);
+    } else if (i === 0) seed = opening == null ? 0 : opening;
+    else seed = carry;
+    const math = ctx.bankPeriodMath(snap, opts, period, seed);
+    assert.equal(math.carried, seed);
     carry = math.left;
     return math;
   });
   const left1 = Number((card1.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
   const left2 = Number((card2.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
+  const carried1 = Number((card1.match(/data-bank-carried="([^"]*)"/) || [])[1]);
   const carried2 = Number((card2.match(/data-bank-carried="([^"]*)"/) || [])[1]);
   const thisIdx = periods.findIndex(function (p) { return p.focus && p.focus.date === "2026-10-15"; });
   const nextIdx = periods.findIndex(function (p) { return p.focus && p.focus.date === "2026-10-30"; });
+  assert.equal(carried1, ctx.bankRoundCents(hero - pending));
   assert.equal(carried2, maths[nextIdx - 1].left);
   assert.equal(left1, maths[thisIdx].left);
   assert.equal(left2, maths[nextIdx].left);
   const paidSoFar = 8;
   const remain = 6;
   const windowBills = paidSoFar + remain;
-  let ident = thisIdx > 0 ? maths[thisIdx - 1].left : 0;
+  let ident = carried1;
   ident = ctx.bankLeftAfter(ident, { kind: "in", amount: 40, counted: true, pending: false });
   ident = ctx.bankLeftAfter(ident, { kind: "in", amount: maths[thisIdx].also, counted: true, pending: false });
   ident = ctx.bankLeftAfter(ident, { kind: "out", amount: windowBills, counted: true, pending: false });
   assert.equal(left1, ident);
   const rows = ledgerRows(dueSlice(html));
-  const today = rows.filter(function (row) { return row.today; })[0];
   const pay = rows.filter(function (row) { return row.kind === "in" && row.date === "2026-10-15"; })[0];
-  let contribution = 0;
-  contribution = ctx.bankLeftAfter(contribution, { kind: "in", amount: 40, counted: true, pending: false });
-  contribution = ctx.bankLeftAfter(contribution, { kind: "out", amount: paidSoFar, counted: true, pending: false });
-  assert.equal(today.left, contribution);
-  assert.equal(pay.left, today.left);
-  let fromToday = contribution;
-  fromToday = ctx.bankLeftAfter(fromToday, { kind: "in", amount: maths[thisIdx].also, counted: true, pending: false });
-  fromToday = ctx.bankLeftAfter(fromToday, { kind: "out", amount: remain, counted: true, pending: false });
-  const priorCarry = thisIdx > 0 ? maths[thisIdx - 1].left : 0;
-  assert.equal(left1, ctx.bankRoundCents(fromToday + priorCarry));
-  const last = maths[maths.length - 1];
-  const lastDate = periods[periods.length - 1].focus.date;
-  const ledgerEnd = Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]);
-  const paydayRow = rows.filter(function (row) { return row.date === lastDate && row.kind === "in"; })[0];
-  let brought = 0;
-  periods.forEach(function (period, i) {
-    if (period.focus && period.focus.date < "2026-10-01") brought = maths[i].left;
+  const forward = rows.filter(function (row) { return row.forward; })[0];
+  assert.equal(pay.seg, "prior");
+  assert.equal(pay.expected, false);
+  assert.equal(pay.left, ctx.bankRoundCents((pay.prev || 0) + 40));
+  const paidRow = rows.filter(function (row) { return row.date === "2026-10-16" && row.kind === "out"; })[0];
+  assert.ok(paidRow && paidRow.seg === "prior");
+  assert.equal(paidRow.left, ctx.bankRoundCents(pay.left - paidSoFar));
+  assert.equal(forward.prev, ctx.bankRoundCents(hero));
+  let seg = "";
+  let prevLeft = null;
+  rows.forEach(function (row) {
+    if (row.left == null || row.delta == null || row.prev == null) return;
+    if (row.seg !== seg) {
+      seg = row.seg;
+      prevLeft = row.prev;
+    }
+    assert.equal(ctx.bankRoundCents(prevLeft + row.delta), row.left, row.date);
+    prevLeft = row.left;
   });
-  if (String(periods[periods.length - 1].end || "") > "2026-10-31") assert.equal(last.left, ctx.bankRoundCents(ledgerEnd + brought));
-  else if (paydayRow) assert.equal(last.left, ctx.bankRoundCents(paydayRow.left + brought));
-  else assert.equal(last.left, ctx.bankRoundCents(ledgerEnd + brought));
+  const ledgerEnd = Number((html.match(/data-bank-ledger-end="([^"]*)"/) || [])[1]);
+  const lastRow = rows.filter(function (row) { return row.left != null; }).pop();
+  assert.equal(lastRow.left, ledgerEnd);
 });
 
 test("remaining group rows break out categories without moving left after", function () {

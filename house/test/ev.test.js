@@ -195,7 +195,7 @@ test("suggested moves keep every account non-negative before a bill", function (
   });
 });
 
-test("pay from defaults to the latest history account and an override wins", function () {
+test("next pay and moves use usual account and an override wins", function () {
   const ctx = boot();
   const snap = moveSnap();
   snap.accounts.push({ nickname: "House", suffix: "3333", name: "House" });
@@ -212,21 +212,24 @@ test("pay from defaults to the latest history account and an override wins", fun
   }];
   const row = ctx.bankPreparedBills(snap, undefined).filter(function (b) { return b.bill_id === "power"; })[0];
   assert.equal(ctx.bankPayFrom(snap, row).suffix, "3333");
+  assert.equal(ctx.bankSchedulePayFrom(snap, row).suffix, "1111");
   snap.tier_doc.bill_account = { power: "2222" };
-  assert.equal(ctx.bankPayFrom(snap, row).suffix, "2222");
+  assert.equal(ctx.bankSchedulePayFrom(snap, row).suffix, "2222");
   snap.tier_doc.bill_account = { power: "9999" };
-  assert.equal(ctx.bankPayFrom(snap, row).suffix, "3333");
+  assert.equal(ctx.bankSchedulePayFrom(snap, row).suffix, "1111");
   snap.tier_doc.bill_account = { power: null };
-  assert.equal(ctx.bankPayFrom(snap, row).suffix, "3333");
+  assert.equal(ctx.bankSchedulePayFrom(snap, row).suffix, "1111");
 
   const html = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: NOW });
   const next = html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="calendar"'));
-  assert.match(next, /from ··3333/);
+  assert.match(next, /from ··1111/);
+  assert.doesNotMatch(next, /from ··3333/);
   assert.doesNotMatch(next, /from House|from Bills|from Pay/);
   snap.tier_doc.bill_account = { power: "2222" };
   const over = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: NOW });
   const overNext = over.slice(over.indexOf('class="bank-next"'), over.indexOf('data-bank-part="calendar"'));
   assert.match(overNext, /from ··2222/);
+  assert.doesNotMatch(overNext, /from House|from Bills|from Pay/);
 });
 
 test("next pay moves match by account and the hero identity holds", function () {

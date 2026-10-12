@@ -190,8 +190,7 @@ async function main() {
   await oneLine("360");
   await page.setViewportSize({ width: 390, height: 844 });
   await elementShot(page, ".bank-tier-summary", "tier-summary-390.png");
-  const today = page.locator("[data-bank-today]");
-  await today.evaluate(function (node) { node.scrollIntoView({ block: "center" }); });
+  await page.locator(".bank-due-month").evaluate(function (node) { node.scrollIntoView({ block: "center" }); });
   await elementShot(page, ".bank-due-month", "budget-list-390.png");
   await page.locator('[data-bank-group="needs"]').click();
   await page.locator('[data-bank-group-pop="needs"]').waitFor();
