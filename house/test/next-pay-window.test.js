@@ -275,7 +275,10 @@ test("desktop next pay cards cap at 420px and phones keep the peek width", funct
   assert.ok(desk, "desktop card rule");
   assert.match(desk[0], /max-width:\s*420px/);
   assert.match(desk[0], /min-width:\s*420px/);
-  assert.match(desk[0], /max-height:\s*28rem/);
+  assert.match(desk[0], /max-height:\s*none/);
+  assert.match(desk[0], /overflow:\s*visible/);
+  assert.doesNotMatch(desk[0], /overflow-y:\s*auto|max-height:\s*28rem/);
   assert.match(desk[0], /padding:\s*8px 12px/);
+  assert.match(bank, /\.bank-panel > \[data-bank-part="calendar"\] \{\s*grid-column: 1 \/ -1;/);
   assert.match(bank, /\.pay-carousel > \.card \.ov-hero b \{ font-size: 28px; margin-top: 2px; \}/);
 });

@@ -895,8 +895,8 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
   assert.match(investments, /\/house\/house\.css\?v=20261008ey/);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fg/);
-  assert.match(page, /\/house\/banking\.css\?v=20261013fg/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fh/);
+  assert.match(page, /\/house\/banking\.css\?v=20261013fh/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -1225,7 +1225,7 @@ test("override post refetches banking.json when the body has no map", async func
       hasAttribute: function () { return false; }
     }
   });
-  assert.deepEqual(urls, ["/data/banking/overrides.json", "/data/banking.json"]);
+  assert.deepEqual(urls.map(function (u) { return String(u).split("?")[0]; }), ["/data/banking/overrides.json", "/data/banking.json"]);
   assert.equal(el.innerHTML.indexOf('data-bank-tx="' + key + '"'), -1);
   await el.listeners.change({
     target: {
@@ -2283,7 +2283,7 @@ test("a select reset still posts the category and assigns that row", async funct
   assert.equal(el._bank.rowAdd && el._bank.rowAdd.key, key);
   el.listeners.input(rowDraftInput("Pets"));
   await el.listeners.click(rowButtonClick("ok"));
-  assert.deepEqual(calls.map(function (c) { return c.url; }), [
+  assert.deepEqual(calls.map(function (c) { return String(c.url).split("?")[0]; }), [
     "/data/banking/categories.json",
     "/data/banking/overrides.json",
     "/data/banking.json"
@@ -2430,7 +2430,7 @@ test("a new custom category shows in every edits select while it is still empty"
           json: function () { return Promise.resolve({ ok: true }); }
         });
       }
-      if (u === "/data/banking.json") {
+      if (String(u).split("?")[0] === "/data/banking.json") {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -3101,7 +3101,7 @@ test("an added category still shows after an empty body and a mock reload", asyn
         json: function () { return Promise.resolve({}); }
       });
     }
-    if (String(url) === "/data/banking.json") {
+    if (String(url).split("?")[0] === "/data/banking.json") {
       const snap = JSON.parse(JSON.stringify(fx));
       snap.custom_categories = [];
       return Promise.resolve({
@@ -4144,7 +4144,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20261013fg/);
+  assert.match(page, /banking\.js\?v=20261013fh/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
@@ -4307,8 +4307,8 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20261013fg/);
-  assert.match(page, /banking\.css\?v=20261013fg/);
+  assert.match(page, /banking\.js\?v=20261013fh/);
+  assert.match(page, /banking\.css\?v=20261013fh/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4462,8 +4462,8 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fg/);
-  assert.match(page, /\/house\/banking\.css\?v=20261013fg/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fh/);
+  assert.match(page, /\/house\/banking\.css\?v=20261013fh/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4649,8 +4649,8 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fg/);
-  assert.match(page, /banking\.css\?v=20261013fg/);
+  assert.match(page, /banking\.js\?v=20261013fh/);
+  assert.match(page, /banking\.css\?v=20261013fh/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4941,8 +4941,8 @@ test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fg/);
-  assert.match(page, /banking\.css\?v=20261013fg/);
+  assert.match(page, /banking\.js\?v=20261013fh/);
+  assert.match(page, /banking\.css\?v=20261013fh/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -5028,8 +5028,8 @@ test("tip dy plan blocks follow the selected month", function () {
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fg/);
-  assert.match(page, /banking\.css\?v=20261013fg/);
+  assert.match(page, /banking\.js\?v=20261013fh/);
+  assert.match(page, /banking\.css\?v=20261013fh/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
 
@@ -5970,8 +5970,8 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 
 test("banking assets use the ec cache bust", function () {
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fg/);
-  assert.match(page, /\/house\/banking\.css\?v=20261013fg/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fh/);
+  assert.match(page, /\/house\/banking\.css\?v=20261013fh/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /ticker\.js\?v=20261007ei/);
   assert.match(page, /ticker\.css\?v=20261007ei/);
@@ -7232,8 +7232,8 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.doesNotMatch(html, /<th class="num">Month-end<\/th>/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fg/);
-  assert.match(page, /banking\.css\?v=20261013fg/);
+  assert.match(page, /banking\.js\?v=20261013fh/);
+  assert.match(page, /banking\.css\?v=20261013fh/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);
   assert.doesNotMatch(css, /--mp-in:\s*#|--mp-out:\s*#|--bank-required:/);
@@ -8164,7 +8164,7 @@ test("ticker fields keep their natural width at 390", function () {
   assert.ok(Number(pageBox[1]) <= Number(pageBox[2]) + 1, "page scroll " + pageBox[0]);
 });
 
-test("bills sit beside the calendar at desktop and the due list does not scroll sideways at 390", function () {
+test("the calendar sits above Bills and the due list does not scroll sideways at 390", function () {
   const { spawnSync } = require("child_process");
   const os = require("os");
   const ctx = boot();
@@ -8230,8 +8230,8 @@ test("bills sit beside the calendar at desktop and the due list does not scroll 
       assert.match(dom, /data-pay-dot="rgb\(61, 214, 140\)"/);
       assert.match(dom, /data-bill-dot="rgb\(238, 243, 248\)"/);
     } else {
-      assert.ok(num("cal-x") > num("tier-x") + 200, width + " columns " + num("tier-x") + " " + num("cal-x"));
-      assert.ok(Math.abs(num("tier-y") - num("cal-y")) < 40, "tiers sit beside the calendar " + num("tier-y") + "/" + num("cal-y"));
+      assert.equal(num("cal-x"), num("tier-x"), width + " left edge " + num("tier-x") + " " + num("cal-x"));
+      assert.ok(num("cal-y") < num("tier-y"), "calendar sits above bills " + num("cal-y") + "/" + num("tier-y"));
       assert.ok(num("fund-y") > num("tier-y"), "funding sits under the bills card");
       assert.ok(num("inc-y") > num("cal-y"), "income sits under the calendar");
       assert.match(dom, /data-pay-word="Payroll"/);

@@ -192,3 +192,51 @@ test("a checked transfer stays checked in this browser", function () {
   assert.doesNotMatch(cleared, /checked/);
   assert.equal(JSON.parse(ctx.bag.murphyHouseBanking).moves[key], undefined);
 });
+
+test("budget pay period moves win, including a month-day move date", function () {
+  const ctx = boot();
+  const snap = baseSnap();
+  snap.pay_periods = [{ date: "2026-10-15" }];
+  snap.budget.pay_periods = [{
+    date: "2026-10-15",
+    moves: [{
+      from: "Checking ··0831",
+      to: "Debit ··4845",
+      amount: 290,
+      move_by: "10-16",
+      reason: "Education"
+    }]
+  }];
+  const card = cardFor(ctx.bankPageHtml(snap, opts), "2026-10-15");
+  assert.match(card, /Move \$290 from Checking ··0831 to Debit ··4845 by Fri Oct 16, for Education/);
+  assert.doesNotMatch(card, /Move \$300/);
+});
+
+test("a past Sep 29 card tucks paid bills and leaves an unpaid bill open", function () {
+  const ctx = boot();
+  const snap = baseSnap();
+  snap.asof = "2026-10-13T12:00:00-04:00";
+  snap.budget.pay_schedule = [
+    { name: "Payroll", kind: "payroll", date: "2026-09-29", amount: 500, account: { nickname: "Checking", last4: "0831" } },
+    { name: "Payroll", kind: "payroll", date: "2026-10-15", amount: 500, account: { nickname: "Checking", last4: "0831" } }
+  ];
+  snap.budget.bills = [
+    { name: "Rent", amount: 40, typical_day: 30, cadence: "monthly", tier: "required" },
+    { name: "Power", amount: 8, typical_day: 2, cadence: "monthly", tier: "required" }
+  ];
+  snap.history = {
+    months: [{
+      month: "2026-09",
+      history_tx: [{ date: "2026-09-30", amount: 40, flow: "outflow", desc: "Rent", category: "Rent", tx_key: "rent-sep" }]
+    }]
+  };
+  const card = cardFor(ctx.bankPageHtml(snap, opts), "2026-09-29");
+  assert.match(card, /<details class="bank-move-paid"><summary>Paid<\/summary>/);
+  const tucked = card.slice(card.indexOf('class="bank-move-paid"'));
+  assert.match(tucked, /data-bank-bill-paid="1"/);
+  assert.match(tucked, /aria-label="Paid"/);
+  assert.match(tucked, /Rent/);
+  assert.doesNotMatch(tucked, /data-bank-bill-paid="0"/);
+  const open = card.slice(0, card.indexOf('class="bank-move-paid"'));
+  assert.match(open, /Power[\s\S]{0,200}data-bank-bill-paid="0"|data-bank-bill-paid="0"[\s\S]{0,200}Power/);
+});

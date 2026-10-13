@@ -2049,7 +2049,10 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
     grid-column: 1;
   }
 
-  .bank-panel > [data-bank-part="calendar"],
+  .bank-panel > [data-bank-part="calendar"] {
+    grid-column: 1 / -1;
+  }
+
   .bank-panel > [data-bank-part="income"] {
     grid-column: 2;
   }
@@ -2073,9 +2076,9 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
     width: 420px;
     max-width: 420px;
     min-width: 420px;
-    max-height: 28rem;
-    overflow-x: hidden;
-    overflow-y: auto;
+    height: auto;
+    max-height: none;
+    overflow: visible;
     padding: 8px 12px;
   }
   .pay-carousel > .card .ov-hero { padding: 4px 4px 2px; }
@@ -2378,6 +2381,20 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
   margin: 0 0 4px;
   color: var(--ink-soft);
   font-size: 14px;
+}
+
+.bank-move-paid {
+  margin: 4px 0 0;
+}
+
+.bank-move-paid summary {
+  min-height: 44px;
+  padding: 8px 0;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  cursor: pointer;
 }
 
 .bank-move-deposit p,
