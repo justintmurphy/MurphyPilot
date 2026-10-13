@@ -757,7 +757,7 @@ test("month-to-date caption uses the Eastern calendar day of asof", function () 
   const sumAt = html.indexOf("bank-tier-summary");
   assert.ok(sumAt >= 0);
   assert.doesNotMatch(html, /<ul class="mix-legend"/);
-  assert.match(html.slice(sumAt, html.indexOf('data-bank-part="more"', sumAt)), /<table class="book bank-bill-table"|<div class="mix-legend"/);
+  assert.match(html.slice(sumAt, html.indexOf('data-bank-part="more"', sumAt)), /<table class="book bank-bill-table"|<div class="mix-legend"|class="bank-bill-grid"/);
   assert.doesNotMatch(html, /Month to date · day/);
   assert.doesNotMatch(html, /day 1 of 30/);
 
@@ -895,8 +895,8 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
   assert.match(investments, /\/house\/house\.css\?v=20261008ey/);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fj/);
-  assert.match(page, /\/house\/banking\.css\?v=20261013fj/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fk/);
+  assert.match(page, /\/house\/banking\.css\?v=20261013fk/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -4144,7 +4144,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fk/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
@@ -4307,8 +4307,8 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20261013fj/);
-  assert.match(page, /banking\.css\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fk/);
+  assert.match(page, /banking\.css\?v=20261013fk/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4462,8 +4462,8 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fj/);
-  assert.match(page, /\/house\/banking\.css\?v=20261013fj/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fk/);
+  assert.match(page, /\/house\/banking\.css\?v=20261013fk/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4655,8 +4655,8 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fj/);
-  assert.match(page, /banking\.css\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fk/);
+  assert.match(page, /banking\.css\?v=20261013fk/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4947,8 +4947,8 @@ test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fj/);
-  assert.match(page, /banking\.css\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fk/);
+  assert.match(page, /banking\.css\?v=20261013fk/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -5034,8 +5034,8 @@ test("tip dy plan blocks follow the selected month", function () {
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fj/);
-  assert.match(page, /banking\.css\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fk/);
+  assert.match(page, /banking\.css\?v=20261013fk/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
 
@@ -5976,8 +5976,8 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 
 test("banking assets use the ec cache bust", function () {
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fj/);
-  assert.match(page, /\/house\/banking\.css\?v=20261013fj/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fk/);
+  assert.match(page, /\/house\/banking\.css\?v=20261013fk/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /ticker\.js\?v=20261007ei/);
   assert.match(page, /ticker\.css\?v=20261007ei/);
@@ -7238,8 +7238,8 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.doesNotMatch(html, /<th class="num">Month-end<\/th>/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fj/);
-  assert.match(page, /banking\.css\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fk/);
+  assert.match(page, /banking\.css\?v=20261013fk/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);
   assert.doesNotMatch(css, /--mp-in:\s*#|--mp-out:\s*#|--bank-required:/);
@@ -9729,6 +9729,39 @@ test("current next pay card starts from today's balances and drops posted bills"
   assert.equal(again.seed, later);
   assert.equal(again.math.left, ctx.bankRoundCents(later - 15 - (again.math.needs || 0) + (again.math.countedAlso || 0)));
   assert.notEqual(again.seed, available);
+});
+
+test("the pending note uses the print total, else pending rows on every account", function () {
+  const ctx = boot();
+  const snap = {
+    asof: "2026-10-16T12:00:00-04:00",
+    accounts: [
+      { nickname: "Checking", last4: "2222", subType: "checking" },
+      { nickname: "Share", last4: "4444", subType: "savings" }
+    ],
+    current: { month: "2026-10", pending_out: 9, edits_tx: [], recent_tx: [], history_tx: [] },
+    budget: {
+      account_funding: [
+        { nickname: "Checking", last4: "2222", subType: "checking", current_balance: 40, pending_unposted: 12 },
+        { nickname: "Share", last4: "4444", subType: "savings", current_balance: 20, pending_unposted: [{ amount: 5 }, { amount: 2 }] }
+      ],
+      account_funding_combined: 60,
+      bills: [],
+      subscriptions: [],
+      income_monthly: []
+    },
+    tier_doc: { rules: {}, plans: {}, categories: [], bill_status: {}, manual_paid: {} }
+  };
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" };
+  assert.equal(ctx.bankPendingOutTotal(snap), 19);
+  snap.current.pending_total = 19.32;
+  assert.equal(ctx.bankPendingOutTotal(snap), 19.32);
+  const noted = ctx.bankPageHtml(snap, opts);
+  assert.match(noted, /\(includes \$19\.32 pending\)/);
+  assert.equal((noted.match(/\(includes \$/g) || []).length, 1);
+  delete snap.current.pending_total;
+  snap.budget.account_funding.forEach(function (row) { delete row.pending_unposted; });
+  assert.equal(ctx.bankPendingOutTotal(snap), 9);
 });
 
 test("edits rows stack at 390 and name columns stay at least 120px", async function () {
