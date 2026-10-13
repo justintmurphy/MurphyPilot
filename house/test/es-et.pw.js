@@ -16,12 +16,10 @@ function starters() {
     { id: "education", name: "Education", tier: "required", budget: 0 },
     { id: "groceries", name: "Groceries", tier: "needs", budget: 0 },
     { id: "gas-fuel", name: "Gas/Fuel", tier: "needs", budget: 0 },
-    { id: "household-health", name: "Household & Health", tier: "needs", budget: 0 },
-    { id: "education-needs", name: "Education (Needs)", tier: "needs", budget: 0 },
     { id: "dining", name: "Dining", tier: "wants", budget: 0 },
     { id: "subscriptions", name: "Subscriptions", tier: "wants", budget: 5 },
     { id: "kids-activities", name: "Kids & Activities", tier: "wants", budget: 0 },
-    { id: "shopping", name: "Shopping", tier: "wants", budget: 0 },
+    { id: "shopping", name: "General Shopping", tier: "wants", budget: 0 },
     { id: "other", name: "Other", tier: "wants", budget: 0 }
   ];
 }

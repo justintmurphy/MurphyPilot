@@ -625,7 +625,7 @@ test("a posted early payroll stays above today, and a zero plan prints $0.00", f
   bare.budget.tiers = { needs_plan: 0, wants_plan: 0 };
   const zero = nextSlice(ctx.bankPageHtml(bare, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" }));
   zero.split('data-bank-next-card="').slice(1).forEach(function (chunk) {
-    assert.match(chunk, /Spending budget share[\s\S]{0,40}\$0\.00/);
+    assert.doesNotMatch(chunk, /Spending budget share/);
     assert.match(chunk, /Set aside[\s\S]{0,40}\$0\.00/);
   });
 });

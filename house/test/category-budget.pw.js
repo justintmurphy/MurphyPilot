@@ -19,12 +19,10 @@ function starters() {
     { id: "education", name: "Education", tier: "required", budget: 0 },
     { id: "groceries", name: "Groceries", tier: "needs", budget: 0 },
     { id: "gas-fuel", name: "Gas/Fuel", tier: "needs", budget: 24.68 },
-    { id: "household-health", name: "Household & Health", tier: "needs", budget: 0 },
-    { id: "education-needs", name: "Education (Needs)", tier: "needs", budget: 0 },
     { id: "dining", name: "Dining", tier: "wants", budget: 0 },
     { id: "subscriptions", name: "Subscriptions", tier: "wants", budget: 0 },
     { id: "kids-activities", name: "Kids & Activities", tier: "wants", budget: 0 },
-    { id: "shopping", name: "Shopping", tier: "wants", budget: 12.34 },
+    { id: "shopping", name: "General Shopping", tier: "wants", budget: 12.34 },
     { id: "other", name: "Other", tier: "wants", budget: 0 }
   ];
 }
@@ -154,7 +152,7 @@ async function main() {
   fs.writeFileSync(mobile, pageHtml(docWith(0)));
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto("file://" + mobile);
-  await page.locator('[data-bank-group="needs"]').waitFor();
+  await page.locator('[data-bank-plain-cats] [data-bank-cat-row="groceries"]').waitFor();
   await page.locator("[data-bank-hero]").waitFor();
   const before = await heroFacts(page);
   if (before.now !== before.sum) throw new Error("hero now " + before.now + " != account sum " + before.sum);
@@ -192,10 +190,7 @@ async function main() {
   await elementShot(page, ".bank-tier-summary", "tier-summary-390.png");
   await page.locator(".bank-due-month").evaluate(function (node) { node.scrollIntoView({ block: "center" }); });
   await elementShot(page, ".bank-due-month", "budget-list-390.png");
-  await page.locator('[data-bank-group="needs"]').click();
-  await page.locator('[data-bank-group-pop="needs"]').waitFor();
-  await shot(page, "[data-bank-group-pop]", "group-popup-390.png");
-  await page.locator('[data-bank-group-pop="needs"] [data-bank-cat-row="groceries"]').click();
+  await page.locator('[data-bank-plain-cats] [data-bank-cat-row="groceries"]').click();
   await page.locator('[data-bank-cat-budget="groceries"]').waitFor();
   await page.locator("[data-bank-cat-item]").first().waitFor();
   const last4 = await page.locator("[data-bank-item-meta]").first().innerText();
@@ -277,17 +272,14 @@ async function main() {
   fs.writeFileSync(wideFile, pageHtml(docWith(12.34)));
   const wide = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await wide.goto("file://" + wideFile);
-  await wide.locator('[data-bank-group="needs"]').waitFor();
+  await wide.locator('[data-bank-plain-cats] [data-bank-cat-row="groceries"]').waitFor();
   await wide.locator("[data-bank-hero]").waitFor();
   const wideHero = await heroFacts(wide);
   if (wideHero.now !== wideHero.sum) throw new Error("wide hero now " + wideHero.now + " != " + wideHero.sum);
   if (wideHero.end !== wideHero.left) throw new Error("wide hero end " + wideHero.end + " != " + wideHero.left);
   await elementShot(wide, "[data-bank-hero]", "banking-hero-1280.png");
   await wide.screenshot({ path: path.join(artifacts, "budget-categories-1280.png"), fullPage: true });
-  await wide.locator('[data-bank-group="needs"]').click();
-  await wide.locator('[data-bank-group-pop="needs"]').waitFor();
-  await shot(wide, "[data-bank-group-pop]", "group-popup-1280.png");
-  await wide.locator('[data-bank-group-pop="needs"] [data-bank-cat-row="groceries"]').click();
+  await wide.locator('[data-bank-plain-cats] [data-bank-cat-row="groceries"]').click();
   await wide.locator(".books-sheet").waitFor();
   await wide.waitForFunction(function () {
     var left = document.querySelector('[data-cat-fig="left"]');
@@ -350,8 +342,7 @@ async function main() {
   fs.writeFileSync(capFile, pageHtml(many));
   const capPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await capPage.goto("file://" + capFile);
-  await capPage.locator('[data-bank-group="needs"]').click();
-  await capPage.locator('[data-bank-group-pop="needs"] [data-bank-cat-row="groceries"]').click();
+  await capPage.locator('[data-bank-plain-cats] [data-bank-cat-row="groceries"]').click();
   await capPage.locator("[data-bank-cat-pop] .list-cap").waitFor();
   const cap = await capPage.locator("[data-bank-cat-pop] .list-cap").evaluate(function (node) {
     var rows = node.querySelectorAll("[data-bank-cat-item]");
