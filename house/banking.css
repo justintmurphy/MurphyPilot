@@ -2049,7 +2049,10 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
     grid-column: 1;
   }
 
-  .bank-panel > [data-bank-part="calendar"],
+  .bank-panel > [data-bank-part="calendar"] {
+    grid-column: 1 / -1;
+  }
+
   .bank-panel > [data-bank-part="income"] {
     grid-column: 2;
   }
@@ -2073,7 +2076,9 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
     width: 420px;
     max-width: 420px;
     min-width: 420px;
-    max-height: 28rem;
+    height: auto;
+    max-height: none;
+    overflow: visible;
     padding: 8px 12px;
   }
   .pay-carousel > .card .ov-hero { padding: 4px 4px 2px; }
@@ -2238,6 +2243,15 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
     text-align: left;
     overflow-wrap: anywhere;
   }
+
+  .bank-move-line {
+    font-size: 14px;
+  }
+
+  .bank-next .card {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
 }
 
 .bank-match-miss,
@@ -2290,6 +2304,131 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
   padding: 8px;
   border: 1px solid var(--rule);
   border-radius: 6px;
+}
+
+/* Next pay: Move money, then the deposit, the bills, and what is left. */
+.bank-move-money,
+.bank-move-deposit,
+.bank-move-bills,
+.bank-move-after {
+  margin: 0;
+  min-width: 0;
+}
+
+.bank-move-money h3,
+.bank-move-deposit h3,
+.bank-move-bills h3,
+.bank-move-after h3 {
+  margin: 10px 0 4px;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.bank-move-money h3 {
+  margin-top: 2px;
+}
+
+.bank-move-list,
+.bank-move-bills-list,
+.bank-move-after ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bank-move-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 0;
+  box-sizing: border-box;
+  font-size: 14px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.bank-move-line input {
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  flex: 0 0 22px;
+  accent-color: var(--brand-fg);
+}
+
+.bank-move-line span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bank-move-line.is-done span {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+
+.bank-move-none,
+.bank-move-empty {
+  margin: 0 0 4px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.bank-move-paid {
+  margin: 4px 0 0;
+}
+
+.bank-move-paid summary {
+  min-height: 44px;
+  padding: 8px 0;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.bank-move-deposit p,
+.bank-move-bills-list li,
+.bank-move-after li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 0;
+  padding: 3px 0;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.bank-move-bills-list li b,
+.bank-move-after li b {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bank-move-bills-list li .sym,
+.bank-move-bills-list li .sub,
+.bank-move-after li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bank-move-bills-list li .sub {
+  flex: 1 1 100%;
+  color: var(--ink-soft);
+  font-style: normal;
 }
 
 /* Bills card. Group names are section labels. Each line is the name, then Spent, Planned, and Left. */

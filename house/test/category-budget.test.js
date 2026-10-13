@@ -183,6 +183,11 @@ test("starter ids match the slug rule and stay unique", function () {
   });
   assert.equal(ctx.bankSpendStarters().length <= 30, true);
   assert.equal(ctx.bankSpendById(ctx.bankSpendStarters(), "car-insurance-loans").name, "Car, Insurance & Loans");
+  assert.equal(ctx.bankBillGroupId({ name: "Personal loan", category: "Installment", kind: "loan" }), "loans");
+  assert.equal(ctx.bankBillGroupId({ name: "Affirm plan", category: "Installment" }), "affirm");
+  assert.equal(ctx.bankBillGroupId({ name: "Car payment", category: "Auto" }), "car");
+  assert.equal(ctx.bankBillGroupId({ name: "Sample policy", category: "Insurance" }), "insurance");
+  assert.equal(ctx.bankBillGroupId({ name: "Sample loan", category: "Car, Insurance & Loans", kind: "loan" }), "loans");
   assert.equal(ctx.bankSpendIdOk("a"), true);
   assert.equal(ctx.bankSpendIdOk("a" + "b".repeat(39)), true);
   assert.equal(ctx.bankSpendIdOk("phone_internet"), true);

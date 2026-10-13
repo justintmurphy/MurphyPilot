@@ -187,15 +187,13 @@ test("projection uses posted deposits, one pending, and a cent-level left-after 
   const next = html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="calendar"'));
   assert.match(next, /data-bank-next-date="2026-09-29"/);
   assert.doesNotMatch(next, /data-bank-next-date="2026-09-30"/);
-  assert.match(next, /data-bank-opening="500"/);
-  assert.match(next, /Opening balance/);
+  assert.doesNotMatch(next, /data-bank-opening=|Opening balance|data-bank-carried=/);
   const openCard = next.slice(next.indexOf('data-bank-next-card="1"'), next.indexOf('data-bank-next-card="2"'));
   assert.match(openCard, /data-bank-past="1"/);
-  assert.doesNotMatch(openCard, /data-bank-carried=/);
+  assert.doesNotMatch(openCard, /data-bank-left=/);
   assert.match(openCard, /\+\$380\.00/);
-  const carried = next.match(/data-bank-carried="([^"]*)"/);
-  assert.ok(carried, "first open card carries the current balance minus pending");
-  assert.equal(Number(carried[1]), 625);
+  const thisPay = next.slice(next.indexOf('data-bank-next-date="2026-10-09"'), next.indexOf('data-bank-next-date="2026-10-15"'));
+  assert.match(thisPay, /\$625\.00/);
 
   const due = html.slice(html.indexOf('class="bank-due-month"'), html.indexOf("</section>", html.indexOf('class="bank-due-month"')));
   assert.doesNotMatch(due, /data-bank-today/);

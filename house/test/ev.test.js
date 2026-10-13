@@ -222,14 +222,14 @@ test("next pay and moves use usual account and an override wins", function () {
 
   const html = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: NOW });
   const next = html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="calendar"'));
-  assert.match(next, /from ··1111/);
-  assert.doesNotMatch(next, /from ··3333/);
-  assert.doesNotMatch(next, /from House|from Bills|from Pay/);
+  assert.match(next, /from Pay ··1111/);
+  assert.doesNotMatch(next, /from ··3333|from House|from Bills/);
   snap.tier_doc.bill_account = { power: "2222" };
   const over = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: NOW });
   const overNext = over.slice(over.indexOf('class="bank-next"'), over.indexOf('data-bank-part="calendar"'));
-  assert.match(overNext, /from ··2222/);
-  assert.doesNotMatch(overNext, /from House|from Bills|from Pay/);
+  assert.match(overNext, /from Bills ··2222 · due Oct 20/);
+  assert.match(overNext, /Move \$70 from Pay ··1111 to Bills ··2222 by Tue Oct 20, for Power/);
+  assert.doesNotMatch(overNext, /from House/);
 });
 
 test("next pay moves match by account and the hero identity holds", function () {
@@ -248,11 +248,10 @@ test("next pay moves match by account and the hero identity holds", function () 
   const byAt = html.indexOf('fills-sum">By account');
   assert.ok(byAt >= 0);
   const by = html.slice(byAt, html.indexOf("</details>", byAt));
-  const cardMoves = listed(next);
   const byMoves = listed(by);
-  assert.ok(cardMoves.length >= 1);
-  assert.equal(JSON.stringify(cardMoves), JSON.stringify(byMoves));
-  assert.match(next, /Move \$70\.00 ··1111 → ··2222 by Oct 19/);
+  assert.ok(byMoves.length >= 1);
+  assert.match(by, /Move \$70\.00 ··1111 → ··2222 by Oct 19/);
+  assert.match(next, /Move \$70 from Pay ··1111 to Bills ··2222 by Tue Oct 20, for Neighborhood Electric Cooperative/);
   assert.match(next, /to Pay ··1111/);
   function num(attr) {
     const m = html.match(new RegExp(attr + '="([^"]*)"'));
@@ -266,8 +265,8 @@ test("next pay moves match by account and the hero identity holds", function () 
   assert.equal(Math.round((now + inn - out) * 100) / 100, end);
   assert.equal(end, ledger);
   assert.equal(num("data-bank-alloc-total"), 70);
-  assert.match(html, /data-bank-left-after="/);
-  const moveBlock = (next.match(/<div data-bank-move="1"[\s\S]*?<\/div>/) || [""])[0];
+  assert.match(next, /data-bank-left="/);
+  const moveBlock = (by.match(/<div data-bank-move="1"[\s\S]*?<\/div>/) || [""])[0];
   const sentence = (moveBlock.match(/<p class="mix-leg wrap">[\s\S]*?<\/p>/) || [""])[0];
   const sheet = html.slice(html.indexOf('data-bank-cancel-sheet="1"'));
   assert.match(sentence, /mix-leg-name">Move \$70\.00 ··1111 → ··2222 by Oct 19</);
