@@ -2608,13 +2608,15 @@ table.book.bank-bill-table .bank-bill-fig b.tone-stop {
 
 table.book.bank-bill-table button.bank-bill-row {
   display: grid;
-  grid-template-columns: minmax(55%, 1fr) minmax(0, 0.82fr);
+  grid-template-columns: minmax(55%, 1fr) minmax(0, 0.82fr) auto;
   gap: 8px 12px;
-  align-items: start;
+  align-items: center;
   width: 100%;
+  min-height: 44px;
   margin: 0;
-  padding: 2px 0;
+  padding: 8px 6px;
   border: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--ink);
   font: inherit;
@@ -2878,4 +2880,186 @@ button.bank-bill-tile {
   overflow: visible;
   text-overflow: clip;
   overflow-wrap: anywhere;
+}
+
+table.book.bank-bill-table button.bank-bill-row .bank-tile-aff {
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  transform: rotate(-45deg);
+}
+
+@media (hover: hover) {
+  table.book.bank-bill-table button.bank-bill-row:hover {
+    background: var(--row);
+  }
+}
+
+table.book.bank-bill-table button.bank-bill-row:active,
+table.book.bank-bill-table button.bank-bill-row:focus-visible {
+  background: var(--row);
+  outline: 2px solid var(--ink-soft);
+  outline-offset: 1px;
+}
+
+.books-overlay.bank-detail-pop .books-sheet {
+  width: min(30rem, 100%);
+  max-width: 30rem;
+}
+
+.bank-detail-x {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.bank-detail-figs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.bank-detail-figs > div {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--row);
+}
+
+.bank-detail-figs span {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.bank-detail-figs b {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-detail-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 8px 0 14px;
+}
+
+.bank-detail-bar {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.bank-detail-bar-amt,
+.bank-detail-bar-lab {
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-detail-bar-lab {
+  color: var(--ink-soft);
+}
+
+.bank-detail-bar-track {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 48px;
+  height: 56px;
+}
+
+.bank-detail-bar-track i {
+  display: block;
+  width: 100%;
+  background: var(--ink);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+}
+
+.bank-detail-month {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 4px;
+  font-size: 14px;
+}
+
+.bank-detail-tx {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bank-detail-tx li {
+  display: grid;
+  grid-template-columns: 4.6rem minmax(0, 1fr) auto;
+  gap: 6px 8px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+}
+
+.bank-detail-date {
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-detail-desc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .books-overlay.on.bank-detail-pop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .books-overlay.on.bank-detail-pop .books-sheet {
+    width: 100%;
+    max-width: none;
+    border-radius: 16px 16px 0 0;
+    max-height: 88vh;
+  }
+}
+
+button.bank-bill-tile {
+  min-height: 44px;
+  cursor: pointer;
+}
+
+button.bank-bill-tile .bank-tile-aff {
+  position: absolute;
+  top: 12px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  transform: rotate(-45deg);
+}
+
+.bank-bill-tile:has(.is-paid) .bank-tile-aff { right: 26px; }
+
+@media (hover: hover) {
+  button.bank-bill-tile:hover { background: var(--row); }
+}
+
+button.bank-bill-tile:active,
+button.bank-bill-tile:focus-visible {
+  background: var(--row);
+  outline: 2px solid var(--ink-soft);
+  outline-offset: 1px;
 }
