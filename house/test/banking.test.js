@@ -757,7 +757,7 @@ test("month-to-date caption uses the Eastern calendar day of asof", function () 
   const sumAt = html.indexOf("bank-tier-summary");
   assert.ok(sumAt >= 0);
   assert.doesNotMatch(html, /<ul class="mix-legend"/);
-  assert.match(html.slice(sumAt, sumAt + 400), /<div class="mix-legend"/);
+  assert.match(html.slice(sumAt, html.indexOf('data-bank-part="more"', sumAt)), /<table class="book bank-bill-table"|<div class="mix-legend"/);
   assert.doesNotMatch(html, /Month to date · day/);
   assert.doesNotMatch(html, /day 1 of 30/);
 
@@ -4608,6 +4608,12 @@ function billLine(html, name) {
   const summary = summaryHtml(html);
   const summaryMix = summary.indexOf('mix-leg-name">' + name + "<");
   if (summaryMix >= 0) {
+    const tableAt = summary.lastIndexOf("<table", summaryMix);
+    const legAt = summary.lastIndexOf('<div class="mix-leg"', summaryMix);
+    if (tableAt > legAt) {
+      const tr = summary.lastIndexOf("<tr", summaryMix);
+      return summary.slice(tr >= 0 ? tr : summaryMix, summary.indexOf("</tr>", summaryMix));
+    }
     const div = summary.lastIndexOf('<div class="mix-leg"', summaryMix);
     return summary.slice(div >= 0 ? div : summaryMix, summary.indexOf("</div>", summaryMix));
   }
@@ -5112,7 +5118,7 @@ test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function
 
   const buffer = billLine(oct, "Buffer");
   assert.doesNotMatch(buffer, /Set-aside|no due day|Low confidence|Winter often/);
-  assert.match(buffer, /of \$40\.00/);
+  assert.match(buffer, /Planned<\/span>[\s\S]{0,40}\$40\.00/);
   assert.doesNotMatch(buffer, /day null|NaN|of \$0\.00|<b>nope<\/b>/);
   const cal = oct.slice(oct.indexOf('class="bank-cal"'), oct.indexOf('data-bank-part="tiers"'));
   assert.doesNotMatch(cal, /Buffer/);

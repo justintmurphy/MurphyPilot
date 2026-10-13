@@ -12335,19 +12335,21 @@ function bankBillGroupId(bill) {
     "education": "education",
     "tuition": "education",
     "childcare": "education",
-    "affirm": "affirm"
+    "affirm": "affirm",
+    "installment": "affirm",
+    "installments": "affirm"
   };
-  if (mapped[cat] && cat.indexOf("&") < 0) return mapped[cat];
+  /* A loan kind or a loan name stays in Loans, including an Installment category or a combined car/insurance label. */
+  if (kind === "loan" || kind === "loans" || (/loan/.test(name) && !/\bauto\b|\bcar\b/.test(name))) return "loans";
   if (/affirm/.test(name) || kind === "affirm") return "affirm";
-  if (kind === "loan" || kind === "loans" || kind === "installment" || kind === "installments") return "loans";
+  if (mapped[cat] && cat.indexOf("&") < 0) return mapped[cat];
+  if (kind === "installment" || kind === "installments") return "affirm";
   if (kind === "insurance") return "insurance";
   if (kind === "car" || kind === "auto") return "car";
   if (/insurance/.test(name)) return "insurance";
-  if (/loan/.test(name) && !/\bauto\b|\bcar\b/.test(name)) return "loans";
   if (/\bcar\b|\bauto\b/.test(name)) return "car";
-  if (cat === "installment" || cat === "installments") return "loans";
   var blob = [bill.category, bill.name, bill.kind, bill.bill_id, bill.display_label, bill.label].join(" ").toLowerCase();
-  if (/affirm/.test(blob)) return "affirm";
+  if (/affirm|installment/.test(blob) && !/loan/.test(blob)) return "affirm";
   if (/education|tuition|childcare|\bschool\b/.test(blob)) return "education";
   if (/insurance/.test(blob) && !/loan/.test(blob)) return "insurance";
   if (/loan/.test(blob) && !/\bauto\b|\bcar\b/.test(name)) return "loans";
@@ -13109,6 +13111,67 @@ function bankBudgetFitHtml(snap, opts, month) {
     tail + cuts + "</div></section>";
 }
 
+function bankIsTierLabel(name) {
+  var s = String(name || "").trim().toLowerCase();
+  return s === "required" || s === "needs" || s === "wants";
+}
+
+function bankBillFigsHtml(spent, plan) {
+  var spentN = bankNum(spent) || 0;
+  var planN = bankNum(plan) || 0;
+  var left = bankRoundCents(planN - spentN);
+  var over = left < -0.004;
+  var leftLabel = over ? "Over" : "Left";
+  var leftText = over ? bankMoney(bankRoundCents(-left)) : bankMoney(Math.max(0, left));
+  function fig(label, value, cls) {
+    return '<span class="bank-bill-fig"><span>' + bankEsc(label) + "</span> <b class=\"" + (cls || "") + "\">" + bankEsc(value) + "</b></span> ";
+  }
+  return '<span class="bank-bill-figs">' +
+    fig("Spent", bankMoney(spentN), "") +
+    fig("Planned", bankMoney(planN), "") +
+    fig(leftLabel, leftText, over ? "tone-stop" : "") +
+    "</span>";
+}
+
+function bankBillTableOpen(attr) {
+  return '<table class="book bank-bill-table"' + (attr || "") + ">" +
+    '<colgroup><col class="bank-bill-name-col"><col></colgroup>' +
+    "<thead><tr><th>Name</th><th class=\"num\">Spent / Planned / Left</th></tr></thead><tbody>";
+}
+
+function bankPlanSpendRows(snap, rows) {
+  var spend = [];
+  (rows || []).forEach(function (row) {
+    if (!row || bankIsTierLabel(row.name) || bankIsTierLabel(row.id)) return;
+    if (row.tier === "required") return;
+    spend.push(row);
+  });
+  if (spend.length) return spend;
+  bankSpendStarters().forEach(function (starter) {
+    if (!starter || starter.tier === "required" || bankIsTierLabel(starter.name)) return;
+    spend.push({ id: starter.id, name: starter.name, tier: starter.tier, plan: 0, spent: 0, showBudget: true });
+  });
+  return spend;
+}
+
+function bankPlanSpendTableHtml(rows) {
+  var body = (rows || []).map(function (row) {
+    var show = row.showBudget !== false && row.plan != null;
+    var planN = show ? (bankNum(row.plan) || 0) : 0;
+    var spent = bankNum(row.spent) || 0;
+    var over = show && spent - planN > 0.004;
+    var attrs = ' data-bank-cat-row="' + bankEsc(row.id) + '" data-spent="' + bankRoundCents(spent) + '"';
+    if (show) attrs += ' data-budget="' + bankRoundCents(planN) + '"';
+    if (over || (!show && spent > 0.004)) attrs += ' data-tone="stop"';
+    return '<tr><td colspan="2"><button type="button" class="bank-bill-row"' + attrs + ">" +
+      '<span class="mix-leg-name">' + bankEsc(row.name) + "</span>" +
+      bankBillFigsHtml(spent, show ? planN : 0) +
+      "</button></td></tr>";
+  }).join("");
+  if (!body) return "";
+  return bankBillTableOpen(' data-bank-plain-cats="1"') + body + "</tbody></table>";
+}
+
 function bankCategorySummaryHtml(snap, opts, mode, month) {
   var cats = bankSpendCategories(snap);
   if (!cats || !cats.length) return "";
@@ -13139,10 +13202,15 @@ function bankCategorySummaryHtml(snap, opts, mode, month) {
   var line = opts && opts.catError && !(opts.catOpen)
     ? '<p class="hint tone-stop" role="status">' + bankEsc(opts.catError) + "</p>"
     : '<p class="hint">Each category has its own budget.</p>';
+  if (mode === "plan") {
+    var err = opts && opts.catError && !opts.catOpen
+      ? '<p class="hint tone-stop" role="status">' + bankEsc(opts.catError) + "</p>"
+      : "";
+    return err + bankPlanSpendTableHtml(bankPlanSpendRows(snap, rest));
+  }
   var inner = line +
     '<h3>Bills</h3><div class="mix-legend" data-bank-bills="1">' + bills.map(rowHtml).join("") + "</div>" +
     '<div class="mix-legend" data-bank-plain-cats="1">' + rest.map(rowHtml).join("") + uncat + "</div>";
-  if (mode === "plan") return inner;
   return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span">' + inner + "</div></section>";
 }
 
@@ -13885,6 +13953,13 @@ function bankIncomeBudgetLineHtml(snap, month) {
   return '<p class="' + cls + '" data-bank-income-line="1" data-over="' + (over ? "1" : "0") + '">' + bankEsc(text) + "</p>";
 }
 
+function bankTrimFace(label) {
+  var text = String(label || "").trim();
+  if (!text) return "";
+  if (/^(overlap|trim|dedupe)$/i.test(text)) return "";
+  return text;
+}
+
 function bankTrimBreakdownHtml(snap, month) {
   var nums = {};
   try { nums = bankPlanNumbers(snap, month, null) || {}; } catch (e) { nums = {}; }
@@ -13893,14 +13968,14 @@ function bankTrimBreakdownHtml(snap, month) {
   if (!Array.isArray(list) || !list.length) return "";
   var bits = [];
   list.forEach(function (row) {
-    var label = "Trim";
+    var label = "";
     var n = null;
     if (row != null && typeof row === "object") {
-      label = row.name || row.category || row.label || "Trim";
+      label = bankTrimFace(row.name || row.category || row.label || "");
       n = row.deducted != null && row.deducted !== "" ? bankNum(row.deducted) : bankNum(row.amount);
     } else n = bankNum(row);
-    if (n == null) return;
-    bits.push(bankEsc(String(label)) + " " + bankEsc(bankMoney(Math.abs(n))));
+    if (!label || n == null) return;
+    bits.push("Already counted in " + bankEsc(label) + " " + bankEsc(bankMoney(Math.abs(n))));
   });
   if (!bits.length) return "";
   return '<p class="hint bank-trim" data-bank-trim="1">' + bits.join(" \u00b7 ") + "</p>";
@@ -13971,27 +14046,19 @@ function bankBillGroupsHtml(snap, opts, month) {
       if (fromBill > spentN) spentN = fromBill;
       plan += planN;
       spent += spentN;
-      var left = bankRoundCents(planN - spentN);
-      var over = left < -0.004;
-      var word = over ? ("Over " + bankMoney(bankRoundCents(-left))) : ("Left " + bankMoney(Math.max(0, left)));
-      return '<div class="mix-leg" data-bank-bill-line="1" data-bank-bill-group-id="' + g.id + '" data-plan="' +
+      var name = bankBillDisplayName(b.name, b.display_label);
+      return '<tr data-bank-bill-line="1" data-bank-bill-group-id="' + g.id + '" data-plan="' +
         bankRoundCents(planN) + '" data-spent="' + bankRoundCents(spentN) + '">' +
-        '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(bankBillDisplayName(b.name, b.display_label)) + "</span></span> " +
-        '<span class="mix-leg-fig"><span class="mix-amt">' + bankEsc(bankMoney(spentN) + " of " + bankMoney(planN)) + "</span> " +
-        '<span class="mix-amt' + (over ? " tone-stop" : "") + '">' + bankEsc(word) + "</span></span></div>";
+        '<td class="bank-bill-name"><span class="mix-leg-name">' + bankEsc(name) + "</span></td>" +
+        "<td>" + bankBillFigsHtml(spentN, planN) + "</td></tr>";
     }).join("");
     plan = bankRoundCents(plan);
     spent = bankRoundCents(spent);
-    var gLeft = bankRoundCents(plan - spent);
-    var gOver = gLeft < -0.004;
-    var gWord = gOver ? ("Over " + bankMoney(bankRoundCents(-gLeft))) : ("Left " + bankMoney(Math.max(0, gLeft)));
-    html += '<div class="mix-leg" data-bank-bill-group="' + g.id + '" data-plan="' + plan + '" data-spent="' + spent + '">' +
-      '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(g.name) + "</span></span> " +
-      '<span class="mix-leg-fig"><span class="mix-amt">' + bankEsc(bankMoney(spent) + " of " + bankMoney(plan)) + "</span> " +
-      '<span class="mix-amt' + (gOver ? " tone-stop" : "") + '">' + bankEsc(gWord) + "</span></span></div>" +
-      '<div class="mix-legend nest">' + lines + "</div>";
+    html += '<tr class="bank-bill-section" data-bank-bill-group="' + g.id + '" data-plan="' + plan + '" data-spent="' + spent + '">' +
+      '<th colspan="2">' + bankEsc(g.name) + "</th></tr>" + lines;
   });
-  return html;
+  if (!html) return "";
+  return bankBillTableOpen(' data-bank-bill-groups="1" data-bank-bills="1"') + html + "</tbody></table>";
 }
 
 function bankPlanBillsCard(snap, opts, month, categoriesHtml) {
@@ -14003,9 +14070,9 @@ function bankPlanBillsCard(snap, opts, month, categoriesHtml) {
   try { trim = bankTrimBreakdownHtml(snap, month); } catch (e2) { trim = ""; }
   try { bills = bankBillGroupsHtml(snap, opts, month); } catch (e3) { bills = ""; }
   try { chip = bankUncatChipHtml(snap, month); } catch (e4) { chip = ""; }
-  return '<section class="bank-tier-summary"><h2>Bills</h2><div class="card span" data-bank-plan-card="1">' +
+  return '<section class="bank-tier-summary"><h2>Bills</h2><div class="card span" data-bank-plan-card="1" data-bank-bills="1">' +
     line + trim +
-    (bills ? '<div class="mix-legend" data-bank-bill-groups="1">' + bills + "</div>" : "") +
+    (bills || "") +
     "<h3>Categories</h3>" +
     (categoriesHtml || "") +
     chip +

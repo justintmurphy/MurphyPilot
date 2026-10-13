@@ -377,7 +377,7 @@ test("category rows sum to their tier header", function () {
   const html = ctx.bankPageHtml(fx, { tab: "budget", now: "2026-10-16T12:00:00-04:00", groupOpen: "needs" });
   const summary = html.slice(html.indexOf("bank-tier-summary"), html.indexOf('data-bank-group-pop'));
   assert.equal((summary.match(/data-bank-group="/g) || []).length, 0);
-  assert.match(summary, /<h3>Bills<\/h3>/);
+  assert.match(summary, /<h2>Bills<\/h2>/);
   assert.match(summary, /data-bank-bills="1"/);
   assert.match(summary, /data-bank-cat-row="groceries"[^>]*data-budget="12.34"/);
   assert.match(summary, /data-bank-cat-row="gas-fuel"[^>]*data-budget="12.34"/);
@@ -433,10 +433,10 @@ test("a zero budget with spend shows over", function () {
   const html = ctx.bankPageHtml(snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00", groupOpen: "needs" });
   const row = html.match(/<button[^>]*data-bank-cat-row="groceries"[\s\S]*?<\/button>/);
   assert.ok(row);
-  assert.match(row[0], /\$12\.34 of \$0\.00/);
-  assert.match(row[0], /Over \$12\.34/);
+  assert.match(row[0], /<span>Spent<\/span>[\s\S]{0,40}\$12\.34/);
+  assert.match(row[0], /<span>Planned<\/span>[\s\S]{0,40}\$0\.00/);
+  assert.match(row[0], /<span>Over<\/span>[\s\S]{0,80}\$12\.34/);
   assert.match(row[0], /data-tone="stop"/);
-  assert.match(row[0], /class="mix-bar"/);
   assert.match(row[0], /data-budget="0"/);
   snap.tier_doc.categories.forEach(function (item) {
     if (item.id === "groceries") item.budget = 12.34;
@@ -447,8 +447,8 @@ test("a zero budget with spend shows over", function () {
   const over = ctx.bankPageHtml(snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00", groupOpen: "needs" });
   const hot = over.match(/<button[^>]*data-bank-cat-row="groceries"[\s\S]*?<\/button>/);
   assert.match(hot[0], /data-tone="stop"/);
-  assert.match(hot[0], /Over \$12\.34/);
-  assert.match(hot[0], /class="mix-bar"/);
+  assert.match(hot[0], /<span>Over<\/span>[\s\S]{0,80}\$12\.34/);
+  assert.match(hot[0], /<span>Planned<\/span>[\s\S]{0,40}\$12\.34/);
 });
 
 test("the category pop-up uses desk totals for this month and the two before it", function () {
@@ -1257,7 +1257,7 @@ test("this month shows each figure once and tucks the extra cards", function () 
   ];
   snap.budget.income_monthly = [{ label: "Payroll", amount: 20, monthly_amount: 20, cadence: "monthly", typical_day: 15 }];
   snap.budget.tiers = { required_plan: 30, needs_plan: 0, wants_plan: 0, plan_total_tiers: 50, left_after_tiers: -30 };
-  snap.budget.plan_dedupe = [{ name: "Overlap", deducted: 1.25 }];
+  snap.budget.plan_dedupe = [{ name: "Groceries", deducted: 1.25 }];
   snap.current.edits_tx = [{ date: "2026-10-08", amount: 1, flow: "outflow", desc: "Odd Purchase", category: null, category_basis: "spend", tx_key: "once" }];
   const html = ctx.bankPageHtml(snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00", groupOpen: "wants" });
   const heroAt = html.indexOf('data-bank-hero="1"');
@@ -1282,6 +1282,8 @@ test("this month shows each figure once and tucks the extra cards", function () 
   assert.match(html, /data-bank-income-line="1"/);
   assert.match(html, /data-over="1"/);
   assert.match(html, /data-bank-trim="1"/);
+  assert.match(html, /Already counted in Groceries \$1\.25/);
+  assert.doesNotMatch(html, /Overlap/);
   assert.match(html, /tone-stop/);
   ["housing", "loans", "car", "insurance", "education", "affirm"].forEach(function (id) {
     assert.match(html, new RegExp('data-bank-bill-group="' + id + '"'));
@@ -1296,4 +1298,109 @@ test("this month shows each figure once and tucks the extra cards", function () 
   const quiet = ctx.bankPageHtml(under, { tab: "budget", now: "2026-10-16T12:00:00-04:00" });
   assert.match(quiet, /data-over="0"/);
   assert.doesNotMatch(quiet, /data-bank-trim="1"/);
+  assert.doesNotMatch(quiet, /Overlap/);
+  const stray = JSON.parse(JSON.stringify(snap));
+  stray.budget.plan_dedupe = [{ name: "Overlap", deducted: 1.25 }];
+  const strayHtml = ctx.bankPageHtml(stray, { tab: "budget", now: "2026-10-16T12:00:00-04:00" });
+  assert.doesNotMatch(strayHtml, /Overlap|data-bank-trim="1"/);
+});
+
+test("bill names stay whole and categories are spending lines", function () {
+  const ctx = boot();
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  const nameRule = css.slice(css.indexOf("table.book.bank-bill-table .mix-leg-name"));
+  const nameBlock = nameRule.slice(0, nameRule.indexOf("}"));
+  assert.match(nameBlock, /font-size: 14px/);
+  assert.match(nameBlock, /white-space: normal/);
+  assert.match(nameBlock, /text-overflow: clip/);
+  assert.match(nameBlock, /min-width: 55%/);
+  assert.doesNotMatch(nameBlock, /ellipsis/);
+  const figRule = css.slice(css.indexOf("table.book.bank-bill-table .bank-bill-fig {"));
+  const figBlock = figRule.slice(0, figRule.indexOf("}"));
+  assert.match(figBlock, /font-size: 13px/);
+  assert.match(css, /col\.bank-bill-name-col \{\s*width: 55%;/);
+  assert.match(css, /grid-template-columns: minmax\(55%, 1fr\)/);
+
+  const snap = bare(ctx);
+  snap.tier_doc.categories = ctx.bankSpendStarters().concat([
+    { id: "required", name: "Required", tier: "required", budget: 0, merged_into: "" },
+    { id: "needs", name: "Needs", tier: "needs", budget: 0, merged_into: "" },
+    { id: "wants", name: "Wants", tier: "wants", budget: 0, merged_into: "" }
+  ]);
+  snap.tier_doc.categories.forEach(function (row) {
+    if (row.id === "groceries") row.budget = 30;
+    if (row.id === "gas-fuel") row.budget = 20;
+    if (row.id === "shopping") row.budget = 15;
+    if (row.id === "subscriptions") row.budget = 12;
+  });
+  const names = [
+    ["Harbor View Housing Cooperative", "Rent/Mortgage", "housing", "Housing/Utilities"],
+    ["Regional Student Loan Servicer", "Loans", "loans", "Loans"],
+    ["Family Highway Transport Note", "Auto", "car", "Car"],
+    ["Northwind Protection Plan", "Insurance", "insurance", "Insurance"],
+    ["Continuing Studies Program", "Education", "education", "Education"],
+    ["Household Installment Schedule", "Installment", "affirm", "Affirm plans"]
+  ];
+  snap.budget.bills = names.map(function (row, i) {
+    return {
+      name: row[0],
+      amount: 10 + i,
+      category: row[1],
+      typical_day: i + 2,
+      cadence: "monthly",
+      bill_id: row[1] === "Education" ? "education" : ""
+    };
+  });
+  snap.budget.income_monthly = [{ label: "Payroll", amount: 80, monthly_amount: 80, cadence: "monthly", typical_day: 15 }];
+  snap.current.edits_tx = [
+    { date: "2026-10-04", amount: 8, flow: "outflow", desc: "Corner Market", category: "Groceries", tx_key: "groc-1" }
+  ];
+  const html = ctx.bankPageHtml(snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00" });
+  const cardAt = html.indexOf('data-bank-plan-card="1"');
+  assert.ok(cardAt >= 0);
+  const card = html.slice(cardAt, html.indexOf('data-bank-part="more"', cardAt));
+  assert.doesNotMatch(card, />Required<|>Needs<|>Wants</);
+  assert.doesNotMatch(card, /mix-leg-name">(?:Required|Needs|Wants)</);
+  const tableAt = card.indexOf('data-bank-bill-groups="1"');
+  const table = card.slice(tableAt, card.indexOf("</table>", tableAt));
+  const found = [];
+  const re = /<span class="mix-leg-name">([^<]*)<\/span>/g;
+  let hit;
+  while ((hit = re.exec(table))) found.push(hit[1]);
+  assert.equal(found.length, names.length);
+  found.forEach(function (name) {
+    assert.ok(name.length > 1, name);
+    assert.doesNotMatch(name, /^[A-Za-z]\.?$/);
+    assert.doesNotMatch(name, /^(?:\u2026|\.{3})$/);
+    assert.equal(name.indexOf("\u2026"), -1);
+  });
+  names.forEach(function (row) {
+    assert.ok(found.indexOf(row[0]) >= 0, row[0]);
+    assert.match(table, new RegExp('<th colspan="2">' + row[3].replace("/", "\\/") + "</th>"));
+    assert.match(table, new RegExp('data-bank-bill-group="' + row[2] + '"'));
+  });
+  assert.doesNotMatch(table, /mix-leg-name">[A-Za-z]\.<\/span>/);
+  const cats = card.slice(card.indexOf("<h3>Categories</h3>"));
+  ["General Shopping", "Groceries", "Gas/Fuel", "Subscriptions"].forEach(function (label) {
+    assert.match(cats, new RegExp("mix-leg-name\">" + label + "</span>"));
+  });
+  assert.match(cats, /<span>Spent<\/span>/);
+  assert.match(cats, /<span>Planned<\/span>/);
+  assert.match(cats, /<span>Left<\/span>/);
+  assert.doesNotMatch(cats, /mix-leg-name">(?:Required|Needs|Wants|Mortgage|Utilities)</);
+
+  const onlyTiers = bare(ctx);
+  onlyTiers.tier_doc.categories = [
+    { id: "required", name: "Required", tier: "required", budget: 0, merged_into: "" },
+    { id: "needs", name: "Needs", tier: "needs", budget: 0, merged_into: "" },
+    { id: "wants", name: "Wants", tier: "wants", budget: 0, merged_into: "" }
+  ];
+  const tierHtml = ctx.bankPageHtml(onlyTiers, { tab: "budget", now: "2026-10-16T12:00:00-04:00" });
+  const tierAt = tierHtml.indexOf('data-bank-plan-card="1"');
+  const tierCard = tierHtml.slice(tierAt, tierHtml.indexOf('data-bank-part="more"', tierAt));
+  assert.doesNotMatch(tierCard, />Required<|>Needs<|>Wants</);
+  assert.match(tierCard, /General Shopping/);
+  assert.match(tierCard, /Groceries/);
+  assert.match(tierCard, /Gas\/Fuel/);
+  assert.match(tierCard, /Subscriptions/);
 });
