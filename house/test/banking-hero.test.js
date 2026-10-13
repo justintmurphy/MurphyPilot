@@ -238,3 +238,118 @@ test("account rows under the hero sum to the combined figure, including a negati
   assert.doesNotMatch(accounts, BRANDS);
   assert.doesNotMatch(accounts, /style=/);
 });
+
+test("fixture uses balance after pending, the print pending total, and print moves", function () {
+  const ctx = boot();
+  const fx = blank(loadFixture());
+  fx.asof = "2026-10-13T12:00:00-04:00";
+  fx.accounts = [
+    { id: "chk", nickname: "Checking", name: "Checking", suffix: "0831", last4: "0831", subType: "checking" },
+    { id: "deb", nickname: "Debit", name: "Debit", suffix: "4845", last4: "4845", subType: "checking" }
+  ];
+  fx.current.balances = [
+    { id: "chk", balance: 80 },
+    { id: "deb", balance: 40 }
+  ];
+  fx.current.balance_after_pending = { "0831": 50, "4845": 7 };
+  fx.current.pending_out = 9;
+  fx.current.pending_total = 33;
+  fx.budget.account_funding = [
+    {
+      nickname: "Checking",
+      last4: "0831",
+      subType: "checking",
+      current_balance: 80,
+      projection_start_balance: 48,
+      pending_unposted: 10
+    },
+    {
+      nickname: "Debit",
+      last4: "4845",
+      subType: "checking",
+      current_balance: 40,
+      projection_start_balance: 3.12,
+      pending_unposted: 5
+    }
+  ];
+  fx.budget.account_funding_combined = 120;
+  fx.budget.bills = [{
+    name: "Education",
+    amount: 20,
+    typical_day: 16,
+    cadence: "monthly",
+    tier: "required",
+    usual_account: { nickname: "Debit", last4: "4845" }
+  }];
+  fx.budget.subscriptions = [];
+  fx.budget.income_monthly = [{
+    label: "Payroll",
+    amount: 100,
+    cadence: "semi_monthly",
+    usual_account: { nickname: "Checking", last4: "0831" }
+  }];
+  fx.budget.pay_schedule = [
+    { name: "Payroll", kind: "payroll", date: "2026-10-15", amount: 100, account: { nickname: "Checking", last4: "0831" } },
+    { name: "Payroll", kind: "payroll", date: "2026-10-30", amount: 100, account: { nickname: "Checking", last4: "0831" } }
+  ];
+  fx.budget.pay_periods = [{
+    moves: [{
+      from: "4845",
+      to: "0831",
+      amount: 29,
+      move_by: "10-16",
+      reason: "Education"
+    }]
+  }];
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-13T16:00:00Z" };
+  const html = ctx.bankPageHtml(fx, opts);
+  const hero = html.slice(html.indexOf('data-bank-hero="1"'), html.indexOf("data-bank-hero-figs"));
+  assert.match(hero, /data-bank-hero-acct="1" data-balance="50"/);
+  assert.match(hero, /data-bank-hero-acct="1" data-balance="7"/);
+  assert.match(hero, /Posted \$80\.00/);
+  assert.match(hero, /Posted \$40\.00/);
+  assert.match(hero, /includes \$33\.00 pending/);
+  assert.doesNotMatch(hero, /includes \$9\.00 pending|includes \$15\.00 pending/);
+  assert.equal(Number((html.match(/data-bank-hero-now="([^"]*)"/) || [])[1]), 57);
+  const next = html.slice(html.indexOf('class="bank-next"'), html.indexOf('data-bank-part="calendar"'));
+  const at = next.indexOf('data-bank-next-date="2026-10-15"');
+  assert.ok(at > 0);
+  const card = next.slice(next.lastIndexOf('<div class="card"', at), next.indexOf('data-bank-next-card="', at + 20));
+  assert.match(card, /Move \$29 from Debit ··4845 to Checking ··0831 by Fri Oct 16, for Education/);
+  assert.doesNotMatch(card, /\$3\.12/);
+  const plan = ctx.bankNextPayMovePlan(fx, opts).filter(function (row) { return row.date === "2026-10-15"; })[0];
+  assert.equal(plan.fromPrint, true);
+  assert.equal(plan.moves[0].amount, 29);
+  const current = ctx.bankPageHtml(fx, { tab: "current", planMonth: "2026-10", now: "2026-10-13T16:00:00Z" });
+  assert.match(current, /data-acct="Checking"[^>]*data-balance="50"/);
+  assert.match(current, /data-acct="Debit"[^>]*data-balance="7"/);
+  assert.match(current, /Posted \$80\.00/);
+  assert.match(current, /Posted \$40\.00/);
+
+  const projected = JSON.parse(JSON.stringify(fx));
+  delete projected.current.balance_after_pending;
+  const projHtml = ctx.bankPageHtml(projected, opts);
+  assert.match(projHtml, /data-bank-hero-acct="1" data-balance="48"/);
+  assert.match(projHtml, /data-bank-hero-acct="1" data-balance="3.12"/);
+  assert.match(projHtml, /Posted \$80\.00/);
+  assert.equal(Number((projHtml.match(/data-bank-hero-now="([^"]*)"/) || [])[1]), 51.12);
+
+  const postedOnly = JSON.parse(JSON.stringify(projected));
+  postedOnly.budget.account_funding.forEach(function (row) { delete row.projection_start_balance; });
+  const postedHtml = ctx.bankPageHtml(postedOnly, opts);
+  assert.match(postedHtml, /data-bank-hero-acct="1" data-balance="80"/);
+  assert.match(postedHtml, /data-bank-hero-acct="1" data-balance="40"/);
+  assert.doesNotMatch(postedHtml.slice(postedHtml.indexOf("data-bank-hero-accounts"), postedHtml.indexOf("</table>", postedHtml.indexOf("data-bank-hero-accounts"))), /Posted \$/);
+
+  const bare = JSON.parse(JSON.stringify(fx));
+  delete bare.budget.pay_periods[0].moves;
+  const calc = ctx.bankNextPayMovePlan(bare, opts).filter(function (row) { return row.date === "2026-10-15"; })[0];
+  assert.equal(calc.fromPrint, false);
+  const bareHtml = ctx.bankPageHtml(bare, opts);
+  const bareNext = bareHtml.slice(bareHtml.indexOf('class="bank-next"'), bareHtml.indexOf('data-bank-part="calendar"'));
+  assert.doesNotMatch(bareNext, /Move \$29 from Debit/);
+
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  assert.match(css, /\[data-bank-part="tiers"\],\n  \.bank-panel > \.bank-day-dialog \{\n    grid-column: 1 \/ -1;/);
+  assert.match(css, /\[data-bank-part="calendar"\] \{\n    grid-column: 1 \/ -1;/);
+});

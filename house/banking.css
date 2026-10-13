@@ -160,6 +160,17 @@ body.bank-page > header .clock {
   letter-spacing: 0.2px;
 }
 
+.bank-posted-line {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .bank-pie-block,
 .bank-tape-block,
 .bank-insight-block,
@@ -2046,12 +2057,12 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
   .bank-panel > [data-bank-part="next"],
   .bank-panel > [data-bank-part="mtd"],
   .bank-panel > [data-bank-part="more"],
+  .bank-panel > [data-bank-part="tiers"],
   .bank-panel > .bank-day-dialog {
     grid-column: 1 / -1;
   }
 
-  .bank-panel > [data-bank-part="funding"],
-  .bank-panel > [data-bank-part="tiers"] {
+  .bank-panel > [data-bank-part="funding"] {
     grid-column: 1;
   }
 
