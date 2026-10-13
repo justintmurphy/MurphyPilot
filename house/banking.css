@@ -1023,7 +1023,7 @@ span.bank-chip {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: 1px;
+  gap: 2px;
 }
 
 .bank-edit-meta {
@@ -1223,6 +1223,7 @@ ul.bank-tx-results[data-bank-cat-items] [data-bank-item-name] {
   white-space: normal;
   overflow-wrap: anywhere;
   font-weight: 600;
+  line-height: 1.25;
 }
 
 .bank-tx-line > b {
@@ -2035,6 +2036,7 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
     align-items: start;
   }
 
+  .bank-panel > [data-bank-part="fit"],
   .bank-panel > [data-bank-part="next"],
   .bank-panel > [data-bank-part="mtd"],
   .bank-panel > [data-bank-part="more"],
@@ -2183,6 +2185,27 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
 
 .bank-not-counted {
   opacity: 0.75;
+}
+
+.bank-budget-fit .card > p {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.bank-cut-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.bank-cut-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 4px 0;
+  border-top: 1px solid var(--rule);
 }
 
 @media (max-width: 390px) {

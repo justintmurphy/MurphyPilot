@@ -27,7 +27,7 @@ const LINES = {
   bad_category: "Check that category and try again.",
   bad_category_id: "That category cannot be saved. Try a simpler name.",
   bad_category_name: "Use a name up to 40 characters.",
-  bad_category_tier: "Pick Required, Needs, or Wants.",
+  bad_category_tier: "Pick Bills or Category.",
   bad_category_budget: "Enter a budget as a number, from zero on up.",
   duplicate_category_id: "That category is already on the list.",
   bad_merged_into: "Choose a category to merge into.",
@@ -264,7 +264,7 @@ test("a 400 keeps the edit and shows one plain line per code", async function ()
     assert.equal(el._bank.catError, LINES[code], code);
     assert.equal(el._bank.catError.indexOf(code), -1, code);
     assert.equal(el.innerHTML.indexOf(code), -1, code);
-    assert.match(el.innerHTML, /Tap a category|Check that category|cannot be saved|40 characters|Required, Needs|from zero|already on the list|merge into|fold into|for that rule|not on the list|too many rules/);
+    assert.match(el.innerHTML, /Tap a category|Check that category|cannot be saved|40 characters|Bills or Category|from zero|already on the list|merge into|fold into|for that rule|not on the list|too many rules/);
     const saved = el._bank.data.tier_doc.categories.filter(function (row) { return row.id === "groceries"; })[0];
     assert.equal(saved.budget, 12.34, code);
     assert.equal(el._bank.data.tier_doc.categories.length, SLUGS.length, code);
@@ -371,10 +371,11 @@ test("category rows sum to their tier header", function () {
   });
   const html = ctx.bankPageHtml(fx, { tab: "budget", now: "2026-10-16T12:00:00-04:00", groupOpen: "needs" });
   const summary = html.slice(html.indexOf("bank-tier-summary"), html.indexOf('data-bank-group-pop'));
-  assert.equal((summary.match(/data-bank-group="/g) || []).length, 3);
-  const needs = tierSlice(summary, "needs");
-  assert.match(needs, /data-spent="24.68"/);
-  assert.match(needs, /data-plan="24.68"/);
+  assert.equal((summary.match(/data-bank-group="/g) || []).length, 0);
+  assert.match(summary, /<h3>Bills<\/h3>/);
+  assert.match(summary, /data-bank-bills="1"/);
+  assert.match(summary, /data-bank-cat-row="groceries"[^>]*data-budget="12.34"/);
+  assert.match(summary, /data-bank-cat-row="gas-fuel"[^>]*data-budget="12.34"/);
   const pop = html.slice(html.indexOf('data-bank-group-pop="needs"'));
   assert.equal(sumAttr(pop, "data-spent"), 24.68);
   assert.equal(sumAttr(pop, "data-budget"), 24.68);
@@ -465,8 +466,8 @@ test("the category pop-up uses desk totals for this month and the two before it"
   assert.match(html, /data-cat-fig="left"><span>Left<\/span> <b>\$12\.34<\/b>/);
   assert.match(html, /data-cat-fig="pct"><span>Used<\/span> <b>50%<\/b>/);
   assert.match(html, /class="mix-bar"/);
-  assert.match(html, /data-cat-fig="2026-09"><td>September 2026<\/td><td class="num">\$12\.34<\/td>/);
-  assert.match(html, /data-cat-fig="2026-08"><td>August 2026<\/td><td class="num">\$12\.34<\/td>/);
+  assert.match(html, /data-cat-fig="2026-09"><td>September 2026<\/td><td class="num">\$0\.00<\/td>/);
+  assert.match(html, /data-cat-fig="2026-08"><td>August 2026<\/td><td class="num">\$0\.00<\/td>/);
   assert.match(html, /data-bank-cat-item="1"/);
   assert.match(html, /data-last4="\u00b7\u00b70000"/);
   assert.match(html, /class="book-chip"[^>]*data-bank-cat-close/);
@@ -493,7 +494,8 @@ test("past months use a frozen category budget when one was saved", function () 
   assert.doesNotMatch(row[0], /mix-bar/);
   const pop = actual.slice(actual.indexOf('data-bank-group-pop="needs"'));
   assert.match(pop, /Groceries/);
-  assert.match(pop, /data-spent="12.34"/);
+  assert.match(pop, /data-bank-cat-row="groceries"[^>]*data-spent="0"/);
+  assert.doesNotMatch(pop, /data-spent="12.34"/);
   assert.doesNotMatch(pop, /No saved budget for this month/);
 });
 
@@ -555,7 +557,8 @@ test("a signed-out 401 json response locks the desk and leaves saved tiers alone
   assert.equal(root._bank.data._tiersGetFailed, false);
   assert.equal(root._bank.data.tier_doc.categories.map(function (row) { return row.id; }).join(","), before);
   assert.doesNotMatch(root.innerHTML, /unauthorized/);
-  assert.match(root.innerHTML, /data-bank-group="needs"/);
+  assert.match(root.innerHTML, /data-bank-bills="1"/);
+  assert.match(root.innerHTML, /data-bank-cat-row="groceries"/);
 });
 
 test("two taps from a group reach that category's items", function () {
@@ -565,8 +568,9 @@ test("two taps from a group reach that category's items", function () {
   const opts = { tab: "budget", now: "2026-10-16T12:00:00-04:00" };
   const summary = ctx.bankPageHtml(fx, opts);
   const tier = summary.slice(summary.indexOf("bank-tier-summary"), summary.indexOf('data-bank-part="more"'));
-  assert.equal((tier.match(/data-bank-group="/g) || []).length, 3);
-  assert.doesNotMatch(tier, /data-bank-cat-row=/);
+  assert.equal((tier.match(/data-bank-group="/g) || []).length, 0);
+  assert.match(tier, /data-bank-bills="1"/);
+  assert.match(tier, /data-bank-cat-row="groceries"/);
   assert.doesNotMatch(summary, /data-bank-cat-item=/);
   const group = ctx.bankPageHtml(fx, Object.assign({ groupOpen: "needs" }, opts));
   assert.match(group, /data-bank-group-pop="needs"/);
@@ -641,9 +645,10 @@ test("group plans equal the printed category sums", function () {
   };
   fx.budget.tiers_mtd = { by_category: { groceries: { spent: 12.34 }, "gas-fuel": { spent: 0 } } };
   const html = ctx.bankPageHtml(fx, { tab: "budget", now: "2026-10-16T12:00:00-04:00", groupOpen: "needs" });
-  const needs = tierSlice(html.slice(0, html.indexOf("data-bank-group-pop")), "needs");
-  assert.match(needs, /data-plan="37.02"/);
-  assert.match(needs, /data-spent="12.34"/);
+  const summary = html.slice(html.indexOf("bank-tier-summary"), html.indexOf("data-bank-group-pop"));
+  assert.match(summary, /data-bank-cat-row="groceries"[^>]*data-spent="12.34"[^>]*data-budget="24.68"/);
+  assert.match(summary, /data-bank-cat-row="gas-fuel"[^>]*data-spent="0"[^>]*data-budget="12.34"/);
+  assert.doesNotMatch(summary, /data-bank-group="/);
   const pop = html.slice(html.indexOf('data-bank-group-pop="needs"'));
   assert.equal(sumAttr(pop, "data-budget"), 37.02);
   assert.equal(sumAttr(pop, "data-spent"), 12.34);
@@ -986,7 +991,7 @@ test("not-purchase rows open a category sheet and stay out of totals until an ov
   assert.equal(ctx.bankTxSearchLocked(snap, snap.current.edits_tx[2]), false);
   assert.equal(ctx.bankTxDepositLocked({ flow: "inflow", kind: "refund" }), false);
   assert.equal(ctx.bankTxDepositLocked({ flow: "inflow", desc: "Payroll" }), true);
-  assert.equal(ctx.bankTxSearchLocked(snap, snap.current.edits_tx[6]), true);
+  assert.equal(ctx.bankTxSearchLocked(snap, snap.current.edits_tx[6]), false);
 
   const html = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00" });
   const list = html.slice(html.indexOf("data-bank-find-results"), html.indexOf("</section>", html.indexOf("data-bank-find-results")));
@@ -999,9 +1004,9 @@ test("not-purchase rows open a category sheet and stay out of totals until an ov
   assert.match(payroll, /Not a purchase/);
   assert.doesNotMatch(payroll, /data-bank-tx-open/);
   const closed = rowHtml(list, "Rent");
-  assert.match(closed, /bank-tx-quiet/);
-  assert.match(closed, /Closed month/);
-  assert.doesNotMatch(closed, /data-bank-tx-open/);
+  assert.doesNotMatch(closed, /bank-tx-quiet/);
+  assert.doesNotMatch(closed, /Closed month/);
+  assert.match(closed, /data-bank-tx-open=/);
   const refund = rowHtml(list, "Corner Market", 2);
   assert.match(refund, /data-bank-tx-open=/);
   assert.match(refund, /Not a purchase/);
@@ -1014,7 +1019,7 @@ test("not-purchase rows open a category sheet and stay out of totals until an ov
   assert.match(sheet, /class="book-chip on"[^>]*data-bank-tx-scope="one"|data-bank-tx-scope="one"[^>]*class="book-chip on"/);
   assert.match(sheet, /Just this one/);
   assert.equal(ctx.bankTxSheetHtml(snap, snap.current.edits_tx[1], {}), "");
-  assert.equal(ctx.bankTxSheetHtml(snap, snap.current.edits_tx[6], {}), "");
+  assert.match(ctx.bankTxSheetHtml(snap, snap.current.edits_tx[6], {}), /Pick a category for this purchase/);
   const grocerySheet = ctx.bankTxSheetHtml(snap, snap.current.edits_tx[0], {});
   assert.match(grocerySheet, /Pick a category for this purchase/);
   assert.doesNotMatch(grocerySheet, /value="not-purchase"/);
@@ -1029,10 +1034,9 @@ test("not-purchase rows open a category sheet and stay out of totals until an ov
   assert.equal(figs.groceries.spent, 14.34);
   assert.equal(figs["car-insurance-loans"].spent, 6);
   const budget = ctx.bankPageHtml(snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00", groupOpen: "needs" });
-  assert.match(budget, /data-bank-group="needs"[^>]*data-spent="14.34"/);
   assert.match(budget, /data-bank-cat-row="groceries"[^>]*data-spent="14.34"/);
   const required = ctx.bankPageHtml(snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00", groupOpen: "required" });
-  assert.match(required, /data-bank-group="required"[^>]*data-spent="6"/);
+  assert.match(required, /data-bank-cat-row="car-insurance-loans"[^>]*data-spent="6"/);
   const payAfter = ctx.bankTxResultsHtml(snap, { txQuery: "Payroll" });
   const payRow = rowHtml(payAfter, "Payroll");
   assert.match(payRow, /bank-tx-quiet/);
@@ -1056,7 +1060,10 @@ test("not-purchase rows open a category sheet and stay out of totals until an ov
   snap.current.edits_tx = [snap.current.edits_tx[3]];
   assert.equal(ctx.bankCategoryFigures(snap, "2026-10").groceries.spent, 2);
   snap.current.edits_tx[0].date = "2026-09-05";
+  assert.equal(ctx.bankCategoryFigures(snap, "2026-09").groceries.spent, 0);
+  snap.budget.actuals_by_month = { "2026-09": { categories_spent: { groceries: 2 } } };
   assert.equal(ctx.bankCategoryFigures(snap, "2026-09").groceries.spent, 2);
+  delete snap.budget.actuals_by_month;
   delete snap.tier_doc.category_tx[HASH];
   snap.current.edits_tx[0].date = "2026-10-05";
   assert.equal(ctx.bankCategoryFigures(snap, "2026-10").groceries.spent, 0);
