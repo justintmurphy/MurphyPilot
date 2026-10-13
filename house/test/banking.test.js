@@ -895,8 +895,8 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
   assert.match(investments, /\/house\/house\.css\?v=20261008ey/);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fj/);
-  assert.match(page, /\/house\/banking\.css\?v=20261013fj/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fl/);
+  assert.match(page, /\/house\/banking\.css\?v=20261013fl/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -4144,7 +4144,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.doesNotMatch(page, /Duquesne|Columbia Gas|T-Mobile|M&T|nfcu/i);
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
-  assert.match(page, /banking\.js\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fl/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
@@ -4307,8 +4307,8 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20261013fj/);
-  assert.match(page, /banking\.css\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fl/);
+  assert.match(page, /banking\.css\?v=20261013fl/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4462,8 +4462,8 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fj/);
-  assert.match(page, /\/house\/banking\.css\?v=20261013fj/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fl/);
+  assert.match(page, /\/house\/banking\.css\?v=20261013fl/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4655,8 +4655,8 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fj/);
-  assert.match(page, /banking\.css\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fl/);
+  assert.match(page, /banking\.css\?v=20261013fl/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4947,8 +4947,8 @@ test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fj/);
-  assert.match(page, /banking\.css\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fl/);
+  assert.match(page, /banking\.css\?v=20261013fl/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -5034,8 +5034,8 @@ test("tip dy plan blocks follow the selected month", function () {
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fj/);
-  assert.match(page, /banking\.css\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fl/);
+  assert.match(page, /banking\.css\?v=20261013fl/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
 
@@ -5976,8 +5976,8 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 
 test("banking assets use the ec cache bust", function () {
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fj/);
-  assert.match(page, /\/house\/banking\.css\?v=20261013fj/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261013fl/);
+  assert.match(page, /\/house\/banking\.css\?v=20261013fl/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /ticker\.js\?v=20261007ei/);
   assert.match(page, /ticker\.css\?v=20261007ei/);
@@ -7238,8 +7238,8 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.doesNotMatch(html, /<th class="num">Month-end<\/th>/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261013fj/);
-  assert.match(page, /banking\.css\?v=20261013fj/);
+  assert.match(page, /banking\.js\?v=20261013fl/);
+  assert.match(page, /banking\.css\?v=20261013fl/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);
   assert.doesNotMatch(css, /--mp-in:\s*#|--mp-out:\s*#|--bank-required:/);
@@ -9874,4 +9874,216 @@ test("internal field notes stay off rendered pages", function () {
   assert.equal((income.match(/<p class="hint">/g) || []).length, 1);
   assert.match(income, /A blank amount or day stays blank/);
   assert.match(income, /Days 15 and the last day of the month/);
+});
+
+test("a Bills tile opens three months of matches and the paid check stays closed", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const cats = ctx.bankSpendStarters().map(function (row) {
+    const copy = Object.assign({}, row);
+    if (copy.id === "groceries") copy.budget = 30;
+    if (copy.id === "gas-fuel") copy.budget = 20;
+    return copy;
+  });
+  fx.tier_doc = { rules: {}, plans: {}, categories: cats, category_rules: {}, category_tx: {} };
+  fx.budget.bills = [{
+    name: "Rent",
+    bill_id: "rent",
+    amount: 40,
+    typical_day: 12,
+    cadence: "monthly",
+    category: "Rent/Mortgage",
+    bank_match: {
+      descriptors: ["RENT PAY"],
+      tx_keys: ["rent-key"],
+      recent_hits: [{ date: "2026-09-12", amount: 40, description: "House draft", tx_key: "rent-sep" }]
+    }
+  }];
+  fx.current.recent_tx = [];
+  fx.current.history_tx = [];
+  fx.current.edits_tx = [
+    { date: "2026-10-12", desc: "RENT PAY October", amount: 40, flow: "outflow", category: "Rent", tx_key: "rent-oct" },
+    { date: "2026-10-02", desc: "Something else", amount: 9, flow: "outflow", category: "Other", tx_key: "rent-key" },
+    { date: "2026-09-12", desc: "House draft", amount: 40, flow: "outflow", category: "Other", tx_key: "rent-sep" },
+    { date: "2026-08-12", desc: "Rent", amount: 40, flow: "outflow", category: "Rent", tx_key: "rent-aug" },
+    { date: "2026-07-12", desc: "RENT PAY old", amount: 40, flow: "outflow", category: "Rent", tx_key: "rent-jul" },
+    { date: "2026-10-05", desc: "Corner Market", amount: 12, flow: "outflow", category: "Groceries", tx_key: "groc-oct" },
+    { date: "2026-09-18", desc: "Weekly Market", amount: 8, flow: "outflow", category: "Groceries", tx_key: "groc-sep" },
+    { date: "2026-08-21", desc: "Neighborhood Grocer", amount: 6, flow: "outflow", category: "Groceries", tx_key: "groc-aug" },
+    { date: "2026-10-04", desc: "City Fuel", amount: 5, flow: "outflow", category: "Gas", tx_key: "fuel-oct" }
+  ];
+  const now = "2026-10-16T16:00:00-04:00";
+  const page = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: now });
+  const cardAt = page.indexOf('data-bank-plan-card="1"');
+  const card = page.slice(cardAt, page.indexOf('data-bank-part="more"', cardAt));
+  assert.match(card, /data-bank-tile="bill"[^>]*data-bank-tile-key="rent"/);
+  assert.match(card, /data-bank-tile="cat"[^>]*data-bank-tile-key="groceries"/);
+  assert.match(card, /aria-haspopup="dialog"/);
+  assert.match(card, /class="bank-tile-aff"/);
+  const nextAt = page.indexOf('class="bank-next"');
+  assert.ok(nextAt >= 0);
+  const next = page.slice(nextAt, page.indexOf('data-bank-part="calendar"', nextAt));
+  assert.match(next, /bank-bill-check|data-bank-paid-month/);
+  assert.doesNotMatch(next, /data-bank-tile/);
+
+  const rent = ctx.bankPageHtml(fx, {
+    tab: "budget",
+    planMonth: "2026-10",
+    now: now,
+    detailOpen: { kind: "bill", key: "rent" },
+    detailMonth: "2026-10"
+  });
+  const pop = rent.slice(rent.indexOf('data-bank-detail-pop="1"'));
+  assert.match(pop, /data-bank-detail-kind="bill"/);
+  assert.match(pop, /data-bank-detail-key="rent"/);
+  assert.match(pop, /aria-label="Close"/);
+  assert.match(pop, /Next due <b>Nov 12, 2026<\/b>/);
+  assert.match(pop, /data-bank-detail-expected="40"/);
+  assert.match(pop, /data-bank-detail-spent="49"/);
+  assert.match(pop, /data-bank-detail-plan="40"/);
+  assert.match(pop, /data-bank-detail-left="-9"/);
+  assert.match(pop, /data-bank-detail-fig="left"[\s\S]*Over[\s\S]*\$9\.00/);
+  assert.match(pop, /data-bank-detail-history="3"/);
+  assert.match(pop, /Last 3 months/);
+  assert.match(pop, /data-bank-detail-chart="1"/);
+  const chart = pop.slice(pop.indexOf('data-bank-detail-chart'), pop.indexOf("data-bank-detail-month"));
+  assert.ok(chart.indexOf('data-bank-detail-bar="2026-08"') < chart.indexOf('data-bank-detail-bar="2026-09"'));
+  assert.ok(chart.indexOf('data-bank-detail-bar="2026-09"') < chart.indexOf('data-bank-detail-bar="2026-10"'));
+  assert.ok(pop.indexOf('data-bank-detail-month="2026-10"') < pop.indexOf('data-bank-detail-month="2026-09"'));
+  assert.ok(pop.indexOf('data-bank-detail-month="2026-09"') < pop.indexOf('data-bank-detail-month="2026-08"'));
+  assert.match(pop, /data-bank-detail-month="2026-10"[^>]*data-total="49"/);
+  assert.match(pop, /data-bank-detail-month="2026-09"[^>]*data-total="40"/);
+  assert.match(pop, /data-bank-detail-month="2026-08"[^>]*data-total="40"/);
+  const oct = pop.slice(pop.indexOf('data-bank-detail-month="2026-10"'), pop.indexOf('data-bank-detail-month="2026-09"'));
+  assert.ok(oct.indexOf('data-date="2026-10-12"') < oct.indexOf('data-date="2026-10-02"'));
+  assert.match(oct, /RENT PAY October/);
+  assert.match(oct, /Something else/);
+  assert.match(pop, /House draft/);
+  assert.doesNotMatch(pop, /2026-07-12|RENT PAY old|Corner Market|City Fuel/);
+  assert.doesNotMatch(pop, /bank_match|descriptors|tx_key|edits_tx/);
+
+  const groc = ctx.bankPageHtml(fx, {
+    tab: "budget",
+    planMonth: "2026-10",
+    now: now,
+    detailOpen: { kind: "cat", key: "groceries" },
+    detailMonth: "2026-10"
+  });
+  const gpop = groc.slice(groc.indexOf('data-bank-detail-pop="1"'));
+  assert.match(gpop, /data-bank-detail-kind="cat"/);
+  assert.match(gpop, /Remaining this month/);
+  assert.match(gpop, /data-bank-detail-remain="18"/);
+  assert.match(gpop, /data-bank-detail-spent="12"/);
+  assert.match(gpop, /data-bank-detail-plan="30"/);
+  assert.match(gpop, /data-bank-detail-fig="left"[\s\S]*Left[\s\S]*\$18\.00/);
+  assert.match(gpop, /Corner Market/);
+  assert.match(gpop, /Weekly Market/);
+  assert.match(gpop, /Neighborhood Grocer/);
+  assert.doesNotMatch(gpop, /City Fuel|RENT PAY|Something else/);
+  assert.doesNotMatch(gpop, /data-bank-cat-budget/);
+
+  const gas = ctx.bankPageHtml(fx, {
+    tab: "budget",
+    planMonth: "2026-10",
+    now: now,
+    detailOpen: { kind: "cat", key: "gas-fuel" },
+    detailMonth: "2026-10"
+  });
+  const gasPop = gas.slice(gas.indexOf('data-bank-detail-pop="1"'));
+  assert.match(gasPop, /City Fuel/);
+  assert.match(gasPop, /data-bank-detail-empty="2026-09"/);
+  assert.match(gasPop, /data-bank-detail-empty="2026-08"/);
+  assert.match(gasPop, /No transactions this month/);
+  assert.match(gasPop, /data-bank-detail-history="3"/);
+
+  const short = JSON.parse(JSON.stringify(fx));
+  short.current.edits_tx = [
+    { date: "2026-10-12", desc: "RENT PAY October", amount: 40, flow: "outflow", category: "Rent", tx_key: "rent-oct" }
+  ];
+  short.history.months = [{ month: "2026-10", closed: false, categories: [] }];
+  const shortHtml = ctx.bankPageHtml(short, {
+    tab: "budget",
+    planMonth: "2026-10",
+    now: now,
+    detailOpen: { kind: "bill", key: "rent" },
+    detailMonth: "2026-10"
+  });
+  const shortPop = shortHtml.slice(shortHtml.indexOf('data-bank-detail-pop="1"'));
+  assert.match(shortPop, /data-bank-detail-history="1"/);
+  assert.match(shortPop, /This print has 1 month of history/);
+  assert.match(shortPop, /RENT PAY October/);
+  assert.doesNotMatch(shortPop, /data-bank-detail-bar="2026-08"|data-bank-detail-month="2026-08"/);
+
+  const el = mount(ctx, fx, { now: now });
+  function click(node) {
+    return el.listeners.click({ target: node, preventDefault: function () {} });
+  }
+  await click({
+    getAttribute: function (name) {
+      if (name === "data-bank-tile") return "bill";
+      if (name === "data-bank-tile-key") return "rent";
+      return null;
+    },
+    closest: function (sel) {
+      if (sel === "[data-bank-tile]") return this;
+      return null;
+    }
+  });
+  assert.match(el.innerHTML, /data-bank-detail-pop="1"/);
+  assert.match(el.innerHTML, /data-bank-detail-kind="bill"/);
+  assert.doesNotMatch(el.innerHTML, /data-bank-cat-budget/);
+  await click({
+    getAttribute: function (name) { return name === "data-bank-detail-close" ? "1" : null; },
+    closest: function (sel) { return sel === "[data-bank-detail-close]" ? this : null; }
+  });
+  assert.doesNotMatch(el.innerHTML, /data-bank-detail-pop/);
+  await click({
+    getAttribute: function (name) {
+      if (name === "data-bank-tile") return "cat";
+      if (name === "data-bank-tile-key") return "groceries";
+      return null;
+    },
+    closest: function (sel) { return sel === "[data-bank-tile]" ? this : null; }
+  });
+  assert.match(el.innerHTML, /data-bank-detail-kind="cat"/);
+  assert.match(el.innerHTML, /Corner Market/);
+  el.listeners.keydown({
+    key: "Escape",
+    preventDefault: function () {},
+    target: { closest: function () { return null; } }
+  });
+  assert.doesNotMatch(el.innerHTML, /data-bank-detail-pop/);
+  await click({
+    getAttribute: function (name) {
+      if (name === "data-bank-tile") return "bill";
+      if (name === "data-bank-tile-key") return "rent";
+      return null;
+    },
+    closest: function (sel) { return sel === "[data-bank-tile]" ? this : null; }
+  });
+  await click({
+    getAttribute: function (name) { return name === "data-bank-detail-pop" ? "1" : null; },
+    closest: function () { return null; }
+  });
+  assert.doesNotMatch(el.innerHTML, /data-bank-detail-pop/);
+
+  const paid = {
+    getAttribute: function (name) { return name === "data-bank-paid-month" ? "rent" : null; },
+    closest: function (sel) {
+      if (sel === "[data-bank-paid-month]") return paid;
+      if (String(sel).indexOf("data-bank-paid-month") >= 0) return paid;
+      if (sel === "[data-bank-tile]") return {
+        getAttribute: function (name) {
+          if (name === "data-bank-tile") return "bill";
+          if (name === "data-bank-tile-key") return "rent";
+          return null;
+        }
+      };
+      return null;
+    }
+  };
+  try {
+    await click(paid);
+  } catch (err) {}
+  assert.doesNotMatch(el.innerHTML, /data-bank-detail-pop/);
 });

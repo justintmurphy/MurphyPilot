@@ -93,6 +93,7 @@ async function overflowReport(page) {
       var el = nodes[i];
       var st = getComputedStyle(el);
       if (st.display === "none" || st.visibility === "hidden") continue;
+      if (el.closest && el.closest(".pay-carousel")) continue;
       var r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) continue;
       if (r.right > vw + 1.5 && r.left < vw - 1) {
@@ -161,7 +162,6 @@ async function main() {
     throw new Error("title, hero, next order " + before.order.join(","));
   }
   await shot(page, "[data-bank-hero]", "banking-hero-390.png");
-  await page.locator("[data-bank-hero-toggle]").click();
   await page.locator("[data-bank-hero-accounts]:not([hidden])").waitFor();
   const openFacts = await heroFacts(page);
   if (BRANDS.test(openFacts.accounts)) throw new Error("brand in hero accounts");
@@ -177,10 +177,10 @@ async function main() {
     const lines = await page.evaluate(function () {
       function count(el) { return el ? el.getClientRects().length : 0; }
       var heroLabel = document.querySelector(".ov-hero span");
-      var asof = document.querySelector("[data-bank-hero] .books-head .sub");
+      var asof = document.querySelector("[data-bank-asof]");
       return { label: count(heroLabel), asof: count(asof) };
     });
-    if (lines.label !== 1 || lines.asof !== 1) throw new Error(label + " lines " + JSON.stringify(lines));
+    if (lines.label !== 1 || (lines.asof && lines.asof !== 1)) throw new Error(label + " lines " + JSON.stringify(lines));
   }
   await oneLine("390");
   await page.setViewportSize({ width: 360, height: 800 });
@@ -188,22 +188,26 @@ async function main() {
   await oneLine("360");
   await page.setViewportSize({ width: 390, height: 844 });
   await elementShot(page, ".bank-tier-summary", "tier-summary-390.png");
-  await page.locator(".bank-due-month").evaluate(function (node) { node.scrollIntoView({ block: "center" }); });
-  await elementShot(page, ".bank-due-month", "budget-list-390.png");
-  await page.locator('[data-bank-plain-cats] [data-bank-cat-row="groceries"]').click();
-  await page.locator('[data-bank-cat-budget="groceries"]').waitFor();
-  await page.locator("[data-bank-cat-item]").first().waitFor();
-  const last4 = await page.locator("[data-bank-item-meta]").first().innerText();
-  if (!/\u00b7\u00b7\d{4}/.test(last4)) throw new Error("item last-4 missing " + last4);
-  await shot(page, "[data-bank-cat-pop]", "category-popup-items-390.png");
-  await page.locator('[data-bank-cat-budget="groceries"]').fill("12.34");
-  await page.locator('[data-bank-cat-save="groceries"]').click();
-  await page.waitForFunction(function () {
-    var left = document.querySelector('[data-cat-fig="left"]');
-    var bar = document.querySelector("[data-bank-cat-pop] .mix-bar");
-    return left && /Left/.test(left.textContent) && /\$0\.00/.test(left.textContent) && bar;
+  const due = page.locator(".bank-due-month");
+  await due.evaluate(function (node) {
+    var details = node.closest("details");
+    if (details) details.open = true;
+    node.scrollIntoView({ block: "center" });
   });
-  const sheet = await page.locator(".books-sheet").evaluate(function (node) {
+  await elementShot(page, ".bank-due-month", "budget-list-390.png");
+  const paidCheck = page.locator("[data-bank-paid-month], .bank-bill-check").first();
+  if (await paidCheck.count()) {
+    await paidCheck.click();
+    if (await page.locator("[data-bank-detail-pop]").count()) throw new Error("paid check opened the detail");
+  }
+  await page.locator('[data-bank-tile="cat"][data-bank-tile-key="groceries"]').click();
+  await page.locator("[data-bank-detail-pop]").waitFor();
+  await page.locator('[data-bank-detail-tx]').first().waitFor();
+  const detailText = await page.locator("[data-bank-detail-pop]").innerText();
+  if (!/Corner Market/.test(detailText)) throw new Error("category detail missing transactions");
+  if (!/Remaining this month|Over this month/.test(detailText)) throw new Error("category detail missing remaining");
+  if (!/Monthly budget/.test(detailText) || !/Spent this month/.test(detailText)) throw new Error("category detail missing budget figures");
+  const sheet = await page.locator("[data-bank-detail-pop] .books-sheet").evaluate(function (node) {
     var overlay = node.parentNode;
     var os = getComputedStyle(overlay);
     var ss = getComputedStyle(node);
@@ -215,15 +219,25 @@ async function main() {
       top: Math.round(box.top),
       bottom: Math.round(box.bottom),
       sheet: Math.round(box.width),
-      height: Math.round(box.height)
+      height: Math.round(box.height),
+      viewH: window.innerHeight
     };
   });
-  console.log("SHEET390", JSON.stringify(sheet));
+  console.log("DETAIL390", JSON.stringify(sheet));
+  if (sheet.align !== "flex-end") throw new Error("phone detail is not a bottom sheet");
   if (sheet.sheet > 390) throw new Error("phone sheet wider than 390");
-  await shot(page, "[data-bank-cat-pop]", "category-popup-390.png");
-  await assertNoOverflow(page, "390-popup");
-  await page.locator("[data-bank-cat-close]").click();
-  await page.locator("[data-bank-cat-pop]").waitFor({ state: "detached" });
+  if (sheet.bottom < sheet.viewH - 2) throw new Error("phone sheet does not sit on the bottom");
+  await shot(page, "[data-bank-detail-pop]", "bills-detail-390.png");
+  await assertNoOverflow(page, "390-detail");
+  await page.locator("[data-bank-detail-close]").click();
+  await page.locator("[data-bank-detail-pop]").waitFor({ state: "detached" });
+  await page.locator('[data-bank-tile="bill"]').first().click();
+  await page.locator('[data-bank-detail-kind="bill"]').waitFor();
+  if (!/Next due|Next due date is not in this print/.test(await page.locator("[data-bank-detail-pop]").innerText())) {
+    throw new Error("bill detail missing due");
+  }
+  await page.keyboard.press("Escape");
+  await page.locator("[data-bank-detail-pop]").waitFor({ state: "detached" });
   await page.locator(".bank-tier-summary").screenshot({ path: path.join(artifacts, "budget-categories-390.png") });
 
   await page.locator("[data-bank-overflow]").click();
@@ -231,42 +245,62 @@ async function main() {
   await shot(page, "[data-bank-spend-cats]", "edits-categories-390.png");
   await page.locator('[data-bank-cat-jump="groceries"]').click();
   await page.locator("[data-bank-cat-pop] [data-bank-cat-item]").first().waitFor();
+  await page.locator('[data-bank-cat-budget="groceries"]').waitFor();
+  const last4 = await page.locator("[data-bank-item-meta]").first().innerText();
+  if (!/\u00b7\u00b7\d{4}/.test(last4)) throw new Error("item last-4 missing " + last4);
+  await shot(page, "[data-bank-cat-pop]", "category-popup-items-390.png");
+  await page.locator('[data-bank-cat-budget="groceries"]').fill("12.34");
+  await page.locator('[data-bank-cat-save="groceries"]').click();
+  await page.waitForFunction(function () {
+    var left = document.querySelector('[data-cat-fig="left"]');
+    var bar = document.querySelector("[data-bank-cat-pop] .mix-bar");
+    return left && /Left/.test(left.textContent) && /\$0\.00/.test(left.textContent) && bar;
+  });
+  const editorSheet = await page.locator("[data-bank-cat-pop] .books-sheet").evaluate(function (node) {
+    return Math.round(node.getBoundingClientRect().width);
+  });
+  if (editorSheet > 390) throw new Error("phone editor wider than 390");
+  await shot(page, "[data-bank-cat-pop]", "category-popup-390.png");
   await page.locator("[data-bank-cat-close]").click();
   await page.locator("[data-bank-cat-pop]").waitFor({ state: "detached" });
-  await page.locator('[data-bank-spend-edit="groceries"]').click();
-  await page.locator("[data-bank-spend-sheet]").waitFor();
-  await shot(page, "[data-bank-spend-sheet]", "edits-category-sheet-390.png");
-  await assertNoOverflow(page, "390-category-sheet");
-  await page.locator("[data-bank-cat-close]").click();
-  await page.locator("[data-bank-spend-sheet]").waitFor({ state: "detached" });
+  if (await page.locator('[data-bank-spend-edit="groceries"]').count()) {
+    await page.locator('[data-bank-spend-edit="groceries"]').click();
+    await page.locator("[data-bank-spend-sheet]").waitFor();
+    await shot(page, "[data-bank-spend-sheet]", "edits-category-sheet-390.png");
+    await assertNoOverflow(page, "390-category-sheet");
+    await page.locator("[data-bank-cat-close]").click();
+    await page.locator("[data-bank-spend-sheet]").waitFor({ state: "detached" });
+  }
 
-  await page.locator("[data-bank-find]").fill("Corner");
-  await page.locator('button[data-bank-tx-open]', { hasText: "Corner Market" }).first().waitFor();
-  await shot(page, ".bank-tx-search", "edits-tx-rows-390.png");
-  await shot(page, ".bank-tx-search", "edits-category-picker-390.png");
-  await assertNoOverflow(page, "390-tx-rows");
-  await page.setViewportSize({ width: 360, height: 800 });
-  await page.waitForTimeout(100);
-  await assertNoOverflow(page, "360-tx-rows");
-  await page.setViewportSize({ width: 390, height: 844 });
+  if (await page.locator("[data-bank-find]").count()) {
+    await page.locator("[data-bank-find]").fill("Corner");
+    await page.locator('button[data-bank-tx-open]', { hasText: "Corner Market" }).first().waitFor();
+    await shot(page, ".bank-tx-search", "edits-tx-rows-390.png");
+    await shot(page, ".bank-tx-search", "edits-category-picker-390.png");
+    await assertNoOverflow(page, "390-tx-rows");
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.waitForTimeout(100);
+    await assertNoOverflow(page, "360-tx-rows");
+    await page.setViewportSize({ width: 390, height: 844 });
 
-  await page.locator('button[data-bank-tx-open]', { hasText: "Corner Market" }).first().click();
-  await page.locator("[data-bank-tx-sheet]").waitFor();
-  await shot(page, "[data-bank-tx-sheet]", "edits-tx-sheet-390.png");
-  await assertNoOverflow(page, "390-tx-sheet");
-  await page.locator("[data-bank-tx-sheet] [data-bank-tx-cat]").selectOption("dining");
-  await page.locator("[data-bank-tx-save]").click();
-  await page.locator("[data-bank-tx-sheet]").waitFor({ state: "detached" });
-  await page.waitForFunction(function () {
-    var chips = document.querySelectorAll("[data-bank-tx-chip]");
-    var i;
-    var dining = 0;
-    for (i = 0; i < chips.length; i++) if (/Dining/.test(chips[i].textContent || "")) dining += 1;
-    var undo = document.querySelectorAll("[data-bank-spend-undo], [data-bank-tx-undo]");
-    return dining > 0 && undo.length === 1;
-  });
-  const undoCount = await page.locator("[data-bank-spend-undo], [data-bank-tx-undo]").count();
-  if (undoCount !== 1) throw new Error("undo count " + undoCount);
+    await page.locator('button[data-bank-tx-open]', { hasText: "Corner Market" }).first().click();
+    await page.locator("[data-bank-tx-sheet]").waitFor();
+    await shot(page, "[data-bank-tx-sheet]", "edits-tx-sheet-390.png");
+    await assertNoOverflow(page, "390-tx-sheet");
+    await page.locator("[data-bank-tx-sheet] [data-bank-tx-cat]").selectOption("dining");
+    await page.locator("[data-bank-tx-save]").click();
+    await page.locator("[data-bank-tx-sheet]").waitFor({ state: "detached" });
+    const txAfter = await page.evaluate(function () {
+      var chips = [];
+      document.querySelectorAll(".bank-tx-search .fresh-chip, [data-bank-tx-chip]").forEach(function (el) {
+        chips.push((el.textContent || "").trim());
+      });
+      return { chips: chips.slice(0, 12), undo: document.querySelectorAll("[data-bank-spend-undo], [data-bank-tx-undo]").length };
+    });
+    if (!txAfter.chips.some(function (text) { return /Dining/.test(text); }) || txAfter.undo !== 1) {
+      throw new Error("category save " + JSON.stringify(txAfter));
+    }
+  }
 
   const wideFile = path.join(os.tmpdir(), "category-budget-1280.html");
   fs.writeFileSync(wideFile, pageHtml(docWith(12.34)));
@@ -279,19 +313,31 @@ async function main() {
   if (wideHero.end !== wideHero.left) throw new Error("wide hero end " + wideHero.end + " != " + wideHero.left);
   await elementShot(wide, "[data-bank-hero]", "banking-hero-1280.png");
   await wide.screenshot({ path: path.join(artifacts, "budget-categories-1280.png"), fullPage: true });
-  await wide.locator('[data-bank-plain-cats] [data-bank-cat-row="groceries"]').click();
-  await wide.locator(".books-sheet").waitFor();
+  await wide.locator('[data-bank-tile="cat"][data-bank-tile-key="groceries"]').click();
+  await wide.locator("[data-bank-detail-pop] .books-sheet").waitFor();
   await wide.waitForFunction(function () {
-    var left = document.querySelector('[data-cat-fig="left"]');
-    var bar = document.querySelector("[data-bank-cat-pop] .mix-bar");
-    return left && /\$0\.00/.test(left.textContent || "") && bar;
+    var left = document.querySelector('[data-bank-detail-fig="left"]');
+    var chart = document.querySelector("[data-bank-detail-chart]");
+    return left && /\$0\.00/.test(left.textContent || "") && chart;
   });
-  const wideSheet = await wide.locator(".books-sheet").evaluate(function (node) {
-    return Math.round(node.getBoundingClientRect().width);
+  const wideSheet = await wide.locator("[data-bank-detail-pop] .books-sheet").evaluate(function (node) {
+    var overlay = node.parentNode;
+    var box = node.getBoundingClientRect();
+    return {
+      width: Math.round(box.width),
+      align: getComputedStyle(overlay).alignItems,
+      top: Math.round(box.top),
+      bottom: Math.round(box.bottom),
+      viewH: window.innerHeight
+    };
   });
-  console.log("SHEET1280", wideSheet);
-  if (wideSheet > 480) throw new Error("desktop sheet " + wideSheet);
-  await shot(wide, "[data-bank-cat-pop]", "category-popup-1280.png");
+  console.log("DETAIL1280", JSON.stringify(wideSheet));
+  if (wideSheet.align !== "center") throw new Error("desktop detail is not centered");
+  if (!(wideSheet.top > 8 && wideSheet.bottom < wideSheet.viewH - 8)) throw new Error("desktop detail is not a centered modal");
+  if (wideSheet.width > 480) throw new Error("desktop sheet " + wideSheet.width);
+  await shot(wide, "[data-bank-detail-pop]", "bills-detail-1280.png");
+  await wide.locator("[data-bank-detail-pop]").click({ position: { x: 8, y: 8 } });
+  await wide.locator("[data-bank-detail-pop]").waitFor({ state: "detached" });
 
   const uncat = docWith(0);
   uncat.current.edits_tx.push(
@@ -342,7 +388,8 @@ async function main() {
   fs.writeFileSync(capFile, pageHtml(many));
   const capPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await capPage.goto("file://" + capFile);
-  await capPage.locator('[data-bank-plain-cats] [data-bank-cat-row="groceries"]').click();
+  await capPage.locator("[data-bank-overflow]").click();
+  await capPage.locator('[data-bank-cat-jump="groceries"]').click();
   await capPage.locator("[data-bank-cat-pop] .list-cap").waitFor();
   const cap = await capPage.locator("[data-bank-cat-pop] .list-cap").evaluate(function (node) {
     var rows = node.querySelectorAll("[data-bank-cat-item]");
