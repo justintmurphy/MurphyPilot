@@ -11096,12 +11096,10 @@ var BANK_SPEND_STARTERS = [
   { id: "education", name: "Education", tier: "required" },
   { id: "groceries", name: "Groceries", tier: "needs" },
   { id: "gas-fuel", name: "Gas/Fuel", tier: "needs" },
-  { id: "household-health", name: "Household & Health", tier: "needs" },
-  { id: "education-needs", name: "Education (Needs)", tier: "needs" },
   { id: "dining", name: "Dining", tier: "wants" },
   { id: "subscriptions", name: "Subscriptions", tier: "wants" },
   { id: "kids-activities", name: "Kids & Activities", tier: "wants" },
-  { id: "shopping", name: "Shopping", tier: "wants" },
+  { id: "shopping", name: "General Shopping", tier: "wants" },
   { id: "other", name: "Other", tier: "wants" }
 ];
 
@@ -11182,6 +11180,67 @@ function bankSpendById(cats, id) {
   return found;
 }
 
+function bankHouseholdToken(key) {
+  var s = String(key || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return s === "household-health" || s === "household" || s === "health" || s === "household & health";
+}
+
+function bankEducationNeedsToken(key) {
+  var s = String(key || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return s === "education-needs" || s === "education (needs)" || s === "tuition" || s === "childcare";
+}
+
+/* Household and Health fold into General Shopping. Education (Needs) leaves the spending list. */
+function bankFoldSpendCats(list) {
+  if (!Array.isArray(list)) return list;
+  var out = list.map(function (row) {
+    return {
+      id: row.id,
+      name: row.name,
+      tier: row.tier,
+      budget: row.budget,
+      merged_into: row.merged_into || ""
+    };
+  });
+  var shop = null;
+  var needsShop = false;
+  out.forEach(function (row) {
+    if (row && row.id === "shopping") shop = row;
+    if (!row || row.id === "shopping") return;
+    if (!bankHouseholdToken(row.id) && !bankHouseholdToken(row.name)) return;
+    if (row.merged_into && row.merged_into !== "shopping") return;
+    needsShop = true;
+  });
+  /* An empty list stays empty. Shopping is added only as the merge target. */
+  if (!shop && needsShop) {
+    shop = { id: "shopping", name: "General Shopping", tier: "wants", budget: 0, merged_into: "" };
+    out.push(shop);
+  }
+  if (shop) {
+    var shopName = String(shop.name || "").trim().toLowerCase();
+    if (!shop.merged_into && (!shopName || shopName === "shopping")) shop.name = "General Shopping";
+    var extra = 0;
+    out.forEach(function (row) {
+      if (!row || row.id === "shopping") return;
+      if (!bankHouseholdToken(row.id) && !bankHouseholdToken(row.name)) return;
+      if (row.merged_into && row.merged_into !== "shopping") return;
+      if (!row.merged_into) extra += row.budget || 0;
+      row.budget = 0;
+      row.merged_into = "shopping";
+    });
+    if (!shop.merged_into) shop.budget = bankRoundCents((shop.budget || 0) + extra);
+  }
+  out.forEach(function (row) {
+    if (!row || row.id !== "education-needs" && !bankEducationNeedsToken(row.name)) return;
+    if (row.id === "education" ) return;
+    if (row.id === "education-needs" || bankEducationNeedsToken(row.id) || bankEducationNeedsToken(row.name)) {
+      row.budget = 0;
+      if (!row.merged_into || row.merged_into === "education-needs") row.merged_into = "";
+    }
+  });
+  return out;
+}
+
 function bankSpendCategories(snap) {
   var doc = bankCategoryDoc(snap);
   if (!doc || !Array.isArray(doc.categories)) return null;
@@ -11203,7 +11262,7 @@ function bankSpendCategories(snap) {
     var merged = raw.merged_into == null || raw.merged_into === "" ? "" : String(raw.merged_into);
     out.push({ id: id, name: name, tier: tier, budget: budget, merged_into: merged });
   });
-  return out;
+  return bankFoldSpendCats(out);
 }
 
 function bankSpendResolveId(cats, id) {
@@ -11225,6 +11284,7 @@ function bankSpendResolveId(cats, id) {
 function bankSpendVisible(cats) {
   return (cats || []).filter(function (row) {
     if (!row) return false;
+    if (row.id === "education-needs" || bankEducationNeedsToken(row.id) || (row.id !== "education" && bankEducationNeedsToken(row.name))) return false;
     if (!row.merged_into) return true;
     return !bankSpendById(cats, row.merged_into);
   });
@@ -11250,8 +11310,7 @@ function bankSpendKeyword(name) {
   if (/insurance|\bloan\b|installment|\bcar\b|\bauto\b/.test(s)) return "car-insurance-loans";
   if (/grocer/.test(s)) return "groceries";
   if (/fuel|gas\/fuel|\bgas\b/.test(s)) return "gas-fuel";
-  if (/household|health|medical|pharm/.test(s)) return "household-health";
-  if (/education|tuition|childcare/.test(s)) return "education-needs";
+  if (/household|health|medical|pharm/.test(s)) return "shopping";
   if (/dining|restaurant|cafe|coffee/.test(s)) return "dining";
   if (/subscri/.test(s)) return "subscriptions";
   if (/kids|entertainment/.test(s)) return "kids-activities";
@@ -11395,13 +11454,10 @@ function bankSpendFeedHit(row) {
     "loans": "car-insurance-loans",
     "car": "car-insurance-loans",
     "auto": "car-insurance-loans",
-    "education": "education-needs",
-    "tuition": "education-needs",
-    "childcare": "education-needs",
-    "health": "household-health",
-    "medical": "household-health",
-    "household": "household-health",
-    "household & health": "household-health",
+    "health": "shopping",
+    "medical": "shopping",
+    "household": "shopping",
+    "household & health": "shopping",
     "kids": "kids-activities",
     "kids & activities": "kids-activities",
     "subscriptions": "subscriptions",
@@ -11440,6 +11496,72 @@ function bankSpendSavedCategoryId(row, snap) {
   return bankSpendResolveId(cats, resolved) || "";
 }
 
+var BANK_BILL_GROUP_ORDER = [
+  { id: "housing", name: "Housing/Utilities" },
+  { id: "loans", name: "Loans" },
+  { id: "car", name: "Car" },
+  { id: "insurance", name: "Insurance" },
+  { id: "education", name: "Education" },
+  { id: "affirm", name: "Affirm plans" },
+  { id: "other", name: "Other" }
+];
+
+function bankBillGroupId(bill) {
+  if (!bill) return "other";
+  var cat = String(bill.category || "").trim().toLowerCase().replace(/\s+/g, " ");
+  var mapped = {
+    "utilities": "housing",
+    "utilities/bills": "housing",
+    "bills": "housing",
+    "rent/mortgage": "housing",
+    "rent": "housing",
+    "mortgage": "housing",
+    "housing": "housing",
+    "phone": "housing",
+    "internet": "housing",
+    "phone & internet": "housing",
+    "auto": "car",
+    "car": "car",
+    "insurance": "insurance",
+    "loan": "loans",
+    "loans": "loans",
+    "student loan": "loans",
+    "education": "education",
+    "tuition": "education",
+    "childcare": "education",
+    "affirm": "affirm",
+    "installment": "affirm",
+    "installments": "affirm"
+  };
+  if (mapped[cat]) return mapped[cat];
+  var blob = [bill.category, bill.name, bill.kind, bill.bill_id, bill.display_label, bill.label].join(" ").toLowerCase();
+  if (/affirm|installment/.test(blob)) return "affirm";
+  if (/education|tuition|childcare|\bschool\b/.test(blob)) return "education";
+  if (/insurance/.test(blob)) return "insurance";
+  if (/loan/.test(blob) && !/\bauto\b|\bcar\b/.test(blob)) return "loans";
+  if (/\bcar\b|\bauto\b/.test(blob)) return "car";
+  if (/mortgage|\brent\b|utilit|electric|water|sewer|trash|phone|internet|cable/.test(blob)) return "housing";
+  return "other";
+}
+
+function bankTxMatchesEducationBill(row, snap) {
+  if (!row || !snap) return false;
+  var bills = [];
+  try { bills = bankPreparedBills(snap, undefined); } catch (e) { bills = []; }
+  var i;
+  for (i = 0; i < bills.length; i++) {
+    var bill = bills[i];
+    if (!bill || bankBillGroupId(bill) !== "education") continue;
+    try { if (bankTxMatchesItem(row, bill)) return true; } catch (e2) {}
+    if (row.category && bankBillMatchesKey(bill, row.category)) return true;
+    if (row.desc && bankBillMatchesKey(bill, row.desc)) return true;
+    if (row.name && bankBillMatchesKey(bill, row.name)) return true;
+    if (row.merchant && bankBillMatchesKey(bill, row.merchant)) return true;
+    if (row.bill_id && (bankKeysMatch(row.bill_id, bill.bill_id) || bankBillMatchesKey(bill, row.bill_id))) return true;
+  }
+  return false;
+}
+
 /* A saved category wins, including on a row the print left out of spending. The print's category is next. */
 function bankMapSpendCategory(row, snap) {
   if (!row || bankTxDepositLocked(row)) return null;
@@ -11447,8 +11569,21 @@ function bankMapSpendCategory(row, snap) {
   if (!cats) return null;
   var doc = bankCategoryDoc(snap) || {};
   function take(id, via) {
-    var resolved = bankSpendResolvePrinted(cats, id);
+    var token = String(id == null ? "" : id).trim();
+    var tokenKey = token.toLowerCase().replace(/\s+/g, " ");
+    var oldNeeds = bankEducationNeedsToken(tokenKey) || ((via === "print" || via === "feed") && tokenKey === "education");
+    if (oldNeeds) {
+      if (bankTxMatchesEducationBill(row, snap)) return { id: "", via: "education-bill" };
+      return { id: "", via: "uncategorized" };
+    }
+    if (bankHouseholdToken(tokenKey)) token = "shopping";
+    var resolved = bankSpendResolvePrinted(cats, token);
     if (!resolved) return null;
+    if (resolved === "education-needs" || bankEducationNeedsToken(resolved)) {
+      if (bankTxMatchesEducationBill(row, snap)) return { id: "", via: "education-bill" };
+      return { id: "", via: "uncategorized" };
+    }
+    if (bankHouseholdToken(resolved)) resolved = "shopping";
     return { id: resolved, via: via };
   }
   var found = take(bankSpendTxHit(doc, row), "tx");
@@ -11563,18 +11698,65 @@ function bankSpendScan(snap, monthKey, cats) {
   return { totals: totals, unsorted: unsorted };
 }
 
+function bankFoldMonthRows(rows) {
+  var list = [];
+  (rows || []).forEach(function (row) {
+    if (!row) return;
+    list.push({
+      id: row.id,
+      name: row.name,
+      tier: row.tier,
+      budget: row.budget,
+      showBudget: row.showBudget !== false && row.budget != null
+    });
+  });
+  var shop = null;
+  list.forEach(function (row) { if (row.id === "shopping") shop = row; });
+  var extra = 0;
+  var anyExtra = false;
+  list.forEach(function (row) {
+    if (!row || row.id === "shopping") return;
+    if (!bankHouseholdToken(row.id) && !bankHouseholdToken(row.name)) return;
+    if (typeof row.budget === "number" && isFinite(row.budget)) {
+      extra += row.budget;
+      anyExtra = true;
+    }
+    row._drop = true;
+  });
+  if (!shop && anyExtra) {
+    shop = { id: "shopping", name: "General Shopping", tier: "wants", budget: bankRoundCents(extra), showBudget: true };
+    list.push(shop);
+    anyExtra = false;
+  }
+  if (shop) {
+    var shopName = String(shop.name || "").trim().toLowerCase();
+    if (!shopName || shopName === "shopping") shop.name = "General Shopping";
+    if (anyExtra) {
+      var base = typeof shop.budget === "number" && isFinite(shop.budget) ? shop.budget : 0;
+      shop.budget = bankRoundCents(base + extra);
+      shop.showBudget = true;
+    }
+  }
+  return list.filter(function (row) {
+    if (!row || row._drop) return false;
+    if (row.id === "education-needs" || bankEducationNeedsToken(row.id)) return false;
+    if (row.id !== "education" && bankEducationNeedsToken(row.name)) return false;
+    return true;
+  });
+}
+
 function bankSpendRowsForMonth(snap, cats, monthKey, mode) {
   if (mode !== "historical") {
-    return bankSpendVisible(cats).map(function (row) {
+    return bankFoldMonthRows(bankSpendVisible(cats).map(function (row) {
       return { id: row.id, name: row.name, tier: row.tier, budget: row.budget, showBudget: true };
-    });
+    }));
   }
   var shot = bankSnapshotFor(snap, monthKey);
   var frozen = shot && Array.isArray(shot.categories) ? shot.categories : null;
   if (!frozen) {
-    return bankSpendVisible(cats).map(function (row) {
+    return bankFoldMonthRows(bankSpendVisible(cats).map(function (row) {
       return { id: row.id, name: row.name, tier: row.tier, budget: null, showBudget: false };
-    });
+    }));
   }
   var rows = [];
   frozen.forEach(function (raw) {
@@ -11589,7 +11771,7 @@ function bankSpendRowsForMonth(snap, cats, monthKey, mode) {
     var budget = typeof raw.budget === "number" && isFinite(raw.budget) ? raw.budget : null;
     rows.push({ id: id, name: name, tier: tier, budget: budget, showBudget: budget != null });
   });
-  return rows;
+  return bankFoldMonthRows(rows);
 }
 
 function bankSpendTone(spent, budget) {
@@ -11745,13 +11927,15 @@ function bankUncatItems(snap) {
     if (!raw || typeof raw !== "object") return;
     if (String(raw.category_basis || "") === "not_spend") return;
     if (bankSpendExcluded(raw, snap) && String(raw.category_basis || "") !== "spend") {
-      if (!(Object.prototype.hasOwnProperty.call(raw, "category") && (raw.category == null || String(raw.category).trim() === ""))) return;
+      var catText = raw.category == null ? "" : String(raw.category).trim();
+      var emptyCat = Object.prototype.hasOwnProperty.call(raw, "category") && catText === "";
+      if (!emptyCat && !bankEducationNeedsToken(catText)) return;
     }
     if (!bankCategoriesActive(snap)) {
       if (bankSpendExcluded(raw, snap)) return;
     } else {
       var mapped = bankMapSpendCategory(raw, snap);
-      if (!mapped || mapped.id || mapped.via === "not_spend") return;
+      if (!mapped || mapped.id || mapped.via === "not_spend" || mapped.via === "education-bill") return;
     }
     var key = raw.tx_key || raw.tx_id || raw.bill_id || raw.sub_id || [raw.date || "", raw.desc || raw.name || "", raw.amount == null ? "" : raw.amount].join("|");
     if (seen[key]) return;
@@ -11858,7 +12042,7 @@ function bankCategorySummaryHtml(snap, opts, mode, month) {
   var groups = bankGroupRollup(snap, monthKey);
   var warn = bankUncatMonthCount(snap, monthKey);
   var body = groups.map(bankGroupHeadHtml).join("");
-  if (warn > 0) {
+  if (warn > 0 && mode !== "plan") {
     body += '<button type="button" class="mix-leg" data-bank-uncat-open="1" data-count="' + warn + '">' +
       '<i></i><span class="mix-leg-meta"><span class="mix-leg-name">Uncategorized</span></span> ' +
       '<span class="mix-leg-fig"><span class="fresh-chip">' + warn + '</span> <i class="cf-chev" aria-hidden="true"></i></span></button>';
@@ -11866,8 +12050,9 @@ function bankCategorySummaryHtml(snap, opts, mode, month) {
   var line = opts && opts.catError && !(opts.catOpen)
     ? '<p class="hint tone-stop" role="status">' + bankEsc(opts.catError) + "</p>"
     : '<p class="hint">Tap a group to see its categories.</p>';
-  return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span">' + line +
-    '<div class="mix-legend">' + body + "</div></div></section>";
+  var inner = line + '<div class="mix-legend">' + body + "</div>";
+  if (mode === "plan") return inner;
+  return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span">' + inner + "</div></section>";
 }
 
 function bankSpendOpenMonth(snap, opts) {
@@ -12585,10 +12770,151 @@ function bankSpendRead(el) {
   return el.value == null ? "" : String(el.value);
 }
 
+function bankIncomeBudgetLineHtml(snap, month) {
+  var nums = {};
+  try { nums = bankPlanNumbers(snap, month, null) || {}; } catch (e) { nums = {}; }
+  var over = nums.left != null && nums.left < -0.004;
+  var word = over ? "Over" : "Left";
+  var leftAbs = nums.left == null ? null : Math.abs(nums.left);
+  var text = "Income " + bankMoney(nums.income) + " vs budgeted " + bankMoney(nums.plan) + " \u00b7 " + word + " " + bankMoney(leftAbs);
+  var cls = "bank-income-line" + (over ? " tone-stop" : "");
+  return '<p class="' + cls + '" data-bank-income-line="1" data-over="' + (over ? "1" : "0") + '">' + bankEsc(text) + "</p>";
+}
+
+function bankTrimBreakdownHtml(snap, month) {
+  var nums = {};
+  try { nums = bankPlanNumbers(snap, month, null) || {}; } catch (e) { nums = {}; }
+  if (!(nums.left != null && nums.left < -0.004)) return "";
+  var list = snap && snap.budget && snap.budget.plan_dedupe;
+  if (!Array.isArray(list) || !list.length) return "";
+  var bits = [];
+  list.forEach(function (row) {
+    var label = "Trim";
+    var n = null;
+    if (row != null && typeof row === "object") {
+      label = row.name || row.category || row.label || "Trim";
+      n = row.deducted != null && row.deducted !== "" ? bankNum(row.deducted) : bankNum(row.amount);
+    } else n = bankNum(row);
+    if (n == null) return;
+    bits.push(bankEsc(String(label)) + " " + bankEsc(bankMoney(Math.abs(n))));
+  });
+  if (!bits.length) return "";
+  return '<p class="hint bank-trim" data-bank-trim="1">' + bits.join(" \u00b7 ") + "</p>";
+}
+
+function bankUncatChipHtml(snap, month) {
+  var warnN = 0;
+  try { warnN = bankUncatMonthCount(snap, bankMonthKey(month)); } catch (e) { warnN = 0; }
+  if (!(warnN > 0)) return "";
+  var label = warnN + (warnN === 1 ? " item needs a category" : " items need a category");
+  return '<p class="hint" data-bank-uncat-warn="' + warnN + '"><button type="button" class="book-chip" data-bank-tab="edits" data-bank-uncat-open="1">' +
+    bankEsc(label) + "</button></p>";
+}
+
+function bankEducationBillTxSpend(snap, bill, month) {
+  if (!bill || bankBillGroupId(bill) !== "education") return 0;
+  if (!bankCategoriesActive(snap)) return 0;
+  var key = bankMonthKey(month);
+  var sum = 0;
+  bankSpendTxRows(snap).forEach(function (raw) {
+    if (!raw) return;
+    if (key && bankMonthKey(raw.date) !== key) return;
+    var mapped = null;
+    try { mapped = bankMapSpendCategory(raw, snap); } catch (e) { mapped = null; }
+    if (!mapped || mapped.via !== "education-bill") return;
+    var hit = false;
+    try { hit = bankTxMatchesItem(raw, bill); } catch (e2) { hit = false; }
+    if (!hit && raw.category && bankBillMatchesKey(bill, raw.category)) hit = true;
+    if (!hit && raw.desc && bankBillMatchesKey(bill, raw.desc)) hit = true;
+    if (!hit && raw.name && bankBillMatchesKey(bill, raw.name)) hit = true;
+    if (!hit) return;
+    sum += Math.abs(bankSpendAmount(raw));
+  });
+  return bankRoundCents(sum);
+}
+
+function bankBillGroupsHtml(snap, opts, month) {
+  var bills = [];
+  try { bills = bankPreparedBills(snap, undefined); } catch (e) { bills = []; }
+  opts = opts || {};
+  var buckets = {};
+  BANK_BILL_GROUP_ORDER.forEach(function (g) { buckets[g.id] = []; });
+  bills.forEach(function (b) {
+    if (!b || bankBillRetired(b, month)) return;
+    var id = bankBillGroupId(b);
+    if (!buckets[id]) id = "other";
+    buckets[id].push(b);
+  });
+  var today = null;
+  try { today = bankScreenToday(snap, opts); } catch (e2) { today = null; }
+  var todayIso = today ? bankDateKey(today.year, today.month, today.day) : "";
+  var html = "";
+  BANK_BILL_GROUP_ORDER.forEach(function (g) {
+    var rows = buckets[g.id] || [];
+    if (!rows.length) return;
+    var plan = 0;
+    var spent = 0;
+    var lines = rows.map(function (b) {
+      var amount = null;
+      try { amount = bankBillLineAmount(b, month, opts.edits); } catch (e3) { amount = bankNum(b.amount); }
+      var planN = amount == null ? 0 : amount;
+      var spentN = 0;
+      try {
+        spentN = bankTierLineSpent(snap, { name: b.name, key: b.name, amount: planN, bill: b }, month, "plan", opts.edits, todayIso) || 0;
+      } catch (e4) { spentN = 0; }
+      var fromBill = 0;
+      try { fromBill = bankEducationBillTxSpend(snap, b, month); } catch (e5) { fromBill = 0; }
+      if (fromBill > spentN) spentN = fromBill;
+      plan += planN;
+      spent += spentN;
+      var left = bankRoundCents(planN - spentN);
+      var over = left < -0.004;
+      var word = over ? ("Over " + bankMoney(bankRoundCents(-left))) : ("Left " + bankMoney(Math.max(0, left)));
+      return '<div class="mix-leg" data-bank-bill-line="1" data-bank-bill-group-id="' + g.id + '" data-plan="' +
+        bankRoundCents(planN) + '" data-spent="' + bankRoundCents(spentN) + '">' +
+        '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(bankBillDisplayName(b.name, b.display_label)) + "</span></span> " +
+        '<span class="mix-leg-fig"><span class="mix-amt">' + bankEsc(bankMoney(spentN) + " of " + bankMoney(planN)) + "</span> " +
+        '<span class="mix-amt' + (over ? " tone-stop" : "") + '">' + bankEsc(word) + "</span></span></div>";
+    }).join("");
+    plan = bankRoundCents(plan);
+    spent = bankRoundCents(spent);
+    var gLeft = bankRoundCents(plan - spent);
+    var gOver = gLeft < -0.004;
+    var gWord = gOver ? ("Over " + bankMoney(bankRoundCents(-gLeft))) : ("Left " + bankMoney(Math.max(0, gLeft)));
+    html += '<div class="mix-leg" data-bank-bill-group="' + g.id + '" data-plan="' + plan + '" data-spent="' + spent + '">' +
+      '<span class="mix-leg-meta"><span class="mix-leg-name">' + bankEsc(g.name) + "</span></span> " +
+      '<span class="mix-leg-fig"><span class="mix-amt">' + bankEsc(bankMoney(spent) + " of " + bankMoney(plan)) + "</span> " +
+      '<span class="mix-amt' + (gOver ? " tone-stop" : "") + '">' + bankEsc(gWord) + "</span></span></div>" +
+      '<div class="mix-legend nest">' + lines + "</div>";
+  });
+  return html;
+}
+
+function bankPlanBillsCard(snap, opts, month, categoriesHtml) {
+  var line = "";
+  var trim = "";
+  var bills = "";
+  var chip = "";
+  try { line = bankIncomeBudgetLineHtml(snap, month); } catch (e) { line = ""; }
+  try { trim = bankTrimBreakdownHtml(snap, month); } catch (e2) { trim = ""; }
+  try { bills = bankBillGroupsHtml(snap, opts, month); } catch (e3) { bills = ""; }
+  try { chip = bankUncatChipHtml(snap, month); } catch (e4) { chip = ""; }
+  return '<section class="bank-tier-summary"><h2>Bills</h2><div class="card span" data-bank-plan-card="1">' +
+    line + trim +
+    (bills ? '<div class="mix-legend" data-bank-bill-groups="1">' + bills + "</div>" : "") +
+    "<h3>Categories</h3>" +
+    (categoriesHtml || "") +
+    chip +
+    "</div></section>";
+}
+
 function bankTierSummaryHtml(snap, opts, mode, month, view, actuals, missing, shot) {
   if (bankCategoriesActive(snap)) {
     var catHtml = bankCategorySummaryHtml(snap, opts, mode, month);
-    if (catHtml) return catHtml;
+    if (catHtml) {
+      if (mode === "plan") return bankPlanBillsCard(snap, opts, month, catHtml);
+      return catHtml;
+    }
   }
   if (mode === "historical" && missing) {
     return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span"><p class="bank-empty">No saved budget for this month.</p></div></section>';
@@ -12640,8 +12966,9 @@ function bankTierSummaryHtml(snap, opts, mode, month, view, actuals, missing, sh
     var nest = rows ? '<div class="mix-legend nest">' + rows + "</div>" : "";
     return head + nest;
   }).join("");
-  return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span"><div class="mix-legend">' +
-    body + "</div></div></section>";
+  var tierInner = '<div class="mix-legend">' + body + "</div>";
+  if (mode === "plan") return bankPlanBillsCard(snap, opts, month, tierInner);
+  return '<section class="bank-tier-summary"><h2>Tier summary</h2><div class="card span">' + tierInner + "</div></section>";
 }
 
 function bankHistBalanceTiles(snap, month) {
@@ -12719,7 +13046,9 @@ function bankMoreDetailsHtml(snap, opts, mode, month, view, actuals, missing) {
     var mom = bankMomHtml(snap);
     if (mom) bits.push(mom);
   }
-  return bankMixMore("More details", bits.filter(Boolean).join("") || '<p class="bank-empty">Nothing else in this print.</p>');
+  var prefix = opts && opts.planExtra ? opts.planExtra : "";
+  var body = prefix + bits.filter(Boolean).join("");
+  return bankMixMore("More details", body || '<p class="bank-empty">Nothing else in this print.</p>');
 }
 
 function bankMonthToDateCard(snap, opts, month) {
@@ -12744,6 +13073,18 @@ function bankMonthToDateCard(snap, opts, month) {
     table + "</details>";
   return '<section class="bank-mtd-card"><h2>Month to date</h2><div class="card span"><p class="hint">' + bankEsc(line) +
     "</p>" + recentHtml + "</div></section>";
+}
+
+function bankDataThroughLabel(snap) {
+  var budget = (snap && snap.budget) || {};
+  var cur = (snap && snap.current) || {};
+  var raw = "";
+  if (snap && snap.asof_data_through) raw = snap.asof_data_through;
+  else if (budget.asof_data_through) raw = budget.asof_data_through;
+  else if (cur.asof_data_through) raw = cur.asof_data_through;
+  var short = bankShortDate(raw);
+  if (!short) return "";
+  return "Data through " + short;
 }
 
 function bankHeroAsof(asof) {
@@ -12876,11 +13217,14 @@ function bankHeroHtml(snap, opts, flows) {
   var end = flows.left == null ? null : bankRoundCents(flows.left);
   var stillOut = bankRoundCents(flows.remainOut || 0);
   var stillIn = bankRoundCents(flows.remainIn || 0);
-  var billsN = flows.billsRemain == null ? stillOut : bankRoundCents(flows.billsRemain);
-  var asideN = bankRoundCents(flows.setAside || 0);
   var paid = bankRoundCents(flows.paid != null ? flows.paid : (flows.postedOut || 0));
   var plan = bankRoundCents(flows.plan != null ? flows.plan : (paid + stillOut));
-  var asof = bankHeroWhen(rows, snap);
+  var asof = bankDataThroughLabel(snap);
+  var pendingTotal = 0;
+  try { pendingTotal = bankPendingOutTotal(snap); } catch (ePend) { pendingTotal = 0; }
+  var pendingNote = pendingTotal > 0.004
+    ? '<span class="hint" data-bank-pending-note="1"> (includes ' + bankEsc(bankMoney(pendingTotal)) + " pending)</span>"
+    : "";
   var nowCls = now != null && now < -0.004 ? "tone-stop" : "";
   var endCls = end != null && end < -0.004 ? "tone-stop" : "";
   var outFlow = stillOut > 0.004 ? bankFundSigned(stillOut, "out") : { text: bankMoney(0), cls: "" };
@@ -12894,42 +13238,26 @@ function bankHeroHtml(snap, opts, flows) {
       '"><td><span class="sym">' + bankEsc(row.label) + '</span></td><td class="num' + (neg ? " tone-stop" : "") + '">' +
       bankEsc(bankMoney(row.balance)) + "</td></tr>";
   }).join("");
-  var split = "Bills " + bankMoney(billsN) + " + Needs/Wants left " + bankMoney(asideN);
   var list = accounts
     ? '<table class="book" data-bank-hero-accounts="1"><tbody>' + accounts + "</tbody></table>"
     : "";
-  var over = paid - plan > 0.004;
-  var bar = "";
-  if (plan > 0.004 || paid > 0.004) bar = bankSpendBarHtml(Math.min(paid, plan > 0 ? plan : paid), plan > 0 ? plan : paid);
-  var barLabel = over
-    ? '<span class="tone-stop" data-bank-hero-bar="1" data-bank-hero-paid="' + paid + '" data-bank-hero-plan="' + plan + '">Over by ' + bankEsc(bankMoney(bankRoundCents(paid - plan))) + "</span>"
-    : '<span data-bank-hero-bar="1" data-bank-hero-paid="' + paid + '" data-bank-hero-plan="' + plan + '">Paid ' + bankEsc(bankMoney(paid)) + " of " + bankEsc(bankMoney(plan)) + " planned</span>";
-  var monthKey = bankMonthKey(opts.month || bankScreenMonth(snap, opts));
   var pill = "";
   try { pill = bankChargedPillHtml(snap); } catch (ePill) { pill = ""; }
-  var warnN = bankUncatMonthCount(snap, monthKey);
-  var warn = warnN > 0
-    ? '<p class="hint" data-bank-uncat-warn="' + warnN + '"><button type="button" class="book-chip" data-bank-tab="edits" data-bank-uncat-open="1">' +
-      warnN + (warnN === 1 ? " item needs a category" : " items need a category") + "</button></p>"
-    : "";
   var allocTotal = bankAllocMoveTotal(snap, opts);
-  if (!rows.length && flows.left == null) {
-    if (!pill && !warn) return "";
-    return '<section data-bank-hero="1" data-bank-alloc-total="' + allocTotal + '">' + (pill ? '<div class="card span">' + pill + "</div>" : "") + warn + "</section>";
-  }
-  return '<section data-bank-hero="1" data-bank-alloc-total="' + allocTotal + '"><div class="card span">' + pill +
+  if (!rows.length && flows.left == null && !pill && now == null) return "";
+  return '<section data-bank-hero="1" data-bank-alloc-total="' + allocTotal + '" data-bank-hero-paid="' + paid +
+    '" data-bank-hero-plan="' + plan + '"><div class="card span">' +
     '<div class="overall-strip">' +
     '<div class="ov-hero"><span>In the bank now</span> <b data-bank-hero-now="' + (now == null ? "" : String(now)) + '" class="' + nowCls + '">' +
-    bankEsc(bankMoney(now)) + "</b></div></div>" +
+    bankEsc(bankMoney(now)) + "</b>" + pendingNote + "</div></div>" +
+    pill +
     list +
-    (asof ? '<p class="hint">' + bankEsc(asof) + "</p>" : "") +
+    (asof ? '<p class="hint" data-bank-asof="1">' + bankEsc(asof) + "</p>" : "") +
     '<div class="kpi" data-bank-hero-figs="1" style="grid-template-columns:repeat(3,minmax(0,1fr))">' +
     fig("To pay & set aside", outFlow.text, outFlow.cls, ' data-bank-hero-out="' + stillOut + '"') +
     fig("Coming in", inFlow.text, inFlow.cls, ' data-bank-hero-in="' + stillIn + '"') +
     fig("Month-end", bankMoney(end), endCls, ' data-bank-hero-end="' + (end == null ? "" : String(end)) + '"') +
-    "</div>" + bar +
-    '<p class="hint help-pair">' + barLabel + ' <span class="help-extra" data-bank-hero-split="1">' + bankEsc(split) + "</span></p>" +
-    warn + "</div></section>";
+    "</div></div></section>";
 }
 
 function bankSharedLayout(snap, opts, mode, month) {
@@ -12954,11 +13282,20 @@ function bankSharedLayout(snap, opts, mode, month) {
     parts.push(bankPart("next", mode, (hero || "") + bankRenderNextPay(snap, opts, mode)));
   }
   parts.push(bankPart("calendar", mode, bankRenderCalendar(planView, opts, mode, month, missing)));
-  parts.push(bankPart("funding", mode, bankFundingHtml(past ? planView : snap, fundOpts, ledger)));
-  if (mode === "plan") parts.push(bankPart("mtd", mode, bankMonthToDateCard(snap, opts, month)));
-  parts.push(bankPart("income", mode, bankIncomeListHtml(null, month, planView, incomeOpts)));
-  parts.push(bankPart("tiers", mode, bankTierSummaryHtml(snap, opts, mode, month, planView, actuals, missing, shot)));
-  parts.push(bankPart("more", mode, bankMoreDetailsHtml(snap, opts, mode, month, planView, actuals, missing)));
+  var funding = bankPart("funding", mode, bankFundingHtml(past ? planView : snap, fundOpts, ledger));
+  var income = bankPart("income", mode, bankIncomeListHtml(null, month, planView, incomeOpts));
+  var tiers = bankPart("tiers", mode, bankTierSummaryHtml(snap, opts, mode, month, planView, actuals, missing, shot));
+  if (mode === "plan") {
+    var mtd = bankPart("mtd", mode, bankMonthToDateCard(snap, opts, month));
+    var moreOpts = Object.assign({}, opts, { planExtra: funding + mtd + income });
+    parts.push(tiers);
+    parts.push(bankPart("more", mode, bankMoreDetailsHtml(snap, moreOpts, mode, month, planView, actuals, missing)));
+  } else {
+    parts.push(funding);
+    parts.push(income);
+    parts.push(tiers);
+    parts.push(bankPart("more", mode, bankMoreDetailsHtml(snap, opts, mode, month, planView, actuals, missing)));
+  }
   return parts.join("");
 }
 

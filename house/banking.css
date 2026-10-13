@@ -525,6 +525,17 @@ body.bank-page > header .clock {
   font-weight: 600;
 }
 
+.bank-income-line {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-trim {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
 .bank-cal-grid {
   display: flex;
   flex-direction: column;
