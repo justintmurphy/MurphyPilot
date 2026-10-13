@@ -406,25 +406,15 @@ test("next pay cards cover the month, share left after, and hide paid or cancell
   const cards = next.split('data-bank-next-card="').slice(1);
   assert.equal(cards.length, count);
   let monthEndCovered = false;
-  let carry = 0;
-  let restarted = false;
-  const hero = ctx.bankHeroNow(snap, opts);
-  const pending = ctx.bankPendingOutTotal(snap);
-  const opening = ctx.bankCheckingBalanceBefore(snap, periods[0] && periods[0].focus && periods[0].focus.date);
+  const packs = ctx.bankNextPayMaths(snap, opts);
   cards.forEach(function (chunk, i) {
     const date = (chunk.match(/data-bank-next-date="([^"]+)"/) || [])[1];
     const check = (chunk.match(/data-bank-check-left="([^"]*)"/) || [])[1];
     const shared = (chunk.match(/data-bank-left-after="([^"]*)"/) || [])[1];
     const period = periods[i];
-    const past = !!(period && period.past);
-    let seed;
-    if (i === 0 && past) seed = opening == null ? 0 : opening;
-    else if (!past && !restarted) {
-      restarted = true;
-      seed = hero != null ? ctx.bankRoundCents(hero - pending) : (i === 0 ? (opening == null ? 0 : opening) : carry);
-    } else if (i === 0) seed = opening == null ? 0 : opening;
-    else seed = carry;
-    const math = ctx.bankPeriodMath(snap, opts, period, seed);
+    const pack = packs[i];
+    const seed = pack.seed;
+    const math = pack.math;
     assert.equal(date, period.focus.date);
     assert.equal(Number(check), math.left);
     if (i > 0) assert.equal(Number((chunk.match(/data-bank-carried="([^"]*)"/) || [])[1]), seed);
@@ -433,11 +423,10 @@ test("next pay cards cover the month, share left after, and hide paid or cancell
       if (openAttr != null && openAttr !== "") assert.equal(Number(openAttr), seed);
     }
     var stepped = math.carried || 0;
-    stepped = ctx.bankLeftAfter(stepped, { kind: "in", amount: math.deposit || 0, counted: true, pending: false });
-    stepped = ctx.bankLeftAfter(stepped, { kind: "in", amount: math.also || 0, counted: true, pending: false });
+    stepped = ctx.bankLeftAfter(stepped, { kind: "in", amount: math.countedDeposit || 0, counted: true, pending: false });
+    stepped = ctx.bankLeftAfter(stepped, { kind: "in", amount: math.countedAlso || 0, counted: true, pending: false });
     stepped = ctx.bankLeftAfter(stepped, { kind: "out", amount: math.aside || 0, counted: true, pending: false });
     assert.equal(math.left, stepped);
-    carry = math.left == null ? 0 : math.left;
     const ledger = ctx.bankLedgerLeftOn(snap, date);
     if (date.slice(0, 7) === "2026-10" && ledger != null) {
       assert.equal(Number(shared), ledger);
@@ -516,7 +505,7 @@ test("cancel lives on edits rows, category names stay whole, and an empty rules 
   assert.doesNotMatch(edits, />Edit</);
   const cats = edits.slice(edits.indexOf('data-bank-spend-cats="1"'), edits.indexOf("<h2>Bills</h2>"));
   assert.match(cats, /class="mix-leg wrap" data-bank-cat-jump="longcat"/);
-  assert.match(cats, /class="mix-leg-name">Household Supply Run For The Whole Month<\/span><span class="fresh-chip">Needs<\/span>/);
+  assert.match(cats, /class="mix-leg-name">Household Supply Run For The Whole Month<\/span><span class="fresh-chip">Category<\/span>/);
   assert.match(cats, /data-bank-cat-jump="groceries"/);
   assert.doesNotMatch(edits, /<h2>Rules<\/h2>/);
 });
@@ -560,13 +549,13 @@ test("next pay includes every active window bill, and left plus also-in is the p
   assert.match(card, /Stream Club/);
   assert.doesNotMatch(card, /sym">Power/);
   assert.doesNotMatch(card, /sym">Rent/);
-  assert.match(card, /Set aside[\s\S]{0,40}−\$5\.00/);
-  assert.match(card, /data-bank-check-left="135"/);
+  assert.match(card, /Set aside[\s\S]{0,40}−\$5\.81/);
+  assert.match(card, /data-bank-check-left="94.19"/);
   assert.match(stipendCard, /Stipend · Tue Oct 20/);
   assert.match(stipendCard, /Power/);
   assert.doesNotMatch(stipendCard, /data-bank-also-row|Also in/);
-  assert.match(card, /Needs \(groceries, etc\.\)[\s\S]{0,40}\$0\.00/);
-  assert.doesNotMatch(card, /Needs \(groceries, etc\.\)[\s\S]{0,40}<span class="sub">—/);
+  assert.match(card, /Spending budget share[\s\S]{0,80}−\$0\.81/);
+  assert.doesNotMatch(card, /Spending budget share[\s\S]{0,40}<span class="sub">—/);
   assert.doesNotMatch(card, /Stipend|Also in|data-bank-also-row/);
   assert.match(stipendCard, /\+\$12\.34/);
   const rows = ledgerRows(dueSlice(html));
@@ -592,7 +581,7 @@ test("next pay includes every active window bill, and left plus also-in is the p
   const goneCard = gone.slice(gone.lastIndexOf('<div class="card"', goneAt), gone.indexOf('data-bank-next-card="', goneAt + 20));
   assert.doesNotMatch(gone, /Stream Club/);
   assert.match(goneCard, /Set aside[\s\S]{0,40}\$0\.00/);
-  assert.match(goneCard, /data-bank-check-left="140"/);
+  assert.match(goneCard, /data-bank-check-left="100"/);
   assert.doesNotMatch(dueSlice(ctx.bankPageHtml(snap, opts)), /Stream Club/);
 });
 
@@ -631,12 +620,12 @@ test("a posted early payroll stays above today, and a zero plan prints $0.00", f
     }
   };
   const dashed = nextSlice(ctx.bankPageHtml(bare, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" }));
-  assert.match(dashed, /Needs \(groceries, etc\.\)[\s\S]{0,40}<span class="sub">—/);
+  assert.match(dashed, /Spending budget share[\s\S]{0,40}<span class="sub">—/);
   assert.match(dashed, /Set aside[\s\S]{0,40}<span class="sub">—/);
   bare.budget.tiers = { needs_plan: 0, wants_plan: 0 };
   const zero = nextSlice(ctx.bankPageHtml(bare, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" }));
   zero.split('data-bank-next-card="').slice(1).forEach(function (chunk) {
-    assert.match(chunk, /Needs \(groceries, etc\.\)[\s\S]{0,40}\$0\.00/);
+    assert.match(chunk, /Spending budget share[\s\S]{0,40}\$0\.00/);
     assert.match(chunk, /Set aside[\s\S]{0,40}\$0\.00/);
   });
 });
@@ -719,24 +708,12 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   assert.match(card2, /data-bank-next-date="2026-10-30"/);
   assert.match(card2, /Carried over/);
   const periods = ctx.bankPayPeriods(snap, opts);
-  let carry = 0;
-  let restarted = false;
   const hero = ctx.bankHeroNow(snap, opts);
   const pending = ctx.bankPendingOutTotal(snap);
-  const opening = ctx.bankCheckingBalanceBefore(snap, periods[0] && periods[0].focus && periods[0].focus.date);
-  const maths = periods.map(function (period, i) {
-    const past = !!(period && period.past);
-    let seed;
-    if (i === 0 && past) seed = opening == null ? 0 : opening;
-    else if (!past && !restarted) {
-      restarted = true;
-      seed = hero != null ? ctx.bankRoundCents(hero - pending) : (i === 0 ? (opening == null ? 0 : opening) : carry);
-    } else if (i === 0) seed = opening == null ? 0 : opening;
-    else seed = carry;
-    const math = ctx.bankPeriodMath(snap, opts, period, seed);
-    assert.equal(math.carried, seed);
-    carry = math.left;
-    return math;
+  const packs = ctx.bankNextPayMaths(snap, opts);
+  const maths = packs.map(function (pack) {
+    assert.equal(pack.math.carried, pack.seed);
+    return pack.math;
   });
   const left1 = Number((card1.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
   const left2 = Number((card2.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
@@ -748,14 +725,16 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   assert.equal(carried2, maths[nextIdx - 1].left);
   assert.equal(left1, maths[thisIdx].left);
   assert.equal(left2, maths[nextIdx].left);
-  const paidSoFar = 8;
   const remain = 6;
-  const windowBills = paidSoFar + remain;
   let ident = carried1;
-  ident = ctx.bankLeftAfter(ident, { kind: "in", amount: 40, counted: true, pending: false });
-  ident = ctx.bankLeftAfter(ident, { kind: "in", amount: maths[thisIdx].also, counted: true, pending: false });
-  ident = ctx.bankLeftAfter(ident, { kind: "out", amount: windowBills, counted: true, pending: false });
+  ident = ctx.bankLeftAfter(ident, { kind: "in", amount: maths[thisIdx].countedDeposit || 0, counted: true, pending: false });
+  ident = ctx.bankLeftAfter(ident, { kind: "in", amount: maths[thisIdx].countedAlso || 0, counted: true, pending: false });
+  ident = ctx.bankLeftAfter(ident, { kind: "out", amount: remain + (maths[thisIdx].needs || 0), counted: true, pending: false });
   assert.equal(left1, ident);
+  assert.equal(maths[thisIdx].countedDeposit, 0);
+  assert.ok(maths[thisIdx].bills.some(function (row) { return row.name === "Paid Bill" && row.paid; }));
+  assert.equal(left1, ctx.bankRoundCents(carried1 - remain - (maths[thisIdx].needs || 0)));
+  const paidSoFar = 8;
   const rows = ledgerRows(dueSlice(html));
   const pay = rows.filter(function (row) { return row.kind === "in" && row.date === "2026-10-15"; })[0];
   const forward = rows.filter(function (row) { return row.forward; })[0];
@@ -810,15 +789,16 @@ test("remaining group rows break out categories without moving left after", func
   assert.doesNotMatch(due, /Quiet Zero/);
   assert.match(due, /Over \$5\.00/);
   assert.match(due, /tone-stop">Over \$5\.00/);
-  ["required", "needs", "wants"].forEach(function (tier) {
+  ["required", "needs"].forEach(function (tier) {
     const group = due.match(new RegExp('data-bank-remain-group="' + tier + '" data-bank-remain="([^"]+)"'));
     assert.ok(group, tier);
-    const re = new RegExp('data-bank-remain-cat="' + tier + '" data-bank-remain="([^"]+)"', "g");
+    const re = new RegExp('data-bank-remain-cat="' + (tier === "needs" ? "(?:needs|wants)" : tier) + '" data-bank-remain="([^"]+)"', "g");
     let sum = 0;
     let hit;
     while ((hit = re.exec(due))) sum += Number(hit[1]);
     assert.equal(Math.round(sum * 100) / 100, Number(group[1]));
   });
+  assert.equal(due.indexOf('data-bank-remain-group="wants"'), -1);
   const catRows = due.split('data-bank-remain-cat="').slice(1);
   catRows.forEach(function (chunk) {
     assert.doesNotMatch(chunk.slice(0, chunk.indexOf(">")), /data-bank-row-left/);
@@ -873,7 +853,7 @@ test("a main-page tap marks a bill paid and a second tap clears it", async funct
   const cardAfter = nextAfter.slice(nextAfter.lastIndexOf('<div class="card"', afterAt), nextAfter.indexOf('data-bank-next-card="', afterAt + 20));
   const leftAfter = Number((cardAfter.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
   assert.ok(outAfter < outBefore, outAfter + " vs " + outBefore);
-  assert.equal(leftAfter, leftBefore);
+  assert.equal(leftAfter, ctx.bankRoundCents(leftBefore + 8));
   assert.match(cardAfter, /data-bank-status-undo="rent"/);
   assert.match(cardAfter, /aria-label="Paid"/);
   assert.match(after.slice(after.indexOf('class="bank-day-dialog"')), /data-bank-status-undo="rent"/);
