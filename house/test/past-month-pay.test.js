@@ -173,7 +173,7 @@ test("next pay names each deposit under the paycheck, including a rolled origina
   assert.match(stipend, /Stipend \u00b7 Fri Oct 23/);
   assert.match(stipend, /\(for Sun 25th\)/);
   assert.match(stipend, /\+\$12\.00/);
-  assert.ok(stipend.indexOf("Stipend") < stipend.indexOf("bank-next-bills"));
+  assert.ok(stipend.indexOf("Stipend") < stipend.indexOf("bank-move-bills"));
   assert.doesNotMatch(stipend, /data-bank-also-row/);
   const periods = ctx.bankPayPeriods(data, opts);
   const payroll = periods.filter(function (p) { return p.focus && p.focus.date === "2026-10-15"; })[0];
@@ -186,9 +186,7 @@ test("next pay names each deposit under the paycheck, including a rolled origina
   data.budget.other_income = [{ name: "Refund", amount: 3, date: "2026-10-16" }];
   const withOneOff = ctx.bankPageHtml(data, opts);
   const payCard = withOneOff.slice(withOneOff.indexOf('data-bank-next-date="2026-10-15"'), withOneOff.indexOf('data-bank-next-date="2026-10-23"'));
-  assert.match(payCard, /Refund \u00b7 Fri Oct 16/);
-  assert.match(payCard, /data-bank-also-row="2026-10-16"/);
-  assert.doesNotMatch(payCard, /Stipend \u00b7/);
+  assert.doesNotMatch(payCard, /Refund|data-bank-also-row|Stipend \u00b7/);
   const oneMath = ctx.bankPeriodMath(data, opts, payroll, 0);
   assert.equal(oneMath.also, 3);
 });
@@ -299,10 +297,12 @@ test("a posted card subtracts paid bills, and checking one off does not change L
   assert.doesNotMatch(postedCard, /Pay ·/);
   assert.match(postedCard, /Rent[\s\S]{0,240}aria-label="Paid"/);
   assert.match(postedCard, /data-bank-bill-paid="1"/);
-  assert.equal(Number((postedCard.match(/data-bank-check-left="([^"]*)"/) || [])[1]), posted.left);
-  assert.equal(Number((nextCard.match(/data-bank-carried="([^"]*)"/) || [])[1]), ctx.bankRoundCents(ctx.bankHeroNow(data, opts) - ctx.bankPendingOutTotal(data)));
+  assert.doesNotMatch(postedCard, /data-bank-check-left=|data-bank-left=/);
+  assert.doesNotMatch(nextCard, /data-bank-carried=/);
   const heroBefore = Number((html.match(/data-bank-hero-out="([^"]*)"/) || [])[1]);
-  const leftBefore = Number((nextCard.match(/data-bank-check-left="([^"]*)"/) || [])[1]);
+  const leftBefore = ctx.bankNextPayMaths(data, opts).filter(function (pack) {
+    return pack.period && pack.period.focus && pack.period.focus.date === "2026-10-15";
+  })[0].math.left;
   data.tier_doc.manual_paid.power = { month: "2026-10", paid_date: "2026-10-20" };
   const after = ctx.bankPageHtml(data, opts);
   const afterNext = after.slice(after.indexOf('class="bank-next"'), after.indexOf('data-bank-part="calendar"'));
@@ -311,8 +311,11 @@ test("a posted card subtracts paid bills, and checking one off does not change L
   const afterPostedAt = afterNext.indexOf('data-bank-next-date="2026-09-30"');
   const afterPosted = afterNext.slice(afterNext.lastIndexOf('<div class="card"', afterPostedAt), afterNext.indexOf('data-bank-next-card="', afterPostedAt + 20));
   const heroAfter = Number((after.match(/data-bank-hero-out="([^"]*)"/) || [])[1]);
-  assert.equal(Number((afterPay.match(/data-bank-check-left="([^"]*)"/) || [])[1]), leftBefore);
-  assert.equal(Number((afterPosted.match(/data-bank-check-left="([^"]*)"/) || [])[1]), posted.left);
+  const leftAfter = ctx.bankNextPayMaths(data, opts).filter(function (pack) {
+    return pack.period && pack.period.focus && pack.period.focus.date === "2026-10-15";
+  })[0].math.left;
+  assert.equal(leftAfter, leftBefore);
+  assert.equal(maths[postedIdx].left, posted.left);
   assert.equal(round(heroBefore - heroAfter), 8);
   assert.match(afterPay, /Power[\s\S]{0,240}aria-label="Paid"/);
 });

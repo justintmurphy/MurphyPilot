@@ -162,8 +162,8 @@ test("October 8 starts on the posted September check, then October 15 and Octobe
   assert.equal(cards[2].expected, true);
   assert.match(cards[0].chunk, /This pay/);
   assert.match(cards[0].chunk, /Payroll · Tue Sep 29/);
-  assert.match(cards[0].chunk, /through Thu, Oct 8/);
-  assert.doesNotMatch(cards[0].chunk, /data-bank-also-row|Also in/);
+  assert.match(cards[0].chunk, /Move money/);
+  assert.doesNotMatch(cards[0].chunk, /through Thu, Oct 8|data-bank-also-row|Also in/);
   assert.match(cards[1].chunk, /Stipend · Fri Oct 9/);
   assert.match(cards[1].chunk, /\(for Sat 10th\)/);
   assert.match(cards[1].chunk, /\+\$12\.34/);
