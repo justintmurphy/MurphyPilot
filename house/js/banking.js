@@ -8,6 +8,9 @@
    When moves is missing, each account's shortfall below $0 before its next deposit is funded from the account that receives this period's deposit.
    The snapshot GET is not stored by the browser and carries a fresh query so an edge cache cannot replay an older body.
    A past paycheck card checks bills that were paid in that window, and tucks those rows under Paid.
+   tip fi — Only the bill rows scroll, and only after five. Move money, the deposit, and Left stay in view.
+   Each bill row has the paid check from before: a tap marks that bill paid outside Edits, and a second tap clears a mark you made.
+   Paid rows on a past card stay under Paid, and they stay checked.
    tip fa — Every due-calendar deposit chip uses the income name. A weekday payroll says Payroll, the same as a rolled one.
    The Next Pay header uses that name, as in Payroll · Thu Oct 15. A rolled stipend stays Stipend · Fri Oct 23 (for Sun 25th).
    One-off deposits keep the name they already have.
@@ -10161,6 +10164,21 @@ function bankMoveDepositHtml(period, plan) {
     "</p></section>";
 }
 
+function bankMoveBillCheckHtml(row) {
+  var paid = !!row.paid;
+  var pay = row.pay || { on: paid, bank: paid, manual: false, key: "" };
+  var on = !!(pay.on || paid);
+  var mark = on
+    ? '<span class="tone-flat" aria-label="Paid">\u2713</span>'
+    : '<span class="bank-pay-box" aria-hidden="true"></span>';
+  var canToggle = !pay.bank && !!pay.key && (!on || pay.manual || pay.on);
+  if (!canToggle) return '<span class="bank-bill-check">' + mark + "</span>";
+  var attr = (pay.on || pay.manual) ? "data-bank-status-undo" : "data-bank-paid-month";
+  var dueBit = row.phrase ? ", " + row.phrase : "";
+  var aria = ((pay.on || pay.manual) ? "Paid " : "Mark paid ") + (row.name || "bill") + dueBit;
+  return '<button type="button" class="bank-bill-check" ' + attr + '="' + bankEsc(pay.key) + '" aria-label="' + bankEsc(aria) + '">' + mark + "</button>";
+}
+
 function bankMoveBillItemHtml(snap, row) {
   var paid = !!row.paid;
   var flow = bankFundSigned(row.amount || 0, "out");
@@ -10174,10 +10192,18 @@ function bankMoveBillItemHtml(snap, row) {
   if (row.canWait) meta.push("can wait until " + (bankWeekDate(row.canWait) || row.canWait));
   else if (!paid && row.phrase) meta.push(row.phrase);
   var amtText = row.amount == null ? "\u2014" : flow.text;
-  var mark = paid ? ' <span class="tone-flat" aria-label="Paid">\u2713</span>' : "";
   var metaHtml = meta.length ? ' <span class="sub">' + bankEsc(meta.join(" \u00b7 ")) + "</span>" : "";
-  return '<li data-bank-bill-paid="' + (paid ? "1" : "0") + '"><span class="' + nameCls + '">' +
-    bankEsc(row.name) + '</span> <b class="' + amtCls + '">' + bankEsc(amtText) + "</b>" + metaHtml + mark + "</li>";
+  return '<li data-bank-bill-paid="' + (paid ? "1" : "0") + '">' + bankMoveBillCheckHtml(row) +
+    '<span class="' + nameCls + '">' + bankEsc(row.name) + '</span> <b class="' + amtCls + '">' +
+    bankEsc(amtText) + "</b>" + metaHtml + "</li>";
+}
+
+function bankMoveBillsListHtml(items) {
+  if (!items || !items.length) return "";
+  var list = '<ul class="bank-move-bills-list bank-next-bills">' + items.join("") + "</ul>";
+  if (items.length <= 5) return list;
+  return '<div class="bank-move-bills-scroll" tabindex="0" role="region" aria-label="Bills">' + list +
+    '</div><p class="bank-move-bills-more">Showing 5 of ' + items.length + ", scroll for more</p>";
 }
 
 function bankMoveBillsHtml(snap, bills, collapsePaid) {
@@ -10192,13 +10218,11 @@ function bankMoveBillsHtml(snap, bills, collapsePaid) {
     if (collapsePaid && row && row.paid) done.push(html);
     else open.push(html);
   });
-  var openHtml = open.length ? '<ul class="bank-move-bills-list bank-next-bills">' + open.join("") + "</ul>" : "";
   var doneHtml = "";
   if (done.length) {
-    doneHtml = '<details class="bank-move-paid"><summary>Paid</summary><ul class="bank-move-bills-list bank-next-bills">' +
-      done.join("") + "</ul></details>";
+    doneHtml = '<details class="bank-move-paid"><summary>Paid</summary>' + bankMoveBillsListHtml(done) + "</details>";
   }
-  return '<section class="bank-move-bills">' + head + openHtml + doneHtml + "</section>";
+  return '<section class="bank-move-bills">' + head + bankMoveBillsListHtml(open) + doneHtml + "</section>";
 }
 
 function bankMoveLeftHtml(rows) {
@@ -17824,6 +17848,12 @@ function bankMount(root, data, opts) {
   bankBindHistory(root);
   if (root._bankBound || !root.addEventListener) return;
   root._bankBound = true;
+  function bankKeepNextCard(el) {
+    if (!root._bank || !el || !el.closest) return;
+    var card = el.closest("[data-bank-next-card]");
+    var n = card && card.getAttribute ? Number(card.getAttribute("data-bank-next-card")) : 0;
+    if (n >= 1) root._bank.nextIndex = n - 1;
+  }
   root.addEventListener("click", function (e) {
     var t = e && e.target;
     if (!t || !t.closest) return;
@@ -18201,12 +18231,14 @@ function bankMount(root, data, opts) {
       var paidDate = today ? bankDateKey(today.year, today.month, today.day) : "";
       var paidEntry = { month: paidMonth };
       if (paidDate) paidEntry.paid_date = paidDate;
+      bankKeepNextCard(paidMonthBtn);
       return bankSaveManualPaid(root, paidKey, paidEntry);
     }
     var undoBtn = t.closest("[data-bank-status-undo]");
     if (undoBtn && undoBtn.getAttribute) {
       if (e.preventDefault) e.preventDefault();
       if (root._bank) root._bank.cancelToast = null;
+      bankKeepNextCard(undoBtn);
       return bankUndoBillDesk(root, undoBtn.getAttribute("data-bank-status-undo"));
     }
     var dayCell = t.closest(".bank-day");

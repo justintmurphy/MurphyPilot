@@ -234,9 +234,60 @@ test("a past Sep 29 card tucks paid bills and leaves an unpaid bill open", funct
   assert.match(card, /<details class="bank-move-paid"><summary>Paid<\/summary>/);
   const tucked = card.slice(card.indexOf('class="bank-move-paid"'));
   assert.match(tucked, /data-bank-bill-paid="1"/);
+  assert.match(tucked, /class="bank-bill-check"/);
   assert.match(tucked, /aria-label="Paid"/);
   assert.match(tucked, /Rent/);
   assert.doesNotMatch(tucked, /data-bank-bill-paid="0"/);
   const open = card.slice(0, card.indexOf('class="bank-move-paid"'));
   assert.match(open, /Power[\s\S]{0,200}data-bank-bill-paid="0"|data-bank-bill-paid="0"[\s\S]{0,200}Power/);
+  assert.match(open, /data-bank-paid-month="power"/);
+});
+
+test("more than five bill rows scroll inside the list, and current and future rows check off", function () {
+  const ctx = boot();
+  const snap = baseSnap();
+  const names = ["Rent", "Power", "Water", "Phone", "Internet", "Trash"];
+  snap.budget.paid_status_month = "2026-10";
+  snap.budget.bills = names.map(function (name, i) {
+    const row = {
+      name: name,
+      bill_id: name.toLowerCase(),
+      amount: 4 + i,
+      typical_day: 16 + i,
+      cadence: "monthly",
+      tier: "required",
+      usual_account: { nickname: "Debit", last4: "4845" }
+    };
+    if (name === "Rent") row.paid_current_month = { month: "2026-10", status: "paid", source: "bank", paid_date: "2026-10-06" };
+    return row;
+  });
+  snap.budget.bills.push({
+    name: "Tuition",
+    bill_id: "tuition",
+    amount: 5,
+    typical_day: 31,
+    cadence: "monthly",
+    tier: "required",
+    usual_account: { nickname: "Debit", last4: "4845" }
+  });
+  snap.tier_doc.manual_paid = {};
+  const card = cardFor(ctx.bankPageHtml(snap, opts), "2026-10-15");
+  const later = cardFor(ctx.bankPageHtml(snap, opts), "2026-10-30");
+  assert.match(card, /class="bank-move-bills-scroll"/);
+  assert.match(card, /Showing 5 of 6, scroll for more/);
+  const scroll = card.slice(card.indexOf('class="bank-move-bills-scroll"'), card.indexOf("bank-move-bills-more"));
+  assert.match(scroll, /data-bank-paid-month="power"/);
+  assert.doesNotMatch(scroll, /<h3>Move money|<h3>Deposit|<h3>Left|Carried over|Spending budget share|Set aside/);
+  assert.match(card, /class="bank-bill-check"/);
+  assert.match(card, /aria-label="Paid"/);
+  assert.doesNotMatch(card, /data-bank-paid-month="rent"|data-bank-status-undo="rent"/);
+  assert.match(later, /data-bank-paid-month="tuition"/);
+  assert.doesNotMatch(later, /bank-move-bills-scroll/);
+  snap.tier_doc.manual_paid.power = { month: "2026-10", paid_date: "2026-10-13" };
+  const marked = cardFor(ctx.bankPageHtml(snap, opts), "2026-10-15");
+  assert.match(marked, /data-bank-status-undo="power"/);
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  assert.match(css, /\.bank-move-bills-scroll\s*\{[^}]*overflow-y:\s*auto/);
+  assert.match(css, /\.bank-move-bills-scroll\s*\{[^}]*max-height:\s*calc\(5 \* 3\.27rem \+ 1\.15rem\)/);
+  assert.match(css, /\.pay-carousel > \.card \{[^}]*max-height:\s*none[^}]*overflow:\s*visible/);
 });

@@ -295,7 +295,7 @@ test("a posted card subtracts paid bills, and checking one off does not change L
   assert.match(postedCard, /data-bank-past="1"/);
   assert.match(postedCard, /Payroll · Wed Sep 30/);
   assert.doesNotMatch(postedCard, /Pay ·/);
-  assert.match(postedCard, /Rent[\s\S]{0,240}aria-label="Paid"/);
+  assert.match(postedCard, /aria-label="Paid"[\s\S]{0,240}Rent|Rent[\s\S]{0,240}aria-label="Paid"/);
   assert.match(postedCard, /data-bank-bill-paid="1"/);
   assert.doesNotMatch(postedCard, /data-bank-check-left=|data-bank-left=/);
   assert.doesNotMatch(nextCard, /data-bank-carried=/);

@@ -840,9 +840,9 @@ test("a main-page tap marks a bill paid and a second tap clears it", async funct
   const leftBefore = ctx.bankNextPayMaths(snap, opts).filter(function (pack) {
     return pack.period && pack.period.focus && pack.period.focus.date === "2026-10-15";
   })[0].math.left;
-  assert.doesNotMatch(cardBefore, /data-bank-paid-month="rent"/);
+  assert.match(cardBefore, /data-bank-paid-month="rent"/);
   assert.match(cardBefore, /Rent/);
-  assert.match(cardBefore, /Power[\s\S]{0,200}aria-label="Paid"/);
+  assert.match(cardBefore, /Power[\s\S]{0,240}aria-label="Paid"|aria-label="Paid"[\s\S]{0,240}Power/);
   assert.doesNotMatch(cardBefore, /data-bank-paid-month="power"|data-bank-status-undo="power"/);
   const dayBefore = before.slice(before.indexOf('class="bank-day-dialog"'));
   assert.match(dayBefore, /data-bank-paid-month="rent"/);
@@ -862,8 +862,8 @@ test("a main-page tap marks a bill paid and a second tap clears it", async funct
   })[0].math.left;
   assert.ok(outAfter < outBefore, outAfter + " vs " + outBefore);
   assert.equal(leftAfter, ctx.bankRoundCents(leftBefore + 8));
-  assert.doesNotMatch(cardAfter, /data-bank-status-undo="rent"/);
-  assert.match(cardAfter, /Rent[\s\S]{0,240}aria-label="Paid"/);
+  assert.match(cardAfter, /data-bank-status-undo="rent"/);
+  assert.match(cardAfter, /Rent[\s\S]{0,300}aria-label="Paid"|aria-label="Paid"[\s\S]{0,300}Rent/);
   assert.match(after.slice(after.indexOf('class="bank-day-dialog"')), /data-bank-status-undo="rent"/);
   const dueAfterAt = after.indexOf('class="bank-due-month"');
   assert.match(after.slice(dueAfterAt, after.indexOf("</section>", dueAfterAt)), /data-bank-status-undo="rent"/);
