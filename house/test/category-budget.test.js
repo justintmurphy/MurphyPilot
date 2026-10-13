@@ -1285,18 +1285,25 @@ test("this month shows each figure once and tucks the extra cards", function () 
   assert.match(html, /Already counted in Groceries \$1\.25/);
   assert.doesNotMatch(html, /Overlap/);
   assert.match(html, /tone-stop/);
-  ["housing", "loans", "car", "insurance", "education", "affirm"].forEach(function (id) {
+  ["housing", "loans", "car-insurance", "education", "affirm", "categories"].forEach(function (id) {
     assert.match(html, new RegExp('data-bank-bill-group="' + id + '"'));
   });
   assert.match(html, /Housing\/Utilities/);
+  assert.match(html, /Car &amp; Insurance/);
   assert.match(html, /Affirm plans/);
+  assert.match(html, /data-bank-scale="income"/);
+  assert.match(html, /<span>Income<\/span>/);
+  assert.match(html, /<span>Budgeted<\/span>/);
+  assert.match(html, /<span>Short<\/span>/);
   assert.match(html, /General Shopping/);
   const under = JSON.parse(JSON.stringify(snap));
   under.budget.tiers.plan_total_tiers = 10;
   under.budget.tiers.left_after_tiers = 10;
   under.budget.plan_dedupe = [{ name: "Overlap", deducted: 1.25 }];
+  under.budget.bills.forEach(function (row) { row.amount = 1; });
   const quiet = ctx.bankPageHtml(under, { tab: "budget", now: "2026-10-16T12:00:00-04:00" });
   assert.match(quiet, /data-over="0"/);
+  assert.match(quiet, /<span>Left<\/span>/);
   assert.doesNotMatch(quiet, /data-bank-trim="1"/);
   assert.doesNotMatch(quiet, /Overlap/);
   const stray = JSON.parse(JSON.stringify(snap));
@@ -1308,18 +1315,16 @@ test("this month shows each figure once and tucks the extra cards", function () 
 test("bill names stay whole and categories are spending lines", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  const nameRule = css.slice(css.indexOf("table.book.bank-bill-table .mix-leg-name"));
+  const nameRule = css.slice(css.indexOf(".bank-bill-tile .mix-leg-name"));
   const nameBlock = nameRule.slice(0, nameRule.indexOf("}"));
-  assert.match(nameBlock, /font-size: 14px/);
+  assert.match(nameBlock, /font-size: 13px/);
   assert.match(nameBlock, /white-space: normal/);
   assert.match(nameBlock, /text-overflow: clip/);
-  assert.match(nameBlock, /min-width: 55%/);
   assert.doesNotMatch(nameBlock, /ellipsis/);
-  const figRule = css.slice(css.indexOf("table.book.bank-bill-table .bank-bill-fig {"));
-  const figBlock = figRule.slice(0, figRule.indexOf("}"));
-  assert.match(figBlock, /font-size: 13px/);
-  assert.match(css, /col\.bank-bill-name-col \{\s*width: 55%;/);
-  assert.match(css, /grid-template-columns: minmax\(55%, 1fr\)/);
+  assert.match(css, /\.bank-bill-grid \{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  const wide = css.slice(css.indexOf("@media (min-width: 900px)"));
+  assert.match(wide, /\.bank-bill-grid \{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(wide, /\.bank-panel\[data-panel="budget"\] > \[data-bank-part="tiers"\] \{[^}]*grid-column:\s*1 \/ -1/);
 
   const snap = bare(ctx);
   snap.tier_doc.categories = ctx.bankSpendStarters().concat([
@@ -1336,8 +1341,8 @@ test("bill names stay whole and categories are spending lines", function () {
   const names = [
     ["Harbor View Housing Cooperative", "Rent/Mortgage", "housing", "Housing/Utilities"],
     ["Regional Student Loan Servicer", "Loans", "loans", "Loans"],
-    ["Family Highway Transport Note", "Auto", "car", "Car"],
-    ["Northwind Protection Plan", "Insurance", "insurance", "Insurance"],
+    ["Family Highway Transport Note", "Auto", "car-insurance", "Car &amp; Insurance"],
+    ["Northwind Protection Plan", "Insurance", "car-insurance", "Car &amp; Insurance"],
     ["Continuing Studies Program", "Education", "education", "Education"],
     ["Household Installment Schedule", "Installment", "affirm", "Affirm plans"]
   ];
@@ -1362,7 +1367,7 @@ test("bill names stay whole and categories are spending lines", function () {
   assert.doesNotMatch(card, />Required<|>Needs<|>Wants</);
   assert.doesNotMatch(card, /mix-leg-name">(?:Required|Needs|Wants)</);
   const tableAt = card.indexOf('data-bank-bill-groups="1"');
-  const table = card.slice(tableAt, card.indexOf("</table>", tableAt));
+  const table = card.slice(tableAt, card.indexOf("<h3>Categories</h3>", tableAt));
   const found = [];
   const re = /<span class="mix-leg-name">([^<]*)<\/span>/g;
   let hit;
@@ -1376,8 +1381,10 @@ test("bill names stay whole and categories are spending lines", function () {
   });
   names.forEach(function (row) {
     assert.ok(found.indexOf(row[0]) >= 0, row[0]);
-    assert.match(table, new RegExp('<th colspan="2">' + row[3].replace("/", "\\/") + "</th>"));
+    assert.match(table, new RegExp("<h3>" + row[3].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "</h3>"));
     assert.match(table, new RegExp('data-bank-bill-group="' + row[2] + '"'));
+    assert.match(table, /data-bank-scale="spent"/);
+    assert.match(table, /class="bank-bill-grid"/);
   });
   assert.doesNotMatch(table, /mix-leg-name">[A-Za-z]\.<\/span>/);
   const cats = card.slice(card.indexOf("<h3>Categories</h3>"));

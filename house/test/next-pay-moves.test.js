@@ -212,6 +212,67 @@ test("budget pay period moves win, including a month-day move date", function ()
   assert.doesNotMatch(card, /Move \$300/);
 });
 
+test("a printed move renders only on the card whose window contains move_by", function () {
+  const ctx = boot();
+  const snap = baseSnap();
+  snap.budget.pay_schedule.push({
+    name: "Stipend",
+    kind: "stipend",
+    date: "2026-10-25",
+    pay_date: "2026-10-23",
+    nominal_date: "2026-10-25",
+    amount: 12,
+    account: { nickname: "Checking", last4: "0831" }
+  });
+  snap.budget.pay_periods = [{
+    date: "2026-10-15",
+    end: "2026-10-30",
+    moves: [
+      {
+        from: "Debit ··4845",
+        to: "Checking ··0831",
+        amount: 300,
+        move_by: "2026-10-16",
+        reason: "Education"
+      },
+      {
+        from: "Checking ··0831",
+        to: "Debit ··4845",
+        amount: 40,
+        move_by: "2026-10-24",
+        reason: "Power"
+      }
+    ]
+  }, {
+    date: "2026-10-23",
+    moves: [{
+      from: "Debit ··4845",
+      to: "Checking ··0831",
+      amount: 300,
+      move_by: "2026-10-16",
+      reason: "Education"
+    }]
+  }];
+  const html = ctx.bankPageHtml(snap, opts);
+  const oct15 = cardFor(html, "2026-10-15");
+  const oct23 = cardFor(html, "2026-10-23");
+  const oct30 = cardFor(html, "2026-10-30");
+  assert.match(oct15, /Move \$300 from Debit ··4845 to Checking ··0831 by Fri Oct 16, for Education/);
+  assert.doesNotMatch(oct15, /Move \$40/);
+  assert.match(oct23, /Move \$40 from Checking ··0831 to Debit ··4845 by Sat Oct 24, for Power/);
+  assert.doesNotMatch(oct23, /Move \$300/);
+  assert.doesNotMatch(oct23, /Oct 16/);
+  assert.match(oct30, /No transfers needed/);
+  assert.doesNotMatch(oct30, /Move \$/);
+  const plans = ctx.bankNextPayMovePlan(snap, opts);
+  const on15 = plans.filter(function (row) { return row.date === "2026-10-15"; })[0];
+  const on23 = plans.filter(function (row) { return row.date === "2026-10-23"; })[0];
+  assert.equal(on15.moves.length, 1);
+  assert.equal(on15.moves[0].move_by, "2026-10-16");
+  assert.equal(on23.moves.length, 1);
+  assert.equal(on23.moves[0].move_by, "2026-10-24");
+});
+
 test("a past Sep 29 card tucks paid bills and leaves an unpaid bill open", function () {
   const ctx = boot();
   const snap = baseSnap();
