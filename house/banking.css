@@ -3199,6 +3199,36 @@ button.bank-bill-tile:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.bank-card-fold { margin: 0; }
+.bank-card-fold > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+.bank-card-fold > summary::-webkit-details-marker,
+.bank-card-fold > summary::marker { display: none; content: ""; }
+.bank-card-fold-sum { min-width: 0; }
+.bank-card-fold .cf-chev {
+  flex: 0 0 auto;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid currentColor;
+}
+.bank-card-fold[open] > summary .cf-chev { transform: rotate(180deg); }
+.bank-card-fold > summary:focus { outline: none; }
+.bank-card-fold > summary:focus-visible {
+  outline: 2px solid var(--brand-fg);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 .bank-card-panel .bank-edit-list i,
 .bank-card-panel .bank-edit-list em {
   color: var(--ink-soft);

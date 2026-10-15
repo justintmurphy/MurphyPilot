@@ -16921,6 +16921,16 @@ function bankCardMoneyLine(label, amount, attr) {
     (amount == null ? "" : String(amount)) + '">' + bankEsc(shown) + "</b></p>";
 }
 
+function bankCardAmt(amount, attr) {
+  var shown = amount == null ? "\u2014" : bankMoney(amount);
+  return '<b data-bank-' + attr + '="' + (amount == null ? "" : String(amount)) + '">' + bankEsc(shown) + "</b>";
+}
+
+function bankCardFold(summaryHtml, body) {
+  return '<details class="bank-card-fold"><summary><span class="bank-card-fold-sum">' + summaryHtml +
+    '</span><i class="cf-chev" aria-hidden="true"></i></summary>' + (body || "") + "</details>";
+}
+
 function bankCardAccountLines(rows, attr) {
   return (rows || []).filter(function (row) { return row.left != null; }).map(function (row) {
     return '<p class="bank-fit-line" data-bank-left-acct="1"><span>' + bankEsc(row.label) + '</span> <b data-' + attr + '="' +
@@ -16973,29 +16983,29 @@ function bankBudgetPanelsHtml(snap, opts) {
   var warn = card.warn ? '<p class="bank-ledger-warn" data-bank-ledger-warn="1" role="status">Unpaid bills don\u2019t match the ledger.</p>' : "";
   var nowLeftCls = card.nowLeft != null && card.nowLeft < -0.004 ? " tone-stop" : "";
   var monthLeftCls = card.monthLeft != null && card.monthLeft < -0.004 ? " tone-stop" : "";
-  var now = '<div class="bank-card-panel" data-bank-now="1"><h3>Right now</h3>' +
-    bankCardMoneyLine("Balances after pending", card.nowBalances, "now-balances") +
-    '<h3>Paid so far this month</h3>' + paidHtml +
-    "<h3>Due before " + bankEsc(nextWhen || "the next deposit") + "</h3>" +
-    (dueHtml || '<p class="bank-empty">Nothing due before the next deposit.</p>') +
-    bankCardMoneyLine("Due", card.nowDue, "now-due") +
-    '<div class="overall-strip"><div class="ov-hero"><span>Left until ' + bankEsc(nextWhen || "the next deposit") +
+  var startRows = (card.nowAccounts || []).filter(function (row) { return row.start != null; });
+  var startHtml = startRows.length ? '<ul class="bank-edit-list">' + startRows.map(function (row) {
+    return "<li><span>" + bankEsc(row.label) + "</span> <b>" + bankEsc(bankMoney(row.start)) + "</b></li>";
+  }).join("") + "</ul>" : '<p class="bank-empty">No balances in this window.</p>';
+  var dueWhen = nextWhen || "the next deposit";
+  var nowHero = '<div class="overall-strip"><div class="ov-hero"><span>Left until ' + bankEsc(dueWhen) +
     '</span> <b data-bank-now-left="' + (card.nowLeft == null ? "" : String(card.nowLeft)) + '" class="' + nowLeftCls.trim() + '">' +
-    bankEsc(card.nowLeft == null ? "\u2014" : bankMoney(card.nowLeft)) + "</b></div></div>" +
-    bankCardAccountLines(card.nowAccounts, "bank-now-acct") + "</div>";
-  var overall = '<div class="bank-card-panel" data-bank-overall="1"><h3>Overall</h3>' +
-    payHtml +
-    bankCardMoneyLine("Pay", card.pay, "pay-total") +
-    bankCardMoneyLine("Landed", card.landed, "pay-landed") +
-    bankCardMoneyLine("Bills owed", card.owed, "owed") +
-    bankCardMoneyLine("Paid", card.paid, "paid") +
-    bankCardMoneyLine("Unpaid", card.unpaid, "unpaid") +
-    billHtml + warn +
-    (card.everyday == null ? "" : bankCardMoneyLine("Spent on everyday items so far", card.everyday, "everyday")) +
-    '<div class="overall-strip"><div class="ov-hero"><span>Left at month end ' + bankEsc(endWhen) +
+    bankEsc(card.nowLeft == null ? "\u2014" : bankMoney(card.nowLeft)) + "</b></div></div>";
+  var monthHero = '<div class="overall-strip"><div class="ov-hero"><span>Left at month end ' + bankEsc(endWhen) +
     '</span> <b data-bank-month-left="' + (card.monthLeft == null ? "" : String(card.monthLeft)) + '" class="' + monthLeftCls.trim() + '">' +
-    bankEsc(card.monthLeft == null ? "\u2014" : bankMoney(card.monthLeft)) + "</b></div></div>" +
-    bankCardAccountLines(card.endAccounts, "bank-month-acct") + "</div>";
+    bankEsc(card.monthLeft == null ? "\u2014" : bankMoney(card.monthLeft)) + "</b></div></div>";
+  var now = '<div class="bank-card-panel" data-bank-now="1"><h3>Right now</h3>' + nowHero +
+    bankCardAccountLines(card.nowAccounts, "bank-now-acct") +
+    bankCardFold("Balances " + bankCardAmt(card.nowBalances, "now-balances"), startHtml) +
+    bankCardFold("Paid so far " + bankCardAmt(card.paid, "paid"), paidHtml) +
+    bankCardFold("Due before " + bankEsc(dueWhen) + " " + bankCardAmt(card.nowDue, "now-due"),
+      dueHtml || '<p class="bank-empty">Nothing due before the next deposit.</p>') + "</div>";
+  var overall = '<div class="bank-card-panel" data-bank-overall="1"><h3>Overall</h3>' + monthHero +
+    bankCardAccountLines(card.endAccounts, "bank-month-acct") +
+    bankCardFold("Pay " + bankCardAmt(card.pay, "pay-total") + " (landed " + bankCardAmt(card.landed, "pay-landed") + ")", payHtml) +
+    bankCardFold("Bills " + bankCardAmt(card.owed, "owed") + " \u00b7 " + bankCardAmt(card.paid, "paid") +
+      " paid \u00b7 " + bankCardAmt(card.unpaid, "unpaid") + " unpaid", billHtml + warn) +
+    (card.everyday == null ? "" : bankCardMoneyLine("Everyday spending", card.everyday, "everyday")) + "</div>";
   return '<div class="bank-card-panels">' + now + overall + "</div>";
 }
 
