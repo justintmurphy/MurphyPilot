@@ -16606,9 +16606,9 @@ function bankDeferListHtml(rows, gap, rest) {
 
 function bankCardRetired(row) {
   if (!row) return true;
-  if (row.retired === true || row.paid === true) return true;
+  if (row.retired === true) return true;
   var life = String(row.status || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
-  if (life === "retired" || life === "paid") return true;
+  if (life === "retired") return true;
   if ((life === "cancelled" || life === "canceled") && !row.status_from && !row.cancelled_from) return true;
   return false;
 }
@@ -16745,11 +16745,23 @@ function bankCardEvents(period) {
   return out;
 }
 
+function bankCardPaidOn(row) {
+  var bag = row && (row.paid_current_month || row.manual_paid);
+  if (!bag || typeof bag !== "object") return "";
+  return bankYmdOnly(bankCopyDate(bag.paid_date || bag.date || "")) || "";
+}
+
 function bankCardDueDates(row, start, end) {
   if (!row || !start || !end) return [];
+  if (row.one_time) {
+    var once = bankYmdOnly(bankCopyDate(row.date || "")) || "";
+    return once && once >= start && once <= end ? [once] : [];
+  }
   var cycle = bankYmdOnly(bankCopyDate(row.cycle_due || ""));
   if (cycle) return cycle >= start && cycle <= end ? [cycle] : [];
   if (bankIsQuarterly(row)) {
+    var paidOn = bankCardPaidOn(row);
+    if (paidOn && paidOn >= start && paidOn <= end) return [paidOn];
     var quarterly = "";
     try { quarterly = bankQuarterlyDue(row); } catch (eQ) { quarterly = ""; }
     return quarterly && quarterly >= start && quarterly <= end ? [quarterly] : [];
@@ -16821,6 +16833,140 @@ function bankCardBills(snap, opts, win) {
   return rows;
 }
 
+function bankCardDepositId(ev) {
+  return (ev && ev.date || "") + "|" + bankFoldName(ev && ev.name || "");
+}
+
+function bankCardRememberDeposit(map, ev, fromBank) {
+  if (!ev || ev.kind !== "in" || !ev.date || ev.amount == null) return;
+  var id = bankCardDepositId(ev);
+  var prev = map[id];
+  if (!prev) {
+    ev.fromBank = !!fromBank;
+    map[id] = ev;
+    return;
+  }
+  if (fromBank && !prev.fromBank) {
+    ev.fromBank = true;
+    ev.landed = true;
+    map[id] = ev;
+  }
+}
+
+function bankCardPushDeposit(bucket, raw) {
+  if (!raw) return;
+  if (Array.isArray(raw)) {
+    raw.forEach(function (ev) { bankCardPushEvent(bucket, ev, "", "", "in"); });
+    return;
+  }
+  bankCardPushEvent(bucket, raw, "", "", "in");
+}
+
+function bankCardInWindow(ev, win) {
+  return !!(ev && ev.date && win && ev.date >= win.start && ev.date <= win.end);
+}
+
+function bankCardDeposits(snap, periods, win, today) {
+  var map = {};
+  (periods || []).forEach(function (period) {
+    if (!period) return;
+    var ins = [];
+    bankCardPushDeposit(ins, period.deposit);
+    bankCardPushDeposit(ins, period["in"]);
+    bankCardEvents(period).forEach(function (ev) {
+      if (ev.kind === "in") ins.push(ev);
+    });
+    ins.forEach(function (ev) {
+      if (!bankCardInWindow(ev, win)) return;
+      bankCardRememberDeposit(map, ev, false);
+    });
+  });
+  var budget = (snap && snap.budget) || {};
+  (budget.pay_schedule || []).forEach(function (row) {
+    if (!row) return;
+    var when = bankYmdOnly(bankCopyDate(bankScheduleDate(row))) || "";
+    if (!when || !win || when < win.start || when > win.end) return;
+    var planned = bankNum(row.amount);
+    var name = row.name || row.label || "Income";
+    var hit = null;
+    try {
+      hit = bankIncomeTxMatch(snap, {
+        name: name,
+        kind: row.kind || "",
+        date: when,
+        amount: planned,
+        account: row.account || null
+      });
+    } catch (eHit) { hit = null; }
+    var posted = hit && hit.date ? hit.date : "";
+    var landed = !!posted || !!(today && when < today);
+    if (!landed) return;
+    var date = posted || when;
+    if (!win || date < win.start || date > win.end) return;
+    var amount = hit && hit.amount != null ? hit.amount : planned;
+    if (amount == null) return;
+    bankCardRememberDeposit(map, {
+      kind: "in",
+      name: name,
+      amount: bankRoundCents(Math.abs(amount)),
+      date: date,
+      landed: true,
+      paid: false
+    }, !!(hit && hit.amount != null));
+  });
+  var cur = (snap && snap.current) || {};
+  [cur.recent_tx, cur.edits_tx].forEach(function (list) {
+    (list || []).forEach(function (raw) {
+      if (!raw || !bankTxIsDepositInflow(raw)) return;
+      var when = bankYmdOnly(bankCopyDate(raw.date || "")) || "";
+      if (!when || !win || when < win.start || when > win.end) return;
+      if (today && when >= today) return;
+      var amount = bankNum(raw.amount);
+      if (amount == null) return;
+      var name = raw.name || raw.desc || raw.description || "Deposit";
+      if (map[when + "|" + bankFoldName(name)]) return;
+      bankCardRememberDeposit(map, {
+        kind: "in",
+        name: name,
+        amount: bankRoundCents(Math.abs(amount)),
+        date: when,
+        landed: true,
+        paid: false
+      }, true);
+    });
+  });
+  var out = [];
+  Object.keys(map).forEach(function (key) { out.push(map[key]); });
+  out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.name).localeCompare(String(b.name)); });
+  return out;
+}
+
+function bankCardOpening(snap) {
+  var cur = snap && snap.current;
+  var bag = cur && cur.balance_before_first_pay;
+  if (!bag || typeof bag !== "object" || Array.isArray(bag)) return null;
+  var byLast = {};
+  var accounts = [];
+  try { accounts = bankAccounts(snap) || []; } catch (eAcct) { accounts = []; }
+  accounts.forEach(function (acct) {
+    if (!acct) return;
+    var last = bankLast4Digits(acct.last4 || acct.suffix || acct.last_4);
+    if (last) byLast[last] = acct;
+  });
+  var sum = 0;
+  var any = false;
+  Object.keys(bag).forEach(function (key) {
+    var last = bankLast4Digits(key);
+    var acct = byLast[last];
+    if (!acct || !bankAccountIsSpendCash(acct)) return;
+    var n = bankNum(bag[key]);
+    if (n == null) return;
+    any = true;
+    sum += n;
+  });
+  return any ? bankRoundCents(sum) : null;
+}
+
 function bankCardSum(rows, field) {
   var n = 0;
   var any = false;
@@ -16850,17 +16996,7 @@ function bankBudgetCard(snap, opts) {
   var dueEvents = bankCardEvents(current).filter(function (ev) {
     return ev.kind === "out" && !ev.paid;
   });
-  var deposits = events.filter(function (ev) {
-    if (ev.kind !== "in" || !ev.date || !win) return false;
-    return ev.date >= win.start && ev.date <= win.end;
-  });
-  var seenDep = {};
-  deposits = deposits.filter(function (ev) {
-    var id = ev.date + "|" + ev.name + "|" + ev.amount;
-    if (seenDep[id]) return false;
-    seenDep[id] = true;
-    return true;
-  });
+  var deposits = bankCardDeposits(snap, periods, win, today);
   var pay = 0;
   var landed = 0;
   deposits.forEach(function (ev) {
@@ -16889,8 +17025,9 @@ function bankBudgetCard(snap, opts) {
   });
   var nowLeft = bankCardSum(nowAccounts, "left");
   var monthLeft = bankCardSum(endAccounts, "left");
+  var opening = bankCardOpening(snap);
   var everyday = null;
-  if (monthLeft != null && deposits.length) everyday = bankRoundCents(pay - owed - monthLeft);
+  if (opening != null && monthLeft != null && deposits.length) everyday = bankRoundCents(opening + pay - owed - monthLeft);
   return {
     window: win,
     today: today,
@@ -16902,6 +17039,7 @@ function bankBudgetCard(snap, opts) {
     dueEvents: dueEvents,
     nowLeft: nowLeft,
     deposits: deposits,
+    opening: opening,
     pay: deposits.length ? bankRoundCents(pay) : null,
     landed: deposits.length ? bankRoundCents(landed) : null,
     bills: bills,
@@ -17002,7 +17140,8 @@ function bankBudgetPanelsHtml(snap, opts) {
       dueHtml || '<p class="bank-empty">Nothing due before the next deposit.</p>') + "</div>";
   var overall = '<div class="bank-card-panel" data-bank-overall="1"><h3>Overall</h3>' + monthHero +
     bankCardAccountLines(card.endAccounts, "bank-month-acct") +
-    bankCardFold("Pay " + bankCardAmt(card.pay, "pay-total") + " (landed " + bankCardAmt(card.landed, "pay-landed") + ")", payHtml) +
+    bankCardFold("Pay " + bankCardAmt(card.pay, "pay-total") + " (landed " + bankCardAmt(card.landed, "pay-landed") + ")",
+      (card.opening == null ? "" : bankCardMoneyLine("Opening balance", card.opening, "opening")) + payHtml) +
     bankCardFold("Bills " + bankCardAmt(card.owed, "owed") + " \u00b7 " + bankCardAmt(card.paid, "paid") +
       " paid \u00b7 " + bankCardAmt(card.unpaid, "unpaid") + " unpaid", billHtml + warn) +
     (card.everyday == null ? "" : bankCardMoneyLine("Everyday spending", card.everyday, "everyday")) + "</div>";
