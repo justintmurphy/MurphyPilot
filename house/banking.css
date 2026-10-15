@@ -3153,3 +3153,61 @@ button.bank-bill-tile:focus-visible {
   outline: 2px solid var(--ink-soft);
   outline-offset: 1px;
 }
+
+.bank-card-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.bank-card-panel {
+  min-width: 0;
+}
+
+.bank-card-panel h3 {
+  margin: 12px 0 4px;
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.2;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.bank-ledger-warn {
+  margin: 8px 0;
+  color: var(--stop);
+  font-size: 13px;
+}
+
+@media (min-width: 900px) {
+  .bank-card-panels {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .bank-card-panel { flex: 1 1 0; }
+}
+
+.bank-card-panel .bank-fit-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-card-panel .bank-edit-list i,
+.bank-card-panel .bank-edit-list em {
+  color: var(--ink-soft);
+  font-style: normal;
+  font-size: 13px;
+}
+
+@media (max-width: 390px) {
+  .bank-card-panel .bank-edit-list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

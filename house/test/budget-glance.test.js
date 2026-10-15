@@ -138,7 +138,9 @@ test("the budget header and month control use the printed window", function () {
   assert.equal(win.end, "2026-10-29");
   const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: NOW });
   assert.match(html, /Budget month: Sep 30 \u2013 Oct 29/);
-  assert.match(html, /Free to spend · through Oct 29/);
+  assert.match(html, /data-bank-now="1"/);
+  assert.match(html, /Right now/);
+  assert.match(html, /data-bank-overall="1"/);
   assert.match(html, /data-bank-cal-range="1">Sep 30 \u2013 Oct 29</);
   const nov = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-11", now: NOW });
   assert.match(nov, /Budget month: Oct 30 \u2013 Nov 29/);
