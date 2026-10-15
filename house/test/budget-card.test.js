@@ -70,8 +70,7 @@ function snap() {
         {
           current: true,
           start: "2026-10-15",
-          end: "2026-10-29",
-          next_deposit: "2026-10-30",
+          end: "2026-10-22",
           accounts: {
             "0831": {
               nickname: "Bills", role: "bills", subType: "checking",
@@ -92,6 +91,7 @@ function snap() {
             }
           }
         },
+        { start: "2026-10-23", end: "2026-11-05" },
         {
           start: "2026-09-30",
           end: "2026-10-29",
@@ -103,7 +103,7 @@ function snap() {
           deposits: [
             { name: "Payroll", date: "2026-09-30", amount: 4315.56, landed: true },
             { name: "Payroll", date: "2026-10-15", amount: 4315.56, landed: true },
-            { name: "Stipend", date: "2026-10-29", amount: 1020, landed: false }
+            { name: "Stipend", date: "2026-10-23", amount: 1020, landed: false }
           ],
           outs: [
             { name: "Later", amount: 357.89, date: "2026-10-28" },
@@ -185,7 +185,8 @@ test("the budget card reads right now and month-end left from the ledger", funct
   assert.match(html, /data-bank-now-left="463.31"/);
   assert.match(html, /data-bank-now-acct="81.18"/);
   assert.match(html, /data-bank-now-acct="382.13"/);
-  assert.match(html, /Left until Oct 30/);
+  assert.equal(card.nextDeposit, "2026-10-23");
+  assert.match(html, /Left until Oct 23/);
   assert.match(html, /data-bank-pay-total="9651.12"/);
   assert.match(html, /data-bank-pay-landed="8631.12"/);
   assert.match(html, /data-bank-owed="7470.46"/);

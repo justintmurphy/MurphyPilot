@@ -16670,6 +16670,20 @@ function bankCardCurrentPeriod(periods) {
   return found;
 }
 
+function bankCardNextDeposit(periods, current) {
+  var start = current ? (bankYmdOnly(bankCopyDate(current.start || "")) || "") : "";
+  var nextStart = "";
+  (periods || []).forEach(function (row) {
+    if (!row || row === current) return;
+    var when = bankYmdOnly(bankCopyDate(row.start || "")) || "";
+    if (!when || (start && when <= start)) return;
+    if (!nextStart || when < nextStart) nextStart = when;
+  });
+  if (nextStart) return nextStart;
+  var end = current ? (bankYmdOnly(bankCopyDate(current.end || "")) || "") : "";
+  return end ? (bankAddDays(end, 1) || "") : "";
+}
+
 function bankCardMonthPeriod(periods, end) {
   var best = null;
   (periods || []).forEach(function (row) {
@@ -16832,9 +16846,7 @@ function bankBudgetCard(snap, opts) {
   var endAccounts = bankCardAccountRows(monthEnd);
   var events = [];
   periods.forEach(function (period) { events = events.concat(bankCardEvents(period)); });
-  var nextDeposit = "";
-  if (current) nextDeposit = bankYmdOnly(bankCopyDate(current.next_deposit || current.next_pay || "")) || "";
-  if (!nextDeposit && current && current.end) nextDeposit = bankAddDays(bankYmdOnly(bankCopyDate(current.end)) || "", 1) || "";
+  var nextDeposit = bankCardNextDeposit(periods, current);
   var dueEvents = bankCardEvents(current).filter(function (ev) {
     return ev.kind === "out" && !ev.paid;
   });
