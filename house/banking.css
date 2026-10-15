@@ -3236,8 +3236,53 @@ button.bank-bill-tile:focus-visible {
   font-size: 13px;
 }
 
+.bank-card-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0 6px;
+  min-width: 0;
+}
+.bank-card-bar-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 13px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+.bank-card-bar-label span {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+}
+.bank-card-bar-label b {
+  min-width: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.bank-card-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rule) 80%, transparent);
+  overflow: hidden;
+}
+.bank-card-bar-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
 @media (max-width: 390px) {
   .bank-card-panel .bank-edit-list li {
     grid-template-columns: minmax(0, 1fr) auto;
   }
+  .bank-card-bar-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .bank-card-bar-label b { text-align: left; }
 }

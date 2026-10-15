@@ -304,6 +304,32 @@ test("everyday spending adds the opening balance and landed pay", function () {
   const paidNames = card.bills.filter(function (row) { return row.state === "paid"; }).map(function (row) { return row.name; });
   assert.ok(paidNames.indexOf("Water") >= 0);
   assert.ok(paidNames.indexOf("TruGreen") >= 0);
+  const payPct = Math.round((card.landed / card.pay) * 100);
+  const billPct = Math.round((card.paid / card.owed) * 100);
+  const expectedLeft = ctx.bankRoundCents(card.opening + card.pay - card.owed);
+  const leftPct = Math.round((card.everyday / expectedLeft) * 100);
+  assert.equal(card.paid, 504.75);
+  assert.equal(payPct, 89);
+  assert.equal(billPct, 6);
+  assert.equal(expectedLeft, 3949.54);
+  assert.equal(leftPct, 72);
+  assert.equal(ctx.bankCardBarHue(0), 120);
+  assert.equal(ctx.bankCardBarHue(50), 60);
+  assert.equal(ctx.bankCardBarHue(100), 0);
+  assert.equal(ctx.bankCardBarHue(150), 0);
+  const over = ctx.bankCardBarHtml("pay", "Pay", "$2.00 of $1.00", 150);
+  assert.match(over, /width:100\.0%/);
+  assert.match(over, /aria-valuenow="150"/);
+  assert.match(over, /150%/);
+  fx.budget.month_end_sweep = {
+    month: "2026-10",
+    status: "projected",
+    total: 15,
+    to: { last4: "0831", nickname: "Bills" },
+    move_by: "2026-10-30",
+    accounts: { "4845": { amount: 15, held_back: 2 } },
+    basis: "after the bills"
+  };
   const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: NOW });
   const payAt = html.indexOf('data-bank-pay-total="9491.5"');
   const owedAt = html.indexOf("data-bank-owed");
@@ -311,6 +337,24 @@ test("everyday spending adds the opening balance and landed pay", function () {
   assert.match(html.slice(payAt, owedAt), /data-bank-opening="2296.25"/);
   assert.match(html, /data-bank-pay-landed="8471.5"/);
   assert.match(html, /data-bank-everyday="2835.12"/);
+  const hero = html.slice(html.indexOf('data-bank-hero="1"'), html.indexOf('class="bank-next"'));
+  const face = hero.slice(0, hero.indexOf("fills-more"));
+  const more = hero.slice(hero.indexOf("fills-more"));
+  assert.match(face, /data-bank-sweep-line="1"/);
+  assert.doesNotMatch(face, /data-bank-sweep-acct=/);
+  assert.match(more, /data-bank-sweep-acct="4845"/);
+  assert.ok(face.indexOf('data-bank-sweep-line="1"') < face.indexOf('data-bank-card-bars="1"'));
+  assert.match(face, /data-bank-bar="pay"[^>]*data-pct="89"/);
+  assert.match(face, /data-bank-bar="bills"[^>]*data-pct="6"/);
+  assert.match(face, /data-bank-bar="left"[^>]*data-pct="72"/);
+  assert.match(face, /\$8,471\.50 of \$9,491\.50, 89%/);
+  assert.match(face, /\$504\.75 of \$7,838\.21, 6%/);
+  assert.match(face, /\$2,835\.12 used of \$3,949\.54, 72%/);
+  assert.equal((face.match(/role="progressbar"/g) || []).length, 3);
+  assert.match(face, /aria-valuemin="0"/);
+  assert.match(face, /aria-valuemax="100"/);
+  assert.match(face, /aria-valuenow="89"/);
+  assert.match(face, new RegExp("background:hsl\\(" + ctx.bankCardBarHue((card.landed / card.pay) * 100) + ","));
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   assert.doesNotMatch(src, /2296\.25|2,296\.25|9491\.50|9,491\.50|7838\.21|2835\.12|2,835\.12/);
 });
