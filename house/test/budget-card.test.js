@@ -192,6 +192,13 @@ test("the budget card reads right now and month-end left from the ledger", funct
   assert.doesNotMatch(face, /<details class="bank-card-fold"[^>]*\sopen/);
   assert.match(html, /data-bank-pay-total="9651.12"/);
   assert.match(html, /data-bank-pay-landed="8631.12"/);
+  const payListAt = html.indexOf('data-bank-pay-list="1"');
+  const payList = html.slice(payListAt, html.indexOf("</ul>", payListAt));
+  assert.match(payList, /Payroll/);
+  assert.match(payList, /Stipend/);
+  assert.doesNotMatch(payList, /Opening|Refund|Surplus/);
+  assert.equal(card.deposits.every(function (row) { return row.payKind === "payroll" || row.payKind === "stipend"; }), true);
+  assert.equal(card.surplus, null);
   assert.match(html, /data-bank-owed="7470.46"/);
   assert.match(html, /data-bank-paid="5613.52"/);
   assert.match(html, /data-bank-unpaid="1856.94"/);
@@ -259,7 +266,10 @@ test("everyday spending adds the opening balance and landed pay", function () {
           start: "2026-10-15",
           end: "2026-10-22",
           deposit: { name: "Stipend", date: "2026-10-23", amount: 1020, landed: false },
-          events: [{ kind: "in", name: "Stipend", date: "2026-10-23", amount: 1020, landed: false }],
+          events: [
+            { kind: "in", name: "Stipend", date: "2026-10-23", amount: 1020, landed: false },
+            { kind: "in", name: "Move", date: "2026-10-18", amount: 10, from_last4: "0831", to_last4: "4845" }
+          ],
           accounts: {
             "0831": { nickname: "Bills", role: "bills", subType: "checking", left_at_end: 81.18 },
             "4845": { nickname: "Everyday", role: "everyday", subType: "checking", left_at_end: 382.13 }
@@ -268,7 +278,11 @@ test("everyday spending adds the opening balance and landed pay", function () {
         {
           start: "2026-09-30",
           end: "2026-10-29",
-          "in": [{ name: "Payroll", date: "2026-10-15", amount: 4235.75, landed: true }],
+          "in": [
+            { name: "Payroll", date: "2026-10-15", amount: 4235.75, landed: true },
+            { name: "Refund", date: "2026-10-16", amount: 40 },
+            { name: "Outside transfer", date: "2026-10-17", amount: 25, from_last4: "4925", to_last4: "4845" }
+          ],
           accounts: {
             "0831": { nickname: "Bills", role: "bills", subType: "checking", left_at_end: 1039.05 },
             "4845": { nickname: "Everyday", role: "everyday", subType: "checking", left_at_end: 75.37 }
@@ -334,9 +348,15 @@ test("everyday spending adds the opening balance and landed pay", function () {
   assert.equal(card.landed, 8471.5);
   assert.equal(card.owed, 7838.21);
   assert.equal(card.monthLeft, 1114.42);
-  assert.equal(card.everyday, 2835.12);
+  assert.equal(card.surplusIn, 65);
+  assert.equal(card.surplus, 2361.25);
+  assert.equal(card.everyday, 2900.12);
   assert.ok(card.everyday >= 0);
   assert.equal(card.deposits.length, 3);
+  assert.equal(card.deposits.every(function (row) { return row.name === "Payroll" || row.name === "Stipend"; }), true);
+  assert.equal(card.surplusRows.map(function (row) { return row.name; }).sort().join(","), "Outside transfer,Refund");
+  assert.equal(ctx.bankRoundCents(card.opening + card.pay + card.surplusIn - card.owed - card.monthLeft), card.everyday);
+  assert.equal(ctx.bankRoundCents(card.opening + card.surplusIn), card.surplus);
   const paidNames = card.bills.filter(function (row) { return row.state === "paid"; }).map(function (row) { return row.name; });
   assert.ok(paidNames.indexOf("Water") >= 0);
   assert.ok(paidNames.indexOf("TruGreen") >= 0);
@@ -344,12 +364,12 @@ test("everyday spending adds the opening balance and landed pay", function () {
   assert.ok(paidNames.indexOf("Car payment") >= 0);
   const payPct = Math.round((card.landed / card.pay) * 100);
   const billPct = Math.round((card.paid / card.owed) * 100);
-  const expectedLeft = ctx.bankRoundCents(card.opening + card.pay - card.owed);
+  const expectedLeft = ctx.bankRoundCents(card.opening + card.pay + card.surplusIn - card.owed);
   const leftPct = Math.round((card.everyday / expectedLeft) * 100);
   assert.ok(card.paid > 5000);
   assert.equal(ctx.bankRoundCents(card.paid + card.unpaid), card.owed);
   assert.equal(payPct, 89);
-  assert.equal(expectedLeft, 3949.54);
+  assert.equal(expectedLeft, 4014.54);
   assert.equal(leftPct, 72);
   assert.equal(ctx.bankCardBarHue(0), 120);
   assert.equal(ctx.bankCardBarHue(50), 60);
@@ -370,11 +390,21 @@ test("everyday spending adds the opening balance and landed pay", function () {
   };
   const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: NOW });
   const payAt = html.indexOf('data-bank-pay-total="9491.5"');
+  const surplusAt = html.indexOf('data-bank-surplus="2361.25"');
   const owedAt = html.indexOf("data-bank-owed");
-  assert.ok(payAt >= 0 && owedAt > payAt);
-  assert.match(html.slice(payAt, owedAt), /data-bank-opening="2296.25"/);
+  assert.ok(payAt >= 0 && surplusAt > payAt && owedAt > surplusAt);
+  assert.doesNotMatch(html.slice(payAt, surplusAt), /data-bank-opening|Opening balance/);
+  assert.match(html.slice(surplusAt, owedAt), /data-bank-opening="2296.25"/);
+  const payNames = html.slice(html.indexOf('data-bank-pay-list="1"'), html.indexOf("</ul>", html.indexOf('data-bank-pay-list="1"')));
+  assert.match(payNames, /Payroll/);
+  assert.match(payNames, /Stipend/);
+  assert.doesNotMatch(payNames, /Refund|Outside|Move|Opening/);
+  const surplusNames = html.slice(html.indexOf('data-bank-surplus-list="1"'), html.indexOf("</ul>", html.indexOf('data-bank-surplus-list="1"')));
+  assert.match(surplusNames, /Refund/);
+  assert.match(surplusNames, /Outside/);
+  assert.doesNotMatch(surplusNames, /Move|Payroll|Stipend/);
   assert.match(html, /data-bank-pay-landed="8471.5"/);
-  assert.match(html, /data-bank-everyday="2835.12"/);
+  assert.match(html, /data-bank-everyday="2900.12"/);
   const hero = html.slice(html.indexOf('data-bank-hero="1"'), html.indexOf('class="bank-next"'));
   const face = hero.slice(0, hero.indexOf("fills-more"));
   const more = hero.slice(hero.indexOf("fills-more"));
@@ -392,7 +422,7 @@ test("everyday spending adds the opening balance and landed pay", function () {
   assert.match(face, /data-bank-bar="left"[^>]*data-pct="72"/);
   assert.match(face, /\$8,471\.50 of \$9,491\.50, 89%/);
   assert.match(face, new RegExp(moneyRe(card.paid) + " of " + moneyRe(card.owed) + ", " + billPct + "%"));
-  assert.match(face, /\$2,835\.12 used of \$3,949\.54, 72%/);
+  assert.match(face, /\$2,900\.12 used of \$4,014\.54, 72%/);
   assert.equal((face.match(/role="progressbar"/g) || []).length, 3);
   assert.match(face, /aria-valuemin="0"/);
   assert.match(face, /aria-valuemax="100"/);
