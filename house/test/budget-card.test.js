@@ -187,6 +187,9 @@ test("the budget card reads right now and month-end left from the ledger", funct
   assert.match(html, /data-bank-now-acct="382.13"/);
   assert.equal(card.nextDeposit, "2026-10-23");
   assert.match(html, /Left until Oct 23/);
+  const face = html.slice(nowAt, html.indexOf("fills-more"));
+  assert.equal((face.match(/<details class="bank-card-fold"/g) || []).length, 5);
+  assert.doesNotMatch(face, /<details class="bank-card-fold"[^>]*\sopen/);
   assert.match(html, /data-bank-pay-total="9651.12"/);
   assert.match(html, /data-bank-pay-landed="8631.12"/);
   assert.match(html, /data-bank-owed="7470.46"/);
