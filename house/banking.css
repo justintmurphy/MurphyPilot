@@ -20,6 +20,10 @@ body.bank-page > header .clock {
   min-width: 0;
 }
 
+.bank-view-head {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .bank-view-title {
   flex: 1 1 auto;
   min-width: 0;
@@ -31,6 +35,92 @@ body.bank-page > header .clock {
   text-transform: uppercase;
   color: var(--ink-soft);
   overflow-wrap: anywhere;
+}
+.bank-month-range {
+  margin: 2px 0 0;
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.2;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.bank-advice-tag { letter-spacing: 0.6px; }
+.bank-defer-title {
+  margin: 10px 0 0;
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.2;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.overall-strip .ov-hero b.tone-stop { color: var(--stop); }
+.overall-strip .ov-hero b.tone-warn { color: var(--warn); }
+.bank-cal-range {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  font-style: normal;
+  color: var(--ink-soft);
+}
+.bank-pace { margin: 2px 2px 8px; }
+.bank-pace-track { position: relative; }
+.bank-pace .mix-bar { height: 8px; }
+.bank-pace-today {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 14px;
+  margin-left: -1px;
+  background: var(--ink);
+  pointer-events: none;
+}
+.bank-pace-figs {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+.bank-defer, .bank-free-math {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.bank-defer li, .bank-free-math li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.bank-defer li span { flex: 1 1 auto; min-width: 0; }
+.bank-defer li i {
+  flex: 0 1 auto;
+  font-style: normal;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+.bank-cushion-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.bank-cushion-edit input {
+  width: 4.5rem;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 [data-bank-part="more"] h2 {
