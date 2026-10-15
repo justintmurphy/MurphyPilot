@@ -1,4 +1,8 @@
-/* tip fr — The Budget card reads the printed pay periods. Right now is the current period. Overall is the budget month.
+/* tip fu — The Budget card face ends at the Sweep line. The account rows sit in More details.
+   Three bars sit above that link: landed pay of expected pay, the Bills list's paid sum of owed, and everyday spending of opening plus pay minus owed.
+   A bill paid inside the window stays in that paid sum when its next due has already rolled past the window. Paid plus unpaid is owed.
+   The fill runs from green through yellow to red by hue. Width stops at 100%. The label keeps the real percent.
+   tip fr — The Budget card reads the printed pay periods. Right now is the current period. Overall is the budget month.
    The two Left figures are left_at_end. The page does not compute them. A reserve or savings role stays off those sums.
    tip fq — Next Pay Left uses the printed ledger when it is there.
    pay_periods[].accounts[last4].left_at_end is that figure, with low and low_date.
@@ -26,7 +30,7 @@
    window (grace_days, default 5) whose next pay date is also inside that grace. Mortgage, loans, insurance, and anything past grace stay off the list.
    Four lines show. The rest sits in More details.
    budget.month_end_sweep stays on that card and on the last Next Pay card of the month.
-   The line is Sweep, the total, to the destination, by move_by. Each account shows its amount and held back, and reserved rows open under held back.
+   The line is Sweep, the total, to the destination, by move_by. On the Budget card the account amounts sit in More details. On Next Pay, each account shows its amount and held back, and reserved rows open under held back.
    Status is projected or final. The note says advice only. It does not move money.
    budget.budget_month start and end are inclusive. Start is the last pay deposit. End is the day before the next one.
    That window is the spent range for tiers and categories. A missing window stays on the calendar month and the header says so.
@@ -15897,11 +15901,12 @@ function bankSweepAccountLabel(snap, row) {
   return String(row && row.key || "Account");
 }
 
-function bankSweepHtml(snap, sweep) {
-  if (!sweep) return "";
+function bankSweepBuild(snap, sweep) {
+  var none = { face: "", detail: "", full: "" };
+  if (!sweep) return none;
   var line = bankSweepLine(sweep);
   var keys = Object.keys(sweep.accounts || {});
-  if (!line && !keys.length) return "";
+  if (!line && !keys.length) return none;
   var status = sweep.status === "final" ? "Final" : (sweep.status === "projected" ? "Projected" : "");
   var chips = "";
   if (status) chips += '<span class="fresh-chip" data-bank-sweep-status="' + bankEsc(sweep.status) + '">' + bankEsc(status) + "</span>";
@@ -15935,9 +15940,19 @@ function bankSweepHtml(snap, sweep) {
   }).join("");
   var list = items ? '<ul class="bank-move-list" data-bank-sweep-accounts="1">' + items + "</ul>" : "";
   var basis = sweep.basis ? '<p class="hint" data-bank-sweep-basis="1">' + bankEsc(sweep.basis) + "</p>" : "";
-  return '<section class="bank-sweep" data-bank-sweep="1"' +
-    (sweep.computed_at ? ' data-computed-at="' + bankEsc(sweep.computed_at) + '"' : "") + ">" +
-    head + sentence + list + basis + "</section>";
+  var faceInner = head + sentence;
+  var detail = list + basis;
+  var open = '<section class="bank-sweep" data-bank-sweep="1"' +
+    (sweep.computed_at ? ' data-computed-at="' + bankEsc(sweep.computed_at) + '"' : "") + ">";
+  return {
+    face: faceInner ? open + faceInner + "</section>" : "",
+    detail: detail,
+    full: open + faceInner + detail + "</section>"
+  };
+}
+
+function bankSweepHtml(snap, sweep) {
+  return bankSweepBuild(snap, sweep).full;
 }
 
 function bankSweepFor(snap) {
@@ -16757,18 +16772,21 @@ function bankCardDueDates(row, start, end) {
     var once = bankYmdOnly(bankCopyDate(row.date || "")) || "";
     return once && once >= start && once <= end ? [once] : [];
   }
+  var paidOn = bankCardPaidOn(row);
+  var paidIn = paidOn && paidOn >= start && paidOn <= end ? paidOn : "";
   var cycle = bankYmdOnly(bankCopyDate(row.cycle_due || ""));
-  if (cycle) return cycle >= start && cycle <= end ? [cycle] : [];
+  if (cycle) return cycle >= start && cycle <= end ? [cycle] : (paidIn ? [paidIn] : []);
   if (bankIsQuarterly(row)) {
-    var paidOn = bankCardPaidOn(row);
-    if (paidOn && paidOn >= start && paidOn <= end) return [paidOn];
+    if (paidIn) return [paidIn];
     var quarterly = "";
     try { quarterly = bankQuarterlyDue(row); } catch (eQ) { quarterly = ""; }
     return quarterly && quarterly >= start && quarterly <= end ? [quarterly] : [];
   }
   var dates = [];
   try { dates = bankDueDatesInSpan(row, start, end) || []; } catch (eSpan) { dates = []; }
-  return dates.filter(function (iso) { return iso && iso >= start && iso <= end; });
+  dates = dates.filter(function (iso) { return iso && iso >= start && iso <= end; });
+  if (dates.length) return dates;
+  return paidIn ? [paidIn] : [];
 }
 
 function bankCardBillState(snap, row, due) {
@@ -17006,14 +17024,15 @@ function bankBudgetCard(snap, opts) {
     if (isLanded) landed += ev.amount;
   });
   var bills = bankCardBills(snap, opts, win);
-  var owed = 0;
-  var paid = 0;
-  var unpaid = 0;
+  var owedSum = 0;
+  var paidSum = 0;
   bills.forEach(function (row) {
-    owed += row.amount;
-    if (row.state === "paid") paid += row.amount;
-    else unpaid += row.amount;
+    owedSum += row.amount;
+    if (row.state === "paid") paidSum += row.amount;
   });
+  var owed = bills.length ? bankRoundCents(owedSum) : null;
+  var paid = bills.length ? bankRoundCents(paidSum) : null;
+  var unpaid = owed == null ? null : bankRoundCents(owed - paid);
   var ledgerOut = 0;
   var sawOut = false;
   events.forEach(function (ev) {
@@ -17027,7 +17046,7 @@ function bankBudgetCard(snap, opts) {
   var monthLeft = bankCardSum(endAccounts, "left");
   var opening = bankCardOpening(snap);
   var everyday = null;
-  if (opening != null && monthLeft != null && deposits.length) everyday = bankRoundCents(opening + pay - owed - monthLeft);
+  if (opening != null && monthLeft != null && deposits.length) everyday = bankRoundCents(opening + pay - bankRoundCents(owedSum) - monthLeft);
   return {
     window: win,
     today: today,
@@ -17043,13 +17062,13 @@ function bankBudgetCard(snap, opts) {
     pay: deposits.length ? bankRoundCents(pay) : null,
     landed: deposits.length ? bankRoundCents(landed) : null,
     bills: bills,
-    owed: bills.length ? bankRoundCents(owed) : null,
-    paid: bills.length ? bankRoundCents(paid) : null,
-    unpaid: bills.length ? bankRoundCents(unpaid) : null,
+    owed: owed,
+    paid: paid,
+    unpaid: unpaid,
     ledgerOut: bankRoundCents(ledgerOut),
     monthLeft: monthLeft,
     everyday: everyday,
-    warn: sawOut && bills.length && Math.abs(bankRoundCents(unpaid) - bankRoundCents(ledgerOut)) > 0.009
+    warn: sawOut && unpaid != null && Math.abs(unpaid - bankRoundCents(ledgerOut)) > 0.009
   };
 }
 
@@ -17252,6 +17271,47 @@ function bankSaveCushion(root, value) {
   bankPaint(root);
 }
 
+function bankCardBarHue(pct) {
+  var t = Number(pct);
+  if (!isFinite(t) || t < 0) t = 0;
+  if (t > 100) t = 100;
+  return Math.round(120 * (1 - t / 100));
+}
+
+function bankCardBarHtml(key, label, amounts, pct) {
+  var shown = Math.round(pct);
+  var width = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
+  var hue = bankCardBarHue(pct);
+  var text = amounts + ", " + shown + "%";
+  return '<div class="bank-card-bar" data-bank-bar="' + bankEsc(key) + '" data-pct="' + shown + '" data-hue="' + hue + '">' +
+    '<p class="bank-card-bar-label"><span>' + bankEsc(label) + "</span> <b>" + bankEsc(text) + "</b></p>" +
+    '<div class="bank-card-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + shown +
+    '" aria-valuetext="' + bankEsc(text) + '" aria-label="' + bankEsc(label) + '">' +
+    '<span style="width:' + width.toFixed(1) + "%;background:hsl(" + hue + ', 62%, 40%)"></span></div></div>';
+}
+
+function bankCardBarsHtml(card) {
+  if (!card) return "";
+  var rows = [];
+  function ratio(used, total) {
+    used = bankNum(used);
+    total = bankNum(total);
+    if (used == null || total == null || !(total > 0)) return null;
+    return (used / total) * 100;
+  }
+  var payPct = ratio(card.landed, card.pay);
+  if (payPct != null) rows.push(bankCardBarHtml("pay", "Pay", bankMoney(card.landed) + " of " + bankMoney(card.pay), payPct));
+  var billPct = ratio(card.paid, card.owed);
+  if (billPct != null) rows.push(bankCardBarHtml("bills", "Bills", bankMoney(card.paid) + " of " + bankMoney(card.owed), billPct));
+  var expected = card.opening != null && card.pay != null && card.owed != null ? bankRoundCents(card.opening + card.pay - card.owed) : null;
+  var leftPct = ratio(card.everyday, expected);
+  if (leftPct != null) {
+    rows.push(bankCardBarHtml("left", "Left after bills", bankMoney(card.everyday) + " used of " + bankMoney(expected), leftPct));
+  }
+  if (!rows.length) return "";
+  return '<div class="bank-card-bars" data-bank-card-bars="1">' + rows.join("") + "</div>";
+}
+
 function bankHeroHtml(snap, opts, flows) {
   opts = opts || {};
   flows = flows || {};
@@ -17287,13 +17347,15 @@ function bankHeroHtml(snap, opts, flows) {
   var pill = "";
   try { pill = bankChargedPillHtml(snap); } catch (ePill) { pill = ""; }
   var allocTotal = bankAllocMoveTotal(snap, opts);
-  var sweepHtml = "";
-  try { sweepHtml = bankSweepHtml(snap, bankSweepFor(snap)); } catch (eSweep) { sweepHtml = ""; }
+  var sweepBuilt = { face: "", detail: "", full: "" };
+  try { sweepBuilt = bankSweepBuild(snap, bankSweepFor(snap)); } catch (eSweep) { sweepBuilt = { face: "", detail: "", full: "" }; }
+  var sweepFace = sweepBuilt.face || sweepBuilt.full;
+  var sweepDetail = sweepBuilt.face ? sweepBuilt.detail : "";
   var glance = null;
   try { glance = bankBudgetGlance(snap, opts); } catch (eGlance) { glance = null; }
   var panels = "";
   try { panels = bankBudgetPanelsHtml(snap, opts); } catch (ePanels) { panels = ""; }
-  if (!rows.length && flows.left == null && !pill && now == null && !glance && !sweepHtml && !panels) return "";
+  if (!rows.length && flows.left == null && !pill && now == null && !glance && !sweepBuilt.full && !panels) return "";
   var oldHead = '<div class="overall-strip"><div class="ov-hero"><span>In the bank now</span> <b data-bank-hero-now="' +
     (now == null ? "" : String(now)) + '" class="' + nowCls + '">' + bankEsc(bankMoney(now)) + "</b>" + pendingNote + "</div></div>";
   var breakdown = oldHead + list +
@@ -17312,9 +17374,14 @@ function bankHeroHtml(snap, opts, flows) {
     moreBody = bankPaceHtml(glance) + bankCategoryRoomHtml(glance, monthLeft) + (defer.face || "") +
       bankGlanceMoreHtml(glance) + (defer.restHtml || "") + bankCushionNoteHtml(glance);
   }
+  if (sweepDetail) moreBody = sweepDetail + moreBody;
+  var bars = "";
+  if (panels) {
+    try { bars = bankCardBarsHtml(bankBudgetCard(snap, opts)); } catch (eBars) { bars = ""; }
+  }
   var more = moreBody ? bankMixMore("More details", moreBody + breakdown) : breakdown;
   return '<section data-bank-hero="1" data-bank-alloc-total="' + allocTotal + '" data-bank-hero-paid="' + paid +
-    '" data-bank-hero-plan="' + plan + '"><div class="card span">' + pill + face + sweepHtml + more + "</div></section>";}
+    '" data-bank-hero-plan="' + plan + '"><div class="card span">' + pill + face + sweepFace + bars + more + "</div></section>";}
 
 function bankSharedLayout(snap, opts, mode, month) {
   opts = opts || {};
