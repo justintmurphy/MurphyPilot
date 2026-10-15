@@ -269,6 +269,107 @@ test("a hand mark with no debit stays in Next Pay until grace, and a computed tr
   assert.equal(matched.moves.some(function (mv) { return /phone/i.test(mv.reason || ""); }), false);
 });
 
+test("month-end sweep is advice on the balance card and the last Next Pay card", function () {
+  const ctx = boot();
+  const snap = loadSnap();
+  snap.budget.month_end_sweep = {
+    month: "2026-10",
+    status: "projected",
+    accounts: {
+      "1111": {
+        balance: 80,
+        held_back: 12,
+        floor: 50,
+        amount: 18,
+        reserved: [
+          { date: "2026-10-18", name: "Phone", amount: 8 },
+          { date: "2026-10-20", name: "Water", amount: 4 }
+        ],
+        reserved_through: "2026-10-29",
+        next_deposit: "2026-11-14"
+      },
+      "2222": {
+        balance: 30,
+        held_back: 6,
+        floor: 5,
+        amount: 22,
+        reserved: [],
+        reserved_through: "2026-10-29",
+        next_deposit: "2026-11-14"
+      }
+    },
+    total: 40,
+    to: { last4: "3333", nickname: "savings" },
+    move_by: "2026-10-30",
+    advice_only: true,
+    computed_at: "2026-10-13T12:00:00-04:00",
+    basis: "pay cycle"
+  };
+  const html = ctx.bankPageHtml(snap, opts);
+  const hero = html.slice(html.indexOf('data-bank-hero="1"'), html.indexOf('class="bank-next"'));
+  assert.match(hero, /data-bank-sweep="1"/);
+  assert.match(hero, /Sweep \$40\.00 to 3333 savings by Fri Oct 30/);
+  assert.match(hero, /data-bank-sweep-status="projected"/);
+  assert.match(hero, /Advice only/);
+  assert.match(hero, /data-bank-sweep-acct="1111"/);
+  assert.match(hero, /\$18\.00/);
+  assert.match(hero, /Held back \$12\.00 through Oct 29/);
+  assert.match(hero, /Phone/);
+  assert.match(hero, /\$8\.00/);
+  assert.match(hero, /data-bank-sweep-acct="2222"/);
+  assert.match(hero, /\$22\.00/);
+  assert.match(hero, /pay cycle/);
+  const early = cardFor(html, "2026-10-15");
+  const last = cardFor(html, "2026-10-30");
+  assert.doesNotMatch(early, /data-bank-sweep="1"/);
+  assert.match(last, /data-bank-sweep="1"/);
+  assert.match(last, /Sweep \$40\.00 to 3333 savings by Fri Oct 30/);
+  assert.doesNotMatch(last, /Move \$40/);
+  snap.budget.month_end_sweep.status = "final";
+  const finalHtml = ctx.bankPageHtml(snap, opts);
+  assert.match(finalHtml, /data-bank-sweep-status="final"/);
+  assert.match(finalHtml, />Final</);
+});
+
+test("budget_month is the tier and category spent window, and a missing window stays on the calendar month", function () {
+  const ctx = boot();
+  function spendSnap(windowed) {
+    const snap = loadSnap();
+    snap.current.month = "2026-10";
+    snap.current.recent_tx = [
+      { date: "2026-10-14", amount: -5, flow: "outflow", category: "Groceries", desc: "Market", tx_key: "g-early", tier: "needs" },
+      { date: "2026-10-20", amount: -6, flow: "outflow", category: "Groceries", desc: "Market", tx_key: "g-mid", tier: "needs" },
+      { date: "2026-11-13", amount: -7, flow: "outflow", category: "Groceries", desc: "Market", tx_key: "g-late", tier: "needs" },
+      { date: "2026-11-14", amount: -8, flow: "outflow", category: "Groceries", desc: "Market", tx_key: "g-next", tier: "needs" }
+    ];
+    snap.budget.mtd_actual_by_category = { Groceries: 99 };
+    snap.budget.tiers_mtd = { month: "2026-10", needs_spent: 99, by_category: { groceries: 99 } };
+    snap.tier_doc = {
+      rules: {},
+      plans: {},
+      categories: [{ id: "groceries", name: "Groceries", tier: "needs", budget: 40 }]
+    };
+    if (windowed) {
+      snap.budget.budget_month = { start: "2026-10-15", end: "2026-11-13" };
+    }
+    return snap;
+  }
+  const open = spendSnap(true);
+  const figs = ctx.bankCategoryFigures(open, "2026-10");
+  assert.equal(figs.groceries.spent, 13);
+  const tierSpent = ctx.bankTierLineSpent(open, { name: "Groceries", key: "Groceries", amount: 40 }, "2026-10", "plan", null, "2026-10-13");
+  assert.equal(tierSpent, 13);
+  const tiers = ctx.bankTierSpend(open, "2026-10");
+  assert.equal(tiers.needs, 13);
+  const calendar = spendSnap(false);
+  assert.equal(ctx.bankTierLineSpent(calendar, { name: "Groceries", key: "Groceries", amount: 40 }, "2026-10", "plan", null, "2026-10-13"), 99);
+  assert.equal(ctx.bankTierSpend(calendar, "2026-10").needs, 99);
+  delete calendar.budget.mtd_actual_by_category;
+  delete calendar.budget.tiers_mtd;
+  const scanned = ctx.bankCategoryFigures(calendar, "2026-10");
+  assert.equal(scanned.groceries.spent, 11);
+});
+
 test("stale local amounts do not override a quarterly snapshot and utility amounts are cleared", function () {
   const ctx = boot();
   const snap = loadSnap();
