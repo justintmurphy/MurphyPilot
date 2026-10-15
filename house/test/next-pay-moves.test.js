@@ -145,7 +145,7 @@ test("a missing moves list is the shortfall below zero before the next deposit",
   const snap = baseSnap();
   const html = ctx.bankPageHtml(snap, opts);
   const card = cardFor(html, "2026-10-15");
-  assert.match(card, /Move \$300 from Checking ··0831 to Debit ··4845 by Fri Oct 16, for Education/);
+  assert.match(card, /Move \$300 from Checking ··0831 to Debit ··4845 by Thu Oct 15, for Education/);
   assert.match(card, /−\$320\.00/);
   assert.match(card, /from Debit ··4845/);
   assert.match(card, /due Oct 16/);
@@ -171,7 +171,7 @@ test("can wait until a later date stays on the bill and skips the transfer when 
   snap.budget.bills[0].can_wait_until = "2026-10-20";
   const soon = cardFor(ctx.bankPageHtml(snap, opts), "2026-10-15");
   assert.match(soon, /can wait until Tue Oct 20/);
-  assert.match(soon, /Move \$300 from Checking ··0831 to Debit ··4845 by Tue Oct 20, for Education/);
+  assert.match(soon, /Move \$300 from Checking ··0831 to Debit ··4845 by Thu Oct 15, for Education/);
 });
 
 test("a checked transfer stays checked in this browser", function () {

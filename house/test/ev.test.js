@@ -228,7 +228,7 @@ test("next pay and moves use usual account and an override wins", function () {
   const over = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: NOW });
   const overNext = over.slice(over.indexOf('class="bank-next"'), over.indexOf('data-bank-part="calendar"'));
   assert.match(overNext, /from Bills ··2222 · due Oct 20/);
-  assert.match(overNext, /Move \$70 from Pay ··1111 to Bills ··2222 by Tue Oct 20, for Power/);
+  assert.match(overNext, /Move \$70 from Pay ··1111 to Bills ··2222 by Thu Oct 15, for Power/);
   assert.doesNotMatch(overNext, /from House/);
 });
 
@@ -251,7 +251,7 @@ test("next pay moves match by account and the hero identity holds", function () 
   const byMoves = listed(by);
   assert.ok(byMoves.length >= 1);
   assert.match(by, /Move \$70\.00 ··1111 → ··2222 by Oct 19/);
-  assert.match(next, /Move \$70 from Pay ··1111 to Bills ··2222 by Tue Oct 20, for Neighborhood Electric Cooperative/);
+  assert.match(next, /Move \$70 from Pay ··1111 to Bills ··2222 by Thu Oct 15, for Neighborhood Electric Cooperative/);
   assert.match(next, /to Pay ··1111/);
   function num(attr) {
     const m = html.match(new RegExp(attr + '="([^"]*)"'));

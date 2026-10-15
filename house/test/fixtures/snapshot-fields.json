@@ -1,0 +1,112 @@
+{
+  "_fixture": "synthetic snapshot fields — placeholder amounts only, not a live print",
+  "schema": "banking-snapshot/v1",
+  "source": "fixture",
+  "asof": "2026-10-13T12:00:00-04:00",
+  "accounts": [
+    {"id": "checking", "suffix": "1111", "name": "Checking", "subType": "checking"},
+    {"id": "spending", "suffix": "2222", "name": "Spending", "subType": "checking"}
+  ],
+  "current": {
+    "month": "2026-10",
+    "balances": [
+      {"id": "checking", "balance": 200, "asof_date": "2026-10-13"},
+      {"id": "spending", "balance": 5, "asof_date": "2026-10-13"}
+    ],
+    "recent_tx": [],
+    "edits_tx": [],
+    "history_tx": []
+  },
+  "history": {"months": []},
+  "budget": {
+    "account_funding": [
+      {"nickname": "Checking", "last4": "1111", "current_balance": 200, "subType": "checking"},
+      {"nickname": "Spending", "last4": "2222", "current_balance": 5, "subType": "checking"}
+    ],
+    "income_monthly": [{
+      "label": "Payroll",
+      "amount": 100,
+      "monthly_amount": 200,
+      "cadence": "semi_monthly",
+      "usual_account": {"nickname": "Checking", "last4": "1111"}
+    }],
+    "pay_schedule": [
+      {"name": "Payroll", "kind": "payroll", "date": "2026-10-15", "amount": 100, "account": {"nickname": "Checking", "last4": "1111"}},
+      {"name": "Payroll", "kind": "payroll", "date": "2026-10-30", "amount": 100, "account": {"nickname": "Checking", "last4": "1111"}}
+    ],
+    "bills": [
+      {
+        "name": "Water",
+        "bill_id": "water",
+        "amount": 30,
+        "monthly_amount": 30,
+        "quarterly_amount": 90,
+        "next_due": "2026-10-20",
+        "grace_days": 5,
+        "typical_day": 4,
+        "cadence": "quarterly",
+        "category": "Utilities",
+        "tier": "required",
+        "usual_account": {"nickname": "Spending", "last4": "2222"}
+      },
+      {
+        "name": "Sewer",
+        "bill_id": "sewer",
+        "amount": 20,
+        "monthly_amount": 20,
+        "quarterly_amount": 60,
+        "next_due": "2026-09-28",
+        "grace_days": 5,
+        "typical_day": 9,
+        "cadence": "quarterly",
+        "category": "Utilities",
+        "tier": "required"
+      },
+      {
+        "name": "Trash",
+        "bill_id": "trash",
+        "amount": 8,
+        "monthly_amount": 8,
+        "quarterly_amount": 24,
+        "next_due": "2026-10-08",
+        "grace_days": 5,
+        "typical_day": 2,
+        "cadence": "quarterly",
+        "category": "Utilities",
+        "tier": "required"
+      },
+      {
+        "name": "Rent",
+        "bill_id": "rent",
+        "amount": 40,
+        "typical_day": 16,
+        "cadence": "monthly",
+        "category": "Rent",
+        "tier": "required",
+        "usual_account": {"nickname": "Spending", "last4": "2222"}
+      }
+    ],
+    "confirmed_covers": [
+      {"bill_id": "rent", "month": "2026-10", "note": "handled offline"}
+    ],
+    "one_time_bills": [
+      {
+        "name": "Parking pass",
+        "amount": 18,
+        "suggested_date": "2026-10-18",
+        "suggested_account": {"nickname": "Spending", "last4": "2222"},
+        "category": "Other"
+      },
+      {
+        "name": "Dump sticker",
+        "amount": 7,
+        "suggested_pay_date": "2026-10-01",
+        "account": {"nickname": "Checking", "last4": "1111"},
+        "category": "Other"
+      }
+    ],
+    "subscriptions": [],
+    "planned_by_category": {},
+    "calendar": []
+  }
+}

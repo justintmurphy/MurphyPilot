@@ -729,7 +729,7 @@ test("card 1 is this pay from the posted check and later cards carry that left",
   assert.equal(carried2, maths[nextIdx - 1].left);
   assert.equal(left1, maths[thisIdx].left);
   assert.equal(left2, maths[nextIdx].left);
-  const remain = 6;
+  const remain = 14;
   let ident = carried1;
   ident = ctx.bankLeftAfter(ident, { kind: "in", amount: maths[thisIdx].countedDeposit || 0, counted: true, pending: false });
   ident = ctx.bankLeftAfter(ident, { kind: "in", amount: maths[thisIdx].countedAlso || 0, counted: true, pending: false });
@@ -861,7 +861,8 @@ test("a main-page tap marks a bill paid and a second tap clears it", async funct
     return pack.period && pack.period.focus && pack.period.focus.date === "2026-10-15";
   })[0].math.left;
   assert.ok(outAfter < outBefore, outAfter + " vs " + outBefore);
-  assert.equal(leftAfter, ctx.bankRoundCents(leftBefore + 8));
+  assert.match(cardAfter, /Marked paid, awaiting bank/);
+  assert.equal(leftAfter, leftBefore);
   assert.match(cardAfter, /data-bank-status-undo="rent"/);
   assert.match(cardAfter, /Rent[\s\S]{0,300}aria-label="Paid"|aria-label="Paid"[\s\S]{0,300}Rent/);
   assert.match(after.slice(after.indexOf('class="bank-day-dialog"')), /data-bank-status-undo="rent"/);
