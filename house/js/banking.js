@@ -1,5 +1,7 @@
-/* tip fu — The Budget card face ends at the Sweep line. The account rows sit in More details.
-   Three bars sit above that link: landed pay of expected pay, the Bills list's paid sum of owed, and everyday spending of opening plus pay minus owed.
+/* tip fv — Pay on the Budget card is paychecks and stipends only. Opening cash and every other inflow are Surplus.
+   Everyday spending is opening plus pay plus those surplus inflows, minus owed, minus month-end left.
+   tip fu — The Budget card face ends at the Sweep line. The account rows sit in More details.
+   Three bars sit above that link: landed pay of expected pay, the Bills list's paid sum of owed, and everyday spending against what is left after bills.
    A bill paid inside the window stays in that paid sum when its next due has already rolled past the window. Paid plus unpaid is owed.
    The fill runs from green through yellow to red by hue. Width stops at 100%. The label keeps the real percent.
    tip fr — The Budget card reads the printed pay periods. Right now is the current period. Overall is the budget month.
@@ -16714,6 +16716,106 @@ function bankCardMonthPeriod(periods, end) {
   return best;
 }
 
+function bankCardEndLast(raw, which) {
+  raw = raw || {};
+  var direct = which === "from"
+    ? [raw.from_last4, raw.fromLast4, raw.from_suffix]
+    : [raw.to_last4, raw.toLast4, raw.to_suffix, raw.account_last4, raw.last4];
+  var i;
+  for (i = 0; i < direct.length; i++) {
+    var digits = bankLast4Digits(direct[i]);
+    if (digits) return digits;
+  }
+  var side = which === "from" ? (raw.from_account || raw.from) : (raw.to_account || raw.to || raw.account);
+  if (side && typeof side === "object") return bankLast4Digits(side.last4 || side.suffix || side.last_4 || side.mask || "");
+  return bankLast4Digits(side || "");
+}
+
+function bankCardFlowEnds(raw) {
+  return { fromLast: bankCardEndLast(raw, "from"), toLast: bankCardEndLast(raw, "to") };
+}
+
+function bankCardPayKind(ev) {
+  if (!ev) return "";
+  var kind = String(ev.kind || ev.type || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (kind === "payroll" || kind === "paycheck") return "payroll";
+  if (kind === "stipend") return "stipend";
+  var name = ev.name || ev.label || "";
+  if (bankIsPayrollIncome(name)) return "payroll";
+  if (bankIsFosteringIncome(name) || bankFoldName(name).indexOf("stipend") >= 0) return "stipend";
+  return "";
+}
+
+function bankCardCatalogEntries(raw) {
+  var out = [];
+  if (!raw) return out;
+  var list = [];
+  if (Array.isArray(raw)) list = raw;
+  else if (typeof raw === "object") {
+    Object.keys(raw).forEach(function (key) {
+      var cell = raw[key];
+      if (cell && typeof cell === "object" && !Array.isArray(cell)) list.push(Object.assign({ name: cell.name || cell.label || key }, cell));
+      else list.push({ name: key });
+    });
+  }
+  list.forEach(function (row) {
+    if (row == null || row === "") return;
+    if (typeof row === "string" || typeof row === "number") out.push({ name: String(row) });
+    else if (typeof row === "object") out.push(row);
+  });
+  return out;
+}
+
+function bankCardPayCatalog(snap) {
+  var map = {};
+  var budget = (snap && snap.budget) || {};
+  function add(name) {
+    var folded = bankFoldName(name);
+    if (folded) map[folded] = true;
+  }
+  (budget.pay_schedule || []).forEach(function (row) {
+    if (!row || !bankCardPayKind(row)) return;
+    add(row.name || row.label);
+  });
+  bankCardCatalogEntries(budget.payroll_expected).forEach(function (row) { add(row.name || row.label); });
+  bankCardCatalogEntries(budget.stipend_expected || budget.stipends || budget.stipend).forEach(function (row) {
+    add(row.name || row.label);
+  });
+  return map;
+}
+
+function bankCardIsPayDeposit(ev, catalog) {
+  if (!ev) return false;
+  if (ev.payKind) return true;
+  if (bankCardPayKind(ev)) return true;
+  var folded = bankFoldName(ev.name);
+  return !!(folded && catalog && catalog[folded]);
+}
+
+function bankCardSplitInflows(snap, deposits) {
+  var spend = {};
+  var accounts = [];
+  try { accounts = bankAccounts(snap) || []; } catch (eAcct) { accounts = []; }
+  accounts.forEach(function (acct) {
+    if (!acct || !bankAccountIsSpendCash(acct)) return;
+    var last = bankLast4Digits(acct.last4 || acct.suffix || acct.last_4);
+    if (last) spend[last] = true;
+  });
+  var catalog = bankCardPayCatalog(snap);
+  var pay = [];
+  var surplus = [];
+  (deposits || []).forEach(function (ev) {
+    if (!ev) return;
+    if (bankCardIsPayDeposit(ev, catalog)) {
+      pay.push(ev);
+      return;
+    }
+    if (ev.fromLast && ev.toLast && spend[ev.fromLast] && spend[ev.toLast]) return;
+    surplus.push(ev);
+  });
+  return { pay: pay, surplus: surplus };
+}
+
 function bankCardPushEvent(out, ev, suffix, nick, kindForce) {
   if (!ev || typeof ev !== "object") return;
   var kind = kindForce || String(ev.kind || ev.type || ev.flow || "").trim().toLowerCase();
@@ -16727,15 +16829,19 @@ function bankCardPushEvent(out, ev, suffix, nick, kindForce) {
     if (status === "landed" || status === "posted") landed = true;
     else if (status === "pending" || status === "scheduled") landed = false;
   }
+  var ends = bankCardFlowEnds(ev);
   out.push({
     kind: kind === "in" || kind === "out" ? kind : "",
+    payKind: bankCardPayKind(ev),
     name: ev.name || ev.label || "Item",
     amount: bankRoundCents(Math.abs(amount)),
     date: bankYmdOnly(bankCopyDate(ev.date || ev.on || "")) || "",
     landed: landed,
     unpaid: ev.unpaid === true || String(ev.status || "").toLowerCase() === "unpaid",
     paid: ev.paid === true || String(ev.status || "").toLowerCase() === "paid",
-    suffix: bankLast4Digits(ev.account || ev.last4 || suffix || ""),
+    suffix: bankLast4Digits(ev.account || ev.last4 || suffix || "") || ends.toLast,
+    fromLast: ends.fromLast,
+    toLast: ends.toLast,
     nick: nick || ""
   });
 }
@@ -16925,6 +17031,7 @@ function bankCardDeposits(snap, periods, win, today) {
     if (amount == null) return;
     bankCardRememberDeposit(map, {
       kind: "in",
+      payKind: bankCardPayKind(row),
       name: name,
       amount: bankRoundCents(Math.abs(amount)),
       date: date,
@@ -16943,13 +17050,18 @@ function bankCardDeposits(snap, periods, win, today) {
       if (amount == null) return;
       var name = raw.name || raw.desc || raw.description || "Deposit";
       if (map[when + "|" + bankFoldName(name)]) return;
+      var ends = bankCardFlowEnds(raw);
       bankCardRememberDeposit(map, {
         kind: "in",
+        payKind: bankCardPayKind({ name: name, kind: raw.kind || raw.category || "" }),
         name: name,
         amount: bankRoundCents(Math.abs(amount)),
         date: when,
         landed: true,
-        paid: false
+        paid: false,
+        fromLast: ends.fromLast,
+        toLast: ends.toLast,
+        suffix: ends.toLast
       }, true);
     });
   });
@@ -17014,7 +17126,9 @@ function bankBudgetCard(snap, opts) {
   var dueEvents = bankCardEvents(current).filter(function (ev) {
     return ev.kind === "out" && !ev.paid;
   });
-  var deposits = bankCardDeposits(snap, periods, win, today);
+  var split = bankCardSplitInflows(snap, bankCardDeposits(snap, periods, win, today));
+  var deposits = split.pay;
+  var surplusRows = split.surplus;
   var pay = 0;
   var landed = 0;
   deposits.forEach(function (ev) {
@@ -17023,6 +17137,8 @@ function bankBudgetCard(snap, opts) {
     ev.landedFlag = !!isLanded;
     if (isLanded) landed += ev.amount;
   });
+  var surplusIn = 0;
+  surplusRows.forEach(function (ev) { surplusIn += ev.amount; });
   var bills = bankCardBills(snap, opts, win);
   var owedSum = 0;
   var paidSum = 0;
@@ -17045,8 +17161,12 @@ function bankBudgetCard(snap, opts) {
   var nowLeft = bankCardSum(nowAccounts, "left");
   var monthLeft = bankCardSum(endAccounts, "left");
   var opening = bankCardOpening(snap);
+  var surplusInRounded = bankRoundCents(surplusIn);
+  var surplus = opening != null || surplusRows.length ? bankRoundCents((opening || 0) + surplusInRounded) : null;
   var everyday = null;
-  if (opening != null && monthLeft != null && deposits.length) everyday = bankRoundCents(opening + pay - bankRoundCents(owedSum) - monthLeft);
+  if (opening != null && monthLeft != null && (deposits.length || surplusRows.length)) {
+    everyday = bankRoundCents(opening + pay + surplusInRounded - bankRoundCents(owedSum) - monthLeft);
+  }
   return {
     window: win,
     today: today,
@@ -17058,6 +17178,9 @@ function bankBudgetCard(snap, opts) {
     dueEvents: dueEvents,
     nowLeft: nowLeft,
     deposits: deposits,
+    surplusRows: surplusRows,
+    surplusIn: surplusInRounded,
+    surplus: surplus,
     opening: opening,
     pay: deposits.length ? bankRoundCents(pay) : null,
     landed: deposits.length ? bankRoundCents(landed) : null,
@@ -17132,6 +17255,11 @@ function bankBudgetPanelsHtml(snap, opts) {
       "</span> <i>" + bankEsc(bankShortDate(ev.date) || ev.date) + "</i> <b>" + bankEsc(bankMoney(ev.amount)) +
       '</b> <em>' + word + "</em></li>";
   }).join("") + "</ul>" : '<p class="bank-empty">No deposits in this window.</p>';
+  var surplusRows = card.surplusRows || [];
+  var surplusHtml = surplusRows.length ? '<ul class="bank-edit-list" data-bank-surplus-list="1">' + surplusRows.map(function (ev) {
+    return "<li><span>" + bankEsc(ev.name) + "</span> <i>" + bankEsc(bankShortDate(ev.date) || ev.date) +
+      "</i> <b>" + bankEsc(bankMoney(ev.amount)) + "</b></li>";
+  }).join("") + "</ul>" : "";
   var billHtml = card.bills.length ? '<ul class="bank-edit-list" data-bank-bill-list="1">' + card.bills.map(function (row) {
     var word = row.state === "paid" ? "Paid" : "Unpaid";
     return '<li data-bank-bill-row="1" data-state="' + row.state + '"><span>' + bankEsc(row.name) + "</span> <b>" +
@@ -17159,8 +17287,9 @@ function bankBudgetPanelsHtml(snap, opts) {
       dueHtml || '<p class="bank-empty">Nothing due before the next deposit.</p>') + "</div>";
   var overall = '<div class="bank-card-panel" data-bank-overall="1"><h3>Overall</h3>' + monthHero +
     bankCardAccountLines(card.endAccounts, "bank-month-acct") +
-    bankCardFold("Pay " + bankCardAmt(card.pay, "pay-total") + " (landed " + bankCardAmt(card.landed, "pay-landed") + ")",
-      (card.opening == null ? "" : bankCardMoneyLine("Opening balance", card.opening, "opening")) + payHtml) +
+    bankCardFold("Pay " + bankCardAmt(card.pay, "pay-total") + " (landed " + bankCardAmt(card.landed, "pay-landed") + ")", payHtml) +
+    (card.surplus == null ? "" : bankCardFold("Surplus " + bankCardAmt(card.surplus, "surplus"),
+      (card.opening == null ? "" : bankCardMoneyLine("Opening balance", card.opening, "opening")) + surplusHtml)) +
     bankCardFold("Bills " + bankCardAmt(card.owed, "owed") + " \u00b7 " + bankCardAmt(card.paid, "paid") +
       " paid \u00b7 " + bankCardAmt(card.unpaid, "unpaid") + " unpaid", billHtml + warn) +
     (card.everyday == null ? "" : bankCardMoneyLine("Everyday spending", card.everyday, "everyday")) + "</div>";
@@ -17303,7 +17432,8 @@ function bankCardBarsHtml(card) {
   if (payPct != null) rows.push(bankCardBarHtml("pay", "Pay", bankMoney(card.landed) + " of " + bankMoney(card.pay), payPct));
   var billPct = ratio(card.paid, card.owed);
   if (billPct != null) rows.push(bankCardBarHtml("bills", "Bills", bankMoney(card.paid) + " of " + bankMoney(card.owed), billPct));
-  var expected = card.opening != null && card.pay != null && card.owed != null ? bankRoundCents(card.opening + card.pay - card.owed) : null;
+  var extra = card.surplusIn == null ? 0 : card.surplusIn;
+  var expected = card.opening != null && card.pay != null && card.owed != null ? bankRoundCents(card.opening + card.pay + extra - card.owed) : null;
   var leftPct = ratio(card.everyday, expected);
   if (leftPct != null) {
     rows.push(bankCardBarHtml("left", "Left after bills", bankMoney(card.everyday) + " used of " + bankMoney(expected), leftPct));
