@@ -228,6 +228,13 @@ test("a hand mark with no debit stays in Next Pay until grace, and a computed tr
     usual_account: { nickname: "Spending", last4: "2222" },
     paid_current_month: { month: "2026-10", status: "paid", source: "manual", paid_date: "2026-10-12" }
   }];
+  snap.budget.awaiting_debit = [{
+    name: "Phone",
+    bill_id: "phone",
+    month: "2026-10",
+    amount: 25,
+    due: "2026-10-16"
+  }];
   snap.budget.paid_status_month = "2026-10";
   snap.current.recent_tx = [];
   const early = Object.assign({}, opts, { now: "2026-10-13T15:00:00-04:00" });
