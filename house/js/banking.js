@@ -1,5 +1,6 @@
 /* tip fu — The Budget card face ends at the Sweep line. The account rows sit in More details.
-   Three bars sit above that link: landed pay of expected pay, paid bills of owed, and everyday spending of opening plus pay minus owed.
+   Three bars sit above that link: landed pay of expected pay, the Bills list's paid sum of owed, and everyday spending of opening plus pay minus owed.
+   A bill paid inside the window stays in that paid sum when its next due has already rolled past the window. Paid plus unpaid is owed.
    The fill runs from green through yellow to red by hue. Width stops at 100%. The label keeps the real percent.
    tip fr — The Budget card reads the printed pay periods. Right now is the current period. Overall is the budget month.
    The two Left figures are left_at_end. The page does not compute them. A reserve or savings role stays off those sums.
@@ -16771,18 +16772,21 @@ function bankCardDueDates(row, start, end) {
     var once = bankYmdOnly(bankCopyDate(row.date || "")) || "";
     return once && once >= start && once <= end ? [once] : [];
   }
+  var paidOn = bankCardPaidOn(row);
+  var paidIn = paidOn && paidOn >= start && paidOn <= end ? paidOn : "";
   var cycle = bankYmdOnly(bankCopyDate(row.cycle_due || ""));
-  if (cycle) return cycle >= start && cycle <= end ? [cycle] : [];
+  if (cycle) return cycle >= start && cycle <= end ? [cycle] : (paidIn ? [paidIn] : []);
   if (bankIsQuarterly(row)) {
-    var paidOn = bankCardPaidOn(row);
-    if (paidOn && paidOn >= start && paidOn <= end) return [paidOn];
+    if (paidIn) return [paidIn];
     var quarterly = "";
     try { quarterly = bankQuarterlyDue(row); } catch (eQ) { quarterly = ""; }
     return quarterly && quarterly >= start && quarterly <= end ? [quarterly] : [];
   }
   var dates = [];
   try { dates = bankDueDatesInSpan(row, start, end) || []; } catch (eSpan) { dates = []; }
-  return dates.filter(function (iso) { return iso && iso >= start && iso <= end; });
+  dates = dates.filter(function (iso) { return iso && iso >= start && iso <= end; });
+  if (dates.length) return dates;
+  return paidIn ? [paidIn] : [];
 }
 
 function bankCardBillState(snap, row, due) {
@@ -17020,14 +17024,15 @@ function bankBudgetCard(snap, opts) {
     if (isLanded) landed += ev.amount;
   });
   var bills = bankCardBills(snap, opts, win);
-  var owed = 0;
-  var paid = 0;
-  var unpaid = 0;
+  var owedSum = 0;
+  var paidSum = 0;
   bills.forEach(function (row) {
-    owed += row.amount;
-    if (row.state === "paid") paid += row.amount;
-    else unpaid += row.amount;
+    owedSum += row.amount;
+    if (row.state === "paid") paidSum += row.amount;
   });
+  var owed = bills.length ? bankRoundCents(owedSum) : null;
+  var paid = bills.length ? bankRoundCents(paidSum) : null;
+  var unpaid = owed == null ? null : bankRoundCents(owed - paid);
   var ledgerOut = 0;
   var sawOut = false;
   events.forEach(function (ev) {
@@ -17041,7 +17046,7 @@ function bankBudgetCard(snap, opts) {
   var monthLeft = bankCardSum(endAccounts, "left");
   var opening = bankCardOpening(snap);
   var everyday = null;
-  if (opening != null && monthLeft != null && deposits.length) everyday = bankRoundCents(opening + pay - owed - monthLeft);
+  if (opening != null && monthLeft != null && deposits.length) everyday = bankRoundCents(opening + pay - bankRoundCents(owedSum) - monthLeft);
   return {
     window: win,
     today: today,
@@ -17057,13 +17062,13 @@ function bankBudgetCard(snap, opts) {
     pay: deposits.length ? bankRoundCents(pay) : null,
     landed: deposits.length ? bankRoundCents(landed) : null,
     bills: bills,
-    owed: bills.length ? bankRoundCents(owed) : null,
-    paid: bills.length ? bankRoundCents(paid) : null,
-    unpaid: bills.length ? bankRoundCents(unpaid) : null,
+    owed: owed,
+    paid: paid,
+    unpaid: unpaid,
     ledgerOut: bankRoundCents(ledgerOut),
     monthLeft: monthLeft,
     everyday: everyday,
-    warn: sawOut && bills.length && Math.abs(bankRoundCents(unpaid) - bankRoundCents(ledgerOut)) > 0.009
+    warn: sawOut && unpaid != null && Math.abs(unpaid - bankRoundCents(ledgerOut)) > 0.009
   };
 }
 
