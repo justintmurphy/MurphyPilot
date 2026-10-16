@@ -137,6 +137,9 @@ function desk(snap) {
 function watch(ctx, respond) {
   const calls = [];
   ctx.fetch = function (url, init) {
+    if (String(url).indexOf("/data/banking.json") === 0) {
+      return Promise.resolve({ ok: true, status: 200, type: "basic", json: function () { return Promise.resolve({}); } });
+    }
     const body = init && init.body ? JSON.parse(init.body) : null;
     calls.push({ url: String(url), init: init || {}, body: body });
     return Promise.resolve(respond ? respond(body, calls) : {
