@@ -13926,6 +13926,7 @@ function bankSpendVisible(cats) {
   return (cats || []).filter(function (row) {
     if (!row) return false;
     if (row.id === "education-needs" || bankEducationNeedsToken(row.id) || (row.id !== "education" && bankEducationNeedsToken(row.name))) return false;
+    if (bankEmptySubscriptionsRow(row)) return false;
     if (!row.merged_into) return true;
     return !bankSpendById(cats, row.merged_into);
   });
@@ -14828,8 +14829,7 @@ function bankBudgetPartKind(id, tier) {
     subscriptions: 1,
     "home-security": 1,
     pets: 1,
-    travel: 1,
-    "kids-activities": 1
+    travel: 1
   };
   var billIds = {
     mortgage: 1,
@@ -14842,6 +14842,97 @@ function bankBudgetPartKind(id, tier) {
   if (id && billIds[id]) return "bill";
   if (tier === "required") return "bill";
   return "spend";
+}
+
+/* The bar, Edits, and After budgets share this month. A named november_budget.month wins.
+   Once today is past the window on screen, the plan month is November 2026. */
+function bankFitMonth(snap, opts) {
+  opts = opts || {};
+  var overlay = null;
+  try { overlay = bankTiersOverlay(snap); } catch (eOver) { overlay = null; }
+  var nb = overlay && overlay.november_budget;
+  if (nb && typeof nb === "object" && !Array.isArray(nb)) {
+    var named = bankMonthKey(nb.month || nb.label || "");
+    if (named) return named;
+  }
+  var today = "";
+  try { today = bankTodayIso(snap, opts); } catch (eToday) { today = ""; }
+  var screen = "";
+  try { screen = bankMonthKey(opts.planMonth || opts.month || bankScreenMonth(snap, opts)); } catch (eScreen) { screen = ""; }
+  var win = null;
+  try { win = bankBudgetWindowFor(snap, screen); } catch (eWin) { win = null; }
+  if (today && win && win.end && today > win.end) return "2026-11";
+  return screen;
+}
+
+function bankFitBillTotal(snap, monthKey, opts) {
+  var win = null;
+  try { win = bankBudgetWindowFor(snap, monthKey); } catch (eWin) { win = null; }
+  if (!win || !win.start || !win.end) return 0;
+  var edits = opts && opts.edits;
+  var bills = [];
+  try { bills = bankPreparedBills(snap, undefined); } catch (eBills) { bills = []; }
+  var sum = 0;
+  bills.forEach(function (row) {
+    if (!row || bankBillRetired(row, monthKey)) return;
+    var dates = [];
+    try { dates = bankDueDatesInSpan(row, win.start, win.end); } catch (eDates) { dates = []; }
+    if (!dates.length) return;
+    var each = null;
+    try { each = bankBillLineAmount(row, monthKey, edits); } catch (eAmt) { each = null; }
+    if (each == null) each = bankNum(row.amount);
+    if (each == null) return;
+    sum += Math.abs(each) * dates.length;
+  });
+  return bankRoundCents(sum);
+}
+
+function bankFitSubsTotal(snap, monthKey) {
+  var budget = (snap && snap.budget) || {};
+  var printed = bankNum(budget.subs_total);
+  if (printed != null) return bankRoundCents(Math.abs(printed));
+  var subs = [];
+  try { subs = bankPreparedSubs(snap); } catch (eSubs) { subs = []; }
+  var sum = 0;
+  subs.forEach(function (row) {
+    if (!row || bankBillRetired(row, monthKey)) return;
+    var n = bankNum(row.amount);
+    if (n != null) sum += Math.abs(n);
+  });
+  return bankRoundCents(sum);
+}
+
+function bankFitPot(snap, monthKey, draft) {
+  var cats = [];
+  try { cats = bankSpendVisible(bankSpendCategories(snap, monthKey) || []); } catch (eCats) { cats = []; }
+  var sum = 0;
+  cats.forEach(function (row) {
+    if (!row || row.merged_into) return;
+    if (bankBudgetPartKind(row.id, row.tier) !== "spend") return;
+    var budget = typeof row.budget === "number" && isFinite(row.budget) ? row.budget : 0;
+    if (draft && draft.id === row.id && typeof draft.budget === "number" && isFinite(draft.budget) && draft.budget >= 0) budget = draft.budget;
+    sum += budget;
+  });
+  return bankRoundCents(sum);
+}
+
+function bankFitOtherIncome(snap, monthKey) {
+  var win = null;
+  try { win = bankBudgetWindowFor(snap, monthKey); } catch (eWin) { win = null; }
+  var budget = (snap && snap.budget) || {};
+  var rows = Array.isArray(budget.other_income) ? budget.other_income : [];
+  var sum = 0;
+  rows.forEach(function (row) {
+    if (!row) return;
+    var day = "";
+    try { day = bankYmdOnly(row.date || row.on || "") || ""; } catch (eDay) { day = ""; }
+    if (win && win.start && win.end) {
+      if (!day || day < win.start || day > win.end) return;
+    }
+    var n = bankNum(row.amount);
+    if (n != null) sum += Math.abs(n);
+  });
+  return bankRoundCents(sum);
 }
 
 function bankBudgetParts(snap, monthKey, draft) {
@@ -14909,28 +15000,29 @@ function bankSpendingSpent(snap, monthKey) {
 }
 
 function bankFitVerdict(snap, monthKey, draft) {
-  var parts = bankBudgetParts(snap, monthKey, draft);
-  var income = 0;
-  try { income = bankBudgetPayIncome(snap, monthKey); } catch (eIn) { income = 0; }
-  var spare = bankRoundCents(income - parts.total);
+  var fit = bankBudgetFit(snap, monthKey, { draft: draft });
+  var spare = fit.left;
   var over = spare < -0.004;
   var text = over ? ("Over by " + bankMoney(bankRoundCents(-spare))) : ("Fits: " + bankMoney(spare) + " to spare");
   return {
-    income: income,
-    budgeted: parts.total,
-    bills: parts.bills,
-    subs: parts.subs,
-    spend: parts.spend,
+    income: fit.income,
+    budgeted: fit.budgeted,
+    bills: fit.bills,
+    subs: fit.subs,
+    pot: fit.pot,
+    spend: fit.pot,
     spare: spare,
     over: over,
-    text: text
+    text: text,
+    other: fit.other
   };
 }
 
 function bankFitVerdictHtml(snap, monthKey, draft) {
   var v = bankFitVerdict(snap, monthKey, draft);
   return '<p class="' + (v.over ? "tone-stop" : "tone-go") + '" data-bank-fit-verdict="1" data-bank-fit-spare="' + v.spare +
-    '" data-bank-fit-income="' + v.income + '" data-bank-fit-budgeted="' + v.budgeted + '">' + bankEsc(v.text) + "</p>";
+    '" data-bank-fit-income="' + v.income + '" data-bank-fit-budgeted="' + v.budgeted + '" data-bank-fit-bills="' + v.bills +
+    '" data-bank-fit-subs="' + v.subs + '" data-bank-fit-pot="' + v.pot + '">' + bankEsc(v.text) + "</p>";
 }
 
 function bankSyncFitVerdict(root, id, raw) {
@@ -14938,8 +15030,9 @@ function bankSyncFitVerdict(root, id, raw) {
   var amount = null;
   try { amount = bankSpendParseBudget(raw); } catch (eAmt) { amount = null; }
   var draft = amount == null || id === "new" ? null : { id: id, budget: amount };
-  var month = root._bank.planMonth || "";
-  try { if (!month) month = bankMonthKey(bankScreenMonth(root._bank.data)); } catch (eMonth) { month = month || ""; }
+  var month = "";
+  try { month = bankFitMonth(root._bank.data, { planMonth: root._bank.planMonth || "" }); } catch (eMonth) { month = ""; }
+  if (!month) month = root._bank.planMonth || "";
   var verdict = null;
   try { verdict = bankFitVerdict(root._bank.data, month, draft); } catch (eFit) { verdict = null; }
   if (!verdict) return;
@@ -14953,31 +15046,36 @@ function bankSyncFitVerdict(root, id, raw) {
     if (node.setAttribute) {
       node.setAttribute("data-bank-fit-spare", String(verdict.spare));
       node.setAttribute("data-bank-fit-budgeted", String(verdict.budgeted));
+      node.setAttribute("data-bank-fit-bills", String(verdict.bills));
+      node.setAttribute("data-bank-fit-subs", String(verdict.subs));
+      node.setAttribute("data-bank-fit-pot", String(verdict.pot));
     }
   }
 }
 
-function bankBudgetFit(snap, monthKey) {
+function bankBudgetFit(snap, monthKey, opts) {
+  opts = opts || {};
   var key = bankMonthKey(monthKey);
-  var income = bankMonthDepositIncome(snap, key);
+  var income = 0;
+  try { income = bankBudgetPayIncome(snap, key); } catch (eIn) { income = 0; }
   var bills = 0;
-  var cats = 0;
-  if (bankCategoriesActive(snap)) {
-    var parts = bankBudgetParts(snap, key, null);
-    bills = parts.bills;
-    cats = bankRoundCents(parts.subs + parts.spend);
-  } else {
-    var ym = bankParseYm(key);
-    bills = bankMonthTierPlan(snap, ym, "required") || 0;
-    cats = bankNonBillMonthPlan(snap, ym) || 0;
-  }
-  bills = bankRoundCents(bills);
-  cats = bankRoundCents(cats);
+  var subs = 0;
+  var pot = 0;
+  try { bills = bankFitBillTotal(snap, key, opts); } catch (eBills) { bills = 0; }
+  try { subs = bankFitSubsTotal(snap, key); } catch (eSubs) { subs = 0; }
+  try { pot = bankFitPot(snap, key, opts.draft || null); } catch (ePot) { pot = 0; }
+  var other = 0;
+  try { other = bankFitOtherIncome(snap, key); } catch (eOther) { other = 0; }
+  var budgeted = bankRoundCents(bills + subs + pot);
   return {
     income: income,
     bills: bills,
-    categories: cats,
-    left: bankRoundCents(income - bills - cats)
+    subs: subs,
+    pot: pot,
+    categories: pot,
+    budgeted: budgeted,
+    other: other,
+    left: bankRoundCents(income - budgeted)
   };
 }
 
@@ -15074,31 +15172,19 @@ function bankCutRows(snap, monthKey, over) {
 }
 
 function bankBudgetWarnText(snap, monthKey, id, budgetText, tier) {
-  var fit = bankBudgetFit(snap, monthKey);
   var next = bankNum(String(budgetText == null ? "" : budgetText).replace(/[$,\s]/g, ""));
-  if (next == null || next < 0) return "";
-  var oldBills = 0;
-  var oldCats = 0;
-  if (id && id !== "new" && bankCategoriesActive(snap)) {
-    var figs = bankCategoryFigures(snap, monthKey);
-    var row = figs[id];
-    if (row && row.showBudget) {
-      if (row.tier === "required") oldBills = row.plan || 0;
-      else oldCats = row.plan || 0;
-    }
-  }
-  var word = bankTierWord(tier);
-  if (!word && id && id !== "new") {
+  if (next == null || next < 0 || !id || id === "new") return "";
+  var kind = "";
+  try { kind = bankBudgetPartKind(id, tier); } catch (eKind) { kind = ""; }
+  if (!tier) {
     var live = null;
-    try { live = bankSpendById(bankSpendCategories(snap), id); } catch (e) { live = null; }
-    word = live ? bankTierWord(live.tier) : "";
+    try { live = bankSpendById(bankSpendCategories(snap, monthKey), id); } catch (eLive) { live = null; }
+    if (live) kind = bankBudgetPartKind(live.id, live.tier);
   }
-  var bills = fit.bills;
-  var cats = fit.categories;
-  if (word === "required") bills = bankRoundCents(bills - oldBills + next);
-  else cats = bankRoundCents(cats - oldCats + next);
-  var left = bankRoundCents(fit.income - bills - cats);
-  if (left < -0.004) return "Over by " + bankMoney(bankRoundCents(-left));
+  if (kind !== "spend") return "";
+  var verdict = null;
+  try { verdict = bankFitVerdict(snap, monthKey, { id: id, budget: next }); } catch (eFit) { verdict = null; }
+  if (verdict && verdict.over) return verdict.text;
   return "";
 }
 
@@ -15108,8 +15194,11 @@ function bankBudgetWarnHtml(text) {
 }
 
 function bankBudgetFitHtml(snap, opts, month) {
-  var key = bankMonthKey(month || bankScreenMonth(snap, opts || {}));
-  var fit = bankBudgetFit(snap, key);
+  opts = opts || {};
+  var key = "";
+  try { key = bankFitMonth(snap, Object.assign({}, opts || {}, { planMonth: month || (opts && opts.planMonth) || "" })); } catch (eKey) { key = ""; }
+  if (!key) key = bankMonthKey(month || bankScreenMonth(snap, opts || {}));
+  var fit = bankBudgetFit(snap, key, opts);
   function line(label, amount, attr, cls) {
     return '<p data-bank-fit-line="' + attr + '"><span>' + bankEsc(label) + '</span> <b class="' + (cls || "") + '" data-bank-fit-' + attr + '="' + amount + '">' +
       bankEsc(bankMoney(amount)) + "</b></p>";
@@ -15135,13 +15224,21 @@ function bankBudgetFitHtml(snap, opts, month) {
       (items ? '<ul class="bank-cut-list">' + items + "</ul>" : "") + "</div>";
   }
   var verdict = "";
-  try { verdict = '<h3>Budget fit</h3>' + bankFitVerdictHtml(snap, key, null); } catch (eVerdict) { verdict = ""; }
-  return '<section class="bank-budget-fit" data-bank-budget-fit="1"><h2>This month</h2><div class="card span">' +
-    verdict +
+  try { verdict = (opts.fitHead === false ? "" : "<h3>Budget fit</h3>") + bankFitVerdictHtml(snap, key, null); } catch (eVerdict) { verdict = ""; }
+  var otherNote = fit.other > 0.004
+    ? '<p class="hint" data-bank-fit-other="1">Other income ' + bankEsc(bankMoney(fit.other)) + " is not counted.</p>"
+    : "";
+  var body = verdict +
     line("Income", fit.income, "income", "") +
+    otherNote +
     line("Bills", fit.bills, "bills", "") +
+    line("Subscriptions", fit.subs, "subs", "") +
     line("Category budgets", fit.categories, "categories", "") +
-    tail + cuts + "</div></section>";
+    tail + cuts;
+  if (opts.fitEmbed) return body;
+  return '<section class="bank-budget-fit" data-bank-budget-fit="1" data-bank-fit-bills="' + fit.bills +
+    '" data-bank-fit-subs="' + fit.subs + '" data-bank-fit-pot="' + fit.pot + '" data-bank-fit-spare="' + fit.left + '"><h2>This month</h2><div class="card span">' +
+    body + "</div></section>";
 }
 
 function bankIsTierLabel(name) {
@@ -15249,12 +15346,33 @@ function bankPlanSpendRows(snap, rows) {
     if (row.tier === "required") return;
     spend.push(row);
   });
-  if (spend.length) return spend;
+  if (spend.length) return spend.filter(function (row) { return !bankEmptySubscriptionsRow(row); });
   bankSpendStarters().forEach(function (starter) {
     if (!starter || starter.tier === "required" || bankIsTierLabel(starter.name)) return;
+    if (starter.id === "subscriptions") return;
     spend.push({ id: starter.id, name: starter.name, tier: starter.tier, plan: 0, spent: 0, showBudget: true });
   });
   return spend;
+}
+
+function bankEmptySubscriptionsRow(row) {
+  if (!row) return false;
+  var id = String(row.id || "");
+  var name = String(row.name || "").trim().toLowerCase();
+  if (id !== "subscriptions" && name !== "subscriptions") return false;
+  var plan = bankNum(row.plan != null ? row.plan : row.budget);
+  var spent = bankNum(row.spent) || 0;
+  return !(plan > 0.004) && !(spent > 0.004);
+}
+
+/* A deleted Subscriptions category, or a $0 one, is not a row and not a group. */
+function bankHideSubscriptionsCategory(snap, monthKey) {
+  var cats = [];
+  try { cats = bankSpendCategories(snap, monthKey) || []; } catch (eCats) { cats = []; }
+  var row = null;
+  try { row = bankSpendById(cats, "subscriptions"); } catch (eRow) { row = null; }
+  if (!row) return true;
+  return bankEmptySubscriptionsRow(row);
 }
 
 function bankPlanSpendTableHtml(rows) {
@@ -15264,7 +15382,7 @@ function bankPlanSpendTableHtml(rows) {
   (rows || []).forEach(function (row) {
     if (row && row.potTotal != null) potTotal = row.potTotal;
   });
-  var body = (rows || []).map(function (row) {
+  var body = (rows || []).filter(function (row) { return !bankEmptySubscriptionsRow(row); }).map(function (row) {
     var show = row.showBudget !== false && row.plan != null;
     var planN = show ? (bankNum(row.plan) || 0) : 0;
     var spent = bankNum(row.spent) || 0;
@@ -15644,9 +15762,12 @@ function bankSpendEditorHtml(snap, opts) {
   var cats = bankSpendCategories(snap) || [];
   opts = opts || {};
   var fitKey = "";
-  try { fitKey = bankMonthKey(opts.planMonth || opts.month || bankScreenMonth(snap, opts)); } catch (eFitKey) { fitKey = ""; }
+  try { fitKey = bankFitMonth(snap, opts); } catch (eFitKey) { fitKey = ""; }
+  if (!fitKey) {
+    try { fitKey = bankMonthKey(opts.planMonth || opts.month || bankScreenMonth(snap, opts)); } catch (eFitFallback) { fitKey = ""; }
+  }
   var fitBlock = "";
-  try { fitBlock = '<h3>Budget fit</h3>' + bankFitVerdictHtml(snap, fitKey, null); } catch (eFit) { fitBlock = ""; }
+  try { fitBlock = bankBudgetFitHtml(snap, Object.assign({}, opts, { fitEmbed: true }), fitKey); } catch (eFit) { fitBlock = ""; }
   var line = opts.catError && !opts.spendOpen
     ? '<p class="hint tone-stop" role="status">' + bankEsc(opts.catError) + "</p>"
     : '<span class="hint">Tap a row to change it.</span>';
@@ -15676,7 +15797,9 @@ function bankSpendEditorHtml(snap, opts) {
   if (pot && pot.total != null) {
     line = '<p class="hint" data-bank-pot="1" data-pot="' + pot.total + '">Shared pot ' + bankEsc(bankMoney(pot.total)) + ". A non-dated amount is a guide.</p>" + line;
   }
-  var items = bankSpendVisible(cats).map(function (row) {
+  var items = bankSpendVisible(cats).filter(function (row) {
+    return !bankEmptySubscriptionsRow(row);
+  }).map(function (row) {
     var guide = row.in_pot ? '<span class="fresh-chip">Guide</span> ' : "";
     var amt = '<span class="mix-amt"' + (row.in_pot ? ' data-bank-guide="' + bankEsc(String(row.budget)) + '"' : "") + ">" + bankEsc(bankMoney(row.budget)) + "</span>";
     return '<li><button type="button" class="mix-leg wrap" data-bank-cat-jump="' + bankEsc(row.id) + '">' +
@@ -16253,6 +16376,7 @@ function bankDatedPlanGroupsHtml(snap, opts, month) {
     if (!row || bankBillRetired(row, month)) return;
     var id = bankResolvedPlanCategory(snap, row, month);
     if (!id) return;
+    if (id === "subscriptions" && bankHideSubscriptionsCategory(snap, month)) return;
     if (!buckets[id]) buckets[id] = [];
     buckets[id].push(row);
   }
@@ -17034,8 +17158,9 @@ function bankPrintedBudgetWindow(snap, key) {
     var start = row.start || row.from || row.window_start;
     var end = row.end || row.to || row.window_end;
     if (!start || !end) return null;
-    var mk = bankMonthKey(row.month || row.key || rowKey || "");
-    if (key && mk && mk !== key) return null;
+    var named = bankMonthKey(row.month || row.label || row.key || "");
+    var mk = named || bankMonthKey(end);
+    if (key && mk !== key) return null;
     return bankWindowFromDates(start, end, mk || key, "budget");
   }
   if (typeof raw === "string") return null;
@@ -18230,9 +18355,9 @@ function bankCardCategoryRoom(snap, opts) {
   return { rows: rows, room: bankRoundCents(room) };
 }
 
-function bankCardAfterBudgetsHtml(left, pack, accounts, key) {
+function bankCardAfterBudgetsHtml(left, pack, accounts, key, spare) {
   if (left == null || !pack || !(pack.room > 0.004)) return "";
-  var amount = bankRoundCents(left - pack.room);
+  var amount = spare == null ? bankRoundCents(left - pack.room) : bankRoundCents(spare);
   var cls = amount < -0.004 ? "tone-stop" : "tone-go";
   var names = [];
   (pack.rows || []).forEach(function (row) {
@@ -18247,7 +18372,7 @@ function bankCardAfterBudgetsHtml(left, pack, accounts, key) {
     return '<p class="bank-fit-line" data-bank-after-acct="1"><span>' + bankEsc(row.label) + '</span> <b class="' + tone +
       '" data-bank-after-acct-amt="' + after + '">' + bankEsc(bankMoney(after)) + "</b></p>";
   }).join("");
-  return '<div class="bank-after-budgets" data-bank-after-budgets="' + key + '"><p><span>After budgets</span> <b class="' + cls +
+  return '<div class="bank-after-budgets" data-bank-after-budgets="' + key + '" data-bank-fit-spare="' + amount + '"><p><span>After budgets</span> <b class="' + cls +
     '" data-bank-after-' + key + '="' + amount + '">' + bankEsc(bankMoney(amount)) + "</b>" + detail +
     ' <a href="#edits">Adjust budgets</a></p>' + accts + "</div>";
 }
@@ -18314,15 +18439,17 @@ function bankBudgetPanelsHtml(snap, opts) {
     '</span> <b data-bank-month-left="' + (card.monthLeft == null ? "" : String(card.monthLeft)) + '" class="' + monthLeftCls.trim() + '">' +
     bankEsc(card.monthLeft == null ? "\u2014" : bankMoney(card.monthLeft)) + "</b></div></div>";
   var roomPack = bankCardCategoryRoom(snap, opts);
+  var fitSpare = null;
+  try { fitSpare = bankBudgetFit(snap, bankFitMonth(snap, opts), opts).left; } catch (eSpare) { fitSpare = null; }
   var now = '<div class="bank-card-panel" data-bank-now="1"><h3>Right now</h3>' + nowHero +
-    bankCardAfterBudgetsHtml(card.nowLeft, roomPack, card.nowAccounts, "now") +
+    bankCardAfterBudgetsHtml(card.nowLeft, roomPack, card.nowAccounts, "now", fitSpare) +
     bankCardAccountLines(card.nowAccounts, "bank-now-acct") +
     bankCardFold("Balances " + bankCardAmt(card.nowBalances, "now-balances"), startHtml) +
     bankCardFold("Paid so far " + bankCardAmt(card.paid, "paid"), paidHtml) +
     bankCardFold("Due before " + bankEsc(dueWhen) + " " + bankCardAmt(card.nowDue, "now-due"),
       dueHtml || '<p class="bank-empty">Nothing due before the next deposit.</p>') + "</div>";
   var overall = '<div class="bank-card-panel" data-bank-overall="1"><h3>Overall</h3>' + monthHero +
-    bankCardAfterBudgetsHtml(card.monthLeft, roomPack, card.endAccounts, "month") +
+    bankCardAfterBudgetsHtml(card.monthLeft, roomPack, card.endAccounts, "month", fitSpare) +
     bankCardAccountLines(card.endAccounts, "bank-month-acct") +
     bankCardFold("Pay " + bankCardAmt(card.pay, "pay-total") + " (landed " + bankCardAmt(card.landed, "pay-landed") + ")", payHtml) +
     (card.surplus == null ? "" : bankCardFold("Surplus " + bankCardAmt(card.surplus, "surplus"),
@@ -18347,14 +18474,14 @@ function bankPaceHtml(model) {
     '</b><b data-bank-pace-income="' + income + '">' + bankEsc(bankMoney(income)) + "</b></div></div>";
 }
 
-function bankCategoryRoomHtml(model, monthLeft) {
+function bankCategoryRoomHtml(model, monthLeft, spare) {
   if (!model) return "";
   var rows = model.trims || [];
   var room = 0;
   rows.forEach(function (row) { room += row && row.amount || 0; });
   room = bankRoundCents(room);
   var base = monthLeft != null ? monthLeft : model.free;
-  var after = base == null ? null : bankRoundCents(base - room);
+  var after = spare != null ? bankRoundCents(spare) : (base == null ? null : bankRoundCents(base - room));
   var items = rows.map(function (row) {
     return '<li data-bank-room="1"><span>' + bankEsc(row.name) + "</span> <b>" + bankEsc(bankMoney(row.amount)) + "</b></li>";
   }).join("");
@@ -18459,11 +18586,10 @@ function bankCardBarHtml(key, label, amounts, pct) {
 function bankIncomeBudgetBarHtml(snap, opts) {
   opts = opts || {};
   var key = "";
-  try {
-    var ym = opts.month || bankScreenMonth(snap, opts);
-    var win = bankBudgetWindowFor(snap, ym);
-    key = (win && win.month) || bankMonthKey(ym) || "";
-  } catch (eKey) { key = ""; }
+  try { key = bankFitMonth(snap, opts); } catch (eKey) { key = ""; }
+  if (!key) {
+    try { key = bankMonthKey(opts.month || opts.planMonth || bankScreenMonth(snap, opts)); } catch (eFallback) { key = ""; }
+  }
   var verdict = null;
   try { verdict = bankFitVerdict(snap, key, null); } catch (eFit) { verdict = null; }
   if (!verdict) return "";
@@ -18473,24 +18599,27 @@ function bankIncomeBudgetBarHtml(snap, opts) {
   var pct = income > 0 ? (budgeted / income) * 100 : (budgeted > 0 ? 100 : 0);
   var shown = Math.round(pct > 999 ? 999 : pct);
   var amounts = bankMoney(budgeted) + " of " + bankMoney(income) + ", " + shown + "%";
+  var label = amounts + ", " + verdict.text;
   var track = "";
   if (over && budgeted > 0) {
     var fitPct = income > 0 ? (income / budgeted) * 100 : 0;
     var overPct = 100 - fitPct;
     track = '<div class="bank-card-bar-track" data-bank-income-track="over" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
-      shown + '" aria-valuetext="' + bankEsc(amounts + ". " + verdict.text) + '" aria-label="Income">' +
+      shown + '" aria-valuetext="' + bankEsc(label) + '" aria-label="Income">' +
       '<span data-bank-bar-fit="1" style="width:' + fitPct.toFixed(1) + '%;background:var(--go)"></span>' +
       '<span data-bank-bar-over="1" style="width:' + overPct.toFixed(1) + '%;background:var(--stop)"></span></div>';
   } else {
     var width = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
     track = '<div class="bank-card-bar-track" data-bank-income-track="fit" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
-      Math.round(width) + '" aria-valuetext="' + bankEsc(amounts + ". " + verdict.text) + '" aria-label="Income">' +
+      Math.round(width) + '" aria-valuetext="' + bankEsc(label) + '" aria-label="Income">' +
       '<span data-bank-bar-fit="1" style="width:' + width.toFixed(1) + '%;background:var(--go)"></span></div>';
   }
   return '<div class="bank-card-bar bank-income-bar" data-bank-bar="income" data-pct="' + shown + '" data-over="' + (over ? "1" : "0") +
-    '" data-bank-fit-income="' + income + '" data-bank-fit-budgeted="' + budgeted + '">' +
-    '<p class="bank-card-bar-label"><span>Income</span> <b>' + bankEsc(amounts) + ' <em class="' + (over ? "tone-stop" : "tone-go") +
-    '" data-bank-fit-verdict="1" data-bank-fit-spare="' + verdict.spare + '">' + bankEsc(verdict.text) + "</em></b></p>" + track + "</div>";
+    '" data-bank-fit-income="' + income + '" data-bank-fit-budgeted="' + budgeted + '" data-bank-fit-spare="' + verdict.spare +
+    '" data-bank-fit-bills="' + verdict.bills + '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot + '">' +
+    '<p class="bank-card-bar-label"><span>Income</span> <b>' + bankEsc(amounts) + ', <em class="' + (over ? "tone-stop" : "tone-go") +
+    '" data-bank-fit-verdict="1" data-bank-fit-spare="' + verdict.spare + '" data-bank-fit-bills="' + verdict.bills +
+    '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot + '">' + bankEsc(verdict.text) + "</em></b></p>" + track + "</div>";
 }
 
 function bankCardBarsHtml(card, snap, opts) {
@@ -18515,14 +18644,10 @@ function bankCardBarsHtml(card, snap, opts) {
   }
   if (snap && bankCategoriesActive(snap)) {
     var spendKey = "";
-    try {
-      var ym = (opts && (opts.month || opts.planMonth)) || bankScreenMonth(snap, opts || {});
-      var win = bankBudgetWindowFor(snap, ym);
-      spendKey = (win && win.month) || bankMonthKey(ym) || "";
-    } catch (eKey) { spendKey = ""; }
+    try { spendKey = bankFitMonth(snap, opts || {}); } catch (eKey) { spendKey = ""; }
     var spendBudget = 0;
     var spendSpent = 0;
-    try { spendBudget = bankBudgetParts(snap, spendKey, null).spend; } catch (eSpend) { spendBudget = 0; }
+    try { spendBudget = bankFitPot(snap, spendKey, null); } catch (eSpend) { spendBudget = 0; }
     try { spendSpent = bankSpendingSpent(snap, spendKey); } catch (eSpent) { spendSpent = 0; }
     var spendPct = spendBudget > 0 ? (spendSpent / spendBudget) * 100 : (spendSpent > 0 ? 100 : 0);
     rows.push(bankCardBarHtml("spend", "Spending budget", bankMoney(spendSpent) + " of " + bankMoney(spendBudget), spendPct));
@@ -18591,8 +18716,10 @@ function bankHeroHtml(snap, opts, flows) {
   if (glance) {
     var defer = bankDeferListHtml(glance.defer, glance.gap, true);
     var monthLeft = null;
+    var fitSpare = null;
     try { monthLeft = bankBudgetCard(snap, opts).monthLeft; } catch (eLeft) { monthLeft = null; }
-    moreBody = bankPaceHtml(glance) + bankCategoryRoomHtml(glance, monthLeft) + (defer.face || "") +
+    try { fitSpare = bankBudgetFit(snap, bankFitMonth(snap, opts), opts).left; } catch (eSpare) { fitSpare = null; }
+    moreBody = bankPaceHtml(glance) + bankCategoryRoomHtml(glance, monthLeft, fitSpare) + (defer.face || "") +
       bankGlanceMoreHtml(glance) + (defer.restHtml || "") + bankCushionNoteHtml(glance);
   }
   if (sweepDetail) moreBody = sweepDetail + moreBody;
@@ -19055,6 +19182,7 @@ function bankEditDatedGroupsHtml(snap, rows, ym, edits, itemHtml) {
     try { id = bankSpendBillCategory(row, cats, snap) || ""; } catch (eId) { id = ""; }
     if (!id) id = "other";
     else id = bankSpendCanonicalId(id, cats, snap) || id;
+    if (id === "subscriptions" && bankHideSubscriptionsCategory(snap, ym)) id = "other";
     if (!buckets[id]) buckets[id] = [];
     buckets[id].push(row);
   });

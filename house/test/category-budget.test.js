@@ -1646,7 +1646,7 @@ test("bill names stay whole and categories are spending lines", function () {
   assert.match(tierCard, /General Shopping/);
   assert.match(tierCard, /Groceries/);
   assert.match(tierCard, /Gas\/Fuel/);
-  assert.match(tierCard, /Subscriptions/);
+  assert.doesNotMatch(tierCard, /Subscriptions/);
 });
 
 test("edits bills use the printed category and dated groups", () => {
@@ -1818,9 +1818,15 @@ test("a saved budget wins everywhere and survives reload", async function () {
   assert.equal(parts.bills, 540);
   const verdict = ctx.bankFitVerdict(el._bank.data, "2026-11", null);
   assert.equal(verdict.income, 1200);
-  assert.equal(verdict.budgeted, 605);
+  assert.equal(verdict.bills, 300);
+  assert.equal(verdict.subs, 15);
+  assert.equal(verdict.pot, 25);
+  assert.equal(verdict.budgeted, 340);
+  assert.equal(verdict.spare, 860);
   assert.match(verdict.text, /Fits: /);
   const drafted = ctx.bankFitVerdict(el._bank.data, "2026-11", { id: "groceries", budget: 2000 });
+  assert.equal(drafted.pot, 2000);
+  assert.equal(drafted.budgeted, 2315);
   assert.equal(drafted.over, true);
   assert.match(drafted.text, /Over by /);
   const nodes = [{ textContent: "", className: "", setAttribute: function () {} }];
