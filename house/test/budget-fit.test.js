@@ -162,7 +162,7 @@ test("November uses the computed window and one spare across the bar, Edits, and
   const categories = [
     { id: "groceries", name: "Groceries", tier: "needs", budget: 1000, merged_into: "" },
     { id: "dining", name: "Dining", tier: "wants", budget: 0, merged_into: "" },
-    { id: "kids-activities", name: "Kids & Activities", tier: "wants", budget: 931, merged_into: "" },
+    { id: "kids-activities", name: "Kids & Activities", tier: "wants", budget: 830, merged_into: "" },
     { id: "utilities", name: "Utilities", tier: "required", budget: 500, merged_into: "" },
     { id: "mortgage", name: "Mortgage", tier: "required", budget: 999, merged_into: "" },
     { id: "subscriptions", name: "Subscriptions", tier: "wants", budget: 999, merged_into: "" },
@@ -204,6 +204,7 @@ test("November uses the computed window and one spare across the bar, Edits, and
       }],
       other_income: [{ name: "Side", amount: 40, date: "2026-11-10" }],
       subs_total: 487.96,
+      bills_total_effective: 7094.19,
       category_deleted: ["subscriptions"],
       bills: [{ name: "Housing stack", amount: 7094.19, due_day: 6, cadence: "monthly", category: "utilities" }],
       subscriptions: [
@@ -250,11 +251,11 @@ test("November uses the computed window and one spare across the bar, Edits, and
   assert.equal(fit.income, 9651.12);
   assert.equal(fit.bills, 7094.19);
   assert.equal(fit.subs, 487.96);
-  assert.equal(fit.pot, 1931);
+  assert.equal(fit.pot, 1830);
   assert.equal(fit.other, 40);
-  assert.equal(fit.left, 137.97);
+  assert.equal(fit.left, 238.97);
   const edited = ctx.bankBudgetFit(snap, "2026-11", { edits: { bills: { "Housing stack": { amount: 100 } } } });
-  assert.equal(edited.bills, 100);
+  assert.equal(edited.bills, 7094.19);
   assert.equal(ctx.bankRoundCents(edited.income - edited.bills - edited.subs - edited.pot), edited.left);
   assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(snap, "2026-11"), "dining").budget, 0);
   assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(snap, "2026-11"), "subscriptions"), null);
@@ -265,16 +266,20 @@ test("November uses the computed window and one spare across the bar, Edits, and
   const emptyOnly = ctx.bankPlanSpendRows(snap, [{ id: "subscriptions", name: "Subscriptions", tier: "wants", plan: 0, budget: 0, spent: 0 }]);
   assert.equal(emptyOnly.length, 0);
   const page = ctx.bankPageHtml(snap, opts);
-  const bar = page.slice(page.indexOf('data-bank-bar="income"'), page.indexOf('data-bank-bar="income"') + 900);
+  const bar = page.slice(page.indexOf('data-bank-bar="income"'), page.indexOf('data-bank-bar="income"') + 1600);
+  assert.match(bar, /November plan/);
+  assert.match(bar, /data-bank-bar-month="2026-11"/);
   assert.match(bar, /data-bank-fit-bills="7094.19"/);
   assert.match(bar, /data-bank-fit-subs="487.96"/);
-  assert.match(bar, /data-bank-fit-pot="1931"/);
-  assert.match(bar, /data-bank-fit-spare="137.97"/);
-  assert.match(bar, /\$9,513\.15 of \$9,651\.12, 99%, /);
-  assert.match(bar, /Fits: \$137\.97 to spare/);
-  assert.match(page, /data-bank-after-now="137.97"/);
-  assert.match(page, /data-bank-after-month="137.97"/);
-  assert.match(page, /data-bank-after-cats="137.97"/);
+  assert.match(bar, /data-bank-fit-pot="1830"/);
+  assert.match(bar, /data-bank-fit-spare="238.97"/);
+  assert.match(bar, /\$9,412\.15 of \$9,651\.12, 98%, /);
+  assert.match(bar, /Fits: \$238\.97 to spare/);
+  assert.match(page, /data-bank-bar="spend"[^>]*data-bank-bar-month="2026-10"/);
+  assert.match(page, /data-bank-bar="spend"[\s\S]{0,280}>October</);
+  assert.match(page, /data-bank-after-now="238.97"/);
+  assert.match(page, /data-bank-after-month="238.97"/);
+  assert.match(page, /data-bank-after-cats="238.97"/);
   assert.doesNotMatch(page, /data-bank-cat-row="subscriptions"/);
   assert.doesNotMatch(page, /data-bank-bill-group="subscriptions"/);
   assert.match(page, /data-bank-bill-group="streaming-entertainment"/);
@@ -282,10 +287,10 @@ test("November uses the computed window and one spare across the bar, Edits, and
   assert.match(page, /data-bank-bill-group="software-ai"/);
   assert.match(page, /Code Desk/);
   const edits = ctx.bankPageHtml(snap, { tab: "edits", planMonth: "2026-10", now: opts.now });
-  assert.match(edits, /data-bank-fit-spare="137.97"/);
+  assert.match(edits, /data-bank-fit-spare="238.97"/);
   assert.match(edits, /data-bank-fit-bills="7094.19"/);
   assert.match(edits, /data-bank-fit-subs="487.96"/);
-  assert.match(edits, /data-bank-fit-pot="1931"/);
+  assert.match(edits, /data-bank-fit-pot="1830"/);
   assert.match(edits, /Other income \$40\.00 is not counted/);
   assert.doesNotMatch(edits, /data-bank-cat-jump="subscriptions"/);
   assert.doesNotMatch(edits, /data-bank-edit-group="subscriptions"/);
@@ -295,4 +300,124 @@ test("November uses the computed window and one spare across the bar, Edits, and
   delete past.budget.tiers_overlay.november_budget.month;
   assert.equal(ctx.bankFitMonth(past, { planMonth: "2026-10", now: "2026-10-16T16:00:00Z" }), "2026-10");
   assert.equal(ctx.bankFitMonth(past, { planMonth: "2026-10", now: "2026-10-30T16:00:00Z" }), "2026-11");
+});
+
+test("a due-in-window fallback still counts a bill after the last pay period", function () {
+  const ctx = boot();
+  const snap = {
+    asof: "2026-10-16T12:00:00-04:00",
+    accounts: [],
+    current: { month: "2026-10", edits_tx: [], recent_tx: [] },
+    history: { months: [] },
+    budget: {
+      budget_month: { month: "2026-10", start: "2026-09-30", end: "2026-10-29" },
+      pay_schedule: [
+        { name: "Payroll", kind: "payroll", date: "2026-10-30", amount: 1000 },
+        { name: "Payroll", kind: "payroll", date: "2026-11-30", amount: 1000 }
+      ],
+      pay_periods: [{ start: "2026-11-13", end: "2026-11-24", current: true }],
+      bills: [{ name: "Late desk", amount: 25, due_day: 27, cadence: "monthly" }],
+      subscriptions: []
+    },
+    tier_doc: { categories: [] }
+  };
+  assert.equal(ctx.bankBudgetWindowFor(snap, "2026-11").end, "2026-11-29");
+  assert.equal(ctx.bankBudgetFit(snap, "2026-11").bills, 25);
+  snap.budget.bills_total_effective = 10;
+  assert.equal(ctx.bankBudgetFit(snap, "2026-11").bills, 10);
+});
+
+test("October spending uses this budget month while the income bar stays on the November plan", function () {
+  const ctx = boot();
+  const snap = {
+    asof: "2026-10-16T12:00:00-04:00",
+    accounts: [],
+    current: {
+      month: "2026-10",
+      edits_tx: [{ date: "2026-10-12", amount: 40, flow: "outflow", desc: "Market", category: "Groceries", tx_key: "m1" }],
+      recent_tx: []
+    },
+    history: { months: [] },
+    budget: {
+      budget_month: { month: "2026-10", start: "2026-09-30", end: "2026-10-29" },
+      pay_schedule: [
+        { name: "Payroll", kind: "payroll", date: "2026-10-30", amount: 4000 },
+        { name: "Payroll", kind: "payroll", date: "2026-11-13", amount: 4000 },
+        { name: "Payroll", kind: "payroll", date: "2026-11-30", amount: 4000 }
+      ],
+      pay_periods: [{
+        current: true,
+        start: "2026-10-30",
+        end: "2026-11-13",
+        accounts: { "1111": { nickname: "Everyday", role: "everyday", subType: "checking", left_at_end: 20 } }
+      }],
+      bills: [],
+      subscriptions: [],
+      tiers_overlay: {
+        updated_at: "2026-10-16T12:00:00Z",
+        tiers: { categories: [
+          { id: "groceries", name: "Groceries", tier: "needs", budget: 100 },
+          { id: "dining", name: "Dining", tier: "wants", budget: 50 }
+        ] },
+        november_budget: { month: "2026-11", pot: 900, guides: { groceries: 20, dining: 10 } }
+      }
+    },
+    tier_doc: {
+      categories: [
+        { id: "groceries", name: "Groceries", tier: "needs", budget: 100, merged_into: "" },
+        { id: "dining", name: "Dining", tier: "wants", budget: 50, merged_into: "" }
+      ],
+      budgets_updated_at: { groceries: "2026-10-16T15:00:00Z", dining: "2026-10-16T15:00:00Z" },
+      category_rules: {},
+      category_tx: {}
+    }
+  };
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" };
+  assert.equal(ctx.bankFitMonth(snap, opts), "2026-11");
+  assert.equal(ctx.bankSpendBarMonth(snap, opts), "2026-10");
+  assert.equal(ctx.bankSpendingSpent(snap, "2026-11"), 0);
+  assert.equal(ctx.bankSpendingSpent(snap, "2026-10"), 40);
+  const page = ctx.bankPageHtml(snap, opts);
+  const spend = page.slice(page.indexOf('data-bank-bar="spend"'), page.indexOf('data-bank-bar="spend"') + 700);
+  assert.match(spend, /data-bank-bar-month="2026-10"/);
+  assert.match(spend, />October</);
+  assert.match(spend, /data-bank-spend-spent="40"/);
+  assert.match(spend, /\$40\.00 of \$150\.00/);
+  assert.match(page, /November plan/);
+  assert.doesNotMatch(spend, /November/);
+  const later = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-11-02T16:00:00Z" });
+  assert.match(later, /data-bank-bar="spend"[^>]*data-bank-bar-month="2026-11"/);
+  assert.match(later, />November</);
+});
+
+test("an unfunded reserve note uses the full bill minus the shared monthly set-asides", function () {
+  const ctx = boot();
+  const snap = {
+    asof: "2026-10-16T12:00:00-04:00",
+    accounts: [],
+    current: { month: "2026-10", edits_tx: [], recent_tx: [] },
+    history: { months: [] },
+    budget: {
+      budget_month: { month: "2026-10", start: "2026-09-30", end: "2026-10-29" },
+      pay_schedule: [
+        { name: "Payroll", kind: "payroll", date: "2026-10-30", amount: 1000 },
+        { name: "Payroll", kind: "payroll", date: "2026-11-30", amount: 1000 }
+      ],
+      bills_total_effective: 30,
+      bills: [
+        { name: "Town Water", kind: "set_aside", amount: 10, monthly_amount: 10, reserve: "pipes" },
+        { name: "Town Drain", kind: "set_aside", amount: 20, monthly_amount: 20, full_amount: 80, reserve: "pipes", reserve_funded: false, cycle_due: "2026-11-10" }
+      ],
+      subscriptions: [],
+      tiers_overlay: { november_budget: { month: "2026-11" } }
+    },
+    tier_doc: { categories: [] }
+  };
+  const note = ctx.bankFitReserveNote(snap, "2026-11");
+  assert.equal(note, "Town Drain full bill $80.00 due 11/10, reserve not funded yet (+$50.00 this month)");
+  const page = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  assert.match(page, /data-bank-reserve-note="1"/);
+  assert.match(page, /Town Drain full bill \$80\.00 due 11\/10, reserve not funded yet \(\+\$50\.00 this month\)/);
+  snap.budget.bills[1].cycle_due = "2026-12-10";
+  assert.equal(ctx.bankFitReserveNote(snap, "2026-11"), "");
 });
