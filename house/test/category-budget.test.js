@@ -1174,7 +1174,7 @@ test("saving a not-purchase row posts the category and clearing it posts null", 
   assert.match(rowHtml(root.innerHTML, "Inside Move"), /fresh-chip">Dining/);
 });
 
-test("household and health fold into general shopping, including a closed month", function () {
+test("household and health stand alone, including a closed month", function () {
   const ctx = boot();
   const snap = bare(ctx);
   snap.tier_doc.categories = [
@@ -1187,20 +1187,23 @@ test("household and health fold into general shopping, including a closed month"
   const cats = ctx.bankSpendCategories(snap);
   const shop = ctx.bankSpendById(cats, "shopping");
   assert.equal(shop.name, "General Shopping");
-  assert.equal(shop.budget, 16.5);
-  assert.equal(ctx.bankSpendById(cats, "household-health").merged_into, "shopping");
-  assert.equal(ctx.bankSpendById(cats, "household-health").budget, 0);
-  assert.equal(ctx.bankSpendVisible(cats).some(function (row) { return row.id === "household-health" || row.id === "education-needs" || row.id === "health"; }), false);
+  assert.equal(shop.budget, 10);
+  assert.equal(ctx.bankSpendById(cats, "household-health").merged_into, "");
+  assert.equal(ctx.bankSpendById(cats, "household-health").budget, 4);
+  assert.equal(ctx.bankSpendById(cats, "health").budget, 2.5);
+  assert.equal(ctx.bankSpendVisible(cats).some(function (row) { return row.id === "household-health"; }), true);
+  assert.equal(ctx.bankSpendVisible(cats).some(function (row) { return row.id === "health"; }), true);
+  assert.equal(ctx.bankSpendVisible(cats).some(function (row) { return row.id === "education-needs"; }), false);
   const txHash = "h:" + "cd".repeat(16);
   snap.tier_doc.category_tx[txHash] = "household-health";
   snap.tier_doc.category_rules["corner clinic"] = "health";
   const moved = { date: "2026-10-04", amount: 3, flow: "outflow", desc: "Sample Store", category: "Gifts", tx_override_key: txHash };
   const movedHit = ctx.bankMapSpendCategory(moved, snap);
-  assert.equal(movedHit.id, "shopping");
+  assert.equal(movedHit.id, "household-health");
   assert.equal(movedHit.via, "tx");
   const ruled = { date: "2026-10-04", amount: 1, flow: "outflow", desc: "Corner Clinic", merchant_key: "corner clinic", category: "Gifts" };
   const ruledHit = ctx.bankMapSpendCategory(ruled, snap);
-  assert.equal(ruledHit.id, "shopping");
+  assert.equal(ruledHit.id, "health");
   assert.equal(ruledHit.via, "merchant");
   snap.budget.bills = [{ name: "Education", bill_id: "education", amount: 12.34, category: "Education", typical_day: 5, cadence: "monthly" }];
   const matched = { date: "2026-09-12", amount: 6, flow: "outflow", desc: "Education", category: "Education (Needs)", tx_key: "ed-match" };
@@ -1227,13 +1230,92 @@ test("household and health fold into general shopping, including a closed month"
   snap.current.month = "2026-10";
   const closed = ctx.bankCategoryFigures(snap, "2026-09");
   assert.equal(closed.shopping.name, "General Shopping");
-  assert.equal(closed.shopping.plan, 12);
-  assert.equal(closed["household-health"], undefined);
+  assert.equal(closed.shopping.plan, 5);
+  assert.equal(closed["household-health"].plan, 7);
+  assert.equal(closed["household-health"].name, "Household & Health");
   assert.equal(closed["education-needs"], undefined);
   const visible = ctx.bankSpendVisible(ctx.bankSpendCategories(snap)).map(function (row) { return row.id; });
-  assert.equal(visible.indexOf("household-health"), -1);
+  assert.ok(visible.indexOf("household-health") >= 0);
   assert.equal(visible.indexOf("education-needs"), -1);
   assert.equal(ctx.bankSpendById(ctx.bankSpendStarters(), "shopping").name, "General Shopping");
+});
+
+test("tiers overlay cleans the category list and keeps redacted rules", function () {
+  const ctx = boot();
+  const snap = bare(ctx);
+  snap.tier_doc.updated_at = "2026-10-01T12:00:00Z";
+  snap.tier_doc.categories = [
+    { id: "shopping", name: "Shopping", tier: "wants", budget: 10, merged_into: "" },
+    { id: "household-health", name: "Household & Health", tier: "needs", budget: 4, merged_into: "" },
+    { id: "groceries", name: "Groceries", tier: "needs", budget: 1, merged_into: "" },
+    { id: "other", name: "Other", tier: "wants", budget: 3, merged_into: "" },
+    { id: "car-insurance-loans", name: "Car, Insurance & Loans", tier: "required", budget: 8, merged_into: "" }
+  ];
+  snap.tier_doc.category_rules = {
+    "auto policy one": "car-insurance-loans",
+    "auto policy two": "car-insurance-loans",
+    "cafe": "dining"
+  };
+  snap.tier_doc.category_tx = { ["h:" + "ef".repeat(16)]: "household-health" };
+  snap.budget.category_merge_ids = { "household-health": "shopping" };
+  snap.budget.category_deleted = ["other"];
+  snap.budget.box_categories = { categories: [{ name: "Pets" }] };
+  snap.budget.tiers_overlay = {
+    schema: "banking-tiers-overlay/v1",
+    updated_at: "2026-10-15T12:00:00Z",
+    source: "box",
+    privacy_redacted: ["auto policy one", "auto policy two"],
+    tiers: {
+      categories: [
+        { id: "shopping", name: "Shopping", tier: "wants", budget: 2 },
+        { id: "household-health", name: "Household & Health", tier: "needs", budget: 9 },
+        { id: "groceries", name: "Groceries", tier: "needs", budget: 1 },
+        { id: "dining", name: "Dining", tier: "wants", budget: 1 },
+        { id: "other", name: "Other", tier: "wants", budget: 3 },
+        { id: "car-insurance-loans", name: "Car, Insurance & Loans", tier: "required", budget: 8 }
+      ],
+      category_rules: { cafe: "groceries", market: "groceries" },
+      category_tx: {}
+    },
+    november_budget: {
+      pot: 90,
+      guides: { groceries: 20, dining: 15, shopping: 25 }
+    }
+  };
+  const cats = ctx.bankSpendCategories(snap);
+  const visible = ctx.bankSpendVisible(cats).map(function (row) { return row.id; });
+  assert.equal(visible.indexOf("other"), -1);
+  assert.equal(visible.indexOf("household-health"), -1);
+  assert.ok(visible.indexOf("pets") >= 0);
+  assert.equal(ctx.bankSpendById(cats, "household-health").merged_into, "shopping");
+  assert.equal(ctx.bankSpendById(cats, "groceries").budget, 20);
+  assert.equal(ctx.bankSpendById(cats, "groceries").in_pot, true);
+  assert.equal(ctx.bankSpendById(cats, "dining").guide, 15);
+  assert.equal(ctx.bankSpendById(cats, "car-insurance-loans").budget, 8);
+  assert.equal(ctx.bankSpendById(cats, "car-insurance-loans").in_pot, undefined);
+  const doc = ctx.bankEffectiveCategoryDoc(snap);
+  assert.equal(doc.category_rules.cafe, "groceries");
+  assert.equal(doc.category_rules.market, "groceries");
+  assert.equal(doc.category_rules["auto policy one"], "car-insurance-loans");
+  assert.equal(doc.category_rules["auto policy two"], "car-insurance-loans");
+  assert.equal(doc.category_tx["h:" + "ef".repeat(16)], "shopping");
+  const fit = ctx.bankBudgetFit(snap, "2026-10");
+  assert.equal(fit.categories, 90);
+  const edits = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00" });
+  assert.match(edits, /data-bank-pot="1"/);
+  assert.match(edits, /Shared pot \$90/);
+  assert.match(edits, /data-bank-guide="20"/);
+  assert.match(edits, /Pets/);
+  assert.doesNotMatch(edits, /Household &amp; Health/);
+  snap.tier_doc.updated_at = "2026-10-16T18:00:00Z";
+  snap.tier_doc.categories.forEach(function (row) {
+    if (row.id === "groceries") row.budget = 7;
+  });
+  const saved = ctx.bankSpendCategories(snap);
+  assert.equal(ctx.bankSpendById(saved, "groceries").budget, 7);
+  assert.equal(ctx.bankSharedPot(snap), null);
+  assert.equal(ctx.bankEffectiveCategoryDoc(snap).category_rules["auto policy one"], "car-insurance-loans");
+  assert.equal(ctx.bankEffectiveCategoryDoc(snap).category_rules.cafe, "groceries");
 });
 
 test("this month shows each figure once and tucks the extra cards", function () {

@@ -64,3 +64,61 @@ test("box categories join the picker list and hide deleted or merged names", fun
   assert.equal(merged.categories.indexOf("Archive"), -1);
   assert.equal(merged.categories.indexOf("Household"), -1);
 });
+
+test("tiers GET applies the merge map and keeps redacted rules", function () {
+  const kv = {
+    updated_at: "2026-10-01T12:00:00Z",
+    categories: [
+      { id: "household-health", name: "Household & Health", tier: "needs", budget: 4 },
+      { id: "shopping", name: "Shopping", tier: "wants", budget: 10 },
+      { id: "other", name: "Other", tier: "wants", budget: 3 },
+      { id: "groceries", name: "Groceries", tier: "needs", budget: 1 }
+    ],
+    category_rules: {
+      "auto policy one": "car-insurance-loans",
+      "auto policy two": "car-insurance-loans",
+      cafe: "dining"
+    },
+    category_tx: { "h:abcdabcdabcdabcdabcdabcdabcdabcd": "household-health" }
+  };
+  const budget = {
+    category_merge_ids: { "household-health": "shopping" },
+    category_deleted: ["other"],
+    box_categories: { categories: [{ name: "Pets" }] },
+    tiers_overlay: {
+      schema: "banking-tiers-overlay/v1",
+      updated_at: "2026-10-15T12:00:00Z",
+      source: "box",
+      privacy_redacted: ["auto policy one", "auto policy two"],
+      tiers: {
+        categories: [
+          { id: "household-health", name: "Household & Health", tier: "needs", budget: 9 },
+          { id: "shopping", name: "Shopping", tier: "wants", budget: 2 },
+          { id: "other", name: "Other", tier: "wants", budget: 3 },
+          { id: "groceries", name: "Groceries", tier: "needs", budget: 1 }
+        ],
+        category_rules: { cafe: "groceries", market: "groceries" }
+      },
+      november_budget: { pot: 90, guides: { groceries: 20 } }
+    }
+  };
+  const doc = gate.applyTiersGet(kv, budget);
+  const ids = doc.categories.map(function (row) { return row.id; });
+  assert.equal(ids.indexOf("other"), -1);
+  assert.ok(ids.indexOf("pets") >= 0);
+  const old = doc.categories.filter(function (row) { return row.id === "household-health"; })[0];
+  assert.equal(old.merged_into, "shopping");
+  assert.equal(doc.category_rules.cafe, "groceries");
+  assert.equal(doc.category_rules.market, "groceries");
+  assert.equal(doc.category_rules["auto policy one"], "car-insurance-loans");
+  assert.equal(doc.category_rules["auto policy two"], "car-insurance-loans");
+  assert.equal(doc.category_tx["h:abcdabcdabcdabcdabcdabcdabcdabcd"], "shopping");
+  const newer = JSON.parse(JSON.stringify(kv));
+  newer.updated_at = "2026-10-16T18:00:00Z";
+  newer.categories.forEach(function (row) { if (row.id === "groceries") row.budget = 7; });
+  const kept = gate.applyTiersGet(newer, budget);
+  const groceries = kept.categories.filter(function (row) { return row.id === "groceries"; })[0];
+  assert.equal(groceries.budget, 7);
+  assert.equal(kept.category_rules["auto policy one"], "car-insurance-loans");
+  assert.equal(kept.category_rules.cafe, "groceries");
+});
