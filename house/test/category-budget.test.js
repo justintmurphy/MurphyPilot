@@ -1333,12 +1333,15 @@ test("tiers overlay cleans the category list and keeps redacted rules", function
   assert.equal(ctx.bankSpendById(november, "dining").in_pot, true);
   assert.equal(ctx.bankSharedPot(snap, "2026-11").total, 90);
   snap.current.month = "2026-11";
-  assert.equal(ctx.bankBudgetFit(snap, "2026-11").categories, 90);
+  const stampedFit = ctx.bankBudgetFit(snap, "2026-11");
+  assert.notEqual(stampedFit.categories, 90);
   delete snap.tier_doc.budgets_updated_at;
   const guides = ctx.bankSpendCategories(snap, "2026-11");
   assert.equal(ctx.bankSpendById(guides, "groceries").budget, 20);
   assert.equal(ctx.bankSpendById(guides, "groceries").guide, 20);
-  assert.equal(ctx.bankBudgetFit(snap, "2026-11").categories, 90);
+  const guideFit = ctx.bankBudgetFit(snap, "2026-11");
+  assert.notEqual(guideFit.categories, 90);
+  assert.ok(guideFit.categories > stampedFit.categories);
   snap.current.month = "2026-10";
   assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(snap, "2026-10"), "groceries").budget, 1);
   assert.notEqual(ctx.bankBudgetFit(snap, "2026-10").categories, 90);
@@ -1757,4 +1760,123 @@ test("edits bills use the printed category and dated groups", () => {
   const matchGroup = matchBills.slice(matchBills.indexOf('data-bank-edit-group="utilities"'), matchBills.indexOf("</section>", matchBills.indexOf('data-bank-edit-group="utilities"')));
   assert.match(matchGroup, /data-bank-group-diff="0"/);
   assert.doesNotMatch(matchGroup, /Doesn't match/);
+});
+
+test("a saved budget wins everywhere and survives reload", async function () {
+  const ctx = boot();
+  const now = "2026-10-16T12:00:00-04:00";
+  const snap = bare(ctx);
+  snap.current.month = "2026-11";
+  snap.budget.budget_month = { start: "2026-10-30", end: "2026-11-29", month: "2026-11" };
+  snap.budget.pay_schedule = [
+    { name: "Payroll", kind: "payroll", date: "2026-11-13", amount: 1000 },
+    { name: "Stipend", kind: "stipend", date: "2026-11-25", amount: 200 }
+  ];
+  snap.budget.box_categories = [
+    { id: "utilities", name: "Utilities", tier: "required", budget: 540 },
+    { id: "groceries", name: "Groceries", tier: "needs", budget: 80 },
+    { id: "subscriptions", name: "Subscriptions", tier: "wants", budget: 40 },
+    { id: "dining", name: "Dining", tier: "wants", budget: 10 }
+  ];
+  snap.budget.tiers = { by_category: { groceries: { plan: 80 }, utilities: { plan: 540 } } };
+  snap.budget.tiers_overlay = {
+    updated_at: "2026-11-20T12:00:00Z",
+    tiers: {
+      categories: [
+        { id: "utilities", name: "Utilities", tier: "required", budget: 540 },
+        { id: "groceries", name: "Groceries", tier: "needs", budget: 80 },
+        { id: "subscriptions", name: "Subscriptions", tier: "wants", budget: 40 },
+        { id: "dining", name: "Dining", tier: "wants", budget: 10 }
+      ]
+    },
+    november_budget: { pot: 900, guides: { groceries: 80, dining: 50, subscriptions: 40 } }
+  };
+  snap.budget.bills = [
+    { bill_id: "b-power", name: "Power", amount: 200, category: "utilities", due_day: 6, paid_current_month: { month: "2026-11", status: "paid", source: "manual" } },
+    { bill_id: "b-water", name: "City Water", amount: 100, category: "utilities", due_day: 9 }
+  ];
+  snap.budget.subscriptions = [
+    { sub_id: "s-club", name: "Shop Club", amount: 15, category: "subscriptions", next_date: "2026-11-04" },
+    { sub_id: "s-old", name: "Old Stream", amount: 99, category: "subscriptions", status: "cancelled", status_from: "2026-11", next_date: "2026-11-01" }
+  ];
+  snap.tier_doc.categories = snap.budget.box_categories.map(function (row) {
+    return { id: row.id, name: row.name, tier: row.tier, budget: row.budget, merged_into: "" };
+  });
+  const calls = watch(ctx);
+  const el = desk(snap);
+  el._bank.tab = "edits";
+  el._bank.planMonth = "2026-11";
+  assert.equal(await ctx.bankSpendSaveBudget(el, "groceries", "25"), true);
+  assert.equal(await ctx.bankSpendSaveBudget(el, "dining", "0"), true);
+  assert.equal(calls[calls.length - 1].body.budgets_updated_at.dining != null, true);
+  assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(el._bank.data, "2026-11"), "groceries").budget, 25);
+  assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(el._bank.data, "2026-11"), "dining").budget, 0);
+  assert.equal(ctx.bankSavedCategoryBudget(el._bank.data, "groceries"), 25);
+  const parts = ctx.bankBudgetParts(el._bank.data, "2026-11", null);
+  assert.equal(parts.spend, 25);
+  assert.equal(parts.subs, 40);
+  assert.equal(parts.bills, 540);
+  const verdict = ctx.bankFitVerdict(el._bank.data, "2026-11", null);
+  assert.equal(verdict.income, 1200);
+  assert.equal(verdict.budgeted, 605);
+  assert.match(verdict.text, /Fits: /);
+  const drafted = ctx.bankFitVerdict(el._bank.data, "2026-11", { id: "groceries", budget: 2000 });
+  assert.equal(drafted.over, true);
+  assert.match(drafted.text, /Over by /);
+  const nodes = [{ textContent: "", className: "", setAttribute: function () {} }];
+  el.querySelectorAll = function () { return nodes; };
+  ctx.bankSyncFitVerdict(el, "groceries", "2000");
+  assert.match(nodes[0].textContent, /Over by /);
+  assert.equal(await ctx.bankSpendSaveBudget(el, "groceries", "2000"), true);
+  const page = ctx.bankPageHtml(el._bank.data, { tab: "budget", planMonth: "2026-11", now: now });
+  const heroAt = page.indexOf('data-bank-hero="1"');
+  const hero = page.slice(heroAt, page.indexOf("fills-more", heroAt));
+  assert.match(hero, /data-bank-bar="income"/);
+  assert.match(hero, /data-bank-bar-over="1"/);
+  assert.match(hero, /Over by /);
+  assert.ok(hero.indexOf('data-bank-bar="income"') < hero.indexOf('data-bank-card-bars="1"'));
+  assert.match(hero, /data-bank-bar="spend"/);
+  const billsAt = page.indexOf('data-bank-bill-groups="1"');
+  const bills = page.slice(billsAt, page.indexOf('data-bank-plain-cats="1"', billsAt));
+  assert.match(bills, /data-bank-bill-group="utilities"/);
+  assert.match(bills, /data-bank-group-budget="540"/);
+  assert.match(bills, /data-bank-bill-cat="utilities"/);
+  assert.match(bills, />Power</);
+  assert.match(bills, /data-bank-bill-status="paid"/);
+  assert.match(bills, />Water</);
+  assert.match(bills, /data-bank-bill-status="unpaid"/);
+  assert.match(bills, /data-bank-bill-group="subscriptions"/);
+  assert.match(bills, />Shop Club</);
+  assert.doesNotMatch(bills, /Old Stream/);
+  const cats = page.slice(page.indexOf('data-bank-plain-cats="1"'), page.indexOf("</section>", page.indexOf('data-bank-plain-cats="1"')));
+  assert.match(cats, /data-bank-cat-row="groceries"[^>]*data-budget="2000"/);
+  assert.match(cats, /data-bank-cat-row="dining"[^>]*data-budget="0"/);
+  const printed = JSON.parse(JSON.stringify(el._bank.data));
+  printed.budget.box_categories.forEach(function (row) { row.budget = 999; });
+  delete printed.tier_doc;
+  const kept = el._bank.data.tier_doc;
+  ctx.bankAdoptSnapshot(el._bank, JSON.parse(JSON.stringify(printed)));
+  assert.equal(el._bank.data.tier_doc, kept);
+  assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(el._bank.data, "2026-11"), "groceries").budget, 2000);
+  assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(el._bank.data, "2026-11"), "dining").budget, 0);
+  el._bank.data.tier_doc = {
+    schema: "banking-tiers/v1",
+    updated_at: "2026-11-16T18:00:00Z",
+    categories: [
+      { id: "utilities", name: "Utilities", tier: "required", budget: 540 },
+      { id: "groceries", name: "Groceries", tier: "needs", budget: 2000 },
+      { id: "subscriptions", name: "Subscriptions", tier: "wants", budget: 40 },
+      { id: "dining", name: "Dining", tier: "wants", budget: 0 }
+    ],
+    budgets_updated_at: kept.budgets_updated_at,
+    category_rules: {},
+    category_tx: {}
+  };
+  el._bank.data._tiersFromGet = true;
+  assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(el._bank.data, "2026-11"), "groceries").budget, 2000);
+  assert.equal(ctx.bankCategoryFigures(el._bank.data, "2026-11").groceries.plan, 2000);
+  const edits = ctx.bankPageHtml(el._bank.data, { tab: "edits", planMonth: "2026-11", now: now });
+  assert.match(edits, /<h3>Budget fit<\/h3>/);
+  assert.match(edits, /data-bank-fit-verdict="1"/);
+  assert.match(edits, /Over by /);
 });

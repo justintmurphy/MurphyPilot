@@ -3276,6 +3276,13 @@ button.bank-bill-tile:focus-visible {
   margin: 14px 0 6px;
   min-width: 0;
 }
+.bank-income-bar { margin: 0 0 12px; }
+.bank-income-bar .bank-card-bar-track { display: flex; }
+.bank-income-bar .bank-card-bar-track > span { flex: none; border-radius: 0; }
+.bank-income-bar .bank-card-bar-track > span:first-child { border-radius: 999px 0 0 999px; }
+.bank-income-bar .bank-card-bar-track > span:last-child { border-radius: 0 999px 999px 0; }
+.bank-income-bar .bank-card-bar-track > span:only-child { border-radius: 999px; }
+.bank-income-bar [data-bank-fit-verdict] { font-style: normal; margin-left: 6px; }
 .bank-card-bar-label {
   display: flex;
   justify-content: space-between;

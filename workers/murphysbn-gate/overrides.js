@@ -8,8 +8,9 @@
    GET /data/banking/tiers.json should return applyTiersGet(kvDoc, snapshot.budget)
    and must not write the KV tiers doc. Names, tiers, merges, and deletes come from
    the snapshot (box_categories, category_merge_ids, category_deleted_ids), never
-   from a whole-doc timestamp. A budget wins for one category only when
-   budgets_updated_at[id] is newer than the overlay. GET returns active rows.
+   from a whole-doc timestamp. A budget Justin saved wins for that category when
+   budgets_updated_at[id] is set, including 0, even if the overlay is newer.
+   GET returns that saved number on the active row. A missing stamp keeps the overlay.
    POST goes through applyTiersPost: drop merged ids, reject deleted ids.
    category_rules merge per key: overlay wins, and a KV key the overlay lacks stays. */
 
@@ -521,14 +522,12 @@ function activeCategoryRows(rows) {
 function applyCategoryBudgets(rows, kv, overlay) {
   var overlayById = rowsById(overlay ? overlayCategoryRows(overlay) : null);
   var kvById = rowsById(kv && kv.categories);
-  var overlayTime = stampOf(overlay && overlay.updated_at);
   var stamps = kv && kv.budgets_updated_at && typeof kv.budgets_updated_at === "object" && !Array.isArray(kv.budgets_updated_at) ? kv.budgets_updated_at : {};
   (rows || []).forEach(function (row) {
     if (!row) return;
     var kvRow = kvById[row.id];
     var over = overlayById[row.id];
-    var stamped = stampOf(stamps[row.id]);
-    if (stamped && stamped > overlayTime && kvRow && typeof kvRow.budget === "number") {
+    if (stamps[row.id] && kvRow && typeof kvRow.budget === "number" && isFinite(kvRow.budget)) {
       row.budget = kvRow.budget;
       return;
     }
