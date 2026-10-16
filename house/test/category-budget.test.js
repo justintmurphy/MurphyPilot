@@ -1388,10 +1388,13 @@ test("mount, tiers GET, and refetch keep one category set and one After budgets 
   assert.match(firstLine, /After budgets/);
   assert.notEqual(ctx.bankCardCategoryRoom(snap, { month: "2026-10" }).room, ctx.bankCardCategoryRoom(snap, { month: "2026-11" }).room);
   let paints = 0;
+  let firstHtml = "";
   const paint = ctx.bankPaint;
   ctx.bankPaint = function (root) {
     paints += 1;
-    return paint(root);
+    const out = paint(root);
+    if (paints === 1) firstHtml = root.innerHTML;
+    return out;
   };
   ctx.fetch = function (url) {
     const u = String(url);
@@ -1438,8 +1441,11 @@ test("mount, tiers GET, and refetch keep one category set and one After budgets 
     querySelectorAll: function () { return []; }
   };
   ctx.bankMount(root, snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00" });
+  assert.match(firstHtml, /data-bank-fit-pending="1"/);
+  assert.match(firstHtml, /Checking budgets/);
   await root._bank.prune;
-  assert.equal(paints, 1);
+  assert.equal(paints, 2);
+  assert.doesNotMatch(root.innerHTML, /data-bank-fit-pending/);
   assert.equal(signature(root._bank.data), first);
   assert.equal(afterLine(root._bank.data), firstLine);
   assert.equal(signature(root._bank.data).indexOf("cameras"), -1);
@@ -1448,7 +1454,7 @@ test("mount, tiers GET, and refetch keep one category set and one After budgets 
   assert.equal(root._bank.data.tier_doc.updated_at, "2026-10-16T18:00:00Z");
   assert.equal(signature(root._bank.data), first);
   assert.equal(afterLine(root._bank.data), firstLine);
-  assert.equal(paints, 1);
+  assert.equal(paints, 2);
 });
 
 test("a save drops merged rows and stays within 30", async function () {
@@ -1885,4 +1891,132 @@ test("a saved budget wins everywhere and survives reload", async function () {
   assert.match(edits, /<h3>Budget fit<\/h3>/);
   assert.match(edits, /data-bank-fit-verdict="1"/);
   assert.match(edits, /Over by /);
+});
+
+function mountRoot() {
+  return {
+    innerHTML: "",
+    addEventListener: function () {},
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; }
+  };
+}
+
+test("a newer tiers cache is the first paint and a matching GET does not repaint", async function () {
+  const ctx = boot();
+  const bag = {};
+  ctx.localStorage.getItem = function (key) { return bag[key] == null ? null : bag[key]; };
+  ctx.localStorage.setItem = function (key, value) { bag[key] = String(value); };
+  const snap = bare(ctx);
+  snap.budget.justin_saved_budgets = { groceries: "2026-10-15T12:00:00Z", other: "2026-10-15T12:00:00Z" };
+  snap.budget.tiers_overlay = {
+    updated_at: "2026-10-15T12:00:00Z",
+    tiers: { categories: [
+      { id: "groceries", name: "Groceries", tier: "needs", budget: 70 },
+      { id: "other", name: "Other", tier: "wants", budget: 31 }
+    ] }
+  };
+  const cached = {
+    schema: "banking-tiers/v1",
+    updated_at: "2026-10-16T18:00:00Z",
+    categories: [
+      { id: "groceries", name: "Groceries", tier: "needs", budget: 0, merged_into: "" },
+      { id: "other", name: "Other", tier: "wants", budget: 0, merged_into: "" }
+    ],
+    budgets_updated_at: { groceries: "2026-10-16T18:00:00Z", other: "2026-10-16T18:00:00Z" },
+    category_rules: {},
+    category_tx: {}
+  };
+  bag["bank.tiersDoc"] = JSON.stringify(cached);
+  let paints = 0;
+  const paint = ctx.bankPaint;
+  ctx.bankPaint = function (root) {
+    paints += 1;
+    return paint(root);
+  };
+  ctx.fetch = function (url) {
+    if (String(url).indexOf("/data/banking/tiers.json") === 0) {
+      return Promise.resolve({
+        ok: true, status: 200, type: "basic",
+        json: function () { return Promise.resolve(JSON.parse(JSON.stringify(cached))); }
+      });
+    }
+    return Promise.resolve({ ok: true, status: 200, type: "basic", json: function () { return Promise.resolve({ categories: [] }); } });
+  };
+  const root = mountRoot();
+  ctx.bankMount(root, snap, { tab: "budget", now: "2026-10-16T16:00:00Z" });
+  assert.equal(root._bank.data._tiersPending, false);
+  assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(root._bank.data, "2026-10"), "groceries").budget, 0);
+  assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(root._bank.data, "2026-10"), "other").budget, 0);
+  assert.doesNotMatch(root.innerHTML, /data-bank-fit-pending/);
+  await root._bank.prune;
+  assert.equal(paints, 1);
+  assert.equal(JSON.parse(bag["bank.tiersDoc"]).budgets_updated_at.groceries, "2026-10-16T18:00:00Z");
+});
+
+test("a cold load waits on the tiers GET, and a failed GET is marked as the snapshot", async function () {
+  const ctx = boot();
+  const snap = bare(ctx);
+  snap.budget.tiers_overlay = {
+    updated_at: "2026-10-15T12:00:00Z",
+    tiers: { categories: [
+      { id: "groceries", name: "Groceries", tier: "needs", budget: 70 },
+      { id: "other", name: "Other", tier: "wants", budget: 31 }
+    ] }
+  };
+  const kv = {
+    schema: "banking-tiers/v1",
+    updated_at: "2026-10-16T18:00:00Z",
+    categories: [
+      { id: "groceries", name: "Groceries", tier: "needs", budget: 0, merged_into: "" },
+      { id: "other", name: "Other", tier: "wants", budget: 0, merged_into: "" }
+    ],
+    budgets_updated_at: { groceries: "2026-10-16T18:00:00Z", other: "2026-10-16T18:00:00Z" },
+    category_rules: {},
+    category_tx: {}
+  };
+  let mode = "ok";
+  ctx.fetch = function (url) {
+    if (String(url).indexOf("/data/banking/tiers.json") === 0) {
+      if (mode === "fail") return Promise.resolve({ ok: false, status: 500, type: "basic", json: function () { return Promise.resolve({}); } });
+      return Promise.resolve({ ok: true, status: 200, type: "basic", json: function () { return Promise.resolve(JSON.parse(JSON.stringify(kv))); } });
+    }
+    return Promise.resolve({ ok: true, status: 200, type: "basic", json: function () { return Promise.resolve({ categories: [] }); } });
+  };
+  const failedSnap = JSON.parse(JSON.stringify(snap));
+  const root = mountRoot();
+  ctx.bankMount(root, snap, { tab: "budget", now: "2026-10-16T16:00:00Z" });
+  assert.match(root.innerHTML, /data-bank-fit-pending="1"/);
+  assert.match(root.innerHTML, /Checking budgets/);
+  assert.doesNotMatch(root.innerHTML, /Over by|Fits:/);
+  await root._bank.prune;
+  assert.equal(root._bank.data._tiersPending, false);
+  assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(root._bank.data, "2026-10"), "groceries").budget, 0);
+  assert.doesNotMatch(root.innerHTML, /data-bank-fit-pending/);
+  mode = "fail";
+  const failed = mountRoot();
+  ctx.bankMount(failed, failedSnap, { tab: "budget", now: "2026-10-16T16:00:00Z" });
+  await failed._bank.prune;
+  assert.equal(failed._bank.data._tiersGetFailed, true);
+  assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(failed._bank.data, "2026-10"), "groceries").budget, 70);
+  assert.match(failed.innerHTML, /data-bank-fit-source="snapshot"/);
+  assert.match(failed.innerHTML, /Saved snapshot/);
+  assert.doesNotMatch(failed.innerHTML, /data-bank-fit-pending/);
+});
+
+test("an Edits save updates the tier doc stamps and rewrites the tiers cache", async function () {
+  const ctx = boot();
+  const bag = {};
+  ctx.localStorage.getItem = function (key) { return bag[key] == null ? null : bag[key]; };
+  ctx.localStorage.setItem = function (key, value) { bag[key] = String(value); };
+  const snap = bare(ctx);
+  const calls = watch(ctx);
+  const el = desk(snap);
+  assert.equal(await ctx.bankSpendSaveBudget(el, "groceries", "4"), true);
+  assert.equal(calls.length >= 1, true);
+  assert.equal(el._bank.data.tier_doc.budgets_updated_at.groceries != null, true);
+  assert.equal(el._bank.data._tiersFromGet, true);
+  const saved = JSON.parse(bag["bank.tiersDoc"]);
+  assert.equal(saved.budgets_updated_at.groceries, el._bank.data.tier_doc.budgets_updated_at.groceries);
+  assert.equal(ctx.bankSpendById(saved.categories, "groceries").budget, 4);
 });

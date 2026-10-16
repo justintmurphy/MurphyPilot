@@ -205,6 +205,7 @@
 
 var BANK_STALE_MS = 36 * 60 * 60 * 1000;
 var BANK_STORE = "murphyHouseBanking";
+var BANK_TIERS_CACHE = "bank.tiersDoc";
 var BANK_DATA_URL = "/data/banking.json";
 
 /* A new ?v= each read. The edge cache key includes it, so a stale snapshot cannot stick. */
@@ -638,6 +639,13 @@ function bankMonthLabel(ym) {
   var m = Number(p[1]);
   if (!m || m < 1 || m > 12) return String(ym || "");
   return BANK_MONTHS[m - 1];
+}
+
+function bankMonthFull(ym) {
+  var names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var parsed = bankParseYm(bankMonthKey(ym));
+  if (!parsed || parsed.month < 1 || parsed.month > 12) return "";
+  return names[parsed.month - 1];
 }
 
 function bankParseHash(hash) {
@@ -13901,7 +13909,7 @@ function bankTierSideHash(snap) {
 function bankPaintCategories(root, before) {
   if (!root || !root._bank) return;
   var after = "";
-  try { after = bankCategoryBudgetHash(root._bank.data) + "\n" + bankTierSideHash(root._bank.data); } catch (eAfter) { after = ""; }
+  try { after = bankTierPaintBefore(root); } catch (eAfter) { after = ""; }
   if (before != null && before === after && root.innerHTML) return;
   if (typeof bankPaint === "function") bankPaint(root);
 }
@@ -14865,7 +14873,13 @@ function bankFitMonth(snap, opts) {
   return screen;
 }
 
+/* Printed bills_total_effective is the fit. It already uses each set-aside's monthly amount.
+   The due-date sum is only a fallback, and it runs through the budget window end.
+   A pay period that stops earlier does not drop a bill still inside that window. */
 function bankFitBillTotal(snap, monthKey, opts) {
+  var budget = (snap && snap.budget) || {};
+  var effective = bankNum(budget.bills_total_effective);
+  if (effective != null) return bankRoundCents(Math.abs(effective));
   var win = null;
   try { win = bankBudgetWindowFor(snap, monthKey); } catch (eWin) { win = null; }
   if (!win || !win.start || !win.end) return 0;
@@ -14885,6 +14899,57 @@ function bankFitBillTotal(snap, monthKey, opts) {
     sum += Math.abs(each) * dates.length;
   });
   return bankRoundCents(sum);
+}
+
+/* A set-aside whose full bill is due this window, while its reserve is not funded.
+   The gap is the full bill minus the monthly set-asides that share its reserve. */
+function bankFitReserveNote(snap, monthKey) {
+  var win = null;
+  try { win = bankBudgetWindowFor(snap, monthKey); } catch (eWin) { win = null; }
+  var budget = (snap && snap.budget) || {};
+  var rows = [];
+  if (Array.isArray(budget.bills)) rows = rows.concat(budget.bills);
+  if (Array.isArray(budget.bills_monthly)) rows = rows.concat(budget.bills_monthly);
+  var groups = {};
+  rows.forEach(function (row) {
+    if (!row || typeof row !== "object") return;
+    var kind = String(row.kind || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+    if (kind !== "set_aside" && kind !== "setaside" && row.set_aside !== true) return;
+    var reserve = String(row.reserve || row.reserve_id || "").trim();
+    if (!reserve && row.reserve_funded !== false) return;
+    if (!reserve) reserve = "\u0000" + String(row.name || row.label || "");
+    if (!groups[reserve]) groups[reserve] = { monthly: 0, full: null };
+    var monthly = bankNum(row.monthly_amount);
+    if (monthly == null) monthly = bankNum(row.amount);
+    if (monthly != null) groups[reserve].monthly += Math.abs(monthly);
+    if (row.reserve_funded !== false) return;
+    var full = bankNum(row.full_amount);
+    if (full == null) return;
+    var due = "";
+    try { due = bankYmdOnly(bankCopyDate(row.cycle_due || row.next_due || row.due || row.date || "")) || ""; } catch (eDue) { due = ""; }
+    if (!due) return;
+    if (win && win.start && win.end && (due < win.start || due > win.end)) return;
+    var explicit = bankNum(row.reserve_shortfall);
+    if (!groups[reserve].full || Math.abs(full) > groups[reserve].full.full) {
+      groups[reserve].full = {
+        name: String(row.name || row.label || "Bill"),
+        full: Math.abs(full),
+        due: due,
+        short: explicit
+      };
+    }
+  });
+  var notes = [];
+  Object.keys(groups).forEach(function (key) {
+    var group = groups[key];
+    if (!group.full) return;
+    var gap = group.full.short != null ? bankRoundCents(Math.abs(group.full.short)) : bankRoundCents(group.full.full - group.monthly);
+    if (!(gap > 0.004)) return;
+    var parts = String(group.full.due).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    var when = parts ? (String(Number(parts[2])) + "/" + String(Number(parts[3]))) : group.full.due;
+    notes.push(group.full.name + " full bill " + bankMoney(group.full.full) + " due " + when + ", reserve not funded yet (+" + bankMoney(gap) + " this month)");
+  });
+  return notes.join(" ");
 }
 
 function bankFitSubsTotal(snap, monthKey) {
@@ -15018,15 +15083,29 @@ function bankFitVerdict(snap, monthKey, draft) {
   };
 }
 
+function bankFitPending(snap) {
+  return !!(snap && snap._tiersPending);
+}
+
+function bankFitSnapshotMark(snap) {
+  return !!(snap && snap._tiersGetFailed && !snap._tiersFromGet && !snap._tiersPending);
+}
+
 function bankFitVerdictHtml(snap, monthKey, draft) {
+  if (bankFitPending(snap)) {
+    return '<p data-bank-fit-verdict="1" data-bank-fit-pending="1">Checking budgets\u2026</p>';
+  }
   var v = bankFitVerdict(snap, monthKey, draft);
+  var source = bankFitSnapshotMark(snap) ? ' data-bank-fit-source="snapshot"' : "";
+  var hint = bankFitSnapshotMark(snap) ? '<p class="hint" data-bank-fit-source="snapshot">Saved snapshot</p>' : "";
   return '<p class="' + (v.over ? "tone-stop" : "tone-go") + '" data-bank-fit-verdict="1" data-bank-fit-spare="' + v.spare +
     '" data-bank-fit-income="' + v.income + '" data-bank-fit-budgeted="' + v.budgeted + '" data-bank-fit-bills="' + v.bills +
-    '" data-bank-fit-subs="' + v.subs + '" data-bank-fit-pot="' + v.pot + '">' + bankEsc(v.text) + "</p>";
+    '" data-bank-fit-subs="' + v.subs + '" data-bank-fit-pot="' + v.pot + '"' + source + ">" + bankEsc(v.text) + "</p>" + hint;
 }
 
 function bankSyncFitVerdict(root, id, raw) {
   if (!root || !root._bank || !root.querySelectorAll) return;
+  if (bankFitPending(root._bank.data)) return;
   var amount = null;
   try { amount = bankSpendParseBudget(raw); } catch (eAmt) { amount = null; }
   var draft = amount == null || id === "new" ? null : { id: id, budget: amount };
@@ -15049,6 +15128,8 @@ function bankSyncFitVerdict(root, id, raw) {
       node.setAttribute("data-bank-fit-bills", String(verdict.bills));
       node.setAttribute("data-bank-fit-subs", String(verdict.subs));
       node.setAttribute("data-bank-fit-pot", String(verdict.pot));
+      if (bankFitSnapshotMark(root._bank.data)) node.setAttribute("data-bank-fit-source", "snapshot");
+      else if (node.removeAttribute) node.removeAttribute("data-bank-fit-source");
     }
   }
 }
@@ -15203,12 +15284,13 @@ function bankBudgetFitHtml(snap, opts, month) {
     return '<p data-bank-fit-line="' + attr + '"><span>' + bankEsc(label) + '</span> <b class="' + (cls || "") + '" data-bank-fit-' + attr + '="' + amount + '">' +
       bankEsc(bankMoney(amount)) + "</b></p>";
   }
-  var over = fit.left < -0.004;
-  var tail = over
+  var pending = bankFitPending(snap);
+  var over = !pending && fit.left < -0.004;
+  var tail = pending ? "" : (over
     ? '<p class="tone-stop" data-bank-fit-line="over"><span>Over by</span> <b data-bank-fit-over="' + bankRoundCents(-fit.left) + '">' +
       bankEsc(bankMoney(bankRoundCents(-fit.left))) + "</b></p>"
     : '<p class="tone-go" data-bank-fit-line="unassigned"><span>Unassigned</span> <b data-bank-fit-unassigned="' + fit.left + '">' +
-      bankEsc(bankMoney(fit.left)) + "</b></p>";
+      bankEsc(bankMoney(fit.left)) + "</b></p>");
   var cuts = "";
   if (over) {
     var gap = bankRoundCents(-fit.left);
@@ -16035,6 +16117,10 @@ function bankSpendApply(snap, body) {
   }
   merge("category_rules", body && body.category_rules);
   merge("category_tx", body && body.category_tx);
+  snap._tiersFromGet = true;
+  snap._tiersPending = false;
+  snap._tiersGetFailed = false;
+  try { bankWriteTiersDoc(snap.tier_doc); } catch (eCache) {}
 }
 
 function bankSpendFail(root, code, draft) {
@@ -18355,8 +18441,13 @@ function bankCardCategoryRoom(snap, opts) {
   return { rows: rows, room: bankRoundCents(room) };
 }
 
-function bankCardAfterBudgetsHtml(left, pack, accounts, key, spare) {
+function bankCardAfterBudgetsHtml(left, pack, accounts, key, spare, flags) {
+  flags = flags || {};
   if (left == null || !pack || !(pack.room > 0.004)) return "";
+  if (flags.pending) {
+    return '<div class="bank-after-budgets" data-bank-after-budgets="' + key + '" data-bank-fit-pending="1"><p><span>After budgets</span> <b data-bank-fit-pending="1" data-bank-after-' +
+      key + '="">Checking budgets\u2026</b> <a href="#edits">Adjust budgets</a></p></div>';
+  }
   var amount = spare == null ? bankRoundCents(left - pack.room) : bankRoundCents(spare);
   var cls = amount < -0.004 ? "tone-stop" : "tone-go";
   var names = [];
@@ -18372,8 +18463,10 @@ function bankCardAfterBudgetsHtml(left, pack, accounts, key, spare) {
     return '<p class="bank-fit-line" data-bank-after-acct="1"><span>' + bankEsc(row.label) + '</span> <b class="' + tone +
       '" data-bank-after-acct-amt="' + after + '">' + bankEsc(bankMoney(after)) + "</b></p>";
   }).join("");
-  return '<div class="bank-after-budgets" data-bank-after-budgets="' + key + '" data-bank-fit-spare="' + amount + '"><p><span>After budgets</span> <b class="' + cls +
-    '" data-bank-after-' + key + '="' + amount + '">' + bankEsc(bankMoney(amount)) + "</b>" + detail +
+  var source = flags.snapshot ? ' data-bank-fit-source="snapshot"' : "";
+  var mark = flags.snapshot ? ' <i class="hint" data-bank-fit-source="snapshot">Saved snapshot</i>' : "";
+  return '<div class="bank-after-budgets" data-bank-after-budgets="' + key + '" data-bank-fit-spare="' + amount + '"' + source + '><p><span>After budgets</span> <b class="' + cls +
+    '" data-bank-after-' + key + '="' + amount + '"' + source + ">" + bankEsc(bankMoney(amount)) + "</b>" + mark + detail +
     ' <a href="#edits">Adjust budgets</a></p>' + accts + "</div>";
 }
 
@@ -18441,15 +18534,16 @@ function bankBudgetPanelsHtml(snap, opts) {
   var roomPack = bankCardCategoryRoom(snap, opts);
   var fitSpare = null;
   try { fitSpare = bankBudgetFit(snap, bankFitMonth(snap, opts), opts).left; } catch (eSpare) { fitSpare = null; }
+  var fitFlags = { pending: bankFitPending(snap), snapshot: bankFitSnapshotMark(snap) };
   var now = '<div class="bank-card-panel" data-bank-now="1"><h3>Right now</h3>' + nowHero +
-    bankCardAfterBudgetsHtml(card.nowLeft, roomPack, card.nowAccounts, "now", fitSpare) +
+    bankCardAfterBudgetsHtml(card.nowLeft, roomPack, card.nowAccounts, "now", fitSpare, fitFlags) +
     bankCardAccountLines(card.nowAccounts, "bank-now-acct") +
     bankCardFold("Balances " + bankCardAmt(card.nowBalances, "now-balances"), startHtml) +
     bankCardFold("Paid so far " + bankCardAmt(card.paid, "paid"), paidHtml) +
     bankCardFold("Due before " + bankEsc(dueWhen) + " " + bankCardAmt(card.nowDue, "now-due"),
       dueHtml || '<p class="bank-empty">Nothing due before the next deposit.</p>') + "</div>";
   var overall = '<div class="bank-card-panel" data-bank-overall="1"><h3>Overall</h3>' + monthHero +
-    bankCardAfterBudgetsHtml(card.monthLeft, roomPack, card.endAccounts, "month", fitSpare) +
+    bankCardAfterBudgetsHtml(card.monthLeft, roomPack, card.endAccounts, "month", fitSpare, fitFlags) +
     bankCardAccountLines(card.endAccounts, "bank-month-acct") +
     bankCardFold("Pay " + bankCardAmt(card.pay, "pay-total") + " (landed " + bankCardAmt(card.landed, "pay-landed") + ")", payHtml) +
     (card.surplus == null ? "" : bankCardFold("Surplus " + bankCardAmt(card.surplus, "surplus"),
@@ -18474,7 +18568,7 @@ function bankPaceHtml(model) {
     '</b><b data-bank-pace-income="' + income + '">' + bankEsc(bankMoney(income)) + "</b></div></div>";
 }
 
-function bankCategoryRoomHtml(model, monthLeft, spare) {
+function bankCategoryRoomHtml(model, monthLeft, spare, flags) {
   if (!model) return "";
   var rows = model.trims || [];
   var room = 0;
@@ -18486,8 +18580,14 @@ function bankCategoryRoomHtml(model, monthLeft, spare) {
     return '<li data-bank-room="1"><span>' + bankEsc(row.name) + "</span> <b>" + bankEsc(bankMoney(row.amount)) + "</b></li>";
   }).join("");
   var list = items ? '<ul class="bank-edit-list">' + items + "</ul>" : "";
-  var afterHtml = after == null ? "" : '<p><span>Left after category budgets</span> <b data-bank-after-cats="' + after + '">' +
-    bankEsc(bankMoney(after)) + "</b></p>";
+  var afterHtml = "";
+  if (flags && flags.pending) {
+    afterHtml = '<p><span>Left after category budgets</span> <b data-bank-after-cats="" data-bank-fit-pending="1">Checking budgets\u2026</b></p>';
+  } else if (after != null) {
+    var source = flags && flags.snapshot ? ' data-bank-fit-source="snapshot"' : "";
+    afterHtml = '<p><span>Left after category budgets</span> <b data-bank-after-cats="' + after + '"' + source + ">" +
+      bankEsc(bankMoney(after)) + "</b></p>";
+  }
   if (!list && !afterHtml) return "";
   return '<div data-bank-room-block="1"><h3>Category room</h3>' + list + afterHtml + "</div>";
 }
@@ -18571,16 +18671,41 @@ function bankCardBarHue(pct) {
   return Math.round(120 * (1 - t / 100));
 }
 
-function bankCardBarHtml(key, label, amounts, pct) {
+function bankCardBarHtml(key, label, amounts, pct, extra) {
   var shown = Math.round(pct);
   var width = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
   var hue = bankCardBarHue(pct);
   var text = amounts + ", " + shown + "%";
-  return '<div class="bank-card-bar" data-bank-bar="' + bankEsc(key) + '" data-pct="' + shown + '" data-hue="' + hue + '">' +
+  return '<div class="bank-card-bar" data-bank-bar="' + bankEsc(key) + '" data-pct="' + shown + '" data-hue="' + hue + '"' + (extra || "") + ">" +
     '<p class="bank-card-bar-label"><span>' + bankEsc(label) + "</span> <b>" + bankEsc(text) + "</b></p>" +
     '<div class="bank-card-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + shown +
     '" aria-valuetext="' + bankEsc(text) + '" aria-label="' + bankEsc(label) + '">' +
     '<span style="width:' + width.toFixed(1) + "%;background:hsl(" + hue + ', 62%, 40%)"></span></div></div>';
+}
+
+/* Spending uses the budget month that contains today. The fit month can already be next month. */
+function bankSpendBarMonth(snap, opts) {
+  opts = opts || {};
+  var today = "";
+  try { today = bankTodayIso(snap, opts); } catch (eToday) { today = ""; }
+  var printed = null;
+  try { printed = bankBudgetMonth(snap); } catch (ePrint) { printed = null; }
+  if (printed && today && today >= printed.start && today <= printed.end) {
+    return printed.month || bankMonthKey(printed.end) || "";
+  }
+  var keys = [];
+  try { keys.push(bankMonthKey(opts.planMonth || opts.month || "")); } catch (ePlan) {}
+  if (today) keys.push(bankMonthKey(today));
+  try { keys.push(bankFitMonth(snap, opts)); } catch (eFit) {}
+  var i;
+  for (i = 0; i < keys.length; i++) {
+    if (!keys[i]) continue;
+    var win = null;
+    try { win = bankBudgetWindowFor(snap, keys[i]); } catch (eWin) { win = null; }
+    if (win && today && today >= win.start && today <= win.end) return win.month || keys[i];
+  }
+  if (printed && printed.month && (!today || (printed.end && today <= printed.end))) return printed.month;
+  try { return bankFitMonth(snap, opts) || ""; } catch (eBack) { return ""; }
 }
 
 function bankIncomeBudgetBarHtml(snap, opts) {
@@ -18589,6 +18714,12 @@ function bankIncomeBudgetBarHtml(snap, opts) {
   try { key = bankFitMonth(snap, opts); } catch (eKey) { key = ""; }
   if (!key) {
     try { key = bankMonthKey(opts.month || opts.planMonth || bankScreenMonth(snap, opts)); } catch (eFallback) { key = ""; }
+  }
+  var title = bankMonthFull(key);
+  var incomeLabel = title ? (title + " plan") : "Income";
+  if (bankFitPending(snap)) {
+    return '<div class="bank-card-bar bank-income-bar" data-bank-bar="income" data-bank-fit-pending="1" data-bank-bar-month="' + bankEsc(key) + '">' +
+      '<p class="bank-card-bar-label"><span>' + bankEsc(incomeLabel) + '</span> <b data-bank-fit-verdict="1" data-bank-fit-pending="1">Checking budgets\u2026</b></p></div>';
   }
   var verdict = null;
   try { verdict = bankFitVerdict(snap, key, null); } catch (eFit) { verdict = null; }
@@ -18605,21 +18736,27 @@ function bankIncomeBudgetBarHtml(snap, opts) {
     var fitPct = income > 0 ? (income / budgeted) * 100 : 0;
     var overPct = 100 - fitPct;
     track = '<div class="bank-card-bar-track" data-bank-income-track="over" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
-      shown + '" aria-valuetext="' + bankEsc(label) + '" aria-label="Income">' +
+      shown + '" aria-valuetext="' + bankEsc(label) + '" aria-label="' + bankEsc(incomeLabel) + '">' +
       '<span data-bank-bar-fit="1" style="width:' + fitPct.toFixed(1) + '%;background:var(--go)"></span>' +
       '<span data-bank-bar-over="1" style="width:' + overPct.toFixed(1) + '%;background:var(--stop)"></span></div>';
   } else {
     var width = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
     track = '<div class="bank-card-bar-track" data-bank-income-track="fit" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
-      Math.round(width) + '" aria-valuetext="' + bankEsc(label) + '" aria-label="Income">' +
+      Math.round(width) + '" aria-valuetext="' + bankEsc(label) + '" aria-label="' + bankEsc(incomeLabel) + '">' +
       '<span data-bank-bar-fit="1" style="width:' + width.toFixed(1) + '%;background:var(--go)"></span></div>';
   }
-  return '<div class="bank-card-bar bank-income-bar" data-bank-bar="income" data-pct="' + shown + '" data-over="' + (over ? "1" : "0") +
+  var reserveNote = "";
+  try { reserveNote = bankFitReserveNote(snap, key); } catch (eNote) { reserveNote = ""; }
+  var reserveHtml = reserveNote ? '<p class="hint" data-bank-reserve-note="1">' + bankEsc(reserveNote) + "</p>" : "";
+  var source = bankFitSnapshotMark(snap) ? ' data-bank-fit-source="snapshot"' : "";
+  var sourceHint = bankFitSnapshotMark(snap) ? '<p class="hint" data-bank-fit-source="snapshot">Saved snapshot</p>' : "";
+  return '<div class="bank-card-bar bank-income-bar" data-bank-bar="income" data-bank-bar-month="' + bankEsc(key) + '" data-pct="' + shown + '" data-over="' + (over ? "1" : "0") +
     '" data-bank-fit-income="' + income + '" data-bank-fit-budgeted="' + budgeted + '" data-bank-fit-spare="' + verdict.spare +
-    '" data-bank-fit-bills="' + verdict.bills + '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot + '">' +
-    '<p class="bank-card-bar-label"><span>Income</span> <b>' + bankEsc(amounts) + ', <em class="' + (over ? "tone-stop" : "tone-go") +
+    '" data-bank-fit-bills="' + verdict.bills + '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot + '"' + source + ">" +
+    '<p class="bank-card-bar-label"><span>' + bankEsc(incomeLabel) + '</span> <b>' + bankEsc(amounts) + ', <em class="' + (over ? "tone-stop" : "tone-go") +
     '" data-bank-fit-verdict="1" data-bank-fit-spare="' + verdict.spare + '" data-bank-fit-bills="' + verdict.bills +
-    '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot + '">' + bankEsc(verdict.text) + "</em></b></p>" + track + "</div>";
+    '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot + '"' + source + ">" + bankEsc(verdict.text) + "</em></b></p>" +
+    track + reserveHtml + sourceHint + "</div>";
 }
 
 function bankCardBarsHtml(card, snap, opts) {
@@ -18644,13 +18781,15 @@ function bankCardBarsHtml(card, snap, opts) {
   }
   if (snap && bankCategoriesActive(snap)) {
     var spendKey = "";
-    try { spendKey = bankFitMonth(snap, opts || {}); } catch (eKey) { spendKey = ""; }
+    try { spendKey = bankSpendBarMonth(snap, opts || {}); } catch (eKey) { spendKey = ""; }
     var spendBudget = 0;
     var spendSpent = 0;
     try { spendBudget = bankFitPot(snap, spendKey, null); } catch (eSpend) { spendBudget = 0; }
     try { spendSpent = bankSpendingSpent(snap, spendKey); } catch (eSpent) { spendSpent = 0; }
     var spendPct = spendBudget > 0 ? (spendSpent / spendBudget) * 100 : (spendSpent > 0 ? 100 : 0);
-    rows.push(bankCardBarHtml("spend", "Spending budget", bankMoney(spendSpent) + " of " + bankMoney(spendBudget), spendPct));
+    var spendLabel = bankMonthFull(spendKey) || "Spending budget";
+    var spendAttrs = ' data-bank-bar-month="' + bankEsc(spendKey) + '" data-bank-spend-spent="' + spendSpent + '" data-bank-spend-budget="' + spendBudget + '"';
+    rows.push(bankCardBarHtml("spend", spendLabel, bankMoney(spendSpent) + " of " + bankMoney(spendBudget), spendPct, spendAttrs));
   }
   if (!rows.length) return "";
   return '<div class="bank-card-bars" data-bank-card-bars="1">' + rows.join("") + "</div>";
@@ -18719,7 +18858,8 @@ function bankHeroHtml(snap, opts, flows) {
     var fitSpare = null;
     try { monthLeft = bankBudgetCard(snap, opts).monthLeft; } catch (eLeft) { monthLeft = null; }
     try { fitSpare = bankBudgetFit(snap, bankFitMonth(snap, opts), opts).left; } catch (eSpare) { fitSpare = null; }
-    moreBody = bankPaceHtml(glance) + bankCategoryRoomHtml(glance, monthLeft, fitSpare) + (defer.face || "") +
+    var fitFlags = { pending: bankFitPending(snap), snapshot: bankFitSnapshotMark(snap) };
+    moreBody = bankPaceHtml(glance) + bankCategoryRoomHtml(glance, monthLeft, fitSpare, fitFlags) + (defer.face || "") +
       bankGlanceMoreHtml(glance) + (defer.restHtml || "") + bankCushionNoteHtml(glance);
   }
   if (sweepDetail) moreBody = sweepDetail + moreBody;
@@ -22519,7 +22659,102 @@ function bankTierPayloadDoc(payload) {
 
 function bankTierPaintBefore(root) {
   var data = root && root._bank && root._bank.data;
-  try { return bankCategoryBudgetHash(data) + "\n" + bankTierSideHash(data); } catch (eBefore) { return ""; }
+  var flag = "0";
+  if (data && data._tiersPending) flag = "p";
+  else if (bankFitSnapshotMark(data)) flag = "s";
+  try { return flag + "\n" + bankCategoryBudgetHash(data) + "\n" + bankTierSideHash(data); } catch (eBefore) { return flag; }
+}
+
+function bankReadTiersDoc() {
+  try {
+    if (typeof localStorage === "undefined" || !localStorage.getItem) return null;
+    var raw = localStorage.getItem(BANK_TIERS_CACHE);
+    if (!raw) return null;
+    var doc = JSON.parse(raw);
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) return null;
+    if (!doc.categories && !doc.budgets_updated_at && !doc.rules && !doc.category_rules) return null;
+    return doc;
+  } catch (eRead) { return null; }
+}
+
+function bankWriteTiersDoc(doc) {
+  try {
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) return;
+    if (typeof localStorage === "undefined" || !localStorage.setItem) return;
+    localStorage.setItem(BANK_TIERS_CACHE, JSON.stringify(doc));
+  } catch (eWrite) {}
+}
+
+function bankLatestStampMs(bag) {
+  if (bag == null || bag === "") return 0;
+  if (typeof bag === "string" || typeof bag === "number") return bankStamp(bag);
+  if (typeof bag !== "object" || Array.isArray(bag)) return 0;
+  var best = bankStamp(bag.updated_at);
+  Object.keys(bag).forEach(function (k) {
+    var n = bankStamp(bag[k]);
+    if (n > best) best = n;
+  });
+  return best;
+}
+
+function bankSnapshotBudgetStampMs(snap) {
+  var budget = (snap && snap.budget) || {};
+  var saved = bankLatestStampMs(budget.justin_saved_budgets);
+  if (!saved && snap) saved = bankLatestStampMs(snap.justin_saved_budgets);
+  var wrap = budget.tier_doc;
+  if (!saved && wrap && typeof wrap === "object" && !Array.isArray(wrap)) saved = bankLatestStampMs(wrap.justin_saved_budgets);
+  var overlay = null;
+  try { overlay = bankTiersOverlay(snap); } catch (eOver) { overlay = null; }
+  var over = overlay ? bankStamp(overlay.updated_at) : 0;
+  return saved > over ? saved : over;
+}
+
+/* Cache wins only when its budget stamps are newer than the snapshot's saved budgets and the overlay. */
+function bankCachedTiersNewer(doc, snap) {
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) return false;
+  var stamps = doc.budgets_updated_at;
+  if (!stamps || typeof stamps !== "object" || Array.isArray(stamps) || !Object.keys(stamps).length) return false;
+  var cacheMs = bankLatestStampMs(stamps);
+  if (!cacheMs) return false;
+  var snapMs = bankSnapshotBudgetStampMs(snap);
+  if (!snapMs) return true;
+  return cacheMs > snapMs;
+}
+
+function bankApplyTiersCache(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return;
+  var cached = null;
+  try { cached = bankReadTiersDoc(); } catch (eCache) { cached = null; }
+  if (cached && bankCachedTiersNewer(cached, data)) {
+    data.tier_doc = cached;
+    data._tiersFromGet = true;
+    data._tiersPending = false;
+    data._tiersGetFailed = false;
+    if (Object.prototype.hasOwnProperty.call(cached, "tx_overrides")) data._txMoves = true;
+    return;
+  }
+  data._tiersPending = true;
+  data._tiersFromGet = false;
+}
+
+function bankSettleTiersGet(st, doc, failed) {
+  if (!st || !st.data) return;
+    if (doc) {
+    st.data.tier_doc = doc;
+    st.data._tiersFromGet = true;
+    st.data._tiersGetFailed = false;
+    st.data._tiersPending = false;
+    if (Object.prototype.hasOwnProperty.call(doc, "tx_overrides")) st.data._txMoves = true;
+    if (doc.categories || doc.budgets_updated_at) {
+      try { bankWriteTiersDoc(doc); } catch (eWrite) {}
+    }
+    return;
+  }
+  st.data._tiersPending = false;
+  if (!st.data._tiersFromGet) {
+    st.data._tiersFromGet = false;
+    st.data._tiersGetFailed = !!failed;
+  }
 }
 
 /* Cookie GET of tiers.json. A miss keeps budget.tier_doc.doc.
@@ -22535,14 +22770,12 @@ function bankRehydrateTiers(root) {
     if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
     var before = bankTierPaintBefore(root);
     if (res && (Number(res.status) === 401 || Number(res.status) === 403)) {
-      st.data._tiersFromGet = false;
-      st.data._tiersGetFailed = false;
+      bankSettleTiersGet(st, null, false);
       bankPaintCategories(root, before);
       return false;
     }
     if (!res || res.ok !== true || res.type === "opaqueredirect") {
-      st.data._tiersFromGet = false;
-      st.data._tiersGetFailed = true;
+      bankSettleTiersGet(st, null, true);
       bankPaintCategories(root, before);
       return false;
     }
@@ -22550,15 +22783,11 @@ function bankRehydrateTiers(root) {
       if (!root._bank || root._bank.tierGen !== gen) return false;
       var doc = bankTierPayloadDoc(payload);
       if (!doc) {
-        st.data._tiersFromGet = false;
-        st.data._tiersGetFailed = true;
+        bankSettleTiersGet(st, null, true);
         bankPaintCategories(root, before);
         return false;
       }
-      st.data.tier_doc = doc;
-      st.data._tiersFromGet = true;
-      st.data._tiersGetFailed = false;
-      st.data._txMoves = Object.prototype.hasOwnProperty.call(doc, "tx_overrides");
+      bankSettleTiersGet(st, doc, false);
       return bankWarmTxOverrideKeys(st.data).then(function () {
         if (!root._bank || root._bank.tierGen !== gen) return false;
         bankPaintCategories(root, before);
@@ -22568,8 +22797,7 @@ function bankRehydrateTiers(root) {
   }).catch(function () {
     if (!root._bank || root._bank.tierGen !== gen || !root._bank.data) return false;
     var before = bankTierPaintBefore(root);
-    root._bank.data._tiersFromGet = false;
-    root._bank.data._tiersGetFailed = true;
+    bankSettleTiersGet(root._bank, null, true);
     bankPaintCategories(root, before);
     return false;
   });
@@ -22759,6 +22987,7 @@ function bankMount(root, data, opts) {
     detailMonth: opts.detailMonth || "",
     prune: Promise.resolve()
   };
+  try { bankApplyTiersCache(root._bank.data); } catch (eCache) {}
   if (root._bank.tab === "edits") root._bank.prune = bankRefreshEmptyCustoms(root);
   else {
     bankPaint(root);
