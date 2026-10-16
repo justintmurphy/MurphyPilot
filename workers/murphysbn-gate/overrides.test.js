@@ -105,9 +105,13 @@ test("tiers GET applies the merge map and keeps redacted rules", function () {
   const doc = gate.applyTiersGet(kv, budget);
   const ids = doc.categories.map(function (row) { return row.id; });
   assert.equal(ids.indexOf("other"), -1);
+  assert.equal(ids.indexOf("household-health"), -1);
   assert.ok(ids.indexOf("pets") >= 0);
-  const old = doc.categories.filter(function (row) { return row.id === "household-health"; })[0];
-  assert.equal(old.merged_into, "shopping");
+  assert.equal(doc.categories.some(function (row) { return row.merged_into; }), false);
+  const shop = doc.categories.filter(function (row) { return row.id === "shopping"; })[0];
+  assert.equal(shop.budget, 2);
+  const groceries = doc.categories.filter(function (row) { return row.id === "groceries"; })[0];
+  assert.equal(groceries.budget, 1);
   assert.equal(doc.category_rules.cafe, "groceries");
   assert.equal(doc.category_rules.market, "groceries");
   assert.equal(doc.category_rules["auto policy one"], "car-insurance-loans");
@@ -116,9 +120,74 @@ test("tiers GET applies the merge map and keeps redacted rules", function () {
   const newer = JSON.parse(JSON.stringify(kv));
   newer.updated_at = "2026-10-16T18:00:00Z";
   newer.categories.forEach(function (row) { if (row.id === "groceries") row.budget = 7; });
+  newer.categories.push({ id: "tv", name: "TV", tier: "wants", budget: 4 });
   const kept = gate.applyTiersGet(newer, budget);
-  const groceries = kept.categories.filter(function (row) { return row.id === "groceries"; })[0];
-  assert.equal(groceries.budget, 7);
+  const keptIds = kept.categories.map(function (row) { return row.id; });
+  assert.equal(keptIds.indexOf("tv"), -1);
+  assert.ok(keptIds.indexOf("pets") >= 0);
+  assert.equal(kept.categories.filter(function (row) { return row.id === "groceries"; })[0].budget, 1);
+  assert.equal(kept.categories.filter(function (row) { return row.id === "shopping"; })[0].budget, 2);
   assert.equal(kept.category_rules["auto policy one"], "car-insurance-loans");
   assert.equal(kept.category_rules.cafe, "groceries");
+  newer.budgets_updated_at = { groceries: "2026-10-16T18:00:00Z" };
+  const stamped = gate.applyTiersGet(newer, budget);
+  assert.equal(stamped.categories.filter(function (row) { return row.id === "groceries"; })[0].budget, 7);
+  assert.equal(stamped.categories.filter(function (row) { return row.id === "shopping"; })[0].budget, 2);
+});
+
+test("tiers GET returns the active rows when merged rows are on the overlay", function () {
+  const categories = [];
+  for (let i = 0; i < 26; i++) categories.push({ id: "c" + i, name: "Cat " + i, tier: "wants", budget: 1 });
+  for (let j = 0; j < 7; j++) categories.push({ id: "m" + j, name: "Old " + j, tier: "wants", budget: 1, merged_into: "c0" });
+  const budget = {
+    category_merge_ids: { m0: "c0", m1: "c0", m2: "c0", m3: "c0", m4: "c0", m5: "c0", m6: "c0" },
+    category_deleted_ids: ["gone"],
+    tiers_overlay: {
+      updated_at: "2026-10-15T12:00:00Z",
+      tiers: { categories: categories.concat([{ id: "gone", name: "Gone", tier: "wants", budget: 1 }]) }
+    }
+  };
+  const kv = { updated_at: "2026-10-16T18:00:00Z", categories: [{ id: "tv", name: "TV", tier: "wants", budget: 9 }] };
+  const doc = gate.applyTiersGet(kv, budget);
+  assert.equal(doc.categories.length, 26);
+  assert.equal(doc.categories.some(function (row) { return row.merged_into || row.id === "gone" || row.id === "tv"; }), false);
+});
+
+test("tiers POST remaps a merged id and rejects a deleted id", function () {
+  const budget = {
+    category_merge_ids: { "household-health": "shopping" },
+    category_deleted_ids: ["other"]
+  };
+  const kv = { categories: [], budgets_updated_at: { dining: "2026-10-01T00:00:00Z" } };
+  const posted = gate.applyTiersPost(kv, {
+    updated_at: "2026-10-16T18:00:00Z",
+    categories: [
+      { id: "shopping", name: "Shopping", tier: "wants", budget: 2 },
+      { id: "household-health", name: "Household & Health", tier: "needs", budget: 4, merged_into: "shopping" },
+      { id: "groceries", name: "Groceries", tier: "needs", budget: 7 }
+    ],
+    category_rules: { cafe: "household-health" },
+    category_tx: { "h:abcdabcdabcdabcdabcdabcdabcdabcd": "shopping" },
+    budgets_updated_at: { groceries: "2026-10-16T18:00:00Z" }
+  }, budget);
+  assert.equal(posted.ok, true);
+  assert.equal(posted.doc.categories.length, 2);
+  assert.equal(posted.doc.categories.some(function (row) { return row.id === "household-health"; }), false);
+  assert.equal(posted.doc.category_rules.cafe, "shopping");
+  assert.equal(posted.doc.budgets_updated_at.groceries, "2026-10-16T18:00:00Z");
+  assert.equal(posted.doc.budgets_updated_at.dining, "2026-10-01T00:00:00Z");
+  const rejected = gate.applyTiersPost(kv, {
+    categories: [
+      { id: "shopping", name: "Shopping", tier: "wants", budget: 2 },
+      { id: "other", name: "Other", tier: "wants", budget: 1 }
+    ]
+  }, budget);
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.code, "unknown_category");
+  const badRule = gate.applyTiersPost(kv, {
+    categories: [{ id: "shopping", name: "Shopping", tier: "wants", budget: 2 }],
+    category_rules: { cafe: "other" }
+  }, budget);
+  assert.equal(badRule.ok, false);
+  assert.equal(badRule.code, "unknown_category");
 });
