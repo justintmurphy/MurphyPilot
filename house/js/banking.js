@@ -13303,7 +13303,16 @@ function bankTierLineSpent(snap, row, month, mode, edits, todayIso) {
 /* tip ek — category budgets under Required, Needs, and Wants.
    A tiers.json without categories leaves the tier list as it was.
    Saves POST the full categories list, cookie only, to /data/banking/tiers.json.
-   Budgets in this file are 0. Real amounts stay in Worker KV. */
+   Budgets in this file are 0. Real amounts stay in Worker KV.
+   tip fy — budget.tiers_overlay is the cleaned list when the box cannot write the KV tiers doc.
+   Its keys are schema, updated_at, source, tiers, november_budget, and privacy_redacted.
+   tiers holds categories, category_rules, and category_tx. The page uses that list over KV
+   unless a later Edits save has KV updated_at newer than overlay.updated_at.
+   category_rules merge one key at a time: an overlay rule wins, and a KV key the overlay
+   lacks stays, including a privacy-redacted car, insurance, and loans rule.
+   november_budget is one shared pot for non-dated categories: a pot total plus guides keyed by category id.
+   category_merges, category_merge_ids, and category_deleted hide deleted rows and point a merged row at its target.
+   Household and Health stay their own categories. */
 
 var BANK_SPEND_ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 var BANK_SPEND_MAX = 30;
@@ -13384,7 +13393,7 @@ function bankCategoryDoc(snap) {
 }
 
 function bankCategoriesActive(snap) {
-  var doc = bankCategoryDoc(snap);
+  var doc = bankEffectiveCategoryDoc(snap);
   return !!(doc && Array.isArray(doc.categories));
 }
 
@@ -13402,59 +13411,34 @@ function bankSpendById(cats, id) {
   return found;
 }
 
-function bankHouseholdToken(key) {
-  var s = String(key || "").trim().toLowerCase().replace(/\s+/g, " ");
-  return s === "household-health" || s === "household" || s === "health" || s === "household & health";
-}
-
 function bankEducationNeedsToken(key) {
   var s = String(key || "").trim().toLowerCase().replace(/\s+/g, " ");
   return s === "education-needs" || s === "education (needs)" || s === "tuition" || s === "childcare";
 }
 
-/* Household and Health fold into General Shopping. Education (Needs) leaves the spending list. */
+/* Education (Needs) leaves the spending list. Household and Health stay on their own rows. */
 function bankFoldSpendCats(list) {
   if (!Array.isArray(list)) return list;
   var out = list.map(function (row) {
-    return {
+    var copy = {
       id: row.id,
       name: row.name,
       tier: row.tier,
       budget: row.budget,
       merged_into: row.merged_into || ""
     };
+    if (row.in_pot) copy.in_pot = true;
+    if (row.guide != null) copy.guide = row.guide;
+    return copy;
   });
-  var shop = null;
-  var needsShop = false;
   out.forEach(function (row) {
-    if (row && row.id === "shopping") shop = row;
-    if (!row || row.id === "shopping") return;
-    if (!bankHouseholdToken(row.id) && !bankHouseholdToken(row.name)) return;
-    if (row.merged_into && row.merged_into !== "shopping") return;
-    needsShop = true;
+    if (!row || row.id !== "shopping" || row.merged_into) return;
+    var shopName = String(row.name || "").trim().toLowerCase();
+    if (!shopName || shopName === "shopping") row.name = "General Shopping";
   });
-  /* An empty list stays empty. Shopping is added only as the merge target. */
-  if (!shop && needsShop) {
-    shop = { id: "shopping", name: "General Shopping", tier: "wants", budget: 0, merged_into: "" };
-    out.push(shop);
-  }
-  if (shop) {
-    var shopName = String(shop.name || "").trim().toLowerCase();
-    if (!shop.merged_into && (!shopName || shopName === "shopping")) shop.name = "General Shopping";
-    var extra = 0;
-    out.forEach(function (row) {
-      if (!row || row.id === "shopping") return;
-      if (!bankHouseholdToken(row.id) && !bankHouseholdToken(row.name)) return;
-      if (row.merged_into && row.merged_into !== "shopping") return;
-      if (!row.merged_into) extra += row.budget || 0;
-      row.budget = 0;
-      row.merged_into = "shopping";
-    });
-    if (!shop.merged_into) shop.budget = bankRoundCents((shop.budget || 0) + extra);
-  }
   out.forEach(function (row) {
     if (!row || row.id !== "education-needs" && !bankEducationNeedsToken(row.name)) return;
-    if (row.id === "education" ) return;
+    if (row.id === "education") return;
     if (row.id === "education-needs" || bankEducationNeedsToken(row.id) || bankEducationNeedsToken(row.name)) {
       row.budget = 0;
       if (!row.merged_into || row.merged_into === "education-needs") row.merged_into = "";
@@ -13463,28 +13447,359 @@ function bankFoldSpendCats(list) {
   return out;
 }
 
-function bankSpendCategories(snap) {
+function bankStamp(value) {
+  if (typeof value === "number" && isFinite(value)) return value;
+  var n = Date.parse(value == null ? "" : String(value));
+  return isFinite(n) ? n : 0;
+}
+
+function bankTiersOverlay(snap) {
+  var budget = snap && snap.budget;
+  var overlay = budget && budget.tiers_overlay;
+  if (!overlay || typeof overlay !== "object" || Array.isArray(overlay)) return null;
+  return overlay;
+}
+
+function bankKvCategoryTime(snap) {
+  var max = 0;
+  function push(v) {
+    var n = bankStamp(v);
+    if (n > max) max = n;
+  }
+  if (snap && snap._categorySaveAt) push(snap._categorySaveAt);
   var doc = bankCategoryDoc(snap);
-  if (!doc || !Array.isArray(doc.categories)) return null;
+  if (doc) push(doc.updated_at);
+  var wrap = null;
+  try { wrap = bankFeedTierWrap(snap); } catch (e) { wrap = null; }
+  if (wrap) {
+    push(wrap.updated_at);
+    if (wrap.doc) push(wrap.doc.updated_at);
+  }
+  return max;
+}
+
+/* A later Edits save wins. No KV timestamp means the overlay is the list to show. */
+function bankOverlayWins(snap, overlay) {
+  if (!overlay) return false;
+  var kv = bankKvCategoryTime(snap);
+  var over = bankStamp(overlay.updated_at);
+  if (!kv) return true;
+  if (!over) return false;
+  return kv <= over;
+}
+
+function bankOverlayCategoryRows(overlay) {
+  if (!overlay || typeof overlay !== "object") return null;
+  var tiers = overlay.tiers;
+  if (Array.isArray(tiers)) return tiers;
+  if (tiers && typeof tiers === "object" && !Array.isArray(tiers)) {
+    if (Array.isArray(tiers.categories)) return tiers.categories;
+    var grouped = [];
+    var any = false;
+    ["required", "needs", "wants"].forEach(function (tier) {
+      var list = tiers[tier];
+      if (!Array.isArray(list)) return;
+      any = true;
+      list.forEach(function (item) {
+        if (typeof item === "string" || typeof item === "number") {
+          var id = String(item).trim();
+          if (id) grouped.push({ id: id, name: id, tier: tier, budget: 0 });
+          return;
+        }
+        if (!item || typeof item !== "object") return;
+        var row = {};
+        Object.keys(item).forEach(function (k) { row[k] = item[k]; });
+        if (!row.tier) row.tier = tier;
+        grouped.push(row);
+      });
+    });
+    if (any) return grouped;
+  }
+  if (Array.isArray(overlay.categories)) return overlay.categories;
+  return null;
+}
+
+function bankOverlayRuleBag(overlay, field) {
+  if (!overlay) return null;
+  if (overlay[field] && typeof overlay[field] === "object" && !Array.isArray(overlay[field])) return overlay[field];
+  var tiers = overlay.tiers;
+  if (tiers && typeof tiers === "object" && !Array.isArray(tiers) && tiers[field] && typeof tiers[field] === "object" && !Array.isArray(tiers[field])) return tiers[field];
+  return null;
+}
+
+function bankRedactedRuleKeys(overlay) {
+  var bag = {};
+  var raw = overlay && overlay.privacy_redacted;
+  var list = null;
+  if (Array.isArray(raw)) list = raw;
+  else if (raw && typeof raw === "object") list = raw.category_rules || raw.rules || raw.keys;
+  if (!Array.isArray(list)) return bag;
+  list.forEach(function (key) {
+    if (key != null && String(key).trim()) bag[String(key).trim()] = true;
+  });
+  return bag;
+}
+
+function bankMergeRuleBag(kvBag, overlayBag, overlay) {
+  var out = {};
+  var kv = kvBag && typeof kvBag === "object" && !Array.isArray(kvBag) ? kvBag : {};
+  var over = overlayBag && typeof overlayBag === "object" && !Array.isArray(overlayBag) ? overlayBag : {};
+  Object.keys(kv).forEach(function (k) {
+    if (kv[k] == null || kv[k] === "") return;
+    out[k] = kv[k];
+  });
+  var redacted = bankRedactedRuleKeys(overlay);
+  Object.keys(over).forEach(function (k) {
+    if (redacted[k]) return;
+    if (over[k] == null || over[k] === "") return;
+    out[k] = over[k];
+  });
+  return out;
+}
+
+function bankNovemberPot(overlay) {
+  var nb = overlay && overlay.november_budget;
+  if (!nb || typeof nb !== "object" || Array.isArray(nb)) return null;
+  var total = null;
+  if (typeof nb.pot === "number" && isFinite(nb.pot)) total = nb.pot;
+  else if (nb.pot && typeof nb.pot === "object" && typeof nb.pot.total === "number" && isFinite(nb.pot.total)) total = nb.pot.total;
+  else if (typeof nb.total === "number" && isFinite(nb.total)) total = nb.total;
+  else if (typeof nb.pot_total === "number" && isFinite(nb.pot_total)) total = nb.pot_total;
+  var guides = {};
+  var src = nb;
+  if (nb.guides && typeof nb.guides === "object" && !Array.isArray(nb.guides)) src = nb.guides;
+  else if (nb.pot && typeof nb.pot === "object" && nb.pot.guides && typeof nb.pot.guides === "object" && !Array.isArray(nb.pot.guides)) src = nb.pot.guides;
+  Object.keys(src).forEach(function (k) {
+    if (k === "pot" || k === "total" || k === "guides" || k === "pot_total" || k === "schema" || k === "updated_at") return;
+    var n = src[k];
+    if (typeof n === "number" && isFinite(n) && n >= 0) guides[k] = n;
+  });
+  if (total == null && !Object.keys(guides).length) return null;
+  if (total != null && total < 0) total = 0;
+  if (total != null && total > BANK_SPEND_BUDGET_MAX) total = BANK_SPEND_BUDGET_MAX;
+  return { total: total, guides: guides };
+}
+
+function bankSharedPot(snap) {
+  var overlay = bankTiersOverlay(snap);
+  if (!overlay || !bankOverlayWins(snap, overlay)) return null;
+  return bankNovemberPot(overlay);
+}
+
+function bankAddMergeMap(merges, map) {
+  if (!map) return;
+  if (Array.isArray(map)) {
+    map.forEach(function (item) {
+      if (!item || typeof item !== "object") return;
+      var from = item.from || item.id || item.old || item.source;
+      var to = item.to || item.into || item.merged_into || item.target || item.new;
+      if (from == null || to == null) return;
+      var key = String(from).trim();
+      var dest = String(to).trim();
+      if (key && dest) merges[key] = dest;
+    });
+    return;
+  }
+  if (typeof map !== "object") return;
+  Object.keys(map).forEach(function (k) {
+    var v = map[k];
+    if (v && typeof v === "object") v = v.id || v.to || v.into || v.merged_into || v.target;
+    if (v == null) return;
+    var key = String(k).trim();
+    var dest = String(v).trim();
+    if (key && dest) merges[key] = dest;
+  });
+}
+
+function bankAddDeletedIds(deleted, bag) {
+  if (!bag) return;
+  if (Array.isArray(bag)) {
+    bag.forEach(function (id) {
+      if (id != null && String(id).trim()) deleted[String(id).trim()] = true;
+    });
+    return;
+  }
+  if (typeof bag === "object") {
+    Object.keys(bag).forEach(function (k) {
+      if (bag[k]) deleted[String(k).trim()] = true;
+    });
+  }
+}
+
+function bankCategoryMergeSpec(snap) {
+  var budget = (snap && snap.budget) || {};
+  var overlay = bankTiersOverlay(snap);
+  var merges = {};
+  var deleted = {};
+  bankAddMergeMap(merges, budget.category_merge_ids);
+  bankAddMergeMap(merges, budget.category_merges);
+  bankAddDeletedIds(deleted, budget.category_deleted);
+  if (overlay) {
+    bankAddMergeMap(merges, overlay.category_merge_ids);
+    bankAddMergeMap(merges, overlay.category_merges);
+    bankAddDeletedIds(deleted, overlay.category_deleted);
+    var tiers = overlay.tiers;
+    if (tiers && typeof tiers === "object" && !Array.isArray(tiers)) {
+      bankAddMergeMap(merges, tiers.category_merge_ids);
+      bankAddMergeMap(merges, tiers.category_merges);
+      bankAddDeletedIds(deleted, tiers.category_deleted);
+    }
+  }
+  var meta = { names: [], hidden: {}, merged: {} };
+  try { meta = bankBoxMeta(snap); } catch (e) { meta = { names: [], hidden: {}, merged: {} }; }
+  Object.keys(meta.merged || {}).forEach(function (k) {
+    if (!merges[k]) merges[k] = meta.merged[k];
+  });
+  Object.keys(meta.hidden || {}).forEach(function (k) {
+    if (!(meta.merged && meta.merged[k])) deleted[k] = true;
+  });
+  return { merges: merges, deleted: deleted, boxNames: meta.names || [] };
+}
+
+function bankMatchCategoryToken(rows, token) {
+  var t = String(token || "").trim();
+  if (!t) return "";
+  var byId = "";
+  var byName = "";
+  var low = t.toLowerCase();
+  (rows || []).forEach(function (row) {
+    if (!row) return;
+    if (!byId && row.id === t) byId = row.id;
+    if (!byName && String(row.name || "").trim().toLowerCase() === low) byName = row.id;
+  });
+  if (byId) return byId;
+  if (byName) return byName;
+  return bankSpendIdOk(t) ? t : "";
+}
+
+function bankSpendNormalizeRow(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  var id = String(raw.id == null ? "" : raw.id).trim();
+  if (!bankSpendIdOk(id)) return null;
+  var name = String(raw.name == null ? "" : raw.name).trim();
+  if (!name) name = id;
+  if (name.length > BANK_SPEND_NAME_MAX) name = name.slice(0, BANK_SPEND_NAME_MAX);
+  var tier = raw.tier === "required" || raw.tier === "needs" || raw.tier === "wants" ? raw.tier : "wants";
+  var budget = 0;
+  if (typeof raw.budget === "number" && isFinite(raw.budget) && raw.budget >= 0) {
+    budget = raw.budget > BANK_SPEND_BUDGET_MAX ? BANK_SPEND_BUDGET_MAX : raw.budget;
+  }
+  var merged = raw.merged_into == null || raw.merged_into === "" ? "" : String(raw.merged_into);
+  var row = { id: id, name: name, tier: tier, budget: budget, merged_into: merged };
+  if (raw.in_pot) row.in_pot = true;
+  if (raw.guide != null) row.guide = raw.guide;
+  return row;
+}
+
+function bankCleanCategoryRows(rows, snap, structural, pot) {
   var out = [];
   var seen = {};
-  doc.categories.forEach(function (raw) {
-    if (!raw || typeof raw !== "object") return;
-    var id = String(raw.id == null ? "" : raw.id).trim();
-    if (!bankSpendIdOk(id) || seen[id]) return;
-    seen[id] = true;
-    var name = String(raw.name == null ? "" : raw.name).trim();
-    if (!name) name = id;
-    if (name.length > BANK_SPEND_NAME_MAX) name = name.slice(0, BANK_SPEND_NAME_MAX);
-    var tier = raw.tier === "required" || raw.tier === "needs" || raw.tier === "wants" ? raw.tier : "wants";
-    var budget = 0;
-    if (typeof raw.budget === "number" && isFinite(raw.budget) && raw.budget >= 0) {
-      budget = raw.budget > BANK_SPEND_BUDGET_MAX ? BANK_SPEND_BUDGET_MAX : raw.budget;
-    }
-    var merged = raw.merged_into == null || raw.merged_into === "" ? "" : String(raw.merged_into);
-    out.push({ id: id, name: name, tier: tier, budget: budget, merged_into: merged });
+  (rows || []).forEach(function (raw) {
+    var row = bankSpendNormalizeRow(raw);
+    if (!row || seen[row.id]) return;
+    seen[row.id] = true;
+    out.push(row);
   });
-  return bankFoldSpendCats(out);
+  if (structural) {
+    var spec = bankCategoryMergeSpec(snap);
+    (spec.boxNames || []).forEach(function (name) {
+      var label = String(name || "").trim();
+      if (!label || spec.deleted[label]) return;
+      var exists = false;
+      out.forEach(function (row) {
+        if (row.id === label || String(row.name || "").toLowerCase() === label.toLowerCase()) exists = true;
+      });
+      if (exists) return;
+      var id = "";
+      try { id = bankSpendSlug(label, out); } catch (e) { id = ""; }
+      if (!id || seen[id]) return;
+      seen[id] = true;
+      out.push({ id: id, name: label, tier: "wants", budget: 0, merged_into: "" });
+    });
+    out.forEach(function (row) {
+      var target = spec.merges[row.id] || spec.merges[row.name];
+      if (!target) return;
+      var resolved = bankMatchCategoryToken(out, target);
+      if (resolved && resolved !== row.id) row.merged_into = resolved;
+    });
+    out = out.filter(function (row) {
+      if (row.merged_into) return true;
+      return !(spec.deleted[row.id] || spec.deleted[row.name]);
+    });
+  }
+  if (pot) {
+    out.forEach(function (row) {
+      if (!row || row.tier === "required" || row.merged_into) return;
+      row.in_pot = true;
+      if (pot.guides && Object.prototype.hasOwnProperty.call(pot.guides, row.id)) {
+        var g = pot.guides[row.id];
+        if (typeof g === "number" && isFinite(g) && g >= 0) {
+          row.budget = g > BANK_SPEND_BUDGET_MAX ? BANK_SPEND_BUDGET_MAX : g;
+          row.guide = row.budget;
+        }
+      }
+    });
+  }
+  return out;
+}
+
+function bankRemapCategoryToken(token, spec, rows) {
+  var cur = String(token == null ? "" : token).trim();
+  if (!cur || !spec) return cur;
+  var seen = {};
+  var guard = 0;
+  while (cur && !seen[cur] && guard < 12) {
+    seen[cur] = true;
+    var next = spec.merges[cur];
+    if (!next) break;
+    var resolved = bankMatchCategoryToken(rows, next) || String(next).trim();
+    if (!resolved || resolved === cur) break;
+    cur = resolved;
+    guard += 1;
+  }
+  if (spec.deleted[cur]) return "";
+  return cur;
+}
+
+function bankRemapRuleValues(bag, spec, rows) {
+  var out = {};
+  if (!bag) return out;
+  Object.keys(bag).forEach(function (k) {
+    if (bag[k] == null || bag[k] === "") return;
+    var next = bankRemapCategoryToken(bag[k], spec, rows);
+    if (next) out[k] = next;
+  });
+  return out;
+}
+
+/* Read model. KV stays on snap.tier_doc for the next Edits save. */
+function bankEffectiveCategoryDoc(snap) {
+  var kv = bankCategoryDoc(snap);
+  var overlay = bankTiersOverlay(snap);
+  var wins = !!(overlay && bankOverlayWins(snap, overlay));
+  if (!kv && !overlay) return null;
+  var base = {};
+  if (kv) Object.keys(kv).forEach(function (k) { base[k] = kv[k]; });
+  if (wins) {
+    var overlayRows = bankOverlayCategoryRows(overlay);
+    if (overlayRows) base.categories = overlayRows;
+  }
+  if (!Array.isArray(base.categories)) return kv;
+  var structural = !overlay || wins;
+  var pot = wins ? bankNovemberPot(overlay) : null;
+  base.categories = bankCleanCategoryRows(base.categories, snap, structural, pot);
+  var spec = bankCategoryMergeSpec(snap);
+  var rules = bankMergeRuleBag(kv && kv.category_rules, overlay ? bankOverlayRuleBag(overlay, "category_rules") : null, overlay);
+  var tx = bankMergeRuleBag(kv && kv.category_tx, overlay ? bankOverlayRuleBag(overlay, "category_tx") : null, overlay);
+  base.category_rules = bankRemapRuleValues(rules, spec, base.categories);
+  base.category_tx = bankRemapRuleValues(tx, spec, base.categories);
+  return base;
+}
+
+function bankSpendCategories(snap) {
+  var doc = bankEffectiveCategoryDoc(snap);
+  if (!doc || !Array.isArray(doc.categories)) return null;
+  return bankFoldSpendCats(doc.categories);
 }
 
 function bankSpendResolveId(cats, id) {
@@ -13532,7 +13847,8 @@ function bankSpendKeyword(name) {
   if (/insurance|\bloan\b|installment|\bcar\b|\bauto\b/.test(s)) return "car-insurance-loans";
   if (/grocer/.test(s)) return "groceries";
   if (/fuel|gas\/fuel|\bgas\b/.test(s)) return "gas-fuel";
-  if (/household|health|medical|pharm/.test(s)) return "shopping";
+  if (/household/.test(s) && !/health|medical|pharm/.test(s)) return "household";
+  if (/health|medical|pharm/.test(s)) return "health";
   if (/dining|restaurant|cafe|coffee/.test(s)) return "dining";
   if (/subscri/.test(s)) return "subscriptions";
   if (/kids|entertainment/.test(s)) return "kids-activities";
@@ -13676,10 +13992,10 @@ function bankSpendFeedHit(row) {
     "loans": "car-insurance-loans",
     "car": "car-insurance-loans",
     "auto": "car-insurance-loans",
-    "health": "shopping",
-    "medical": "shopping",
-    "household": "shopping",
-    "household & health": "shopping",
+    "health": "health",
+    "medical": "health",
+    "household": "household",
+    "household & health": "household-health",
     "kids": "kids-activities",
     "kids & activities": "kids-activities",
     "subscriptions": "subscriptions",
@@ -13707,7 +14023,7 @@ function bankSpendSavedCategoryId(row, snap) {
   var cats = null;
   try { cats = bankSpendCategories(snap); } catch (e) { cats = null; }
   if (!cats) return "";
-  var doc = bankCategoryDoc(snap) || {};
+  var doc = bankEffectiveCategoryDoc(snap) || {};
   var picked = "";
   try { picked = bankSpendTxHit(doc, row) || ""; } catch (e2) { picked = ""; }
   if (!picked) {
@@ -13808,7 +14124,7 @@ function bankMapSpendCategory(row, snap) {
   if (!row || bankTxDepositLocked(row)) return null;
   var cats = bankSpendCategories(snap);
   if (!cats) return null;
-  var doc = bankCategoryDoc(snap) || {};
+  var doc = bankEffectiveCategoryDoc(snap) || {};
   function take(id, via) {
     var token = String(id == null ? "" : id).trim();
     var tokenKey = token.toLowerCase().replace(/\s+/g, " ");
@@ -13817,14 +14133,12 @@ function bankMapSpendCategory(row, snap) {
       if (bankTxMatchesEducationBill(row, snap)) return { id: "", via: "education-bill" };
       return { id: "", via: "uncategorized" };
     }
-    if (bankHouseholdToken(tokenKey)) token = "shopping";
     var resolved = bankSpendResolvePrinted(cats, token);
     if (!resolved) return null;
     if (resolved === "education-needs" || bankEducationNeedsToken(resolved)) {
       if (bankTxMatchesEducationBill(row, snap)) return { id: "", via: "education-bill" };
       return { id: "", via: "uncategorized" };
     }
-    if (bankHouseholdToken(resolved)) resolved = "shopping";
     return { id: resolved, via: via };
   }
   var found = take(bankSpendTxHit(doc, row), "tx");
@@ -13943,43 +14257,24 @@ function bankFoldMonthRows(rows) {
   var list = [];
   (rows || []).forEach(function (row) {
     if (!row) return;
-    list.push({
+    var copy = {
       id: row.id,
       name: row.name,
       tier: row.tier,
       budget: row.budget,
       showBudget: row.showBudget !== false && row.budget != null
-    });
+    };
+    if (row.inPot) copy.inPot = true;
+    if (row.potTotal != null) copy.potTotal = row.potTotal;
+    list.push(copy);
   });
-  var shop = null;
-  list.forEach(function (row) { if (row.id === "shopping") shop = row; });
-  var extra = 0;
-  var anyExtra = false;
   list.forEach(function (row) {
-    if (!row || row.id === "shopping") return;
-    if (!bankHouseholdToken(row.id) && !bankHouseholdToken(row.name)) return;
-    if (typeof row.budget === "number" && isFinite(row.budget)) {
-      extra += row.budget;
-      anyExtra = true;
-    }
-    row._drop = true;
+    if (!row || row.id !== "shopping") return;
+    var shopName = String(row.name || "").trim().toLowerCase();
+    if (!shopName || shopName === "shopping") row.name = "General Shopping";
   });
-  if (!shop && anyExtra) {
-    shop = { id: "shopping", name: "General Shopping", tier: "wants", budget: bankRoundCents(extra), showBudget: true };
-    list.push(shop);
-    anyExtra = false;
-  }
-  if (shop) {
-    var shopName = String(shop.name || "").trim().toLowerCase();
-    if (!shopName || shopName === "shopping") shop.name = "General Shopping";
-    if (anyExtra) {
-      var base = typeof shop.budget === "number" && isFinite(shop.budget) ? shop.budget : 0;
-      shop.budget = bankRoundCents(base + extra);
-      shop.showBudget = true;
-    }
-  }
   return list.filter(function (row) {
-    if (!row || row._drop) return false;
+    if (!row) return false;
     if (row.id === "education-needs" || bankEducationNeedsToken(row.id)) return false;
     if (row.id !== "education" && bankEducationNeedsToken(row.name)) return false;
     return true;
@@ -13988,8 +14283,19 @@ function bankFoldMonthRows(rows) {
 
 function bankSpendRowsForMonth(snap, cats, monthKey, mode) {
   if (mode !== "historical") {
+    var pot = null;
+    try { pot = bankSharedPot(snap); } catch (ePot) { pot = null; }
     return bankFoldMonthRows(bankSpendVisible(cats).map(function (row) {
-      return { id: row.id, name: row.name, tier: row.tier, budget: row.budget, showBudget: true };
+      var inPot = !!(pot && row && row.tier !== "required");
+      return {
+        id: row.id,
+        name: row.name,
+        tier: row.tier,
+        budget: row.budget,
+        showBudget: true,
+        inPot: inPot,
+        potTotal: inPot && pot && pot.total != null ? pot.total : null
+      };
     }));
   }
   var shot = bankSnapshotFor(snap, monthKey);
@@ -14125,7 +14431,9 @@ function bankCategoryFigures(snap, monthKey) {
         tier: row.tier,
         plan: show ? bankRoundCents(plan || 0) : null,
         spent: bankRoundCents(spent || 0),
-        showBudget: show
+        showBudget: show,
+        inPot: !!row.inPot,
+        potTotal: row.potTotal != null ? row.potTotal : null
       };
       return;
     }
@@ -14158,7 +14466,9 @@ function bankCategoryFigures(snap, monthKey) {
       tier: row.tier,
       plan: show ? bankRoundCents(plan || 0) : null,
       spent: bankRoundCents(spent || 0),
-      showBudget: show
+      showBudget: show,
+      inPot: !!row.inPot,
+      potTotal: row.potTotal != null ? row.potTotal : null
     };
   });
   return out;
@@ -14356,12 +14666,17 @@ function bankBudgetFit(snap, monthKey) {
   var cats = 0;
   if (bankCategoriesActive(snap)) {
     var figs = bankCategoryFigures(snap, key);
+    var pot = null;
+    if (bankCategoryMonthLive(snap, key)) {
+      try { pot = bankSharedPot(snap); } catch (ePot) { pot = null; }
+    }
     Object.keys(figs).forEach(function (id) {
       var row = figs[id];
       if (!row || !row.showBudget) return;
       if (row.tier === "required") bills += row.plan || 0;
-      else cats += row.plan || 0;
+      else if (!(pot && pot.total != null)) cats += row.plan || 0;
     });
+    if (pot && pot.total != null) cats = pot.total;
   } else {
     var ym = bankParseYm(key);
     bills = bankMonthTierPlan(snap, ym, "required") || 0;
@@ -14653,6 +14968,10 @@ function bankPlanSpendRows(snap, rows) {
 function bankPlanSpendTableHtml(rows) {
   var plan = 0;
   var spentSum = 0;
+  var potTotal = null;
+  (rows || []).forEach(function (row) {
+    if (row && row.potTotal != null) potTotal = row.potTotal;
+  });
   var body = (rows || []).map(function (row) {
     var show = row.showBudget !== false && row.plan != null;
     var planN = show ? (bankNum(row.plan) || 0) : 0;
@@ -14671,10 +14990,13 @@ function bankPlanSpendTableHtml(rows) {
       "</button>";
   }).join("");
   if (!body) return "";
-  plan = bankRoundCents(plan);
+  plan = potTotal != null ? bankRoundCents(potTotal) : bankRoundCents(plan);
   spentSum = bankRoundCents(spentSum);
+  var potNote = potTotal != null
+    ? '<p class="hint" data-bank-pot="1" data-pot="' + plan + '">Shared pot ' + bankEsc(bankMoney(plan)) + ". Each line is a guide.</p>"
+    : "";
   return '<div class="bank-bill-block" data-bank-plain-cats="1" data-bank-bill-group="categories" data-plan="' +
-    plan + '" data-spent="' + spentSum + '"><h3>Categories</h3>' +
+    plan + '" data-spent="' + spentSum + '"><h3>Categories</h3>' + potNote +
     bankBillFigsHtml(spentSum, plan) +
     bankGroupBarHtml(spentSum, plan) +
     '<div class="bank-bill-grid">' + body + "</div></div>";
@@ -14707,9 +15029,16 @@ function bankCategorySummaryHtml(snap, opts, mode, month) {
       '<i></i><span class="mix-leg-meta"><span class="mix-leg-name">Uncategorized</span></span> ' +
       '<span class="mix-leg-fig"><span class="fresh-chip">' + warn + '</span> <i class="cf-chev" aria-hidden="true"></i></span></button>';
   }
+  var pot = null;
+  if (!monthKey || bankCategoryMonthLive(snap, monthKey)) {
+    try { pot = bankSharedPot(snap); } catch (ePot) { pot = null; }
+  }
+  var potLine = pot && pot.total != null
+    ? "Shared pot " + bankMoney(pot.total) + ". Each line is a guide."
+    : "Each category has its own budget.";
   var line = opts && opts.catError && !(opts.catOpen)
     ? '<p class="hint tone-stop" role="status">' + bankEsc(opts.catError) + "</p>"
-    : '<p class="hint">Each category has its own budget.</p>';
+    : '<p class="hint"' + (pot && pot.total != null ? ' data-bank-pot="1" data-pot="' + pot.total + '"' : "") + ">" + bankEsc(potLine) + "</p>";
   if (mode === "plan") {
     var err = opts && opts.catError && !opts.catOpen
       ? '<p class="hint tone-stop" role="status">' + bankEsc(opts.catError) + "</p>"
@@ -15046,11 +15375,18 @@ function bankSpendEditorHtml(snap, opts) {
   }
   var add = '<li><button type="button" class="mix-leg wrap" data-bank-spend-open="new">' +
     '<span class="mix-leg-name">Add a category</span></button></li>';
+  var pot = null;
+  try { pot = bankSharedPot(snap); } catch (ePot) { pot = null; }
+  if (pot && pot.total != null) {
+    line = '<p class="hint" data-bank-pot="1" data-pot="' + pot.total + '">Shared pot ' + bankEsc(bankMoney(pot.total)) + ". A non-dated amount is a guide.</p>" + line;
+  }
   var items = bankSpendVisible(cats).map(function (row) {
+    var guide = row.in_pot ? '<span class="fresh-chip">Guide</span> ' : "";
+    var amt = '<span class="mix-amt"' + (row.in_pot ? ' data-bank-guide="' + bankEsc(String(row.budget)) + '"' : "") + ">" + bankEsc(bankMoney(row.budget)) + "</span>";
     return '<li><button type="button" class="mix-leg wrap" data-bank-cat-jump="' + bankEsc(row.id) + '">' +
       '<span class="mix-leg-name">' + bankEsc(row.name) + '</span>' +
-      '<span class="fresh-chip">' + bankEsc(bankTierLabel(row.tier)) + '</span>' +
-      '<span class="mix-amt">' + bankEsc(bankMoney(row.budget)) + "</span></button></li>";
+      '<span class="fresh-chip">' + bankEsc(bankTierLabel(row.tier)) + '</span> ' +
+      guide + amt + "</button></li>";
   }).join("");
   var list = bankCapList('<ul class="bank-edit-list">' + uncat + add + items + "</ul>", bankSpendVisible(cats).length + 1 + (badge > 0 ? 1 : 0), "Categories");
   return '<section data-bank-spend-cats="1"><h2>Categories</h2><div class="card span">' + line + list + "</div></section>" +
@@ -15241,7 +15577,13 @@ function bankSpendDiffMap(prev, current) {
 function bankSpendApply(snap, body) {
   if (!snap || typeof snap !== "object") return;
   if (!snap.tier_doc || typeof snap.tier_doc !== "object" || Array.isArray(snap.tier_doc)) snap.tier_doc = { plans: {}, rules: {} };
-  if (body && Array.isArray(body.categories)) snap.tier_doc.categories = body.categories;
+  if (body && Array.isArray(body.categories)) {
+    snap.tier_doc.categories = body.categories;
+    if (body.updated_at) {
+      snap.tier_doc.updated_at = body.updated_at;
+      snap._categorySaveAt = body.updated_at;
+    }
+  }
   function merge(field, patch) {
     if (!patch) return;
     if (!snap.tier_doc[field] || typeof snap.tier_doc[field] !== "object" || Array.isArray(snap.tier_doc[field])) snap.tier_doc[field] = {};
@@ -15273,7 +15615,8 @@ function bankSpendCommit(root, nextList, rulesPatch, txPatch) {
   var ref = bankSpendRefIssue(wire, rulesPatch, txPatch);
   if (ref) return bankSpendFail(root, ref, root._bank.catDraft);
   if (bankSpendRuleCount(doc, rulesPatch, txPatch) > BANK_SPEND_RULE_CAP) return bankSpendFail(root, "too_many_rules", root._bank.catDraft);
-  var body = { categories: wire };
+  var savedAt = new Date().toISOString();
+  var body = { categories: wire, updated_at: savedAt };
   if (rulesPatch && Object.keys(rulesPatch).length) body.category_rules = rulesPatch;
   if (txPatch && Object.keys(txPatch).length) body.category_tx = txPatch;
   var undo = bankSpendUndoSnap(doc);
