@@ -133,6 +133,12 @@ test("tiers GET applies the merge map and keeps redacted rules", function () {
   const stamped = gate.applyTiersGet(newer, budget);
   assert.equal(stamped.categories.filter(function (row) { return row.id === "groceries"; })[0].budget, 7);
   assert.equal(stamped.categories.filter(function (row) { return row.id === "shopping"; })[0].budget, 2);
+  assert.equal(stamped.budgets_updated_at.groceries, "2026-10-16T18:00:00Z");
+  newer.budgets_updated_at = { groceries: "2026-10-01T00:00:00Z" };
+  newer.categories.forEach(function (row) { if (row.id === "groceries") row.budget = 0; });
+  const zero = gate.applyTiersGet(newer, budget);
+  assert.equal(zero.categories.filter(function (row) { return row.id === "groceries"; })[0].budget, 0);
+  assert.equal(zero.budgets_updated_at.groceries, "2026-10-01T00:00:00Z");
 });
 
 test("tiers GET returns the active rows when merged rows are on the overlay", function () {
