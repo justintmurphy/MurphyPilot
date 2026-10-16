@@ -424,7 +424,7 @@ test("everyday spending adds the opening balance and landed pay", function () {
   assert.match(face, new RegExp(moneyRe(card.paid) + " of " + moneyRe(card.owed) + ", " + billPct + "%"));
   assert.match(face, /\$2,900\.12 used of \$4,014\.54, 72%/);
   assert.match(face, /data-bank-bar="income"/);
-  assert.match(face, /Over by /);
+  assert.match(face, /Fits: /);
   assert.ok(face.indexOf('data-bank-bar="income"') < face.indexOf('data-bank-card-bars="1"'));
   assert.equal((face.match(/role="progressbar"/g) || []).length, 4);
   assert.match(face, /aria-valuemin="0"/);

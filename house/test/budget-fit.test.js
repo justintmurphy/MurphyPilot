@@ -106,14 +106,15 @@ test("budget fit is paycheck income minus dated bills, subs, and the spend pot",
   const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" };
   const fit = ctx.bankBudgetFit(snap, "2026-10");
   assert.equal(fit.income, 20);
-  assert.equal(fit.bills, 0);
+  assert.equal(fit.bills, 50);
   assert.equal(fit.subs, 0);
   assert.equal(fit.pot, 30);
   assert.equal(fit.categories, 30);
-  assert.equal(fit.left, -10);
+  assert.equal(fit.budgeted, 80);
+  assert.equal(fit.left, -60);
   const html = ctx.bankBudgetFitHtml(snap, opts, "2026-10");
   assert.match(html, /data-bank-budget-fit="1"/);
-  assert.match(html, /data-bank-fit-bills="0"/);
+  assert.match(html, /data-bank-fit-bills="50"/);
   assert.match(html, /data-bank-fit-categories="30"/);
   assert.match(html, /Over by/);
   const gap = ctx.bankRoundCents(-fit.left);
@@ -123,10 +124,10 @@ test("budget fit is paycheck income minus dated bills, subs, and the spend pot",
   const f = cuts.filter(function (row) { return row.id === "fun"; })[0];
   assert.equal(g.avg, 10);
   assert.equal(f.avg, 4);
-  assert.equal(g.trim, 10);
-  assert.equal(f.trim, 0);
-  assert.equal(gap, 10);
-  assert.equal(ctx.bankRoundCents(g.trim + f.trim), 10);
+  assert.equal(g.trim, 22);
+  assert.equal(f.trim, 8);
+  assert.equal(gap, 60);
+  assert.equal(ctx.bankRoundCents(g.trim + f.trim), 30);
   assert.match(html, new RegExp('data-bank-cut-row="groceries"[^>]*data-trim="' + g.trim + '"'));
   assert.match(html, new RegExp('data-bank-cut-row="fun"[^>]*data-trim="' + f.trim + '"'));
 });
@@ -249,13 +250,15 @@ test("November uses the computed window and one spare across the bar, Edits, and
   assert.equal(ctx.bankBudgetPartKind("kids-activities", "wants"), "spend");
   const fit = ctx.bankBudgetFit(snap, "2026-11");
   assert.equal(fit.income, 9651.12);
-  assert.equal(fit.bills, 7094.19);
-  assert.equal(fit.subs, 487.96);
+  assert.equal(fit.bills, 1499);
+  assert.equal(fit.subs, 0);
   assert.equal(fit.pot, 1830);
+  assert.equal(fit.budgeted, 3329);
   assert.equal(fit.other, 40);
-  assert.equal(fit.left, 238.97);
+  assert.equal(fit.left, 6322.12);
   const edited = ctx.bankBudgetFit(snap, "2026-11", { edits: { bills: { "Housing stack": { amount: 100 } } } });
-  assert.equal(edited.bills, 7094.19);
+  assert.equal(edited.bills, 1499);
+  assert.equal(edited.budgeted, 3329);
   assert.equal(ctx.bankRoundCents(edited.income - edited.bills - edited.subs - edited.pot), edited.left);
   assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(snap, "2026-11"), "dining").budget, 0);
   assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(snap, "2026-11"), "subscriptions"), null);
@@ -266,20 +269,23 @@ test("November uses the computed window and one spare across the bar, Edits, and
   const emptyOnly = ctx.bankPlanSpendRows(snap, [{ id: "subscriptions", name: "Subscriptions", tier: "wants", plan: 0, budget: 0, spent: 0 }]);
   assert.equal(emptyOnly.length, 0);
   const page = ctx.bankPageHtml(snap, opts);
-  const bar = page.slice(page.indexOf('data-bank-bar="income"'), page.indexOf('data-bank-bar="income"') + 1600);
+  const bar = page.slice(page.indexOf('data-bank-bar="income"'), page.indexOf('data-bank-bar="spend"'));
   assert.match(bar, /Main Budget/);
   assert.match(bar, /data-bank-bar-month="2026-11"/);
-  assert.match(bar, /data-bank-fit-bills="7094.19"/);
-  assert.match(bar, /data-bank-fit-subs="487.96"/);
+  assert.match(bar, /data-bank-fit-bills="1499"/);
+  assert.match(bar, /data-bank-fit-subs="0"/);
   assert.match(bar, /data-bank-fit-pot="1830"/);
-  assert.match(bar, /data-bank-fit-spare="238.97"/);
-  assert.match(bar, /\$9,412\.15 of \$9,651\.12, 98%, /);
-  assert.match(bar, /Fits: \$238\.97 to spare/);
+  assert.match(bar, /data-bank-fit-spare="6322.12"/);
+  assert.match(bar, /\$3,329\.00 of \$9,651\.12, 34%, /);
+  assert.match(bar, /Fits: \$6,322\.12 to spare/);
+  assert.match(bar, /data-bank-stack-seg="utilities"[^>]*data-amount="500"/);
+  assert.match(bar, /Utilities \$500\.00 budget, \$7,094\.19 due, over \$6,594\.19/);
+  assert.doesNotMatch(bar, /data-amount="7094.19"/);
   assert.match(page, /data-bank-bar="spend"[^>]*data-bank-bar-month="2026-10"/);
   assert.match(page, /data-bank-bar="spend"[\s\S]{0,900}>October so far</);
-  assert.match(page, /data-bank-after-now="238.97"/);
-  assert.match(page, /data-bank-after-month="238.97"/);
-  assert.match(page, /data-bank-after-cats="238.97"/);
+  assert.match(page, /data-bank-after-now="6322.12"/);
+  assert.match(page, /data-bank-after-month="6322.12"/);
+  assert.match(page, /data-bank-after-cats="6322.12"/);
   assert.doesNotMatch(page, /data-bank-cat-row="subscriptions"/);
   assert.doesNotMatch(page, /data-bank-bill-group="subscriptions"/);
   assert.match(page, /data-bank-bill-group="streaming-entertainment"/);
@@ -287,9 +293,9 @@ test("November uses the computed window and one spare across the bar, Edits, and
   assert.match(page, /data-bank-bill-group="software-ai"/);
   assert.match(page, /Code Desk/);
   const edits = ctx.bankPageHtml(snap, { tab: "edits", planMonth: "2026-10", now: opts.now });
-  assert.match(edits, /data-bank-fit-spare="238.97"/);
-  assert.match(edits, /data-bank-fit-bills="7094.19"/);
-  assert.match(edits, /data-bank-fit-subs="487.96"/);
+  assert.match(edits, /data-bank-fit-spare="6322.12"/);
+  assert.match(edits, /data-bank-fit-bills="1499"/);
+  assert.match(edits, /data-bank-fit-subs="0"/);
   assert.match(edits, /data-bank-fit-pot="1830"/);
   assert.match(edits, /Other income \$40\.00 is not counted/);
   assert.doesNotMatch(edits, /data-bank-cat-jump="subscriptions"/);
@@ -316,15 +322,35 @@ test("a due-in-window fallback still counts a bill after the last pay period", f
         { name: "Payroll", kind: "payroll", date: "2026-11-30", amount: 1000 }
       ],
       pay_periods: [{ start: "2026-11-13", end: "2026-11-24", current: true }],
-      bills: [{ name: "Late desk", amount: 25, due_day: 27, cadence: "monthly" }],
+      bills: [{ name: "Late desk", amount: 25, due_day: 27, cadence: "monthly", category: "utilities", category_id: "utilities" }],
       subscriptions: []
     },
     tier_doc: { categories: [] }
   };
   assert.equal(ctx.bankBudgetWindowFor(snap, "2026-11").end, "2026-11-29");
-  assert.equal(ctx.bankBudgetFit(snap, "2026-11").bills, 25);
-  snap.budget.bills_total_effective = 10;
-  assert.equal(ctx.bankBudgetFit(snap, "2026-11").bills, 10);
+  snap.budget.tiers_overlay = {
+    tiers: { categories: [{ id: "utilities", name: "Utilities", tier: "required", budget: 10, merged_into: "" }] },
+    november_budget: { month: "2026-11" }
+  };
+  snap.tier_doc = { categories: snap.budget.tiers_overlay.tiers.categories, category_rules: {}, category_tx: {} };
+  snap.budget.bills_total_effective = 99;
+  const fit = ctx.bankBudgetFit(snap, "2026-11");
+  assert.equal(fit.bills, 10);
+  assert.equal(fit.budgeted, 10);
+  const page = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  const bar = page.slice(page.indexOf('data-bank-bar="income"'), page.indexOf('data-bank-bar="income"') + 2500);
+  assert.match(bar, /data-bank-stack-seg="utilities"[^>]*data-amount="10"/);
+  assert.match(bar, /Utilities \$10\.00 budget, \$25\.00 due, over \$15\.00/);
+  assert.doesNotMatch(bar, /data-amount="25"/);
+  assert.doesNotMatch(bar, /data-amount="99"/);
+  snap.budget.tiers_overlay.november_budget.guides = { utilities: 4 };
+  assert.equal(ctx.bankBudgetFit(snap, "2026-11").bills, 4);
+  snap.tier_doc.categories[0].budget = 0;
+  snap.tier_doc.budgets_updated_at = { utilities: "2026-10-16T12:00:00Z" };
+  assert.equal(ctx.bankBudgetFit(snap, "2026-11").bills, 0);
+  const held = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
+  assert.match(held, /Utilities \$0\.00 budget, \$25\.00 due, over \$25\.00/);
+  assert.doesNotMatch(held.slice(held.indexOf('data-bank-bar="income"'), held.indexOf('data-bank-bar="spend"')), /data-amount="25"/);
 });
 
 test("October spending uses this budget month while the income bar is Main Budget", function () {
