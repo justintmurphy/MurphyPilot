@@ -3277,12 +3277,53 @@ button.bank-bill-tile:focus-visible {
   min-width: 0;
 }
 .bank-income-bar { margin: 0 0 12px; }
-.bank-income-bar .bank-card-bar-track { display: flex; }
-.bank-income-bar .bank-card-bar-track > span { flex: none; border-radius: 0; }
-.bank-income-bar .bank-card-bar-track > span:first-child { border-radius: 999px 0 0 999px; }
-.bank-income-bar .bank-card-bar-track > span:last-child { border-radius: 0 999px 999px 0; }
-.bank-income-bar .bank-card-bar-track > span:only-child { border-radius: 999px; }
 .bank-income-bar [data-bank-fit-verdict] { font-style: normal; margin-left: 6px; }
+.bank-stack-track {
+  display: flex;
+  height: 14px;
+}
+.bank-stack-track > .bank-stack-seg {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  flex: none;
+  cursor: pointer;
+}
+.bank-stack-track > span.bank-stack-seg { cursor: default; }
+.bank-stack-track > .bank-stack-seg:first-child { border-radius: 999px 0 0 999px; }
+.bank-stack-track > .bank-stack-seg:last-child { border-radius: 0 999px 999px 0; }
+.bank-stack-track > .bank-stack-seg:only-child { border-radius: 999px; }
+.bank-stack-seg[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 1px; }
+.bank-stack-pop { display: none; margin: 4px 0 0; font-size: 13px; }
+.bank-stack-pop.on { display: block; }
+.bank-stack-legend [data-bank-leg].on { color: var(--ink); }
+.bank-stack-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.bank-stack-legend li {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+.bank-stack-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+.bank-stack-legend b { color: var(--ink); font-weight: 600; }
 .bank-card-bar-label {
   display: flex;
   justify-content: space-between;

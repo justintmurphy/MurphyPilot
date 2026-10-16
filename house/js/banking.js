@@ -18730,6 +18730,381 @@ function bankSpendBarMonth(snap, opts) {
   try { return bankFitMonth(snap, opts) || ""; } catch (eBack) { return ""; }
 }
 
+/* One palette for the plan bar and the month-so-far bar. Unknown categories hash to a stable hue. */
+var BANK_STACK_COLORS = {
+  mortgage: "#8eb6ff",
+  utilities: "#3ecfb2",
+  "phone-internet": "#7aa2ff",
+  "car-insurance-loans": "#f0a05a",
+  education: "#e2c15a",
+  bills: "#9db0c8",
+  "software-ai": "#c59bff",
+  "streaming-entertainment": "#ff8eb8",
+  subscriptions: "#d9a0ff",
+  "home-security": "#6dcf9a",
+  pets: "#f0c14e",
+  travel: "#5ec8f0",
+  groceries: "#8fd06a",
+  "gas-fuel": "#ef7d57",
+  gas: "#ef7d57",
+  household: "#5eb8c9",
+  health: "#f08ab0",
+  "personal-health": "#f08ab0",
+  dining: "#f2b544",
+  "kids-activities": "#9b93ff",
+  kids: "#9b93ff",
+  shopping: "#ff9a6b",
+  cash: "#c5d0a4",
+  other: "#a8b0ba",
+  spare: "#4c5563",
+  over: "var(--stop)"
+};
+
+var BANK_STACK_ORDER = [
+  "mortgage", "utilities", "phone-internet", "car-insurance-loans", "education", "bills",
+  "software-ai", "streaming-entertainment", "subscriptions", "home-security", "pets", "travel",
+  "groceries", "gas-fuel", "gas", "household", "health", "personal-health", "dining",
+  "kids-activities", "kids", "shopping", "cash", "other"
+];
+
+function bankStackColor(id) {
+  var key = String(id || "");
+  if (BANK_STACK_COLORS[key]) return BANK_STACK_COLORS[key];
+  var h = 0;
+  var i;
+  for (i = 0; i < key.length; i++) h = (h * 33 + key.charCodeAt(i)) >>> 0;
+  return "hsl(" + (h % 360) + ", 58%, 66%)";
+}
+
+function bankStackRank(id) {
+  var at = BANK_STACK_ORDER.indexOf(id);
+  return at < 0 ? 500 : at;
+}
+
+function bankStackSort(rows) {
+  return (rows || []).slice().sort(function (a, b) {
+    var d = bankStackRank(a && a.id) - bankStackRank(b && b.id);
+    if (d) return d;
+    return String((a && a.name) || "").localeCompare(String((b && b.name) || ""));
+  });
+}
+
+function bankStackClose(sum, target) {
+  return Math.abs(bankRoundCents(sum || 0) - bankRoundCents(target || 0)) <= 0.02;
+}
+
+function bankStackCats(snap, monthKey) {
+  var cats = [];
+  try { cats = bankSpendVisible(bankSpendCategories(snap, monthKey) || []); } catch (eCats) { cats = []; }
+  return (cats || []).filter(function (row) { return row && !row.merged_into; });
+}
+
+function bankStackBudget(row) {
+  if (!row || typeof row.budget !== "number" || !isFinite(row.budget) || row.budget < 0) return 0;
+  return row.budget;
+}
+
+function bankStackAllocate(rows, target, kind) {
+  target = bankRoundCents(Math.abs(bankNum(target) || 0));
+  var weights = bankStackSort(rows || []).filter(function (row) { return row && row.weight > 0.004; });
+  if (!(target > 0.004)) return [];
+  if (!weights.length) {
+    var lumpId = kind === "sub" ? "subscriptions" : "bills";
+    var lumpName = kind === "sub" ? "Subscriptions" : "Bills";
+    return [{ id: lumpId, name: lumpName, amount: target, plan: target, kind: kind || "bill" }];
+  }
+  if (bankStackClose(weights.reduce(function (sum, row) { return sum + row.weight; }, 0), target)) {
+    return weights.map(function (row) {
+      var amount = bankRoundCents(row.weight);
+      return { id: row.id, name: row.name, amount: amount, plan: amount, kind: row.kind || kind || "bill" };
+    });
+  }
+  var sum = 0;
+  weights.forEach(function (row) { sum += row.weight; });
+  var out = [];
+  var used = 0;
+  weights.forEach(function (row, i) {
+    var amount = i === weights.length - 1 ? bankRoundCents(target - used) : bankRoundCents(target * row.weight / sum);
+    if (amount < 0) amount = 0;
+    used = bankRoundCents(used + amount);
+    if (amount > 0.004) out.push({ id: row.id, name: row.name, amount: amount, plan: amount, kind: row.kind || kind || "bill" });
+  });
+  var got = 0;
+  out.forEach(function (row) { got += row.amount; });
+  var drift = bankRoundCents(target - got);
+  if (out.length && Math.abs(drift) >= 0.01) {
+    out[out.length - 1].amount = bankRoundCents(out[out.length - 1].amount + drift);
+    out[out.length - 1].plan = out[out.length - 1].amount;
+  }
+  return out.filter(function (row) { return row.amount > 0.004; });
+}
+
+function bankStackBillWeights(snap, monthKey) {
+  var win = null;
+  try { win = bankBudgetWindowFor(snap, monthKey); } catch (eWin) { win = null; }
+  var bills = [];
+  try { bills = bankPreparedBills(snap, undefined); } catch (eBills) { bills = []; }
+  var cats = [];
+  try { cats = bankSpendCategories(snap, monthKey) || []; } catch (eCats) { cats = []; }
+  var groups = {};
+  bills.forEach(function (row) {
+    if (!row || bankBillRetired(row, monthKey)) return;
+    var dates = [];
+    try { dates = win && win.start && win.end ? bankDueDatesInSpan(row, win.start, win.end) : []; } catch (eDates) { dates = []; }
+    if (!dates.length) return;
+    var each = null;
+    try { each = bankBillLineAmount(row, monthKey, null); } catch (eAmt) { each = bankNum(row.amount); }
+    if (each == null) return;
+    var id = "";
+    try { id = bankSpendBillCategory(row, cats, snap) || ""; } catch (eId) { id = ""; }
+    if (!id) id = "bills";
+    var name = id === "bills" ? "Bills" : bankEditDatedLabel(snap, id);
+    if (!groups[id]) groups[id] = { id: id, name: name, weight: 0, kind: "bill" };
+    groups[id].weight += Math.abs(each) * dates.length;
+  });
+  return Object.keys(groups).map(function (id) { return groups[id]; });
+}
+
+/* Bill and subscription segments use category budgets when those budgets are the fit total.
+   Otherwise the fit total is split across the dated rows so the bar still adds up. */
+function bankStackPlanGroups(snap, monthKey) {
+  var fit = null;
+  try { fit = bankBudgetFit(snap, monthKey); } catch (eFit) { fit = null; }
+  fit = fit || { income: 0, bills: 0, subs: 0, pot: 0, budgeted: 0 };
+  var cats = bankStackCats(snap, monthKey);
+  var billRows = [];
+  var subRows = [];
+  var spendRows = [];
+  cats.forEach(function (row) {
+    var kind = "";
+    try { kind = bankBudgetPartKind(row.id, row.tier); } catch (eKind) { kind = "spend"; }
+    var budget = bankStackBudget(row);
+    if (kind === "bill") billRows.push({ row: row, budget: budget });
+    else if (kind === "sub") subRows.push({ row: row, budget: budget });
+    else spendRows.push({ row: row, budget: budget });
+  });
+  var parts = [];
+  var billSum = 0;
+  billRows.forEach(function (row) { billSum += row.budget; });
+  if (fit.bills > 0.004) {
+    if (billRows.length && bankStackClose(billSum, fit.bills)) {
+      bankStackSort(billRows.map(function (row) {
+        return { id: row.row.id, name: row.row.name || row.row.id, weight: row.budget, kind: "bill" };
+      })).forEach(function (row) {
+        if (row.weight > 0.004) parts.push({ id: row.id, name: row.name, amount: bankRoundCents(row.weight), plan: bankRoundCents(row.weight), kind: "bill" });
+      });
+    } else {
+      parts = parts.concat(bankStackAllocate(bankStackBillWeights(snap, monthKey), fit.bills, "bill"));
+    }
+  }
+  var subSum = 0;
+  subRows.forEach(function (row) { subSum += row.budget; });
+  if (fit.subs > 0.004) {
+    if (subRows.length && bankStackClose(subSum, fit.subs)) {
+      bankStackSort(subRows.map(function (row) {
+        return { id: row.row.id, name: row.row.name || row.row.id, weight: row.budget, kind: "sub" };
+      })).forEach(function (row) {
+        if (row.weight > 0.004) parts.push({ id: row.id, name: row.name, amount: bankRoundCents(row.weight), plan: bankRoundCents(row.weight), kind: "sub" });
+      });
+    } else {
+      parts.push({ id: "subscriptions", name: "Subscriptions", amount: bankRoundCents(fit.subs), plan: bankRoundCents(fit.subs), kind: "sub" });
+    }
+  }
+  bankStackSort(spendRows.map(function (row) {
+    return { id: row.row.id, name: row.row.name || row.row.id, weight: row.budget, kind: "spend" };
+  })).forEach(function (row) {
+    if (row.weight > 0.004) parts.push({ id: row.id, name: row.name, amount: bankRoundCents(row.weight), plan: bankRoundCents(row.weight), kind: "spend" });
+  });
+  return { fit: fit, parts: parts, lumpSubs: !(subRows.length && bankStackClose(subSum, fit.subs)) };
+}
+
+function bankStackRowPaid(row, monthKey) {
+  try { if ((bankPayCheckState(row, monthKey) || {}).on) return true; } catch (eCheck) {}
+  try { if (bankRowPaidThisMonth(row, monthKey)) return true; } catch (ePaid) {}
+  return false;
+}
+
+function bankStackPaidMap(snap, monthKey, kind) {
+  var list = [];
+  try { list = kind === "sub" ? bankPreparedSubs(snap) : bankPreparedBills(snap, undefined); } catch (eList) { list = []; }
+  var cats = [];
+  try { cats = bankSpendCategories(snap, monthKey) || []; } catch (eCats) { cats = []; }
+  var map = {};
+  (list || []).forEach(function (row) {
+    if (!row || bankBillRetired(row, monthKey) || !bankStackRowPaid(row, monthKey)) return;
+    var amount = 0;
+    try { amount = bankEditItemAmount(row, monthKey, null); } catch (eAmt) { amount = bankNum(row.amount) || 0; }
+    amount = Math.abs(bankNum(amount) || 0);
+    if (!(amount > 0.004)) return;
+    var id = "";
+    try { id = bankSpendBillCategory(row, cats, snap) || ""; } catch (eId) { id = ""; }
+    if (!id) id = kind === "sub" ? "subscriptions" : "bills";
+    map[id] = bankRoundCents((map[id] || 0) + amount);
+  });
+  return map;
+}
+
+function bankStackActualGroups(snap, monthKey) {
+  var plan = bankStackPlanGroups(snap, monthKey);
+  var income = 0;
+  try { income = bankBudgetPayIncome(snap, monthKey); } catch (eIn) { income = 0; }
+  var cats = bankStackCats(snap, monthKey);
+  var figs = {};
+  try { figs = bankCategoryFigures(snap, monthKey) || {}; } catch (eFigs) { figs = {}; }
+  var paidBills = bankStackPaidMap(snap, monthKey, "bill");
+  var paidSubs = bankStackPaidMap(snap, monthKey, "sub");
+  var byId = {};
+  cats.forEach(function (row) {
+    var kind = "spend";
+    try { kind = bankBudgetPartKind(row.id, row.tier); } catch (eKind) { kind = "spend"; }
+    var planAmt = bankRoundCents(bankStackBudget(row));
+    var spent = 0;
+    if (kind === "bill") spent = paidBills[row.id] || 0;
+    else if (kind === "sub") spent = paidSubs[row.id] || 0;
+    if (!(spent > 0.004) && figs[row.id] && figs[row.id].spent) spent = figs[row.id].spent;
+    byId[row.id] = { id: row.id, name: row.name || row.id, amount: bankRoundCents(spent || 0), plan: planAmt, kind: kind };
+  });
+  var parts = [];
+  var legend = [];
+  var billIds = {};
+  (plan.parts || []).forEach(function (row) {
+    if (row && row.kind === "bill") billIds[row.id] = true;
+  });
+  var billLump = !!(billIds.bills && Object.keys(billIds).length === 1);
+  if (plan.lumpSubs) {
+    var subSpent = 0;
+    Object.keys(byId).forEach(function (id) {
+      if (!byId[id] || byId[id].kind !== "sub") return;
+      subSpent += byId[id].amount || 0;
+      delete byId[id];
+    });
+    subSpent = bankRoundCents(subSpent);
+    var subPlan = plan.fit.subs > 0.004 ? bankRoundCents(plan.fit.subs) : 0;
+    if (subSpent > 0.004 || subPlan > 0.004) {
+      var lump = { id: "subscriptions", name: "Subscriptions", amount: subSpent, plan: subPlan, kind: "sub" };
+      legend.push(lump);
+      if (subSpent > 0.004) parts.push(lump);
+    }
+  }
+  if (billLump) {
+    var billSpent = 0;
+    Object.keys(byId).forEach(function (id) {
+      if (!byId[id] || byId[id].kind !== "bill") return;
+      billSpent += byId[id].amount || 0;
+      delete byId[id];
+    });
+    billSpent = bankRoundCents(billSpent);
+    var billPlan = plan.fit.bills > 0.004 ? bankRoundCents(plan.fit.bills) : 0;
+    if (billSpent > 0.004 || billPlan > 0.004) {
+      var billSeg = { id: "bills", name: "Bills", amount: billSpent, plan: billPlan, kind: "bill" };
+      legend.push(billSeg);
+      if (billSpent > 0.004) parts.push(billSeg);
+    }
+  }
+  bankStackSort(Object.keys(byId).map(function (id) { return byId[id]; })).forEach(function (row) {
+    if (row.amount > 0.004 || row.plan > 0.004) legend.push(row);
+    if (row.amount > 0.004) parts.push(row);
+  });
+  return { income: income, parts: parts, legend: legend };
+}
+
+function bankStackLayout(parts, track) {
+  var rows = bankStackSort(parts || []);
+  var total = 0;
+  rows.forEach(function (row) { total += row.amount || 0; });
+  total = bankRoundCents(total);
+  track = bankRoundCents(track || 0);
+  var over = 0;
+  var spare = 0;
+  if (track > 0.004 && total > track + 0.004) over = bankRoundCents(total - track);
+  else if (track > total + 0.004) spare = bankRoundCents(track - total);
+  else if (!(track > 0.004) && total > 0.004) over = total;
+  var visual = Math.max(track, total);
+  if (!(visual > 0)) visual = 1;
+  var fitShare = over > 0.004 && track > 0.004 && total > 0.004 ? (track / total) : 1;
+  var segments = rows.filter(function (row) { return row.amount > 0.004; }).map(function (row) {
+    return {
+      id: row.id,
+      name: row.name,
+      amount: row.amount,
+      plan: row.plan == null ? row.amount : row.plan,
+      kind: row.kind || "",
+      color: bankStackColor(row.id),
+      width: (row.amount / visual) * 100 * fitShare
+    };
+  });
+  if (spare > 0.004) {
+    segments.push({ id: "spare", name: "Spare", amount: spare, plan: spare, kind: "spare", color: bankStackColor("spare"), width: (spare / visual) * 100 });
+  }
+  if (over > 0.004 && track > 0.004) {
+    segments.push({ id: "over", name: "Over", amount: over, plan: over, kind: "over", color: bankStackColor("over"), width: (over / visual) * 100 });
+  }
+  return { track: track, total: total, spare: spare, over: over, segments: segments };
+}
+
+function bankStackPlanModel(snap, monthKey) {
+  var grouped = bankStackPlanGroups(snap, monthKey);
+  var laid = bankStackLayout(grouped.parts, grouped.fit.income);
+  laid.legend = grouped.parts.map(function (row) {
+    return { id: row.id, name: row.name, amount: row.amount, plan: row.plan, kind: row.kind, color: bankStackColor(row.id) };
+  });
+  if (laid.spare > 0.004) laid.legend.push({ id: "spare", name: "Spare", amount: laid.spare, plan: laid.spare, kind: "spare", color: bankStackColor("spare") });
+  if (laid.over > 0.004) laid.legend.push({ id: "over", name: "Over", amount: laid.over, plan: laid.over, kind: "over", color: bankStackColor("over") });
+  return laid;
+}
+
+function bankStackActualModel(snap, monthKey) {
+  var grouped = bankStackActualGroups(snap, monthKey);
+  var laid = bankStackLayout(grouped.parts, grouped.income);
+  laid.legend = (grouped.legend || []).map(function (row) {
+    return { id: row.id, name: row.name, amount: row.amount, plan: row.plan, kind: row.kind, color: bankStackColor(row.id) };
+  });
+  if (laid.spare > 0.004) laid.legend.push({ id: "spare", name: "Spare", amount: laid.spare, plan: laid.spare, kind: "spare", color: bankStackColor("spare") });
+  if (laid.over > 0.004) laid.legend.push({ id: "over", name: "Over", amount: laid.over, plan: laid.over, kind: "over", color: bankStackColor("over") });
+  return laid;
+}
+
+function bankStackBarHtml(barKey, stackKind, monthKey, label, summary, model, verdictHtml, extraAttrs) {
+  model = model || { segments: [], legend: [], total: 0, track: 0, spare: 0, over: 0 };
+  var shown = model.track > 0.004 ? Math.round((model.total / model.track) * 100) : (model.total > 0.004 ? 100 : 0);
+  if (shown > 999) shown = 999;
+  var text = summary || "";
+  var segs = (model.segments || []).map(function (seg) {
+    var width = seg.width < 0 ? 0 : seg.width;
+    var tag = seg.kind === "spare" || seg.kind === "over" ? "span" : "button";
+    var open = tag === "button" ? ' type="button" aria-pressed="false"' : "";
+    var overAttr = seg.kind === "over" ? ' data-bank-bar-over="1"' : "";
+    return "<" + tag + ' class="bank-stack-seg" data-bank-stack-seg="' + bankEsc(seg.id) + '" data-amount="' + seg.amount +
+      '" data-plan="' + (seg.plan == null ? seg.amount : seg.plan) + '" data-color="' + bankEsc(seg.color) + '"' + open + overAttr +
+      ' style="width:' + width.toFixed(2) + "%;background:" + seg.color + '" aria-label="' + bankEsc(seg.name) + " " + bankEsc(bankMoney(seg.amount)) + '"></' + tag + ">";
+  }).join("");
+  var pops = (model.legend || []).filter(function (row) { return row.kind !== "spare" && row.kind !== "over"; }).map(function (row) {
+    var line = row.kind && row.plan != null && Math.abs((row.plan || 0) - (row.amount || 0)) > 0.004
+      ? (row.name + " " + bankMoney(row.amount) + " of " + bankMoney(row.plan))
+      : (row.name + " " + bankMoney(row.amount));
+    if (stackKind === "actual") line = row.name + " " + bankMoney(row.amount) + " of " + bankMoney(row.plan || 0);
+    return '<p class="bank-stack-pop" data-for="' + bankEsc(row.id) + '">' + bankEsc(line) + "</p>";
+  }).join("");
+  var legend = (model.legend || []).map(function (row) {
+    var hot = stackKind === "actual" && row.kind !== "spare" && row.kind !== "over" && (row.plan || 0) > 0.004 && row.amount > row.plan + 0.004;
+    var textLine = stackKind === "actual" && row.kind !== "spare" && row.kind !== "over"
+      ? (bankMoney(row.amount) + " of " + bankMoney(row.plan || 0))
+      : bankMoney(row.amount);
+    return '<li data-bank-leg="' + bankEsc(row.id) + '" data-amount="' + row.amount + '" data-plan="' + (row.plan == null ? row.amount : row.plan) +
+      '" data-color="' + bankEsc(row.color || bankStackColor(row.id)) + '"><i style="background:' + bankEsc(row.color || bankStackColor(row.id)) +
+      '"></i><span>' + bankEsc(row.name) + '</span> <b class="' + (hot ? "tone-stop" : "") + '">' + bankEsc(textLine) + "</b></li>";
+  }).join("");
+  return '<div class="bank-card-bar bank-stack' + (barKey === "income" ? " bank-income-bar" : "") + '" data-bank-bar="' + bankEsc(barKey) +
+    '" data-bank-stack="' + bankEsc(stackKind) + '" data-bank-bar-month="' + bankEsc(monthKey || "") + '" data-pct="' + shown +
+    '" data-over="' + (model.over > 0.004 ? "1" : "0") + '" data-bank-stack-total="' + model.total + '" data-bank-stack-track="' + model.track +
+    '" data-open=""' + (extraAttrs || "") + ">" +
+    '<p class="bank-card-bar-label"><span>' + bankEsc(label) + "</span> <b>" + (verdictHtml || bankEsc(text)) + "</b></p>" +
+    '<div class="bank-card-bar-track bank-stack-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + shown +
+    '" aria-valuetext="' + bankEsc(text) + '" aria-label="' + bankEsc(label) + '">' + segs + "</div>" +
+    pops +
+    '<ul class="bank-stack-legend">' + legend + "</ul></div>";
+}
+
 function bankIncomeBudgetBarHtml(snap, opts) {
   opts = opts || {};
   var key = "";
@@ -18753,32 +19128,19 @@ function bankIncomeBudgetBarHtml(snap, opts) {
   var shown = Math.round(pct > 999 ? 999 : pct);
   var amounts = bankMoney(budgeted) + " of " + bankMoney(income) + ", " + shown + "%";
   var label = amounts + ", " + verdict.text;
-  var track = "";
-  if (over && budgeted > 0) {
-    var fitPct = income > 0 ? (income / budgeted) * 100 : 0;
-    var overPct = 100 - fitPct;
-    track = '<div class="bank-card-bar-track" data-bank-income-track="over" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
-      shown + '" aria-valuetext="' + bankEsc(label) + '" aria-label="' + bankEsc(incomeLabel) + '">' +
-      '<span data-bank-bar-fit="1" style="width:' + fitPct.toFixed(1) + '%;background:var(--go)"></span>' +
-      '<span data-bank-bar-over="1" style="width:' + overPct.toFixed(1) + '%;background:var(--stop)"></span></div>';
-  } else {
-    var width = pct < 0 ? 0 : (pct > 100 ? 100 : pct);
-    track = '<div class="bank-card-bar-track" data-bank-income-track="fit" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' +
-      Math.round(width) + '" aria-valuetext="' + bankEsc(label) + '" aria-label="' + bankEsc(incomeLabel) + '">' +
-      '<span data-bank-bar-fit="1" style="width:' + width.toFixed(1) + '%;background:var(--go)"></span></div>';
-  }
+  var model = null;
+  try { model = bankStackPlanModel(snap, key); } catch (eModel) { model = null; }
+  var source = bankFitSnapshotMark(snap) ? ' data-bank-fit-source="snapshot"' : "";
+  var extra = ' data-bank-fit-income="' + income + '" data-bank-fit-budgeted="' + budgeted + '" data-bank-fit-spare="' + verdict.spare +
+    '" data-bank-fit-bills="' + verdict.bills + '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot + '"' + source;
+  var verdictHtml = bankEsc(amounts) + ', <em class="' + (over ? "tone-stop" : "tone-go") + '" data-bank-fit-verdict="1" data-bank-fit-spare="' +
+    verdict.spare + '" data-bank-fit-bills="' + verdict.bills + '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot +
+    '"' + source + ">" + bankEsc(verdict.text) + "</em>";
   var reserveNote = "";
   try { reserveNote = bankFitReserveNote(snap, key); } catch (eNote) { reserveNote = ""; }
   var reserveHtml = reserveNote ? '<p class="hint" data-bank-reserve-note="1">' + bankEsc(reserveNote) + "</p>" : "";
-  var source = bankFitSnapshotMark(snap) ? ' data-bank-fit-source="snapshot"' : "";
   var sourceHint = bankFitSnapshotMark(snap) ? '<p class="hint" data-bank-fit-source="snapshot">Saved snapshot</p>' : "";
-  return '<div class="bank-card-bar bank-income-bar" data-bank-bar="income" data-bank-bar-month="' + bankEsc(key) + '" data-pct="' + shown + '" data-over="' + (over ? "1" : "0") +
-    '" data-bank-fit-income="' + income + '" data-bank-fit-budgeted="' + budgeted + '" data-bank-fit-spare="' + verdict.spare +
-    '" data-bank-fit-bills="' + verdict.bills + '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot + '"' + source + ">" +
-    '<p class="bank-card-bar-label"><span>' + bankEsc(incomeLabel) + '</span> <b>' + bankEsc(amounts) + ', <em class="' + (over ? "tone-stop" : "tone-go") +
-    '" data-bank-fit-verdict="1" data-bank-fit-spare="' + verdict.spare + '" data-bank-fit-bills="' + verdict.bills +
-    '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot + '"' + source + ">" + bankEsc(verdict.text) + "</em></b></p>" +
-    track + reserveHtml + sourceHint + "</div>";
+  return bankStackBarHtml("income", "plan", key, incomeLabel, label, model, verdictHtml, extra) + reserveHtml + sourceHint;
 }
 
 function bankCardBarsHtml(card, snap, opts) {
@@ -18808,10 +19170,12 @@ function bankCardBarsHtml(card, snap, opts) {
     var spendSpent = 0;
     try { spendBudget = bankFitPot(snap, spendKey, null); } catch (eSpend) { spendBudget = 0; }
     try { spendSpent = bankSpendingSpent(snap, spendKey); } catch (eSpent) { spendSpent = 0; }
-    var spendPct = spendBudget > 0 ? (spendSpent / spendBudget) * 100 : (spendSpent > 0 ? 100 : 0);
-    var spendLabel = bankMonthFull(spendKey) || "Spending budget";
-    var spendAttrs = ' data-bank-bar-month="' + bankEsc(spendKey) + '" data-bank-spend-spent="' + spendSpent + '" data-bank-spend-budget="' + spendBudget + '"';
-    rows.push(bankCardBarHtml("spend", spendLabel, bankMoney(spendSpent) + " of " + bankMoney(spendBudget), spendPct, spendAttrs));
+    var spendLabel = (bankMonthFull(spendKey) || "This month") + " so far";
+    var spendModel = null;
+    try { spendModel = bankStackActualModel(snap, spendKey); } catch (eModel) { spendModel = null; }
+    var spendSummary = bankMoney(spendModel && spendModel.total || 0) + " of " + bankMoney(spendModel && spendModel.track || 0);
+    var spendAttrs = ' data-bank-spend-spent="' + spendSpent + '" data-bank-spend-budget="' + spendBudget + '"';
+    rows.push(bankStackBarHtml("spend", "actual", spendKey, spendLabel, spendSummary, spendModel, "", spendAttrs));
   }
   if (!rows.length) return "";
   return '<div class="bank-card-bars" data-bank-card-bars="1">' + rows.join("") + "</div>";
@@ -23030,6 +23394,31 @@ function bankMount(root, data, opts) {
   root.addEventListener("click", function (e) {
     var t = e && e.target;
     if (!t || !t.closest) return;
+    var segBtn = t.closest("[data-bank-stack-seg]");
+    if (segBtn && segBtn.getAttribute && String(segBtn.tagName || "").toLowerCase() === "button") {
+      if (e.preventDefault) e.preventDefault();
+      var stack = segBtn.closest("[data-bank-stack]");
+      if (!stack || !stack.setAttribute) return;
+      var segId = segBtn.getAttribute("data-bank-stack-seg") || "";
+      var was = stack.getAttribute("data-open") || "";
+      var nextOpen = was === segId ? "" : segId;
+      stack.setAttribute("data-open", nextOpen);
+      var segButtons = stack.querySelectorAll ? stack.querySelectorAll("[data-bank-stack-seg]") : [];
+      var si;
+      for (si = 0; si < segButtons.length; si++) {
+        if (segButtons[si] && segButtons[si].setAttribute) {
+          segButtons[si].setAttribute("aria-pressed", segButtons[si].getAttribute("data-bank-stack-seg") === nextOpen ? "true" : "false");
+        }
+      }
+      var pops = stack.querySelectorAll ? stack.querySelectorAll(".bank-stack-pop, [data-bank-leg]") : [];
+      for (si = 0; si < pops.length; si++) {
+        if (!pops[si] || !pops[si].classList) continue;
+        var popId = pops[si].getAttribute("data-for") || pops[si].getAttribute("data-bank-leg") || "";
+        if (nextOpen && popId === nextOpen) pops[si].classList.add("on");
+        else pops[si].classList.remove("on");
+      }
+      return;
+    }
     var tabBtn = t.closest("[data-bank-tab]");
     if (tabBtn && tabBtn.getAttribute) {
       if (root._bank) {
