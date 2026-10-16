@@ -305,6 +305,25 @@ body.bank-page > header .clock {
   color: var(--ink-soft);
 }
 
+.bank-edit-group { margin: 0 0 16px; }
+.bank-edit-block .bank-edit-group h3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+  margin: 0 0 6px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  color: var(--ink);
+}
+.bank-edit-group h3 b { font-variant-numeric: tabular-nums; }
+.bank-edit-block .bank-edit-group [data-bank-group-flag] {
+  color: var(--stop);
+  font-style: normal;
+  font-size: 12px;
+}
+
 .bank-cal h3,
 .bank-insight-block h3,
 .bank-edit-block h3 {
