@@ -1645,3 +1645,116 @@ test("bill names stay whole and categories are spending lines", function () {
   assert.match(tierCard, /Gas\/Fuel/);
   assert.match(tierCard, /Subscriptions/);
 });
+
+test("edits bills use the printed category and dated groups", () => {
+  const ctx = boot();
+  const now = "2026-10-16T12:00:00-04:00";
+  const snap = bare(ctx);
+  snap.current.month = "2026-10";
+  snap.budget.box_categories = [
+    { id: "mortgage", name: "Mortgage", tier: "required", budget: 3500 },
+    { id: "utilities", name: "Utilities", tier: "required", budget: 540 },
+    { id: "phone-internet", name: "Phone & Internet", tier: "required", budget: 500 },
+    { id: "car-insurance-loans", name: "Car/Insurance & Loans", tier: "required", budget: 1700 },
+    { id: "education", name: "Education", tier: "needs", budget: 760 },
+    { id: "streaming-entertainment", name: "Streaming & Entertainment", tier: "wants", budget: 80 },
+    { id: "music-subscription", name: "Music Subscription", tier: "wants", budget: 0, merged_into: "streaming-entertainment" },
+    { id: "subscriptions", name: "Subscriptions", tier: "wants", budget: 40 },
+    { id: "shopping-subscription", name: "Shopping Subscription", tier: "wants", budget: 0, merged_into: "subscriptions" },
+    { id: "kids-activities", name: "Kids & Activities", tier: "needs", budget: 120 },
+    { id: "memberships", name: "Memberships", tier: "wants", budget: 0, merged_into: "kids-activities" }
+  ];
+  snap.budget.category_merge_ids = {
+    "music-subscription": "streaming-entertainment",
+    "shopping-subscription": "subscriptions",
+    memberships: "kids-activities"
+  };
+  snap.budget.bills = [
+    { bill_id: "b-comcast", name: "Comcast", amount: 160, category: "phone-internet", due_day: 5 },
+    { bill_id: "b-garbage", name: "Garbage", amount: 50, category: "utilities", due_day: 8 },
+    { bill_id: "b-onemain", name: "OneMain", amount: 520, category: "car-insurance-loans", due_day: 12 },
+    { bill_id: "b-affirm", name: "Affirm plan 1", amount: 15, category: "car-insurance-loans", due_day: 14 },
+    { bill_id: "b-electric", name: "Electric", amount: 150, category: "phone-internet", category_id: "utilities", due_day: 3 },
+    { bill_id: "b-guess", name: "Electric Co", amount: 40, due_day: 20 },
+    { bill_id: "b-held", name: "Electric Held", amount: 11, category: "not-a-category", due_day: 21 }
+  ];
+  const comcast = snap.budget.bills.find((b) => b.name === "Comcast");
+  const garbage = snap.budget.bills.find((b) => b.name === "Garbage");
+  const onemain = snap.budget.bills.find((b) => b.name === "OneMain");
+  const affirm = snap.budget.bills.find((b) => b.name === "Affirm plan 1");
+  const electric = snap.budget.bills.find((b) => b.name === "Electric");
+  const guess = snap.budget.bills.find((b) => b.name === "Electric Co");
+  const cats = snap.budget.box_categories;
+  assert.equal(ctx.bankSpendBillCategory(comcast, cats, snap), "phone-internet");
+  assert.equal(ctx.bankSpendBillCategory(garbage, cats, snap), "utilities");
+  assert.equal(ctx.bankSpendBillCategory(onemain, cats, snap), "car-insurance-loans");
+  assert.equal(ctx.bankSpendBillCategory(affirm, cats, snap), "car-insurance-loans");
+  assert.equal(ctx.bankSpendBillCategory(electric, cats, snap), "utilities");
+  assert.equal(ctx.bankSpendBillCategory(guess, cats, snap), "utilities");
+  const held = snap.budget.bills.find((b) => b.name === "Electric Held");
+  assert.equal(ctx.bankSpendBillCategory(held, cats, snap), "");
+
+  const page = ctx.bankPageHtml(snap, { tab: "edits", now: now });
+  const billsAt = page.indexOf("<h2>Bills</h2>");
+  const billsEnd = page.indexOf("<h2>", billsAt + 4);
+  const bills = page.slice(billsAt, billsEnd < 0 ? page.length : billsEnd);
+  assert.doesNotMatch(bills, /Music Subscription|Memberships|Shopping Subscription/);
+  const picker = (name, id) => {
+    const label = `aria-label="Category for ${name}"`;
+    const at = bills.indexOf(label);
+    assert.ok(at > 0, name);
+    const select = bills.slice(at, bills.indexOf("</select>", at));
+    assert.match(select, new RegExp(`<option value="${id}" selected>`));
+  };
+  picker("Comcast", "phone-internet");
+  picker("Garbage", "utilities");
+  picker("OneMain", "car-insurance-loans");
+  picker("Affirm plan 1", "car-insurance-loans");
+  picker("Electric", "utilities");
+
+  const group = (id) => {
+    const at = bills.indexOf(`data-bank-edit-group="${id}"`);
+    assert.ok(at > 0, id);
+    return bills.slice(at, bills.indexOf("</section>", at));
+  };
+  const util = group("utilities");
+  assert.match(util, /data-bank-group-total="240"/);
+  assert.match(util, /data-bank-group-budget="540"/);
+  assert.match(util, /data-bank-group-diff="1"/);
+  assert.match(util, /Doesn't match/);
+  const phone = group("phone-internet");
+  assert.match(phone, /data-bank-group-total="160"/);
+  assert.match(phone, /data-bank-group-budget="500"/);
+  assert.match(phone, />Comcast</);
+  assert.doesNotMatch(phone, />Electric</);
+
+  snap.budget.subscriptions = [
+    { sub_id: "s-music", name: "Tune Box", amount: 12, category: "music-subscription", next_date: "2026-10-20" },
+    { sub_id: "s-shop", name: "Club Box", amount: 10, category: "shopping-subscription", next_date: "2026-10-22" },
+    { sub_id: "s-kids", name: "Play Club", amount: 30, category: "memberships", next_date: "2026-10-18" },
+    { sub_id: "s-gone", name: "Old Stream", amount: 99, category: "streaming-entertainment", status: "cancelled", status_from: "2026-10", next_date: "2026-10-01" }
+  ];
+  const again = ctx.bankPageHtml(snap, { tab: "edits", now: now });
+  const subsAt = again.indexOf("<h2>Subscriptions</h2>");
+  const subs = again.slice(subsAt, again.indexOf("<h2>Income</h2>", subsAt));
+  assert.doesNotMatch(subs, /Music Subscription|Memberships|Shopping Subscription/);
+  const stream = subs.slice(subs.indexOf('data-bank-edit-group="streaming-entertainment"'), subs.indexOf("</section>", subs.indexOf('data-bank-edit-group="streaming-entertainment"')));
+  assert.match(stream, /data-bank-group-total="12"/);
+  assert.match(stream, />Tune Box</);
+  assert.doesNotMatch(stream, /Old Stream/);
+  const shop = subs.slice(subs.indexOf('data-bank-edit-group="subscriptions"'), subs.indexOf("</section>", subs.indexOf('data-bank-edit-group="subscriptions"')));
+  assert.match(shop, /data-bank-group-total="10"/);
+  assert.match(shop, />Club Box</);
+  const kids = subs.slice(subs.indexOf('data-bank-edit-group="kids-activities"'), subs.indexOf("</section>", subs.indexOf('data-bank-edit-group="kids-activities"')));
+  assert.match(kids, /data-bank-group-total="30"/);
+  assert.match(kids, />Play Club</);
+  const matchSnap = bare(ctx);
+  matchSnap.current.month = "2026-10";
+  matchSnap.budget.box_categories = [{ id: "utilities", name: "Utilities", tier: "required", budget: 50 }];
+  matchSnap.budget.bills = [{ bill_id: "b-water", name: "Water", amount: 50, category: "utilities", due_day: 4 }];
+  const matchPage = ctx.bankPageHtml(matchSnap, { tab: "edits", now: now });
+  const matchBills = matchPage.slice(matchPage.indexOf("<h2>Bills</h2>"), matchPage.indexOf("<h2>Subscriptions</h2>"));
+  const matchGroup = matchBills.slice(matchBills.indexOf('data-bank-edit-group="utilities"'), matchBills.indexOf("</section>", matchBills.indexOf('data-bank-edit-group="utilities"')));
+  assert.match(matchGroup, /data-bank-group-diff="0"/);
+  assert.doesNotMatch(matchGroup, /Doesn't match/);
+});
