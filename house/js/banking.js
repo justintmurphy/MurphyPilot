@@ -18777,8 +18777,9 @@ function bankStackRank(id) {
 
 function bankStackSort(rows) {
   return (rows || []).slice().sort(function (a, b) {
-    var d = bankStackRank(a && a.id) - bankStackRank(b && b.id);
-    if (d) return d;
+    var av = a && typeof a.plan === "number" ? a.plan : ((a && a.amount) || 0);
+    var bv = b && typeof b.plan === "number" ? b.plan : ((b && b.amount) || 0);
+    if (Math.abs(bv - av) > 0.004) return bv - av;
     return String((a && a.name) || "").localeCompare(String((b && b.name) || ""));
   });
 }
@@ -18859,7 +18860,7 @@ function bankStackBillWeights(snap, monthKey) {
   return Object.keys(groups).map(function (id) { return groups[id]; });
 }
 
-/* Due and charged amounts for the legend only. They never change a segment or the spare. */
+/* Due and charged amounts never change a segment or the spare. */
 function bankStackDueMap(snap, monthKey) {
   var map = {};
   bankStackBillWeights(snap, monthKey).forEach(function (row) {
@@ -18887,7 +18888,7 @@ function bankStackDueMap(snap, monthKey) {
   return map;
 }
 
-/* Each segment is that category's budget. Due amounts are noted beside it and are not added in. */
+/* Each segment is that category's budget. Due amounts are not added in. */
 function bankStackPlanGroups(snap, monthKey) {
   var fit = null;
   try { fit = bankBudgetFit(snap, monthKey); } catch (eFit) { fit = null; }
@@ -18941,7 +18942,7 @@ function bankStackPaidMap(snap, monthKey, kind) {
   return map;
 }
 
-function bankStackActualGroups(snap, monthKey) {
+function bankStackActualGroups(snap, monthKey, opts) {
   var plan = bankStackPlanGroups(snap, monthKey);
   var income = 0;
   try { income = bankBudgetPayIncome(snap, monthKey); } catch (eIn) { income = 0; }
@@ -18950,11 +18951,17 @@ function bankStackActualGroups(snap, monthKey) {
   try { figs = bankCategoryFigures(snap, monthKey) || {}; } catch (eFigs) { figs = {}; }
   var paidBills = bankStackPaidMap(snap, monthKey, "bill");
   var paidSubs = bankStackPaidMap(snap, monthKey, "sub");
+  var fitKey = monthKey;
+  try { fitKey = bankFitMonth(snap, opts) || monthKey; } catch (eFitKey) { fitKey = monthKey; }
+  var fitBudget = {};
+  bankStackCats(snap, fitKey).forEach(function (row) {
+    if (row && row.id) fitBudget[row.id] = bankRoundCents(bankStackBudget(row));
+  });
   var byId = {};
   cats.forEach(function (row) {
     var kind = "spend";
     try { kind = bankBudgetPartKind(row.id, row.tier); } catch (eKind) { kind = "spend"; }
-    var planAmt = bankRoundCents(bankStackBudget(row));
+    var planAmt = fitBudget[row.id] != null ? fitBudget[row.id] : bankRoundCents(bankStackBudget(row));
     var spent = 0;
     if (kind === "bill") spent = paidBills[row.id] || 0;
     else if (kind === "sub") spent = paidSubs[row.id] || 0;
@@ -19046,18 +19053,16 @@ function bankStackPlanModel(snap, monthKey) {
     return { id: row.id, name: row.name, amount: row.amount, plan: row.plan, kind: row.kind, due: row.due || 0, over: row.over || 0, color: bankStackColor(row.id) };
   });
   if (laid.spare > 0.004) laid.legend.push({ id: "spare", name: "Spare", amount: laid.spare, plan: laid.spare, kind: "spare", color: bankStackColor("spare") });
-  if (laid.over > 0.004) laid.legend.push({ id: "over", name: "Over", amount: laid.over, plan: laid.over, kind: "over", color: bankStackColor("over") });
   return laid;
 }
 
-function bankStackActualModel(snap, monthKey) {
-  var grouped = bankStackActualGroups(snap, monthKey);
+function bankStackActualModel(snap, monthKey, opts) {
+  var grouped = bankStackActualGroups(snap, monthKey, opts);
   var laid = bankStackLayout(grouped.parts, grouped.income);
   laid.legend = (grouped.legend || []).map(function (row) {
     return { id: row.id, name: row.name, amount: row.amount, plan: row.plan, kind: row.kind, color: bankStackColor(row.id) };
   });
   if (laid.spare > 0.004) laid.legend.push({ id: "spare", name: "Spare", amount: laid.spare, plan: laid.spare, kind: "spare", color: bankStackColor("spare") });
-  if (laid.over > 0.004) laid.legend.push({ id: "over", name: "Over", amount: laid.over, plan: laid.over, kind: "over", color: bankStackColor("over") });
   return laid;
 }
 
@@ -19075,25 +19080,14 @@ function bankStackBarHtml(barKey, stackKind, monthKey, label, summary, model, ve
       '" data-plan="' + (seg.plan == null ? seg.amount : seg.plan) + '" data-color="' + bankEsc(seg.color) + '"' + open + overAttr +
       ' style="width:' + width.toFixed(2) + "%;background:" + seg.color + '" aria-label="' + bankEsc(seg.name) + " " + bankEsc(bankMoney(seg.amount)) + '"></' + tag + ">";
   }).join("");
-  function planOverLine(row, withName) {
-    var text = bankMoney(row.amount) + " budget, " + bankMoney(row.due || 0) + " due, over " + bankMoney(row.over || 0);
-    return withName ? (row.name + " " + text) : text;
-  }
   var pops = (model.legend || []).filter(function (row) { return row.kind !== "spare" && row.kind !== "over"; }).map(function (row) {
-    var line = row.name + " " + bankMoney(row.amount);
-    if (stackKind === "plan" && row.over > 0.004) line = planOverLine(row, true);
-    if (stackKind === "actual") line = row.name + " " + bankMoney(row.amount) + " of " + bankMoney(row.plan || 0);
-    return '<p class="bank-stack-pop" data-for="' + bankEsc(row.id) + '">' + bankEsc(line) + "</p>";
+    return '<p class="bank-stack-pop" data-for="' + bankEsc(row.id) + '">' + bankEsc(row.name + " " + bankMoney(row.amount)) + "</p>";
   }).join("");
   var legend = (model.legend || []).map(function (row) {
-    var hot = (stackKind === "plan" && row.over > 0.004) ||
-      (stackKind === "actual" && row.kind !== "spare" && row.kind !== "over" && (row.plan || 0) > 0.004 && row.amount > row.plan + 0.004);
     var textLine = bankMoney(row.amount);
-    if (stackKind === "plan" && row.over > 0.004) textLine = planOverLine(row, false);
-    if (stackKind === "actual" && row.kind !== "spare" && row.kind !== "over") textLine = bankMoney(row.amount) + " of " + bankMoney(row.plan || 0);
     return '<li data-bank-leg="' + bankEsc(row.id) + '" data-amount="' + row.amount + '" data-plan="' + (row.plan == null ? row.amount : row.plan) +
       '" data-color="' + bankEsc(row.color || bankStackColor(row.id)) + '"><i style="background:' + bankEsc(row.color || bankStackColor(row.id)) +
-      '"></i><span>' + bankEsc(row.name) + '</span> <b class="' + (hot ? "tone-stop" : "") + '">' + bankEsc(textLine) + "</b></li>";
+      '"></i><span>' + bankEsc(row.name) + "</span> <b>" + bankEsc(textLine) + "</b></li>";
   }).join("");
   return '<div class="bank-card-bar bank-stack' + (barKey === "income" ? " bank-income-bar" : "") + '" data-bank-bar="' + bankEsc(barKey) +
     '" data-bank-stack="' + bankEsc(stackKind) + '" data-bank-bar-month="' + bankEsc(monthKey || "") + '" data-pct="' + shown +
@@ -19172,7 +19166,7 @@ function bankCardBarsHtml(card, snap, opts) {
     try { spendSpent = bankSpendingSpent(snap, spendKey); } catch (eSpent) { spendSpent = 0; }
     var spendLabel = (bankMonthFull(spendKey) || "This month") + " so far";
     var spendModel = null;
-    try { spendModel = bankStackActualModel(snap, spendKey); } catch (eModel) { spendModel = null; }
+    try { spendModel = bankStackActualModel(snap, spendKey, opts); } catch (eModel) { spendModel = null; }
     var spendSummary = bankMoney(spendModel && spendModel.total || 0) + " of " + bankMoney(spendModel && spendModel.track || 0);
     var spendAttrs = ' data-bank-spend-spent="' + spendSpent + '" data-bank-spend-budget="' + spendBudget + '"';
     rows.push(bankStackBarHtml("spend", "actual", spendKey, spendLabel, spendSummary, spendModel, "", spendAttrs));

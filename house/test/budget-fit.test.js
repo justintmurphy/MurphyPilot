@@ -279,7 +279,14 @@ test("November uses the computed window and one spare across the bar, Edits, and
   assert.match(bar, /\$3,329\.00 of \$9,651\.12, 34%, /);
   assert.match(bar, /Fits: \$6,322\.12 to spare/);
   assert.match(bar, /data-bank-stack-seg="utilities"[^>]*data-amount="500"/);
-  assert.match(bar, /Utilities \$500\.00 budget, \$7,094\.19 due, over \$6,594\.19/);
+  const legend = bar.slice(bar.indexOf("bank-stack-legend"), bar.indexOf("</ul>", bar.indexOf("bank-stack-legend")));
+  assert.match(legend, /Utilities<\/span> <b>\$500\.00<\/b>/);
+  assert.doesNotMatch(legend, /budget,|due| of |over/i);
+  assert.deepEqual(
+    Array.from(legend.matchAll(/data-bank-leg="([^"]+)"/g), function (match) { return match[1]; })
+      .filter(function (id) { return id !== "spare" && id !== "over"; }),
+    ["groceries", "mortgage", "kids-activities", "utilities"]
+  );
   assert.doesNotMatch(bar, /data-amount="7094.19"/);
   assert.match(page, /data-bank-bar="spend"[^>]*data-bank-bar-month="2026-10"/);
   assert.match(page, /data-bank-bar="spend"[\s\S]{0,900}>October so far</);
@@ -340,7 +347,9 @@ test("a due-in-window fallback still counts a bill after the last pay period", f
   const page = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
   const bar = page.slice(page.indexOf('data-bank-bar="income"'), page.indexOf('data-bank-bar="income"') + 2500);
   assert.match(bar, /data-bank-stack-seg="utilities"[^>]*data-amount="10"/);
-  assert.match(bar, /Utilities \$10\.00 budget, \$25\.00 due, over \$15\.00/);
+  const legend = bar.slice(bar.indexOf("bank-stack-legend"), bar.indexOf("</ul>", bar.indexOf("bank-stack-legend")));
+  assert.match(legend, /Utilities<\/span> <b>\$10\.00<\/b>/);
+  assert.doesNotMatch(legend, /budget,|due| of |over/i);
   assert.doesNotMatch(bar, /data-amount="25"/);
   assert.doesNotMatch(bar, /data-amount="99"/);
   snap.budget.tiers_overlay.november_budget.guides = { utilities: 4 };
@@ -349,7 +358,11 @@ test("a due-in-window fallback still counts a bill after the last pay period", f
   snap.tier_doc.budgets_updated_at = { utilities: "2026-10-16T12:00:00Z" };
   assert.equal(ctx.bankBudgetFit(snap, "2026-11").bills, 0);
   const held = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" });
-  assert.match(held, /Utilities \$0\.00 budget, \$25\.00 due, over \$25\.00/);
+  const heldAt = held.indexOf('data-bank-bar="income"');
+  const heldLegendAt = held.indexOf("bank-stack-legend", heldAt);
+  const heldLegend = held.slice(heldLegendAt, held.indexOf("</ul>", heldLegendAt));
+  assert.match(heldLegend, /Utilities<\/span> <b>\$0\.00<\/b>/);
+  assert.doesNotMatch(heldLegend, /budget,|due| of |over/i);
   assert.doesNotMatch(held.slice(held.indexOf('data-bank-bar="income"'), held.indexOf('data-bank-bar="spend"')), /data-amount="25"/);
 });
 
@@ -404,11 +417,21 @@ test("October spending uses this budget month while the income bar is Main Budge
   assert.equal(ctx.bankSpendingSpent(snap, "2026-11"), 0);
   assert.equal(ctx.bankSpendingSpent(snap, "2026-10"), 40);
   const page = ctx.bankPageHtml(snap, opts);
-  const spend = page.slice(page.indexOf('data-bank-bar="spend"'), page.indexOf('data-bank-bar="spend"') + 2200);
+  const spendAt = page.indexOf('data-bank-bar="spend"');
+  const spend = page.slice(spendAt, spendAt + 2200);
+  const spendLegendAt = page.indexOf("bank-stack-legend", spendAt);
+  const spendLegend = page.slice(spendLegendAt, page.indexOf("</ul>", spendLegendAt));
   assert.match(spend, /data-bank-bar-month="2026-10"/);
   assert.match(spend, />October so far</);
   assert.match(spend, /data-bank-spend-spent="40"/);
-  assert.match(spend, /Groceries[\s\S]{0,80}\$40\.00 of \$100\.00/);
+  assert.match(spendLegend, /Groceries<\/span> <b>\$40\.00<\/b>/);
+  assert.match(spendLegend, /Dining<\/span> <b>\$0\.00<\/b>/);
+  assert.doesNotMatch(spendLegend, / of |due|over/i);
+  assert.deepEqual(
+    Array.from(spendLegend.matchAll(/data-bank-leg="([^"]+)"/g), function (match) { return match[1]; })
+      .filter(function (id) { return id !== "spare" && id !== "over"; }),
+    ["groceries", "dining"]
+  );
   assert.match(page, /Main Budget/);
   assert.doesNotMatch(spend, /November/);
   const later = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-11-02T16:00:00Z" });
@@ -573,8 +596,37 @@ test("stacked bars share category colors, segment sums match the totals, and ove
   assert.equal(planSeg.groceries.color, ctx.bankStackColor("groceries"));
   assert.ok(planSeg.spare);
   assert.ok(actualSeg.spare);
+  function segIds(html) {
+    const found = [];
+    const re = /data-bank-stack-seg="([^"]+)"/g;
+    let match;
+    while ((match = re.exec(html))) {
+      if (match[1] !== "spare" && match[1] !== "over") found.push(match[1]);
+    }
+    return found;
+  }
+  function legIds(bar) {
+    const at = page.indexOf('data-bank-bar="' + bar + '"');
+    const legendAt = page.indexOf("bank-stack-legend", at);
+    const chunk = page.slice(legendAt, page.indexOf("</ul>", legendAt));
+    const found = [];
+    const re = /data-bank-leg="([^"]+)"/g;
+    let match;
+    while ((match = re.exec(chunk))) {
+      if (match[1] !== "spare" && match[1] !== "over") found.push(match[1]);
+    }
+    return found;
+  }
+  assert.deepEqual(segIds(block("income")), ["utilities", "mortgage", "subscriptions", "groceries", "dining"]);
+  assert.deepEqual(segIds(block("spend")), ["utilities", "groceries"]);
+  assert.deepEqual(legIds("income"), ["utilities", "mortgage", "subscriptions", "groceries", "dining"]);
+  assert.deepEqual(legIds("spend"), legIds("income"));
   assert.match(page, />October so far</);
-  assert.match(page, /Groceries[\s\S]{0,120}\$120\.00 of \$100\.00/);
+  const spendLegendAt = page.indexOf("bank-stack-legend", page.indexOf('data-bank-bar="spend"'));
+  const spendLegend = page.slice(spendLegendAt, page.indexOf("</ul>", spendLegendAt));
+  assert.match(spendLegend, /Groceries<\/span> <b>\$120\.00<\/b>/);
+  assert.match(spendLegend, /Utilities<\/span> <b>\$80\.00<\/b>/);
+  assert.doesNotMatch(spendLegend, / of |due|over/i);
   assert.match(page, /data-bank-leg="groceries"[^>]*data-color="[^"]+"/);
   const heavy = JSON.parse(JSON.stringify(snap));
   heavy.budget.tiers_overlay.november_budget.guides.groceries = 2000;
