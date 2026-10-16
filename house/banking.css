@@ -2412,6 +2412,14 @@ table.book.bank-next-bills tr[data-bank-status-undo] {
   font-weight: 700;
 }
 
+.bank-save-notice.tone-go {
+  color: var(--go);
+}
+
+.bank-save-notice.tone-stop {
+  color: var(--stop);
+}
+
 .bank-confirm {
   margin: 6px 0;
 }

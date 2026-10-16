@@ -148,7 +148,7 @@
    hashchange and popstate read the hash and call bankActivate with fromHistory set.
    Budget stacks the bill calendar above Insights. Covers stay under the calendar.
    Live numbers come only from GET /data/banking.json (OTP cookie).
-   Category edits POST to /data/banking/overrides.json.
+   Category edits POST to /data/banking/overrides.json with tx_id when the row has one.
    Custom categories POST to /data/banking/categories.json.
    Mount and Edits also GET categories.json and merge that list into the dropdowns.
    A failed categories read keeps names already on the banking snap and does not post a removal.
@@ -179,6 +179,8 @@
    A present edits_tx does not hide a merchant that lives only on history.
    The Current tape stays on recent_tx. The merchant line and the category chip stay the feed strings. A known category with no rows still reads "No items in this category."
    A transaction key prefers tx_key, otherwise date|id|amount|desc.
+   A category or tier override matches tx_id, then replaced_alert, then date|id|amount|desc, then tx_key.
+   On read, a legacy key that matches a row is copied onto that row's tx_id. The legacy entry stays.
    Due-day precedence: user KV, then snapshot manual, then a feed day, then a generic filler only when the feed day is null.
    Custom categories and both edits sync across seats. A null balance stays blank.
    A bill prefers typical_amount, then amount, and reads "amount pending" when both are blank.
@@ -205,9 +207,11 @@ var BANK_STALE_MS = 36 * 60 * 60 * 1000;
 var BANK_STORE = "murphyHouseBanking";
 var BANK_DATA_URL = "/data/banking.json";
 
-/* A new query each read. The edge cache key includes it, so a stale snapshot cannot stick. */
+/* A new ?v= each read. The edge cache key includes it, so a stale snapshot cannot stick. */
+var bankDataStamp = 0;
 function bankDataUrl() {
-  return BANK_DATA_URL + "?t=" + Date.now();
+  bankDataStamp += 1;
+  return BANK_DATA_URL + "?v=" + Date.now() + "." + bankDataStamp;
 }
 var BANK_OVERRIDES_URL = "/data/banking/overrides.json";
 var BANK_DUEDAY_URL = "/data/banking/dueday-overrides.json";
@@ -695,6 +699,75 @@ function bankIsLockedResponse(res) {
   return n === 401 || n === 403;
 }
 
+function bankSaveResponseText(res, payload) {
+  var ok = !!(res && res.ok === true && res.type !== "opaqueredirect");
+  if (!ok) {
+    if (bankIsLockedResponse(res)) return "Please sign in again.";
+    var detail = payload && (payload.message || payload.detail || payload.error);
+    if (detail && String(detail).trim()) return String(detail).trim();
+    var status = res && Number(res.status);
+    if (status === 404 || status === 405) return "Edits are not on the feed yet. Nothing was saved.";
+    return "Edit did not save. Nothing was changed.";
+  }
+  var msg = payload && (payload.message || payload.detail);
+  if (msg && String(msg).trim()) return String(msg).trim();
+  return "Saved.";
+}
+
+function bankSetSaveNotice(root, res, payload) {
+  if (!root || !root._bank) return;
+  var ok = !!(res && res.ok === true && res.type !== "opaqueredirect");
+  root._bank.saveNotice = { tone: ok ? "go" : "stop", text: bankSaveResponseText(res, payload) };
+}
+
+/* POST/PUT for an Edits save. Shows the server line, then refetches banking.json so a stale copy cannot stick. */
+function bankEditPost(root, url, extra) {
+  if (root && root._bank) root._bank.saveRefetched = false;
+  function replay(res, payload) {
+    return {
+      ok: !!(res && res.ok === true),
+      status: res && res.status != null ? res.status : 0,
+      type: res && res.type ? res.type : "basic",
+      json: function () { return Promise.resolve(payload); }
+    };
+  }
+  function markRefetched() {
+    if (root && root._bank) root._bank.saveRefetched = true;
+  }
+  function done(res, payload) {
+    bankSetSaveNotice(root, res, payload);
+    return Promise.resolve().then(function () {
+      return bankRefetch(root, { silent: true, force: true, keepErrors: true });
+    }).then(function () {
+      markRefetched();
+      return replay(res, payload);
+    }, function () {
+      markRefetched();
+      return replay(res, payload);
+    });
+  }
+  var pending;
+  try { pending = fetch(url, bankFetchInit(extra)); }
+  catch (err) {
+    bankSetSaveNotice(root, null, null);
+    return Promise.reject(err);
+  }
+  return Promise.resolve(pending).then(function (res) {
+    return bankReadJson(res).then(function (payload) { return done(res, payload); });
+  }, function (err) {
+    bankSetSaveNotice(root, null, null);
+    return Promise.resolve().then(function () {
+      return bankRefetch(root, { silent: true, force: true, keepErrors: true });
+    }).then(function () {
+      markRefetched();
+      return Promise.reject(err);
+    }, function () {
+      markRefetched();
+      return Promise.reject(err);
+    });
+  });
+}
+
 function bankAccounts(snap) {
   var list = snap && snap.accounts;
   if (!Array.isArray(list)) return [];
@@ -904,10 +977,92 @@ function bankTxPart(v) {
 function bankTxKey(raw) {
   raw = raw || {};
   if (raw.tx_key != null && String(raw.tx_key).trim() !== "") return String(raw.tx_key);
+  return bankTxLegacyKey(raw);
+}
+
+function bankTxLegacyKey(raw) {
+  raw = raw || {};
   return [bankTxPart(raw.date), bankTxPart(raw.id), bankTxPart(raw.amount), bankTxPart(raw.desc)].join("|");
 }
 
+function bankPushLookupKey(keys, v) {
+  if (v == null) return;
+  var k = String(v).trim();
+  if (!k || keys.indexOf(k) >= 0) return;
+  keys.push(k);
+}
+
+/* tx_id, then the pending key this post replaced, then date|id|amount|desc, then tx_key. */
+function bankTxOverrideLookupKeys(raw) {
+  raw = raw || {};
+  var keys = [];
+  bankPushLookupKey(keys, raw.tx_id);
+  var replaced = raw.replaced_alert;
+  if (replaced && typeof replaced === "object") replaced = replaced.tx_key || replaced.key || replaced.pending_tx_key || "";
+  bankPushLookupKey(keys, replaced);
+  bankPushLookupKey(keys, bankTxLegacyKey(raw));
+  bankPushLookupKey(keys, raw.tx_key);
+  return keys;
+}
+
+function bankCollectRawTx(snap) {
+  var out = [];
+  function push(list) {
+    if (!Array.isArray(list)) return;
+    var i;
+    for (i = 0; i < list.length; i++) if (list[i]) out.push(list[i]);
+  }
+  var cur = snap && snap.current;
+  if (cur) {
+    push(cur.edits_tx);
+    push(cur.recent_tx);
+    push(cur.history_tx);
+  }
+  var hist = snap && snap.history;
+  if (hist && typeof hist === "object" && !Array.isArray(hist)) {
+    push(hist.history_tx);
+    push(hist.tx);
+    push(hist.transactions);
+  }
+  bankMonths(snap).forEach(function (m) {
+    push(m.tx);
+    push(m.txs);
+    push(m.transactions);
+    push(m.history_tx);
+    push(m.recent_tx);
+  });
+  return out;
+}
+
+/* Copy a legacy-key override onto the row's tx_id. Keep the legacy entry. */
+function bankMigrateOverrideKeys(snap) {
+  if (!snap || snap._migratingOverrides) return;
+  var map = snap.category_overrides;
+  if (!map || typeof map !== "object" || Array.isArray(map)) return;
+  snap._migratingOverrides = true;
+  try {
+    bankCollectRawTx(snap).forEach(function (raw) {
+      var id = raw.tx_id == null ? "" : String(raw.tx_id).trim();
+      if (!id) return;
+      if (map[id] != null && String(map[id]).trim() !== "") return;
+      var keys = bankTxOverrideLookupKeys(raw);
+      var i;
+      for (i = 0; i < keys.length; i++) {
+        if (keys[i] === id) continue;
+        if (!Object.prototype.hasOwnProperty.call(map, keys[i])) continue;
+        var v = map[keys[i]];
+        if (v == null || String(v).trim() === "") continue;
+        map[id] = v;
+        return;
+      }
+    });
+  } finally {
+    snap._migratingOverrides = false;
+  }
+}
+
 function bankOverrideMap(snap) {
+  bankMigrateOverrideKeys(snap);
   var o = snap && snap.category_overrides;
   if (!o || typeof o !== "object" || Array.isArray(o)) return {};
   return o;
@@ -920,14 +1075,18 @@ function bankHasOverrides(snap) {
   });
 }
 
-function bankTxCategory(raw, overrides) {
+function bankTxCategory(raw, overrides, snap) {
   raw = raw || {};
-  var key = bankTxKey(raw);
-  if (overrides && Object.prototype.hasOwnProperty.call(overrides, key)) {
-    var v = overrides[key];
-    if (v != null && String(v).trim() !== "") return bankCatName(v);
+  var keys = bankTxOverrideLookupKeys(raw);
+  var i;
+  if (overrides) {
+    for (i = 0; i < keys.length; i++) {
+      if (!Object.prototype.hasOwnProperty.call(overrides, keys[i])) continue;
+      var v = overrides[keys[i]];
+      if (v != null && String(v).trim() !== "") return bankResolveBoxName(bankCatName(v), snap);
+    }
   }
-  return bankCatName(raw.category);
+  return bankResolveBoxName(bankCatName(raw.category), snap);
 }
 
 function bankClipCategory(name) {
@@ -952,12 +1111,79 @@ function bankCustomCategories(snap) {
   return out;
 }
 
+/* budget.box_categories feeds the Edits pickers. Deleted and merged names stay hidden.
+   merged_into (a map, or per row) resolves an old name to its target. */
+function bankBoxMeta(snap) {
+  var hidden = {};
+  var merged = {};
+  var names = [];
+  var box = snap && snap.budget && snap.budget.box_categories;
+  if (box == null) return { names: names, hidden: hidden, merged: merged };
+  function markHidden(name) {
+    var n = bankClipCategory(name);
+    if (n) hidden[n] = true;
+  }
+  function addMerged(src, dest) {
+    var a = bankClipCategory(src);
+    var b = bankClipCategory(dest);
+    if (!a || !b || a === b) return;
+    merged[a] = b;
+    hidden[a] = true;
+  }
+  var list = null;
+  var deleted = null;
+  var map = null;
+  if (Array.isArray(box)) list = box;
+  else if (box && typeof box === "object") {
+    if (Array.isArray(box.categories)) list = box.categories;
+    if (box.merged_into && typeof box.merged_into === "object" && !Array.isArray(box.merged_into)) map = box.merged_into;
+    if (Array.isArray(box.deleted)) deleted = box.deleted;
+    else if (box.deleted && typeof box.deleted === "object") deleted = Object.keys(box.deleted);
+  }
+  if (map) Object.keys(map).forEach(function (oldName) { addMerged(oldName, map[oldName]); });
+  if (deleted) deleted.forEach(markHidden);
+  (list || []).forEach(function (item) {
+    if (item == null) return;
+    if (typeof item === "string" || typeof item === "number") {
+      var s = bankClipCategory(item);
+      if (s) names.push(s);
+      return;
+    }
+    if (typeof item !== "object") return;
+    var n = bankClipCategory(item.name || item.category || item.label);
+    if (!n) return;
+    if (item.merged_into) addMerged(n, item.merged_into);
+    if (item.deleted || item.merged || item.hidden) {
+      markHidden(n);
+      return;
+    }
+    names.push(n);
+  });
+  return { names: names, hidden: hidden, merged: merged };
+}
+
+function bankResolveBoxName(name, snap) {
+  var n = bankClipCategory(name);
+  if (!n || !snap) return bankClipCategory(name) || (name == null ? "" : String(name).trim());
+  var meta = bankBoxMeta(snap);
+  var seen = {};
+  var guard = 0;
+  while (meta.merged[n] && !seen[n] && guard < 12) {
+    seen[n] = true;
+    n = meta.merged[n];
+    guard += 1;
+  }
+  return n;
+}
+
 function bankKnownCategories(snap) {
   var seen = {};
   var order = [];
+  var meta = bankBoxMeta(snap);
   function add(name) {
-    var n = String(name == null ? "" : name).trim();
-    if (!n || seen[n]) return;
+    var n = bankResolveBoxName(String(name == null ? "" : name).trim(), snap);
+    n = String(n == null ? "" : n).trim();
+    if (!n || seen[n] || meta.hidden[n]) return;
     seen[n] = true;
     order.push(n);
   }
@@ -980,8 +1206,10 @@ function bankKnownCategories(snap) {
   });
   var ov = bankOverrideMap(snap);
   Object.keys(ov).forEach(function (k) { add(ov[k]); });
-  /* A custom with no transactions still belongs in both Edits dropdowns. */
+  /* A custom with no transactions still belongs in both Edits dropdowns.
+     Box categories join that list. Deleted and merged names stay out. */
   bankCustomCategories(snap).forEach(add);
+  meta.names.forEach(add);
   if (seen.Other) order = order.filter(function (n) { return n !== "Other"; });
   order.push("Other");
   return order;
@@ -1014,7 +1242,12 @@ function bankMapTx(raw, i, overrides, snap) {
   return {
     key: bankTxKey(raw),
     tx_key: raw.tx_key == null ? "" : String(raw.tx_key),
-    tx_id: raw.tx_id == null ? "" : String(raw.tx_id),
+    tx_id: raw.tx_id == null ? "" : String(raw.tx_id).trim(),
+    replaced_alert: (function () {
+      var replaced = raw.replaced_alert;
+      if (replaced && typeof replaced === "object") replaced = replaced.tx_key || replaced.key || replaced.pending_tx_key || "";
+      return replaced == null ? "" : String(replaced).trim();
+    })(),
     date: raw.date || "",
     desc: raw.desc == null ? (raw.description == null ? "" : String(raw.description)) : String(raw.desc),
     description: raw.description == null ? "" : String(raw.description),
@@ -1022,7 +1255,7 @@ function bankMapTx(raw, i, overrides, snap) {
     name_override: raw.name_override == null ? "" : String(raw.name_override).trim(),
     amount: bankNum(raw.amount),
     flow: raw.flow || "",
-    category: bankTxCategory(raw, overrides),
+    category: bankTxCategory(raw, overrides, snap),
     printed_category: raw.category,
     category_basis: raw.category_basis == null ? "" : String(raw.category_basis),
     feed_category: raw.feed_category == null ? "" : String(raw.feed_category),
@@ -5082,7 +5315,7 @@ function bankMtdIncome(snap, ym) {
       if (raw.date && bankMonthKey(raw.date) !== ym) return;
       var key = bankTxKey(raw);
       if (seen[key]) return;
-      var cat = bankTxCategory(raw, overrides);
+      var cat = bankTxCategory(raw, overrides, snap);
       var other = bankIsOtherIncomeRaw(raw, cat);
       if (!other && (!bankIsIncomeName(cat, incomeObj) || bankIsTransferName(cat))) return;
       var n = bankNum(raw.amount);
@@ -15045,11 +15278,11 @@ function bankSpendCommit(root, nextList, rulesPatch, txPatch) {
   if (txPatch && Object.keys(txPatch).length) body.category_tx = txPatch;
   var undo = bankSpendUndoSnap(doc);
   var posted = JSON.stringify(body);
-  return fetch(BANK_TIERS_URL, bankFetchInit({
+  return bankEditPost(root, BANK_TIERS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: posted
-  })).then(function (res) {
+  }).then(function (res) {
     if (!root._bank) return false;
     var status = res && Number(res.status);
     function finish(err) {
@@ -17724,7 +17957,10 @@ function bankEditTxListHtml(rows, known, picked, rowAdd) {
     var date = r.date ? String(r.date) : "\u2014";
     var control = addingKey && r.key === addingKey
       ? bankRowAddHtml(r, rowAdd.draft)
-      : '<select class="bank-chip" data-bank-tx="' + bankEsc(r.key) + '" aria-label="Category for ' + bankEsc(label) + '">' +
+      : '<select class="bank-chip" data-bank-tx="' + bankEsc(r.key) + '"' +
+        (r.tx_id ? ' data-bank-tx-id="' + bankEsc(r.tx_id) + '"' : "") +
+        (r.replaced_alert ? ' data-bank-replaced="' + bankEsc(r.replaced_alert) + '"' : "") +
+        ' aria-label="Category for ' + bankEsc(label) + '">' +
         bankChipOptions(assignCats, r.category) + " " + bankRowAddOption() + "</select>";
     return "<li><span class=\"bank-edit-id\"><span class=\"bank-merchant\">" + bankEsc(label) +
       "</span>" + bankTxTagsHtml(r) + ' <span class="bank-edit-meta">' + bankEsc(date) +
@@ -18453,8 +18689,41 @@ function bankTxSupersededPairs(snap) {
   return pairs;
 }
 
+function bankMigrateTierOverrides(snap) {
+  if (!snap || snap._migratingTiers) return;
+  var doc = snap.tier_doc;
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) return;
+  var bag = doc.tx_overrides;
+  if (!bag || typeof bag !== "object" || Array.isArray(bag)) return;
+  snap._migratingTiers = true;
+  try {
+    bankCollectRawTx(snap).forEach(function (raw) {
+      var id = raw.tx_id == null ? "" : String(raw.tx_id).trim();
+      if (!id || bag[id] != null) return;
+      var keys = bankTxOverrideLookupKeys(raw);
+      var i;
+      for (i = 0; i < keys.length; i++) {
+        if (keys[i] === id) continue;
+        if (bag[keys[i]] != null) { bag[id] = bag[keys[i]]; return; }
+        var hashed = bankTxOverrideHashed(keys[i]);
+        if (hashed && bag[hashed] != null) { bag[id] = bag[hashed]; return; }
+      }
+    });
+  } finally {
+    snap._migratingTiers = false;
+  }
+}
+
 function bankTxOverrideEntry(snap, raw) {
+  bankMigrateTierOverrides(snap);
   var bag = (bankTierDoc(snap).tx_overrides) || {};
+  var lookup = bankTxOverrideLookupKeys(raw);
+  var li;
+  for (li = 0; li < lookup.length; li++) {
+    if (bag[lookup[li]] != null) return bag[lookup[li]];
+    var hashedKey = bankTxOverrideHashed(lookup[li]);
+    if (hashedKey && bag[hashedKey] != null) return bag[hashedKey];
+  }
   var key = bankTxBagKey(raw);
   if (key && bag[key] != null) return bag[key];
   var source = bankTxOverrideSource(raw);
@@ -18972,6 +19241,11 @@ function bankEditsPanelHtml(snap, opts) {
   var known = bankKnownCategories(snap);
   var inUse = bankCategoriesInUse(rows, known);
   var picked = bankResolveEditCat(inUse, known, opts.editCat);
+  var saveToast = "";
+  if (opts.saveNotice && opts.saveNotice.text) {
+    var toastTone = opts.saveNotice.tone === "go" ? "tone-go" : "tone-stop";
+    saveToast = '<p class="bank-save-notice ' + toastTone + '" data-bank-save-toast="1" role="status">' + bankEsc(opts.saveNotice.text) + "</p>";
+  }
   var dueNote = bankHasDueNote(snap) ? '<p class="hint">Due day edits sync across your seats.</p>' : "";
   var kindNote = bankHasMustPayNote(snap) || bankTierRulesActive(snap) ? '<p class="hint">Tier edits sync across your seats.</p>' : "";
   var catErr = opts.overrideError ? '<p class="hint tone-stop" role="status">' + bankEsc(opts.overrideError) + "</p>" : "";
@@ -19007,7 +19281,7 @@ function bankEditsPanelHtml(snap, opts) {
     ? '<div class="bank-edit-rules">' + (tiers.rules || "") +
       "<section><h2>Rules</h2><div class=\"card span\">" + rulesBody + "</div></section></div>"
     : (tiers.rules ? '<div class="bank-edit-rules">' + tiers.rules + "</div>" : "");
-  return '<div class="bank-edit-grid">' + pill + bankCushionEditHtml(opts) + saveErr + undo + bankTxSearchHtml(snap, Object.assign({}, opts, { txAssign: txAssign })) +
+  return '<div class="bank-edit-grid">' + saveToast + pill + bankCushionEditHtml(opts) + saveErr + undo + bankTxSearchHtml(snap, Object.assign({}, opts, { txAssign: txAssign })) +
     bankSpendEditorHtml(snap, opts) +
     '<section class="bank-edit-block"><h2>Bills</h2><div class="card span">' + dueNote + dueErr +
     bankEditBillHtml(bills, ym, opts.edits, opts.statusConfirm, snap, opts) +
@@ -19140,7 +19414,7 @@ function bankDetailCatHit(snap, cat, raw) {
     if (mappedId === want) return true;
   }
   var name = "";
-  try { name = bankTxCategory(raw, bankOverrideMap(snap)); } catch (e5) { name = raw.category || ""; }
+  try { name = bankTxCategory(raw, bankOverrideMap(snap), snap); } catch (e5) { name = raw.category || ""; }
   if (!name) return false;
   var resolved = "";
   try { resolved = bankSpendResolvePrinted(cats, name) || ""; } catch (e6) { resolved = ""; }
@@ -19529,6 +19803,7 @@ function bankPaint(root, paintOpts) {
     edits: st.edits || bankReadStore(),
     editsOpen: !!st.editsOpen,
     overrideError: st.overrideError || "",
+    saveNotice: st.saveNotice || null,
     dueError: st.dueError || "",
     kindError: st.kindError || "",
     tierSaveError: st.tierSaveError || "",
@@ -19932,27 +20207,54 @@ function bankReadJson(res) {
   }
 }
 
-function bankRememberOverride(snap, key, category) {
+function bankRememberOverride(snap, key, category, txId) {
   var map = {};
-  var prev = bankOverrideMap(snap);
-  Object.keys(prev).forEach(function (k) { map[k] = prev[k]; });
+  var prev = snap && snap.category_overrides;
+  if (prev && typeof prev === "object" && !Array.isArray(prev)) {
+    Object.keys(prev).forEach(function (k) { map[k] = prev[k]; });
+  }
   var cat = category == null ? "" : String(category).trim();
-  if (!cat) delete map[key];
-  else map[key] = cat;
+  var id = txId == null ? "" : String(txId).trim();
+  if (!cat) {
+    if (key) delete map[key];
+    if (id) delete map[id];
+  } else {
+    if (key) map[key] = cat;
+    if (id) map[id] = cat;
+  }
   snap.category_overrides = map;
+}
+
+function bankLooksLikeSnapshot(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  if (data.current && typeof data.current === "object") return true;
+  if (data.budget && typeof data.budget === "object") return true;
+  if (Array.isArray(data.accounts)) return true;
+  return false;
 }
 
 function bankRefetch(root, opts) {
   opts = opts || {};
-  return fetch(bankDataUrl(), bankFetchInit()).then(function (res) {
+  if (!opts.force && root && root._bank && root._bank.saveRefetched) {
+    root._bank.saveRefetched = false;
+    return Promise.resolve(false);
+  }
+  var pending;
+  try { pending = fetch(bankDataUrl(), bankFetchInit()); }
+  catch (e) { return Promise.resolve(false); }
+  return Promise.resolve(pending).then(function (res) {
     if (!res || res.ok !== true || res.type === "opaqueredirect") return false;
     return bankReadJson(res).then(function (data) {
-      if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+      if (!bankLooksLikeSnapshot(data)) return false;
       /* A stale print can omit a custom that this seat just added. Keep those labels. */
+      var notice = root._bank && root._bank.saveNotice;
       bankAdoptSnapshot(root._bank, data);
-      root._bank.overrideError = "";
-      root._bank.dueError = "";
-      root._bank.kindError = "";
+      if (notice) root._bank.saveNotice = notice;
+      if (!opts.keepErrors) {
+        root._bank.overrideError = "";
+        root._bank.dueError = "";
+        root._bank.kindError = "";
+      }
       if (!opts.silent) bankPaint(root);
       return true;
     });
@@ -19960,21 +20262,23 @@ function bankRefetch(root, opts) {
 }
 
 /* A 200 body can be a stale snapshot or an empty ack. The row must show the category that just saved. */
-function bankApplyPostedOverride(snap, key, category) {
+function bankApplyPostedOverride(snap, key, category, txId) {
   if (!snap || !key) return;
   var next = category == null ? "" : String(category).trim();
   if (!next) return;
   var shown = false;
+  var id = txId == null ? "" : String(txId).trim();
   bankEditRows(snap).forEach(function (r) {
-    if (r.key === key && r.category === next) shown = true;
+    if (!id && r.key === key && r.tx_id) id = r.tx_id;
+    if ((r.key === key || (id && r.tx_id === id)) && r.category === next) shown = true;
   });
-  if (!shown) bankRememberOverride(snap, key, next);
+  if (!shown) bankRememberOverride(snap, key, next, id);
 }
 
-function bankTakeOverrideResponse(root, payload, key, category) {
+function bankTakeOverrideResponse(root, payload, key, category, txId) {
   var st = root._bank;
   function finish() {
-    if (st.data) bankApplyPostedOverride(st.data, key, category);
+    if (st.data) bankApplyPostedOverride(st.data, key, category, txId);
     st.overrideError = "";
     bankPaint(root);
     return Promise.resolve(true);
@@ -19988,10 +20292,16 @@ function bankTakeOverrideResponse(root, payload, key, category) {
     st.data.category_overrides = payload.overrides;
     return finish();
   }
-  return bankRefetch(root, { silent: true }).then(function (ok) {
-    if (!ok && key && st.data) bankRememberOverride(st.data, key, category);
-    return finish();
-  });
+  /* bankEditPost already refetched. A body with no map still has to keep the category that just saved. */
+  if (key && st.data) {
+    var shown = false;
+    var id = txId == null ? "" : String(txId).trim();
+    bankEditRows(st.data).forEach(function (r) {
+      if ((r.key === key || (id && r.tx_id === id)) && r.category === category) shown = true;
+    });
+    if (!shown) bankRememberOverride(st.data, key, category, txId);
+  }
+  return finish();
 }
 
 function bankOverrideErrorText(res) {
@@ -20060,11 +20370,11 @@ function bankSaveDueDay(root, key, day) {
   if (same) return Promise.resolve();
   root._bank.dueError = "";
   root._bank.billKey = key;
-  return fetch(BANK_DUEDAY_URL, bankFetchInit({
+  return bankEditPost(root, BANK_DUEDAY_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key: key, day: next })
-  })).then(function (res) {
+  }).then(function (res) {
     if (!res || res.ok !== true || res.type === "opaqueredirect") {
       root._bank.dueError = bankDueErrorText(res);
       bankPaint(root);
@@ -20155,11 +20465,11 @@ function bankSaveMustPay(root, name, kind) {
   if (!raw) return Promise.resolve(false);
   if (bankMustPayOverride(root._bank.data, raw) === next) return Promise.resolve(true);
   root._bank.kindError = "";
-  return fetch(BANK_MUSTPAY_URL, bankFetchInit({
+  return bankEditPost(root, BANK_MUSTPAY_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: raw, kind: next })
-  })).then(function (res) {
+  }).then(function (res) {
     if (!res || res.ok !== true || res.type === "opaqueredirect") {
       root._bank.kindError = bankMustPayErrorText(res);
       bankPaint(root);
@@ -20243,11 +20553,11 @@ function bankSaveTier(root, name, tier) {
   var raw = String(name).trim();
   if (!raw) return Promise.resolve(false);
   root._bank.kindError = "";
-  return fetch(BANK_TIERS_URL, bankFetchInit({
+  return bankEditPost(root, BANK_TIERS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ rule: { name: raw, tier: next } })
-  })).then(function (res) {
+  }).then(function (res) {
     if (!res || res.ok !== true || res.type === "opaqueredirect") return bankKeepTierLocal(root, raw, next);
     return bankReadJson(res).then(function () {
       if (!root._bank.data || typeof root._bank.data !== "object" || Array.isArray(root._bank.data)) root._bank.data = {};
@@ -20288,11 +20598,11 @@ function bankSaveTxOverride(root, key, tier) {
   if (!Object.prototype.hasOwnProperty.call(bag, clean) && Object.keys(bag).length >= 1000) return false;
   var body = { tx_overrides: {} };
   body.tx_overrides[clean] = { tier: next };
-  return fetch(BANK_TIERS_URL, bankFetchInit({
+  return bankEditPost(root, BANK_TIERS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
-  })).then(function (res) {
+  }).then(function (res) {
     if (!res || res.ok !== true || res.type === "opaqueredirect") {
       root._bank.tierSaveError = "Could not save tiers.json. The change is still on this screen.";
       bankPaint(root);
@@ -20323,11 +20633,11 @@ function bankUndoTxMove(root, key, merchant) {
   if (bankTxOverrideKeyOk(clean) && bag && Object.prototype.hasOwnProperty.call(bag, clean)) {
     var undo = { tx_overrides: {} };
     undo.tx_overrides[clean] = null;
-    return fetch(BANK_TIERS_URL, bankFetchInit({
+    return bankEditPost(root, BANK_TIERS_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(undo)
-    })).then(function (res) {
+    }).then(function (res) {
       if (!res || res.ok !== true || res.type === "opaqueredirect") {
         root._bank.tierSaveError = "Could not save tiers.json. The change is still on this screen.";
         bankPaint(root);
@@ -20349,11 +20659,11 @@ function bankUndoTxMove(root, key, merchant) {
   }
   var name = String(merchant || key || "").trim();
   if (!name) return Promise.resolve(false);
-  return fetch(BANK_TIERS_URL, bankFetchInit({
+  return bankEditPost(root, BANK_TIERS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ rule: { name: name, tier: null } })
-  })).then(function (res) {
+  }).then(function (res) {
     var failed = !res || res.ok !== true || res.type === "opaqueredirect";
     if (!failed && root._bank.data) bankDropTierRule(root._bank.data, name);
     root._bank.tierSaveError = failed ? "Could not save tiers.json. The change is still on this screen." : "";
@@ -20421,11 +20731,11 @@ function bankClearTierPlan(root, key) {
   if (tier !== "required" && tier !== "needs" && tier !== "wants") return Promise.resolve(false);
   var body = { plans: {} };
   body.plans[tier] = null;
-  return fetch(BANK_TIERS_URL, bankFetchInit({
+  return bankEditPost(root, BANK_TIERS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
-  })).then(function (res) {
+  }).then(function (res) {
     var failed = !res || res.ok !== true || res.type === "opaqueredirect";
     if (!root._bank.data || typeof root._bank.data !== "object") root._bank.data = {};
     bankApplyTierPlan(root._bank.data, tier, null);
@@ -20449,11 +20759,11 @@ function bankSaveTierPlans(root, key, value) {
   var body = { plans: {} };
   body.plans[tier] = n;
   root._bank.kindError = "";
-  return fetch(BANK_TIERS_URL, bankFetchInit({
+  return bankEditPost(root, BANK_TIERS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
-  })).then(function (res) {
+  }).then(function (res) {
     if (!res || res.ok !== true || res.type === "opaqueredirect") return bankKeepPlanLocal(root, tier, n);
     return bankReadJson(res).then(function () {
       if (!root._bank.data || typeof root._bank.data !== "object" || Array.isArray(root._bank.data)) root._bank.data = {};
@@ -20504,11 +20814,11 @@ function bankMarkLocalKey(snap, field, name, on) {
 
 function bankPostTierPatch(root, body, applyLocal) {
   if (!root || !root._bank) return Promise.resolve(false);
-  return fetch(BANK_TIERS_URL, bankFetchInit({
+  return bankEditPost(root, BANK_TIERS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
-  })).then(function (res) {
+  }).then(function (res) {
     var failed = !res || res.ok !== true || res.type === "opaqueredirect";
     function finish(line) {
       if (!root._bank) return false;
@@ -20592,11 +20902,11 @@ function bankSaveBillAccount(root, key, suffix) {
   var posted = {};
   posted[id] = suffix;
   var body = { bill_account: posted };
-  return fetch(BANK_TIERS_URL, bankFetchInit({
+  return bankEditPost(root, BANK_TIERS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
-  })).then(function (res) {
+  }).then(function (res) {
     var failed = !res || res.ok !== true || res.type === "opaqueredirect";
     function fail(payload) {
       var code = bankSpendErrorCode(payload);
@@ -20652,11 +20962,11 @@ function bankSaveBillDueDay(root, key, token) {
   var posted = {};
   posted[id] = parsed;
   var body = { bill_due_day: posted };
-  return fetch(BANK_TIERS_URL, bankFetchInit({
+  return bankEditPost(root, BANK_TIERS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
-  })).then(function (res) {
+  }).then(function (res) {
     var failed = !res || res.ok !== true || res.type === "opaqueredirect";
     if (failed) {
       root._bank.dueError = "Could not save tiers.json. The change is still on this screen.";
@@ -20771,11 +21081,11 @@ function bankPutMustPay(root, overrides) {
     if (kind) map[k] = kind;
   });
   root._bank.kindError = "";
-  return fetch(BANK_MUSTPAY_URL, bankFetchInit({
+  return bankEditPost(root, BANK_MUSTPAY_URL, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ schema: "banking-mustpay-overrides/v1", overrides: map })
-  })).then(function (res) {
+  }).then(function (res) {
     if (!res || res.ok !== true || res.type === "opaqueredirect") {
       root._bank.kindError = bankMustPayErrorText(res);
       bankPaint(root);
@@ -20825,32 +21135,40 @@ function bankRehydrateMustPay(root, opts) {
   }).catch(function () { return false; });
 }
 
-function bankSaveCategory(root, key, category, force) {
+function bankSaveCategory(root, key, category, force, ids) {
   if (!root || !root._bank || !key) return Promise.resolve(false);
   var next = category == null ? "" : String(category).trim();
   if (!next) return Promise.resolve(false);
   var prev = "";
   var same = false;
+  ids = ids || {};
+  var txId = ids.tx_id == null ? "" : String(ids.tx_id).trim();
+  var replaced = ids.replaced_alert == null ? "" : String(ids.replaced_alert).trim();
   bankEditRows(root._bank.data).forEach(function (r) {
     if (r.key !== key) return;
     prev = r.category;
     if (r.category === next) same = true;
+    if (!txId && r.tx_id) txId = String(r.tx_id).trim();
+    if (!replaced && r.replaced_alert) replaced = String(r.replaced_alert).trim();
   });
   /* Re-selecting the current label does not post. A row add must post even if the feed already echoes the label. */
   if (same && !force) return Promise.resolve(true);
   root._bank.overrideError = "";
-  return fetch(BANK_OVERRIDES_URL, bankFetchInit({
+  var body = { key: key, category: next };
+  if (txId) body.tx_id = txId;
+  if (replaced) body.replaced_alert = replaced;
+  return bankEditPost(root, BANK_OVERRIDES_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key: key, category: next })
-  })).then(function (res) {
+    body: JSON.stringify(body)
+  }).then(function (res) {
     if (!res || res.ok !== true || res.type === "opaqueredirect") {
       root._bank.overrideError = bankOverrideErrorText(res);
       bankPaint(root);
       return false;
     }
     return bankReadJson(res).then(function (payload) {
-      return bankTakeOverrideResponse(root, payload, key, next).then(function (saved) {
+      return bankTakeOverrideResponse(root, payload, key, next, txId).then(function (saved) {
         if (!saved || !prev || prev === next) return !!saved;
         return bankPruneCustomIfEmpty(root, prev).then(function () { return true; });
       });
@@ -20924,6 +21242,8 @@ function bankAdoptSnapshot(st, payload) {
   var incoming = bankCustomCategories(st.data);
   if (!incoming.length && prev.length) st.data.custom_categories = prev.slice();
   else prev.forEach(function (n) { bankRememberCategory(st.data, n); });
+  bankMigrateOverrideKeys(st.data);
+  bankMigrateTierOverrides(st.data);
 }
 
 function bankCategoryCount(snap, name) {
@@ -20937,6 +21257,8 @@ function bankCategoryCount(snap, name) {
       var row = bankMapTx(raw, 0, overrides, snap);
       if (!row.key || seen[row.key]) return;
       seen[row.key] = true;
+      if (row.tx_id) seen[row.tx_id] = true;
+      if (row.replaced_alert) seen[row.replaced_alert] = true;
       if (row.category === target) n += 1;
     });
   });
@@ -21044,11 +21366,11 @@ function bankPostCategoryRemoval(root, names) {
       bankRememberCategory(snap, name);
       return step();
     }
-    return fetch(BANK_CATEGORIES_URL, bankFetchInit({
+    return bankEditPost(root, BANK_CATEGORIES_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category: name, remove: true })
-    })).then(function (res) {
+    }).then(function (res) {
       if (!res || res.ok !== true || res.type === "opaqueredirect") {
         noteFail(name, res);
         return step();
@@ -21241,11 +21563,11 @@ function bankAddCategory(root, name, hold) {
   function restoreKept() {
     if (root._bank && root._bank.keptEmpty === next) root._bank.keptEmpty = prevKept;
   }
-  return fetch(BANK_CATEGORIES_URL, bankFetchInit({
+  return bankEditPost(root, BANK_CATEGORIES_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ category: next })
-  })).then(function (res) {
+  }).then(function (res) {
     if (!res || res.ok !== true || res.type === "opaqueredirect") {
       restoreKept();
       root._bank.categoryError = bankCategoryErrorText(res);
@@ -21972,7 +22294,10 @@ function bankMount(root, data, opts) {
       /* The select can reset to the old label while this row is adding a category. That must not drop the key. */
       if (root._bank && root._bank.rowAdd && root._bank.rowAdd.key === txKey) return;
       if (root._bank) root._bank.rowAdd = null;
-      return bankSaveCategory(root, txKey, txVal);
+      return bankSaveCategory(root, txKey, txVal, false, {
+        tx_id: el.getAttribute("data-bank-tx-id") || "",
+        replaced_alert: el.getAttribute("data-bank-replaced") || ""
+      });
     }
     if (el.hasAttribute && el.hasAttribute("data-bank-year")) {
       root._bank.year = el.value;

@@ -895,9 +895,9 @@ test("desk links Banking and banking assets are cache-busted at tip dx", functio
   assert.match(stub, /noindex/);
   assert.match(stub, /canonical/);
   assert.match(investments, /\/house\/house\.css\?v=20261008ey/);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261015fw/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261015fx/);
 
-  assert.match(page, /\/house\/banking\.css\?v=20261015fw/);
+  assert.match(page, /\/house\/banking\.css\?v=20261015fx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904eb/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904ec/);
@@ -1125,8 +1125,13 @@ test("category override posts to the feed and repaints without localStorage", as
     hasAttribute: function () { return false; }
   };
   await el.listeners.change({ target: sel });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].url, "/data/banking/overrides.json");
+  assert.equal(String(calls[1].url).split("?")[0], "/data/banking.json");
+  assert.match(String(calls[1].url), /\?v=/);
+  assert.equal(calls[1].init.cache, "no-store");
+  assert.match(el.innerHTML, /data-bank-save-toast="1"/);
+  assert.match(el.innerHTML, /Saved\./);
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.credentials, "include");
   assert.equal(calls[0].init.headers.Accept, "application/json");
@@ -1147,7 +1152,7 @@ test("category override posts to the feed and repaints without localStorage", as
       hasAttribute: function (name) { return name === "data-bank-cat"; }
     }
   });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   const chipAt = el.innerHTML.indexOf('data-bank-tx="' + key + '"');
   assert.ok(chipAt >= 0);
   const chip = el.innerHTML.slice(chipAt, el.innerHTML.indexOf("</select>", chipAt));
@@ -1239,6 +1244,165 @@ test("override post refetches banking.json when the body has no map", async func
   assert.ok(chipAt >= 0);
   const chip = el.innerHTML.slice(chipAt, el.innerHTML.indexOf("</select>", chipAt));
   assert.match(chip, /value="Health" selected/);
+});
+
+test("a category override survives a pending row becoming posted", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const legacy = "2026-10-05|acct-check|12.34|Corner Market";
+  const pending = {
+    date: "2026-10-05",
+    id: "acct-check",
+    desc: "Corner Market",
+    amount: 12.34,
+    flow: "outflow",
+    category: "Groceries",
+    tx_id: "tx-100"
+  };
+  fx.current.edits_tx = [pending];
+  fx.current.recent_tx = [pending];
+  fx.category_overrides = {};
+  fx.category_overrides[legacy] = "Food/Drink";
+  const held = ctx.bankEditRows(fx);
+  const still = held.filter(function (r) { return r.tx_id === "tx-100"; })[0];
+  assert.equal(still.category, "Food/Drink");
+  assert.equal(fx.category_overrides["tx-100"], "Food/Drink");
+  assert.equal(fx.category_overrides[legacy], "Food/Drink");
+
+  const posted = {
+    date: "2026-10-06",
+    id: "acct-check",
+    desc: "Corner Market #100",
+    amount: 12.34,
+    flow: "outflow",
+    category: "Groceries",
+    tx_id: "tx-100",
+    replaced_alert: legacy
+  };
+  const next = JSON.parse(JSON.stringify(fx));
+  next.category_overrides = {};
+  next.category_overrides[legacy] = "Food/Drink";
+  next.current.edits_tx = [posted];
+  next.current.recent_tx = [posted];
+  delete next.current.history_tx;
+  const after = ctx.bankEditRows(next).filter(function (r) { return r.tx_id === "tx-100"; });
+  assert.equal(after.length, 1);
+  assert.equal(after[0].category, "Food/Drink");
+  assert.notEqual(after[0].key, legacy);
+  assert.equal(next.category_overrides["tx-100"], "Food/Drink");
+  assert.equal(next.category_overrides[legacy], "Food/Drink");
+
+  const calls = [];
+  ctx.fetch = function (url, init) {
+    const cached = categoryRead(url, init, fx.custom_categories);
+    if (cached) return cached;
+    calls.push({ url: String(url), init: init || {} });
+    if (String(url).indexOf("/data/banking.json") === 0) {
+      const body = JSON.parse(JSON.stringify(next));
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () { return Promise.resolve(body); }
+      });
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () {
+        return Promise.resolve({ ok: true, message: "Category saved." });
+      }
+    });
+  };
+  const el = mount(ctx, JSON.parse(JSON.stringify(next)), { tab: "edits", editCat: "Food/Drink", now: "2026-10-06T18:00:00-04:00" });
+  assert.match(el.innerHTML, /data-bank-tx-id="tx-100"/);
+  assert.match(el.innerHTML, /data-bank-replaced="2026-10-05\|acct-check\|12\.34\|Corner Market"/);
+  const sel = {
+    value: "Health",
+    getAttribute: function (name) {
+      if (name === "data-bank-tx") return after[0].key;
+      if (name === "data-bank-tx-id") return "tx-100";
+      if (name === "data-bank-replaced") return legacy;
+      return null;
+    },
+    hasAttribute: function () { return false; }
+  };
+  await el.listeners.change({ target: sel });
+  assert.ok(calls.length >= 2);
+  assert.equal(calls[0].url, "/data/banking/overrides.json");
+  assert.equal(calls[0].init.cache, "no-store");
+  const postedBody = JSON.parse(calls[0].init.body);
+  assert.equal(postedBody.key, after[0].key);
+  assert.equal(postedBody.tx_id, "tx-100");
+  assert.equal(postedBody.replaced_alert, legacy);
+  assert.equal(postedBody.category, "Health");
+  const refetch = calls.filter(function (c) { return String(c.url).indexOf("/data/banking.json?v=") === 0; })[0];
+  assert.ok(refetch);
+  assert.equal(refetch.init.cache, "no-store");
+  assert.match(el.innerHTML, /data-bank-save-toast="1"/);
+  assert.match(el.innerHTML, /class="bank-save-notice tone-go"/);
+  assert.match(el.innerHTML, /Category saved\./);
+  const savedRow = ctx.bankEditRows(el._bank.data).filter(function (r) { return r.tx_id === "tx-100"; })[0];
+  assert.equal(savedRow.category, "Health");
+  assert.equal(el._bank.data.category_overrides["tx-100"], "Health");
+  assert.equal(el._bank.data.category_overrides[legacy], "Food/Drink");
+  await el.listeners.change({
+    target: {
+      value: "Health",
+      getAttribute: function () { return null; },
+      hasAttribute: function (name) { return name === "data-bank-cat"; }
+    }
+  });
+  const chipAt = el.innerHTML.indexOf('data-bank-tx-id="tx-100"');
+  assert.ok(chipAt >= 0);
+  const chip = el.innerHTML.slice(chipAt, el.innerHTML.indexOf("</select>", chipAt));
+  assert.match(chip, /value="Health" selected/);
+});
+
+test("box categories join the Edits picker and a merged name resolves", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  fx.budget.box_categories = {
+    categories: [
+      { name: "Pets" },
+      { name: "Old Groceries", merged: true, merged_into: "Groceries" },
+      { name: "Archive", deleted: true },
+      "Supplies"
+    ],
+    deleted: ["Gifts"],
+    merged_into: { Transport: "Gas" }
+  };
+  const known = ctx.bankKnownCategories(fx);
+  assert.ok(known.indexOf("Pets") >= 0);
+  assert.ok(known.indexOf("Supplies") >= 0);
+  assert.equal(known.indexOf("Old Groceries"), -1);
+  assert.equal(known.indexOf("Archive"), -1);
+  assert.equal(known.indexOf("Gifts"), -1);
+  assert.equal(known.indexOf("Transport"), -1);
+  const fuel = fx.current.edits_tx.filter(function (r) { return r.desc === "City Fuel"; })[0];
+  assert.equal(ctx.bankTxCategory(fuel, fx.category_overrides, fx), "Gas");
+});
+
+test("a locked category save asks to sign in again", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  ctx.fetch = function () {
+    return Promise.resolve({ ok: false, status: 401, type: "basic" });
+  };
+  const el = mount(ctx, JSON.parse(JSON.stringify(fx)), { tab: "edits", now: "2026-10-05T18:00:00-04:00" });
+  const key = "2026-10-05|acct-check|12.34|Corner Market";
+  await el.listeners.change({
+    target: {
+      value: "Health",
+      getAttribute: function (name) { return name === "data-bank-tx" ? key : null; },
+      hasAttribute: function () { return false; }
+    }
+  });
+  assert.match(el.innerHTML, /data-bank-save-toast="1"/);
+  assert.match(el.innerHTML, /class="bank-save-notice tone-stop"/);
+  assert.match(el.innerHTML, /Please sign in again\./);
+  assert.match(el.innerHTML, /value="Groceries" selected/);
 });
 
 test("banking fetch asks for JSON and a login redirect counts as locked", async function () {
@@ -1344,8 +1508,10 @@ test("selecting a bill posts its due day and a null amount stays pending", async
       hasAttribute: function () { return false; }
     }
   });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].url, "/data/banking/dueday-overrides.json");
+  assert.equal(String(calls[1].url).split("?")[0], "/data/banking.json");
+  assert.equal(calls[1].init.cache, "no-store");
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.credentials, "include");
   assert.equal(calls[0].init.headers.Accept, "application/json");
@@ -1364,8 +1530,8 @@ test("selecting a bill posts its due day and a null amount stays pending", async
       hasAttribute: function () { return false; }
     }
   });
-  assert.equal(calls.length, 2);
-  assert.equal(JSON.parse(calls[1].init.body).day, null);
+  assert.equal(calls.length, 4);
+  assert.equal(JSON.parse(calls[2].init.body).day, null);
   assert.match(el.innerHTML, /<b>15<\/b>[\s\S]{0,500}title="Car payment" aria-label="Car payment">Car payment<\/span>/);
 });
 
@@ -1877,8 +2043,10 @@ test("edits can add a custom category and assign a merchant to it", async functi
   el.listeners.input(typed.input);
   assert.equal(el._bank.newCatDraft, "Pets");
   await el.listeners.click(typed.click);
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].url, "/data/banking/categories.json");
+  assert.match(String(calls[1].url), /^\/data\/banking\.json\?v=/);
+  assert.equal(calls[1].init.cache, "no-store");
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.credentials, "include");
   assert.equal(calls[0].init.headers.Accept, "application/json");
@@ -1900,7 +2068,7 @@ test("edits can add a custom category and assign a merchant to it", async functi
       hasAttribute: function (name) { return name === "data-bank-cat"; }
     }
   });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   const key = "2026-10-05|acct-check|12.34|Corner Market";
   const chipAt = el.innerHTML.indexOf('data-bank-tx="' + key + '"');
   assert.ok(chipAt >= 0);
@@ -1913,12 +2081,14 @@ test("edits can add a custom category and assign a merchant to it", async functi
       hasAttribute: function () { return false; }
     }
   });
-  assert.equal(calls.length, 2);
-  assert.equal(calls[1].url, "/data/banking/overrides.json");
-  assert.equal(calls[1].init.method, "POST");
-  assert.equal(calls[1].init.headers.Accept, "application/json");
-  assert.equal(calls[1].init.headers["Content-Type"], "application/json");
-  assert.deepEqual(JSON.parse(calls[1].init.body), { key: key, category: "Pets" });
+  assert.equal(calls.length, 4);
+  assert.equal(calls[2].url, "/data/banking/overrides.json");
+  assert.equal(calls[2].init.method, "POST");
+  assert.equal(calls[2].init.headers.Accept, "application/json");
+  assert.equal(calls[2].init.headers["Content-Type"], "application/json");
+  assert.equal(JSON.parse(calls[2].init.body).key, key);
+  assert.equal(JSON.parse(calls[2].init.body).category, "Pets");
+  assert.equal(JSON.parse(calls[2].init.body).tx_id, "tx-1005");
   await el.listeners.change({
     target: {
       value: "Pets",
@@ -1938,9 +2108,9 @@ test("edits can add a custom category and assign a merchant to it", async functi
       hasAttribute: function (name) { return name === "data-bank-new-cat"; }
     }
   });
-  assert.equal(calls.length, 3);
-  assert.equal(calls[2].url, "/data/banking/categories.json");
-  assert.equal(JSON.parse(calls[2].init.body).category, "B".repeat(64));
+  assert.equal(calls.length, 6);
+  assert.equal(calls[4].url, "/data/banking/categories.json");
+  assert.equal(JSON.parse(calls[4].init.body).category, "B".repeat(64));
 });
 
 test("a failed category add leaves the list unchanged", async function () {
@@ -2078,7 +2248,7 @@ test("choosing Add category on a merchant row posts the category then assigns it
   el.listeners.input(rowDraftInput("  Pets  "));
   assert.equal(el._bank.rowAdd.draft, "  Pets  ");
   await el.listeners.click(rowButtonClick("ok"));
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 4);
   assert.equal(calls[0].url, "/data/banking/categories.json");
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.credentials, "include");
@@ -2086,10 +2256,12 @@ test("choosing Add category on a merchant row posts the category then assigns it
   assert.equal(calls[0].init.headers["Content-Type"], "application/json");
   assert.equal(calls[0].init.redirect, "manual");
   assert.deepEqual(JSON.parse(calls[0].init.body), { category: "Pets" });
-  assert.equal(calls[1].url, "/data/banking/overrides.json");
-  assert.equal(calls[1].init.method, "POST");
-  assert.equal(calls[1].init.headers["Content-Type"], "application/json");
-  assert.deepEqual(JSON.parse(calls[1].init.body), { key: key, category: "Pets" });
+  assert.equal(calls[2].url, "/data/banking/overrides.json");
+  assert.equal(calls[2].init.method, "POST");
+  assert.equal(calls[2].init.headers["Content-Type"], "application/json");
+  assert.equal(JSON.parse(calls[2].init.body).key, key);
+  assert.equal(JSON.parse(calls[2].init.body).category, "Pets");
+  assert.equal(JSON.parse(calls[2].init.body).tx_id, "tx-1005");
   assert.deepEqual(JSON.parse(JSON.stringify(el._bank.data.custom_categories)), ["Household", "Gifts", "Pets"]);
   assert.equal(el._bank.editCat, "Pets");
   assert.equal(el._bank.rowAdd, null);
@@ -2116,13 +2288,15 @@ test("choosing Add category on a merchant row posts the category then assigns it
   await el.listeners.change(chooseRowAdd(ctx, key));
   el.listeners.input(rowDraftInput(" Household "));
   await el.listeners.click(rowButtonClick("ok"));
-  assert.equal(calls.length, 5);
-  assert.deepEqual(JSON.parse(calls[2].init.body), { category: "Household" });
-  assert.equal(calls[2].url, "/data/banking/categories.json");
-  assert.equal(calls[3].url, "/data/banking/overrides.json");
-  assert.deepEqual(JSON.parse(calls[3].init.body), { key: key, category: "Household" });
+  assert.equal(calls.length, 10);
+  assert.deepEqual(JSON.parse(calls[4].init.body), { category: "Household" });
   assert.equal(calls[4].url, "/data/banking/categories.json");
-  assert.deepEqual(JSON.parse(calls[4].init.body), { category: "Pets", remove: true });
+  assert.equal(calls[6].url, "/data/banking/overrides.json");
+  assert.equal(JSON.parse(calls[6].init.body).key, key);
+  assert.equal(JSON.parse(calls[6].init.body).category, "Household");
+  assert.equal(JSON.parse(calls[6].init.body).tx_id, "tx-1005");
+  assert.equal(calls[8].url, "/data/banking/categories.json");
+  assert.deepEqual(JSON.parse(calls[8].init.body), { category: "Pets", remove: true });
   assert.deepEqual(JSON.parse(JSON.stringify(el._bank.data.custom_categories)), ["Household", "Gifts"]);
   assert.equal(el._bank.editCat, "Household");
   const dupPick = el.innerHTML.match(/<select data-bank-cat[\s\S]*?<\/select>/);
@@ -2142,11 +2316,11 @@ test("choosing Add category on a merchant row posts the category then assigns it
       hasAttribute: function (name) { return name === "data-bank-row-cat"; }
     }
   });
-  assert.equal(calls.length, 7);
-  assert.equal(calls[5].url, "/data/banking/categories.json");
-  assert.equal(calls[6].url, "/data/banking/overrides.json");
-  assert.equal(JSON.parse(calls[5].init.body).category, "B".repeat(64));
-  assert.equal(JSON.parse(calls[6].init.body).category, "B".repeat(64));
+  assert.equal(calls.length, 14);
+  assert.equal(calls[10].url, "/data/banking/categories.json");
+  assert.equal(calls[12].url, "/data/banking/overrides.json");
+  assert.equal(JSON.parse(calls[10].init.body).category, "B".repeat(64));
+  assert.equal(JSON.parse(calls[12].init.body).category, "B".repeat(64));
   assert.equal(el._bank.editCat, "B".repeat(64));
   const longRow = rowSelectHtml(el.innerHTML, key);
   assert.match(longRow, /value="B{64}" selected/);
@@ -2221,7 +2395,9 @@ test("a failed row category add does not assign the merchant", async function ()
   await el.listeners.change(chooseRowAdd(ctx, key));
   el.listeners.input(rowDraftInput("Pets"));
   await el.listeners.click(rowButtonClick("ok"));
-  assert.deepEqual(calls, ["/data/banking/categories.json"]);
+  assert.equal(calls[0], "/data/banking/categories.json");
+  assert.match(calls[1], /^\/data\/banking\.json\?v=/);
+  assert.equal(calls.length, 2);
   assert.match(el.innerHTML, /not on the feed yet/);
   assert.match(el.innerHTML, /Nothing was saved/);
   assert.match(rowSelectHtml(el.innerHTML, key), /value="Groceries" selected/);
@@ -2286,13 +2462,16 @@ test("a select reset still posts the category and assigns that row", async funct
   await el.listeners.click(rowButtonClick("ok"));
   assert.deepEqual(calls.map(function (c) { return String(c.url).split("?")[0]; }), [
     "/data/banking/categories.json",
+    "/data/banking.json",
     "/data/banking/overrides.json",
     "/data/banking.json"
   ]);
   assert.equal(calls[0].init.method, "POST");
   assert.deepEqual(JSON.parse(calls[0].init.body), { category: "Pets" });
-  assert.equal(calls[1].init.method, "POST");
-  assert.deepEqual(JSON.parse(calls[1].init.body), { key: key, category: "Pets" });
+  assert.equal(calls[2].init.method, "POST");
+  assert.equal(JSON.parse(calls[2].init.body).key, key);
+  assert.equal(JSON.parse(calls[2].init.body).category, "Pets");
+  assert.equal(JSON.parse(calls[2].init.body).tx_id, "tx-1005");
   const moved = el.innerHTML.match(new RegExp('data-bank-tx="' + key.replace(/[|]/g, "\\|") + '"[\\s\\S]*?<\\/select>'));
   assert.ok(moved);
   assert.match(moved[0], /value="Pets" selected/);
@@ -2337,11 +2516,13 @@ test("a failed row assign leaves the merchant on its old category", async functi
   await el.listeners.change(chooseRowAdd(ctx, key));
   el.listeners.input(rowDraftInput("Pets"));
   await el.listeners.click(rowButtonClick("ok"));
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 4);
   assert.equal(calls[0].url, "/data/banking/categories.json");
-  assert.equal(calls[1].url, "/data/banking/overrides.json");
-  assert.equal(calls[1].init.method, "POST");
-  assert.deepEqual(JSON.parse(calls[1].init.body), { key: key, category: "Pets" });
+  assert.equal(calls[2].url, "/data/banking/overrides.json");
+  assert.equal(calls[2].init.method, "POST");
+  assert.equal(JSON.parse(calls[2].init.body).key, key);
+  assert.equal(JSON.parse(calls[2].init.body).category, "Pets");
+  assert.equal(JSON.parse(calls[2].init.body).tx_id, "tx-1005");
   assert.equal(el._bank.editCat, "Groceries");
   const row = rowSelectHtml(el.innerHTML, key);
   assert.match(row, /value="Groceries" selected/);
@@ -2545,11 +2726,11 @@ test("moving the last merchant off a custom category removes it from both select
       hasAttribute: function () { return false; }
     }
   });
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 4);
   assert.equal(calls[0].url, "/data/banking/overrides.json");
   assert.deepEqual(JSON.parse(calls[0].init.body), { key: key, category: "Groceries" });
-  assert.equal(calls[1].url, "/data/banking/categories.json");
-  assert.deepEqual(JSON.parse(calls[1].init.body), { category: "Solo", remove: true });
+  assert.equal(calls[2].url, "/data/banking/categories.json");
+  assert.deepEqual(JSON.parse(calls[2].init.body), { category: "Solo", remove: true });
   assert.equal(el._bank.data.custom_categories.indexOf("Solo"), -1);
   await el.listeners.change({
     target: {
@@ -2558,7 +2739,7 @@ test("moving the last merchant off a custom category removes it from both select
       hasAttribute: function (name) { return name === "data-bank-cat"; }
     }
   });
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 4);
   assertCategoryEverywhere(el.innerHTML, "Solo", false);
   assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
   assertCategoryEverywhere(el.innerHTML, "Household", true);
@@ -2834,7 +3015,7 @@ test("reassigning the last in-window merchant keeps a history-only override", as
       hasAttribute: function () { return false; }
     }
   });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].url, "/data/banking/overrides.json");
   assert.deepEqual(JSON.parse(calls[0].init.body), { key: windowKey, category: "Groceries" });
   assert.ok(el._bank.data.custom_categories.indexOf("HistOnly") >= 0);
@@ -2847,7 +3028,7 @@ test("reassigning the last in-window merchant keeps a history-only override", as
       hasAttribute: function (name) { return name === "data-bank-cat"; }
     }
   });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assertCategoryEverywhere(el.innerHTML, "HistOnly", true);
   assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
   const moved = rowSelectHtml(el.innerHTML, windowKey);
@@ -2902,9 +3083,9 @@ test("a failed category removal restores the label and shows an error", async fu
         hasAttribute: function () { return false; }
       }
     });
-    assert.equal(calls.length, 2);
-    assert.equal(calls[1].url, "/data/banking/categories.json");
-    assert.deepEqual(JSON.parse(calls[1].init.body), { category: "Solo", remove: true });
+    assert.equal(calls.length, 4);
+    assert.equal(calls[2].url, "/data/banking/categories.json");
+    assert.deepEqual(JSON.parse(calls[2].init.body), { category: "Solo", remove: true });
     assert.ok(el._bank.data.custom_categories.indexOf("Solo") >= 0);
     assertCategoryEverywhere(el.innerHTML, "Solo", true);
     assertCategoryEverywhere(el.innerHTML, "Utilities/Bills", true);
@@ -3415,7 +3596,7 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
       hasAttribute: function () { return false; }
     }
   });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].url, "/data/banking/mustpay-overrides.json");
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.credentials, "include");
@@ -3430,7 +3611,7 @@ test("budget marks Bill versus Optional and hides a provider prefix", async func
 
   calls.length = 0;
   await ctx.bankPutMustPay(el, { Groceries: "bill", "Example Mortgage": "optional" });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].init.method, "PUT");
   const putBody = JSON.parse(calls[0].init.body);
   assert.equal(putBody.schema, "banking-mustpay-overrides/v1");
@@ -3738,7 +3919,7 @@ test("a mobile name displays as Phone and matching stays on the raw name", async
       hasAttribute: function () { return false; }
     }
   });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].url, "/data/banking/mustpay-overrides.json");
   assert.equal(calls[0].init.method, "POST");
   assert.deepEqual(JSON.parse(calls[0].init.body), { name: "Example Mobile", kind: "elective" });
@@ -4146,7 +4327,7 @@ test("car policy displays as Car Insurance, bare Insurance and exclusions stay o
   assert.match(src, /prev_key/);
   assert.match(src, /exclusions/);
 
-  assert.match(page, /banking\.js\?v=20261015fw/);
+  assert.match(page, /banking\.js\?v=20261015fx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904du/);
@@ -4309,9 +4490,9 @@ test("tip dt counts an unflagged person payment, a partial cash total, and a foc
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.doesNotMatch(src + "\n" + css + "\n" + page, /NFCU|Progressive|UPMC|T-Mobile/i);
-  assert.match(page, /banking\.js\?v=20261015fw/);
+  assert.match(page, /banking\.js\?v=20261015fx/);
 
-  assert.match(page, /banking\.css\?v=20261015fw/);
+  assert.match(page, /banking\.css\?v=20261015fx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4465,9 +4646,9 @@ test("tip du shows payroll and fostering twice a month on fixed days", function 
   assert.doesNotMatch(src, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(css, /BNY|Mellon|UPMC|NFCU/i);
   assert.doesNotMatch(page, /BNY|Mellon|UPMC|NFCU/i);
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261015fw/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261015fx/);
 
-  assert.match(page, /\/house\/banking\.css\?v=20261015fw/);
+  assert.match(page, /\/house\/banking\.css\?v=20261015fx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4659,9 +4840,9 @@ test("tip dx uses the effective-dated bill amount and a paid-late flag", functio
   const ctx = boot();
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261015fw/);
+  assert.match(page, /banking\.js\?v=20261015fx/);
 
-  assert.match(page, /banking\.css\?v=20261015fw/);
+  assert.match(page, /banking\.css\?v=20261015fx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -4952,9 +5133,9 @@ test("tip dy plan blocks follow the selected month", function () {
   const ctx = boot();
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261015fw/);
+  assert.match(page, /banking\.js\?v=20261015fx/);
 
-  assert.match(page, /banking\.css\?v=20261015fw/);
+  assert.match(page, /banking\.css\?v=20261015fx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dx/);
@@ -5040,9 +5221,9 @@ test("tip dy plan blocks follow the selected month", function () {
 test("tip dz twice-monthly bills, set-asides, deposits, and dy polish", function () {
   const ctx = boot();
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /banking\.js\?v=20261015fw/);
+  assert.match(page, /banking\.js\?v=20261015fx/);
 
-  assert.match(page, /banking\.css\?v=20261015fw/);
+  assert.match(page, /banking\.css\?v=20261015fx/);
   assert.doesNotMatch(page, /banking\.js\?v=20260904dy/);
   assert.doesNotMatch(page, /banking\.css\?v=20260904dy/);
 
@@ -5564,7 +5745,7 @@ test("every edits row has a tier picker that posts tiers.json", async function (
       hasAttribute: function () { return false; }
     }
   });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].url, "/data/banking/tiers.json");
   assert.equal(calls[0].method, "POST");
   assert.deepEqual(JSON.parse(calls[0].body), { rule: { name: "Groceries", tier: "wants" } });
@@ -5983,9 +6164,9 @@ test("saved tier settings fall back to budget.tier_doc and dedupe prefers the pr
 
 test("banking assets use the ec cache bust", function () {
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(page, /\/house\/js\/banking\.js\?v=20261015fw/);
+  assert.match(page, /\/house\/js\/banking\.js\?v=20261015fx/);
 
-  assert.match(page, /\/house\/banking\.css\?v=20261015fw/);
+  assert.match(page, /\/house\/banking\.css\?v=20261015fx/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /ticker\.js\?v=20261007ei/);
   assert.match(page, /ticker\.css\?v=20261007ei/);
@@ -7246,9 +7427,9 @@ test("tip ec3 funding collapses, signs amounts, and caps lists by the tenth row"
   assert.doesNotMatch(html, /<th class="num">Month-end<\/th>/);
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  assert.match(page, /banking\.js\?v=20261015fw/);
+  assert.match(page, /banking\.js\?v=20261015fx/);
 
-  assert.match(page, /banking\.css\?v=20261015fw/);
+  assert.match(page, /banking\.css\?v=20261015fx/);
   assert.match(page, /list-cap\.js\?v=20261007eh/);
   assert.match(page, /list-cap\.css\?v=20261007eh/);
   assert.doesNotMatch(css, /--mp-in:\s*#|--mp-out:\s*#|--bank-required:/);
