@@ -19112,8 +19112,7 @@ function bankIncomeBudgetBarHtml(snap, opts) {
   if (!key) {
     try { key = bankMonthKey(opts.month || opts.planMonth || bankScreenMonth(snap, opts)); } catch (eFallback) { key = ""; }
   }
-  var title = bankMonthFull(key);
-  var incomeLabel = title ? (title + " plan") : "Income";
+  var incomeLabel = "Main Budget";
   if (bankFitPending(snap)) {
     return '<div class="bank-card-bar bank-income-bar" data-bank-bar="income" data-bank-fit-pending="1" data-bank-bar-month="' + bankEsc(key) + '">' +
       '<p class="bank-card-bar-label"><span>' + bankEsc(incomeLabel) + '</span> <b data-bank-fit-verdict="1" data-bank-fit-pending="1">Checking budgets\u2026</b></p></div>';

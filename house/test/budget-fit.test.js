@@ -267,7 +267,7 @@ test("November uses the computed window and one spare across the bar, Edits, and
   assert.equal(emptyOnly.length, 0);
   const page = ctx.bankPageHtml(snap, opts);
   const bar = page.slice(page.indexOf('data-bank-bar="income"'), page.indexOf('data-bank-bar="income"') + 1600);
-  assert.match(bar, /November plan/);
+  assert.match(bar, /Main Budget/);
   assert.match(bar, /data-bank-bar-month="2026-11"/);
   assert.match(bar, /data-bank-fit-bills="7094.19"/);
   assert.match(bar, /data-bank-fit-subs="487.96"/);
@@ -327,7 +327,7 @@ test("a due-in-window fallback still counts a bill after the last pay period", f
   assert.equal(ctx.bankBudgetFit(snap, "2026-11").bills, 10);
 });
 
-test("October spending uses this budget month while the income bar stays on the November plan", function () {
+test("October spending uses this budget month while the income bar is Main Budget", function () {
   const ctx = boot();
   const snap = {
     asof: "2026-10-16T12:00:00-04:00",
@@ -383,7 +383,7 @@ test("October spending uses this budget month while the income bar stays on the 
   assert.match(spend, />October so far</);
   assert.match(spend, /data-bank-spend-spent="40"/);
   assert.match(spend, /Groceries[\s\S]{0,80}\$40\.00 of \$100\.00/);
-  assert.match(page, /November plan/);
+  assert.match(page, /Main Budget/);
   assert.doesNotMatch(spend, /November/);
   const later = ctx.bankPageHtml(snap, { tab: "budget", planMonth: "2026-10", now: "2026-11-02T16:00:00Z" });
   assert.match(later, /data-bank-bar="spend"[^>]*data-bank-bar-month="2026-11"/);
@@ -460,7 +460,7 @@ test("today 2026-10-16 labels the 9/30-10/29 window October and spends against t
     assert.match(spend, />October so far</);
     assert.match(spend, /data-bank-spend-spent="40"/);
     assert.doesNotMatch(spend, /September/);
-    assert.match(page, /November plan/);
+    assert.match(page, /Main Budget/);
   });
 });
 
