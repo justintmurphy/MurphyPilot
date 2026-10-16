@@ -1,4 +1,7 @@
-/* tip fv — Pay on the Budget card is paychecks and stipends only. Opening cash and every other inflow are Surplus.
+/* tip fw — Under each Budget card Left number, After budgets subtracts the category room More details already lists.
+   That room is unspent needs and wants. Red when the result is negative, green when it is positive.
+   Adjust budgets opens Edits. A printed category_room on a spend-cash account is the per-account line.
+   tip fv — Pay on the Budget card is paychecks and stipends only. Opening cash and every other inflow are Surplus.
    Everyday spending is opening plus pay plus those surplus inflows, minus owed, minus month-end left.
    tip fu — The Budget card face ends at the Sweep line. The account rows sit in More details.
    Three bars sit above that link: landed pay of expected pay, the Bills list's paid sum of owed, and everyday spending against what is left after bills.
@@ -16662,7 +16665,8 @@ function bankCardSpendRow(acct, key) {
     nickname: nick,
     label: (nick && suffix ? nick + " " + bankAccountMask(suffix) : (bankAccountMask(suffix) || nick || "Account")),
     start: bankNum(acct.start_balance != null ? acct.start_balance : acct.balance_after_pending),
-    left: bankNum(acct.left_at_end)
+    left: bankNum(acct.left_at_end),
+    room: bankNum(acct.category_room != null ? acct.category_room : acct.budget_room)
   };
 }
 
@@ -17218,6 +17222,43 @@ function bankCardAccountLines(rows, attr) {
   }).join("");
 }
 
+function bankCardCategoryRoom(snap, opts) {
+  opts = opts || {};
+  var key = "";
+  try {
+    var ym = opts.month || bankScreenMonth(snap, opts);
+    var win = bankBudgetWindowFor(snap, ym);
+    key = (win && win.month) || bankMonthKey(ym) || "";
+  } catch (eWin) { key = ""; }
+  var rows = [];
+  try { rows = bankCategoryDiscretionary(snap, key) || []; } catch (eRows) { rows = []; }
+  var room = 0;
+  rows.forEach(function (row) { room += row && row.amount || 0; });
+  return { rows: rows, room: bankRoundCents(room) };
+}
+
+function bankCardAfterBudgetsHtml(left, pack, accounts, key) {
+  if (left == null || !pack || !(pack.room > 0.004)) return "";
+  var amount = bankRoundCents(left - pack.room);
+  var cls = amount < -0.004 ? "tone-stop" : "tone-go";
+  var names = [];
+  (pack.rows || []).forEach(function (row) {
+    if (row && row.name) names.push(String(row.name));
+  });
+  var shown = names.slice(0, 3).join(", ");
+  if (names.length > 3) shown += "\u2026";
+  var detail = shown ? " <i>(" + bankEsc(shown) + " " + bankEsc(bankMoney(pack.room)) + ")</i>" : "";
+  var accts = (accounts || []).filter(function (row) { return row && row.left != null && row.room != null; }).map(function (row) {
+    var after = bankRoundCents(row.left - row.room);
+    var tone = after < -0.004 ? "tone-stop" : "tone-go";
+    return '<p class="bank-fit-line" data-bank-after-acct="1"><span>' + bankEsc(row.label) + '</span> <b class="' + tone +
+      '" data-bank-after-acct-amt="' + after + '">' + bankEsc(bankMoney(after)) + "</b></p>";
+  }).join("");
+  return '<div class="bank-after-budgets" data-bank-after-budgets="' + key + '"><p><span>After budgets</span> <b class="' + cls +
+    '" data-bank-after-' + key + '="' + amount + '">' + bankEsc(bankMoney(amount)) + "</b>" + detail +
+    ' <a href="#edits">Adjust budgets</a></p>' + accts + "</div>";
+}
+
 function bankBudgetPanelsHtml(snap, opts) {
   var card = null;
   try { card = bankBudgetCard(snap, opts); } catch (eCard) { card = null; }
@@ -17279,13 +17320,16 @@ function bankBudgetPanelsHtml(snap, opts) {
   var monthHero = '<div class="overall-strip"><div class="ov-hero"><span>Left at month end ' + bankEsc(endWhen) +
     '</span> <b data-bank-month-left="' + (card.monthLeft == null ? "" : String(card.monthLeft)) + '" class="' + monthLeftCls.trim() + '">' +
     bankEsc(card.monthLeft == null ? "\u2014" : bankMoney(card.monthLeft)) + "</b></div></div>";
+  var roomPack = bankCardCategoryRoom(snap, opts);
   var now = '<div class="bank-card-panel" data-bank-now="1"><h3>Right now</h3>' + nowHero +
+    bankCardAfterBudgetsHtml(card.nowLeft, roomPack, card.nowAccounts, "now") +
     bankCardAccountLines(card.nowAccounts, "bank-now-acct") +
     bankCardFold("Balances " + bankCardAmt(card.nowBalances, "now-balances"), startHtml) +
     bankCardFold("Paid so far " + bankCardAmt(card.paid, "paid"), paidHtml) +
     bankCardFold("Due before " + bankEsc(dueWhen) + " " + bankCardAmt(card.nowDue, "now-due"),
       dueHtml || '<p class="bank-empty">Nothing due before the next deposit.</p>') + "</div>";
   var overall = '<div class="bank-card-panel" data-bank-overall="1"><h3>Overall</h3>' + monthHero +
+    bankCardAfterBudgetsHtml(card.monthLeft, roomPack, card.endAccounts, "month") +
     bankCardAccountLines(card.endAccounts, "bank-month-acct") +
     bankCardFold("Pay " + bankCardAmt(card.pay, "pay-total") + " (landed " + bankCardAmt(card.landed, "pay-landed") + ")", payHtml) +
     (card.surplus == null ? "" : bankCardFold("Surplus " + bankCardAmt(card.surplus, "surplus"),

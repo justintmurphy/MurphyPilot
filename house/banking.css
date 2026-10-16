@@ -58,6 +58,12 @@ body.bank-page > header .clock {
 }
 .overall-strip .ov-hero b.tone-stop { color: var(--stop); }
 .overall-strip .ov-hero b.tone-warn { color: var(--warn); }
+.bank-after-budgets { margin: 0 0 8px; font-size: 13px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+.bank-after-budgets p { margin: 0; }
+.bank-after-budgets b.tone-stop { color: var(--stop); }
+.bank-after-budgets b.tone-go { color: var(--go); }
+.bank-after-budgets i { color: var(--ink-soft); font-style: normal; }
+.bank-after-budgets a { margin-left: 6px; font-size: 12px; }
 .bank-cal-range {
   display: block;
   margin-top: 2px;

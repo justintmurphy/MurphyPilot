@@ -431,3 +431,41 @@ test("everyday spending adds the opening balance and landed pay", function () {
   const src = fs.readFileSync(path.join(root, "house/js/banking.js"), "utf8");
   assert.doesNotMatch(src, /2296\.25|2,296\.25|9491\.50|9,491\.50|7838\.21|2835\.12|2,835\.12/);
 });
+
+test("after budgets subtracts category room from each left figure", function () {
+  const ctx = boot();
+  const fx = snap();
+  fx.tier_doc.categories = [
+    { id: "groceries", name: "Groceries", tier: "needs", budget: 400 },
+    { id: "gas", name: "Gas", tier: "needs", budget: 200 },
+    { id: "dining", name: "Dining", tier: "wants", budget: 113 },
+    { id: "fun", name: "Fun", tier: "wants", budget: 50 },
+    { id: "mortgage", name: "Mortgage", tier: "required", budget: 3544 }
+  ];
+  fx.budget.pay_periods[0].accounts["4845"].category_room = 90;
+  const card = ctx.bankBudgetCard(fx, { planMonth: "2026-10", now: NOW });
+  const rows = ctx.bankCategoryDiscretionary(fx, "2026-10");
+  const room = ctx.bankRoundCents(rows.reduce(function (sum, row) { return sum + row.amount; }, 0));
+  assert.equal(room, 763);
+  assert.equal(rows.some(function (row) { return row.name === "Mortgage"; }), false);
+  const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: NOW });
+  const nowAfter = ctx.bankRoundCents(card.nowLeft - room);
+  const monthAfter = ctx.bankRoundCents(card.monthLeft - room);
+  assert.ok(nowAfter < 0);
+  assert.ok(monthAfter > 0);
+  const nowPanel = html.slice(html.indexOf('data-bank-now="1"'), html.indexOf('data-bank-overall="1"'));
+  const overallPanel = html.slice(html.indexOf('data-bank-overall="1"'), html.indexOf("fills-more"));
+  assert.match(nowPanel, new RegExp('class="tone-stop" data-bank-after-now="' + nowAfter + '"'));
+  assert.match(overallPanel, new RegExp('class="tone-go" data-bank-after-month="' + monthAfter + '"'));
+  assert.match(nowPanel, /After budgets/);
+  assert.match(nowPanel, /Groceries, Gas, Dining…/);
+  assert.doesNotMatch(nowPanel, /Fun|Mortgage/);
+  assert.match(nowPanel, new RegExp(ctx.bankMoney(room).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(nowPanel, /href="#edits">Adjust budgets/);
+  assert.match(overallPanel, /href="#edits">Adjust budgets/);
+  const acctAfter = ctx.bankRoundCents(382.13 - 90);
+  assert.match(nowPanel, new RegExp('data-bank-after-acct="1"[\\s\\S]*class="tone-go" data-bank-after-acct-amt="' + acctAfter + '"'));
+  assert.doesNotMatch(overallPanel, /data-bank-after-acct=/);
+  const catsAfter = Number((html.match(/data-bank-after-cats="([^"]+)"/) || [])[1]);
+  assert.equal(catsAfter, monthAfter);
+});
