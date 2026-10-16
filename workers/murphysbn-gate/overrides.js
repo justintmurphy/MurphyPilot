@@ -6,11 +6,12 @@
    Lookup order: tx_id, replaced_alert, legacy date|id|amount|desc, then tx_key.
    A legacy hit is copied onto tx_id. The legacy entry stays.
    GET /data/banking/tiers.json should return applyTiersGet(kvDoc, snapshot.budget)
-   and must not write the KV tiers doc. The snapshot field budget.tiers_overlay
-   supplies the cleaned list. A KV updated_at newer than overlay.updated_at keeps
-   the saved categories. category_rules merge per key: overlay wins, and a KV key
-   the overlay lacks stays. category_merges, category_merge_ids, and category_deleted
-   hide a deleted row and point a merged id at its target. */
+   and must not write the KV tiers doc. Names, tiers, merges, and deletes come from
+   the snapshot (box_categories, category_merge_ids, category_deleted_ids), never
+   from a whole-doc timestamp. A budget wins for one category only when
+   budgets_updated_at[id] is newer than the overlay. GET returns active rows.
+   POST goes through applyTiersPost: drop merged ids, reject deleted ids.
+   category_rules merge per key: overlay wins, and a KV key the overlay lacks stays. */
 
 function part(v) {
   if (v == null) return "";
@@ -225,15 +226,6 @@ function tiersOverlay(budget) {
   return overlay;
 }
 
-function overlayWinsKv(kvDoc, overlay) {
-  if (!overlay) return false;
-  var kv = stampOf(kvDoc && kvDoc.updated_at);
-  var over = stampOf(overlay.updated_at);
-  if (!kv) return true;
-  if (!over) return false;
-  return kv <= over;
-}
-
 function overlayCategoryRows(overlay) {
   if (!overlay) return null;
   var tiers = overlay.tiers;
@@ -375,11 +367,20 @@ function categoryMergeSpec(budget) {
   var deleted = {};
   addMergeMap(merges, budget.category_merge_ids);
   addMergeMap(merges, budget.category_merges);
+  addDeletedIds(deleted, budget.category_deleted_ids);
   addDeletedIds(deleted, budget.category_deleted);
   if (overlay) {
     addMergeMap(merges, overlay.category_merge_ids);
     addMergeMap(merges, overlay.category_merges);
+    addDeletedIds(deleted, overlay.category_deleted_ids);
     addDeletedIds(deleted, overlay.category_deleted);
+    var tiers = overlay.tiers;
+    if (tiers && typeof tiers === "object" && !Array.isArray(tiers)) {
+      addMergeMap(merges, tiers.category_merge_ids);
+      addMergeMap(merges, tiers.category_merges);
+      addDeletedIds(deleted, tiers.category_deleted_ids);
+      addDeletedIds(deleted, tiers.category_deleted);
+    }
   }
   var box = budget.box_categories;
   var names = [];
@@ -474,22 +475,150 @@ function remapRuleValues(bag, spec, rows) {
   return out;
 }
 
-/* Tiers GET. Does not write KV. */
+function rowsById(rows) {
+  var map = {};
+  (rows || []).forEach(function (raw) {
+    var row = normalizeSpendRow(raw);
+    if (row && !map[row.id]) map[row.id] = row;
+  });
+  return map;
+}
+
+function boxStructuralRows(budget) {
+  var box = budget && budget.box_categories;
+  var list = null;
+  if (Array.isArray(box)) list = box;
+  else if (box && typeof box === "object" && Array.isArray(box.categories)) list = box.categories;
+  if (!Array.isArray(list) || !list.length) return null;
+  var rich = false;
+  list.forEach(function (item) {
+    if (item && typeof item === "object" && (item.id || item.tier || typeof item.budget === "number")) rich = true;
+  });
+  if (!rich) return null;
+  var rows = [];
+  var seen = {};
+  list.forEach(function (item) {
+    if (!item || typeof item !== "object") return;
+    var copy = {};
+    Object.keys(item).forEach(function (k) { copy[k] = item[k]; });
+    if (!copy.id) {
+      var label = clip(copy.name || copy.category || copy.label);
+      if (!label) return;
+      copy.id = spendSlug(label, rows);
+      if (!copy.name) copy.name = label;
+    }
+    if (!copy.id || seen[copy.id]) return;
+    seen[copy.id] = true;
+    rows.push(copy);
+  });
+  return rows.length ? rows : null;
+}
+
+function activeCategoryRows(rows) {
+  return (rows || []).filter(function (row) { return row && !row.merged_into; });
+}
+
+function applyCategoryBudgets(rows, kv, overlay) {
+  var overlayById = rowsById(overlay ? overlayCategoryRows(overlay) : null);
+  var kvById = rowsById(kv && kv.categories);
+  var overlayTime = stampOf(overlay && overlay.updated_at);
+  var stamps = kv && kv.budgets_updated_at && typeof kv.budgets_updated_at === "object" && !Array.isArray(kv.budgets_updated_at) ? kv.budgets_updated_at : {};
+  (rows || []).forEach(function (row) {
+    if (!row) return;
+    var kvRow = kvById[row.id];
+    var over = overlayById[row.id];
+    var stamped = stampOf(stamps[row.id]);
+    if (stamped && stamped > overlayTime && kvRow && typeof kvRow.budget === "number") {
+      row.budget = kvRow.budget;
+      return;
+    }
+    if (over && typeof over.budget === "number") row.budget = over.budget;
+  });
+  return rows;
+}
+
+/* Tiers GET. Does not write KV. Active rows only, so a later save stays under the cap. */
 function applyTiersGet(kvDoc, budget) {
   var kv = kvDoc && typeof kvDoc === "object" && !Array.isArray(kvDoc) ? kvDoc : {};
   var overlay = tiersOverlay(budget);
-  var wins = !!(overlay && overlayWinsKv(kv, overlay));
   var doc = {};
   Object.keys(kv).forEach(function (k) { doc[k] = kv[k]; });
-  if (wins) {
-    var rows = overlayCategoryRows(overlay);
-    if (rows) doc.categories = rows;
+  var structural = boxStructuralRows(budget) || overlayCategoryRows(overlay) || kv.categories || null;
+  if (Array.isArray(structural)) {
+    doc.categories = activeCategoryRows(applyCategoryBudgets(cleanCategoryRows(structural, budget, true), kv, overlay));
   }
-  if (Array.isArray(doc.categories)) doc.categories = cleanCategoryRows(doc.categories, budget, !overlay || wins);
   var spec = categoryMergeSpec(budget);
   doc.category_rules = remapRuleValues(mergeRuleBag(kv.category_rules, overlay ? overlayRuleBag(overlay, "category_rules") : null, overlay), spec, doc.categories || []);
   doc.category_tx = remapRuleValues(mergeRuleBag(kv.category_tx, overlay ? overlayRuleBag(overlay, "category_tx") : null, overlay), spec, doc.categories || []);
   return doc;
+}
+
+var SPEND_MAX = 30;
+
+/* Tiers POST. Strip merged ids, reject deleted ids, keep per-category budget stamps. */
+function applyTiersPost(kvDoc, body, budget) {
+  var kv = kvDoc && typeof kvDoc === "object" && !Array.isArray(kvDoc) ? kvDoc : {};
+  body = body && typeof body === "object" ? body : {};
+  var spec = categoryMergeSpec(budget);
+  var incoming = Array.isArray(body.categories) ? body.categories : [];
+  var out = [];
+  var seen = {};
+  var i;
+  for (i = 0; i < incoming.length; i++) {
+    var row = normalizeSpendRow(incoming[i]);
+    if (!row) return { ok: false, code: "bad_category" };
+    if (row.merged_into || spec.merges[row.id] || spec.merges[row.name]) continue;
+    if (spec.deleted[row.id] || spec.deleted[row.name]) return { ok: false, code: "unknown_category" };
+    if (seen[row.id]) return { ok: false, code: "duplicate_category_id" };
+    seen[row.id] = true;
+    out.push({ id: row.id, name: row.name, tier: row.tier, budget: row.budget });
+  }
+  if (out.length > SPEND_MAX) return { ok: false, code: "bad_category" };
+  function takeBag(bag) {
+    var next = {};
+    if (!bag || typeof bag !== "object" || Array.isArray(bag)) return { bag: next };
+    var keys = Object.keys(bag);
+    var n;
+    for (n = 0; n < keys.length; n++) {
+      var value = bag[keys[n]];
+      if (value == null) {
+        next[keys[n]] = null;
+        continue;
+      }
+      var mapped = remapToken(value, spec, out);
+      if (!mapped || spec.deleted[String(value)] || spec.deleted[mapped] || !seen[mapped]) return { error: "unknown_category" };
+      next[keys[n]] = mapped;
+    }
+    return { bag: next };
+  }
+  var rules = takeBag(body.category_rules);
+  if (rules.error) return { ok: false, code: rules.error };
+  var tx = takeBag(body.category_tx);
+  if (tx.error) return { ok: false, code: tx.error };
+  var doc = {};
+  Object.keys(kv).forEach(function (k) { doc[k] = kv[k]; });
+  doc.categories = out;
+  if (body.updated_at) doc.updated_at = body.updated_at;
+  function mergeBag(field, patch) {
+    if (!patch || !Object.keys(patch).length) return;
+    var base = doc[field] && typeof doc[field] === "object" && !Array.isArray(doc[field]) ? doc[field] : {};
+    var copy = {};
+    Object.keys(base).forEach(function (k) { copy[k] = base[k]; });
+    Object.keys(patch).forEach(function (k) {
+      if (patch[k] == null) delete copy[k];
+      else copy[k] = patch[k];
+    });
+    doc[field] = copy;
+  }
+  mergeBag("category_rules", rules.bag);
+  mergeBag("category_tx", tx.bag);
+  var stamps = {};
+  var prior = kv.budgets_updated_at && typeof kv.budgets_updated_at === "object" ? kv.budgets_updated_at : {};
+  Object.keys(prior).forEach(function (k) { stamps[k] = prior[k]; });
+  var posted = body.budgets_updated_at && typeof body.budgets_updated_at === "object" ? body.budgets_updated_at : {};
+  Object.keys(posted).forEach(function (k) { if (posted[k]) stamps[k] = posted[k]; });
+  if (Object.keys(stamps).length) doc.budgets_updated_at = stamps;
+  return { ok: true, doc: doc };
 }
 
 module.exports = {
@@ -499,5 +628,6 @@ module.exports = {
   applyOverridesToTxRows: applyOverridesToTxRows,
   writeOverride: writeOverride,
   mergeBoxCategories: mergeBoxCategories,
-  applyTiersGet: applyTiersGet
+  applyTiersGet: applyTiersGet,
+  applyTiersPost: applyTiersPost
 };

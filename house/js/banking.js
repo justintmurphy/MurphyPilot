@@ -13302,17 +13302,15 @@ function bankTierLineSpent(snap, row, month, mode, edits, todayIso) {
 
 /* tip ek — category budgets under Required, Needs, and Wants.
    A tiers.json without categories leaves the tier list as it was.
-   Saves POST the full categories list, cookie only, to /data/banking/tiers.json.
+   Saves POST the active categories list, cookie only, to /data/banking/tiers.json.
    Budgets in this file are 0. Real amounts stay in Worker KV.
-   tip fy — budget.tiers_overlay is the cleaned list when the box cannot write the KV tiers doc.
-   Its keys are schema, updated_at, source, tiers, november_budget, and privacy_redacted.
-   tiers holds categories, category_rules, and category_tx. The page uses that list over KV
-   unless a later Edits save has KV updated_at newer than overlay.updated_at.
+   tip fz — names, tiers, merges, and deletes come from the snapshot
+   (box_categories, category_merge_ids, category_deleted_ids), never from a doc timestamp.
+   A budget the seat saves later wins for that category only, via budgets_updated_at.
+   november_budget is the November budget month only (2026-11, pay window 10/30–11/29).
    category_rules merge one key at a time: an overlay rule wins, and a KV key the overlay
    lacks stays, including a privacy-redacted car, insurance, and loans rule.
-   november_budget is one shared pot for non-dated categories: a pot total plus guides keyed by category id.
-   category_merges, category_merge_ids, and category_deleted hide deleted rows and point a merged row at its target.
-   Household and Health stay their own categories. */
+   Household and Health stay their own categories. Merged rows stay out of the save list. */
 
 var BANK_SPEND_ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 var BANK_SPEND_MAX = 30;
@@ -13460,32 +13458,20 @@ function bankTiersOverlay(snap) {
   return overlay;
 }
 
-function bankKvCategoryTime(snap) {
-  var max = 0;
-  function push(v) {
-    var n = bankStamp(v);
-    if (n > max) max = n;
-  }
-  if (snap && snap._categorySaveAt) push(snap._categorySaveAt);
-  var doc = bankCategoryDoc(snap);
-  if (doc) push(doc.updated_at);
-  var wrap = null;
-  try { wrap = bankFeedTierWrap(snap); } catch (e) { wrap = null; }
-  if (wrap) {
-    push(wrap.updated_at);
-    if (wrap.doc) push(wrap.doc.updated_at);
-  }
-  return max;
+function bankCategoryMonthKey(snap, monthKey) {
+  var key = "";
+  try { key = bankMonthKey(monthKey) || ""; } catch (eKey) { key = ""; }
+  if (key) return key;
+  try {
+    var win = bankBudgetMonth(snap);
+    if (win && win.month) return win.month;
+  } catch (eWin) { /* a print without budget_month uses the screen month */ }
+  try { return bankMonthKey(snap && snap.current && snap.current.month) || ""; } catch (eCur) { return ""; }
 }
 
-/* A later Edits save wins. No KV timestamp means the overlay is the list to show. */
-function bankOverlayWins(snap, overlay) {
-  if (!overlay) return false;
-  var kv = bankKvCategoryTime(snap);
-  var over = bankStamp(overlay.updated_at);
-  if (!kv) return true;
-  if (!over) return false;
-  return kv <= over;
+/* November guides are the 2026-11 budget month only. October keeps each category's own budget. */
+function bankNovemberMonth(snap, monthKey) {
+  return bankCategoryMonthKey(snap, monthKey) === "2026-11";
 }
 
 function bankOverlayCategoryRows(overlay) {
@@ -13580,10 +13566,9 @@ function bankNovemberPot(overlay) {
   return { total: total, guides: guides };
 }
 
-function bankSharedPot(snap) {
-  var overlay = bankTiersOverlay(snap);
-  if (!overlay || !bankOverlayWins(snap, overlay)) return null;
-  return bankNovemberPot(overlay);
+function bankSharedPot(snap, monthKey) {
+  if (!bankNovemberMonth(snap, monthKey)) return null;
+  return bankNovemberPot(bankTiersOverlay(snap));
 }
 
 function bankAddMergeMap(merges, map) {
@@ -13633,15 +13618,18 @@ function bankCategoryMergeSpec(snap) {
   var deleted = {};
   bankAddMergeMap(merges, budget.category_merge_ids);
   bankAddMergeMap(merges, budget.category_merges);
+  bankAddDeletedIds(deleted, budget.category_deleted_ids);
   bankAddDeletedIds(deleted, budget.category_deleted);
   if (overlay) {
     bankAddMergeMap(merges, overlay.category_merge_ids);
     bankAddMergeMap(merges, overlay.category_merges);
+    bankAddDeletedIds(deleted, overlay.category_deleted_ids);
     bankAddDeletedIds(deleted, overlay.category_deleted);
     var tiers = overlay.tiers;
     if (tiers && typeof tiers === "object" && !Array.isArray(tiers)) {
       bankAddMergeMap(merges, tiers.category_merge_ids);
       bankAddMergeMap(merges, tiers.category_merges);
+      bankAddDeletedIds(deleted, tiers.category_deleted_ids);
       bankAddDeletedIds(deleted, tiers.category_deleted);
     }
   }
@@ -13772,22 +13760,92 @@ function bankRemapRuleValues(bag, spec, rows) {
   return out;
 }
 
-/* Read model. KV stays on snap.tier_doc for the next Edits save. */
-function bankEffectiveCategoryDoc(snap) {
+/* A box list of id/tier rows is the structure. A name-only picker list is not. */
+function bankBoxStructuralRows(snap) {
+  var box = snap && snap.budget && snap.budget.box_categories;
+  var list = null;
+  if (Array.isArray(box)) list = box;
+  else if (box && typeof box === "object" && Array.isArray(box.categories)) list = box.categories;
+  if (!Array.isArray(list) || !list.length) return null;
+  var rich = false;
+  list.forEach(function (item) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return;
+    if (item.id || item.tier || typeof item.budget === "number") rich = true;
+  });
+  if (!rich) return null;
+  var rows = [];
+  var seen = {};
+  list.forEach(function (item) {
+    if (!item || typeof item !== "object") return;
+    var copy = {};
+    Object.keys(item).forEach(function (k) { copy[k] = item[k]; });
+    if (!copy.id) {
+      var label = String(copy.name || copy.category || copy.label || "").trim();
+      if (!label) return;
+      try { copy.id = bankSpendSlug(label, rows); } catch (eSlug) { copy.id = ""; }
+      if (!copy.name) copy.name = label;
+    }
+    if (!copy.id || seen[copy.id]) return;
+    seen[copy.id] = true;
+    rows.push(copy);
+  });
+  return rows.length ? rows : null;
+}
+
+function bankCategoryRowsById(rows) {
+  var map = {};
+  (rows || []).forEach(function (raw) {
+    var row = bankSpendNormalizeRow(raw);
+    if (row && !map[row.id]) map[row.id] = row;
+  });
+  return map;
+}
+
+function bankApplyCategoryBudgets(rows, snap, monthKey) {
   var kv = bankCategoryDoc(snap);
   var overlay = bankTiersOverlay(snap);
-  var wins = !!(overlay && bankOverlayWins(snap, overlay));
-  if (!kv && !overlay) return null;
+  var overlayById = bankCategoryRowsById(overlay ? bankOverlayCategoryRows(overlay) : null);
+  var kvById = bankCategoryRowsById(kv && kv.categories);
+  var overlayTime = bankStamp(overlay && overlay.updated_at);
+  var stamps = kv && kv.budgets_updated_at && typeof kv.budgets_updated_at === "object" && !Array.isArray(kv.budgets_updated_at) ? kv.budgets_updated_at : {};
+  var pot = bankNovemberMonth(snap, monthKey) ? bankNovemberPot(overlay) : null;
+  (rows || []).forEach(function (row) {
+    if (!row) return;
+    var kvRow = kvById[row.id];
+    var over = overlayById[row.id];
+    var stamped = bankStamp(stamps[row.id]);
+    if (stamped && stamped > overlayTime && kvRow && typeof kvRow.budget === "number") {
+      row.budget = kvRow.budget;
+      delete row.in_pot;
+      delete row.guide;
+      return;
+    }
+    if (pot && row.tier !== "required" && !row.merged_into) {
+      row.in_pot = true;
+      if (pot.guides && Object.prototype.hasOwnProperty.call(pot.guides, row.id)) {
+        var g = pot.guides[row.id];
+        if (typeof g === "number" && isFinite(g) && g >= 0) {
+          row.budget = g > BANK_SPEND_BUDGET_MAX ? BANK_SPEND_BUDGET_MAX : g;
+          row.guide = row.budget;
+        }
+      }
+      return;
+    }
+    if (over && typeof over.budget === "number") row.budget = over.budget;
+  });
+  return rows;
+}
+
+/* Read model. Structure is the snapshot. A later budget save wins for that category only. */
+function bankEffectiveCategoryDoc(snap, monthKey) {
+  var kv = bankCategoryDoc(snap);
+  var overlay = bankTiersOverlay(snap);
+  var structural = bankBoxStructuralRows(snap) || bankOverlayCategoryRows(overlay) || (kv && kv.categories) || null;
+  if (!structural && !kv && !overlay) return null;
   var base = {};
   if (kv) Object.keys(kv).forEach(function (k) { base[k] = kv[k]; });
-  if (wins) {
-    var overlayRows = bankOverlayCategoryRows(overlay);
-    if (overlayRows) base.categories = overlayRows;
-  }
-  if (!Array.isArray(base.categories)) return kv;
-  var structural = !overlay || wins;
-  var pot = wins ? bankNovemberPot(overlay) : null;
-  base.categories = bankCleanCategoryRows(base.categories, snap, structural, pot);
+  if (!Array.isArray(structural)) return kv;
+  base.categories = bankApplyCategoryBudgets(bankCleanCategoryRows(structural, snap, true, null), snap, monthKey);
   var spec = bankCategoryMergeSpec(snap);
   var rules = bankMergeRuleBag(kv && kv.category_rules, overlay ? bankOverlayRuleBag(overlay, "category_rules") : null, overlay);
   var tx = bankMergeRuleBag(kv && kv.category_tx, overlay ? bankOverlayRuleBag(overlay, "category_tx") : null, overlay);
@@ -13796,10 +13854,36 @@ function bankEffectiveCategoryDoc(snap) {
   return base;
 }
 
-function bankSpendCategories(snap) {
-  var doc = bankEffectiveCategoryDoc(snap);
+function bankSpendCategories(snap, monthKey) {
+  var doc = bankEffectiveCategoryDoc(snap, monthKey);
   if (!doc || !Array.isArray(doc.categories)) return null;
   return bankFoldSpendCats(doc.categories);
+}
+
+function bankCategoryBudgetHash(snap) {
+  var rows = [];
+  try { rows = bankSpendVisible(bankSpendCategories(snap) || []); } catch (eHash) { rows = []; }
+  return rows.map(function (row) {
+    return [row.id, row.name, row.tier, String(row.budget), row.merged_into || ""].join("\t");
+  }).join("\n");
+}
+
+function bankTierSideHash(snap) {
+  var doc = bankCategoryDoc(snap) || {};
+  function pack(bag) {
+    if (!bag || typeof bag !== "object" || Array.isArray(bag)) return "";
+    return Object.keys(bag).sort().map(function (k) { return k + "=" + String(bag[k]); }).join(",");
+  }
+  return [pack(doc.bill_status), pack(doc.manual_paid), pack(doc.tx_overrides), pack(doc.category_rules), pack(doc.category_tx)].join("|");
+}
+
+/* Skip a second paint when the category list and the live bill maps are unchanged. */
+function bankPaintCategories(root, before) {
+  if (!root || !root._bank) return;
+  var after = "";
+  try { after = bankCategoryBudgetHash(root._bank.data) + "\n" + bankTierSideHash(root._bank.data); } catch (eAfter) { after = ""; }
+  if (before != null && before === after && root.innerHTML) return;
+  if (typeof bankPaint === "function") bankPaint(root);
 }
 
 function bankSpendResolveId(cats, id) {
@@ -14284,7 +14368,7 @@ function bankFoldMonthRows(rows) {
 function bankSpendRowsForMonth(snap, cats, monthKey, mode) {
   if (mode !== "historical") {
     var pot = null;
-    try { pot = bankSharedPot(snap); } catch (ePot) { pot = null; }
+    try { pot = bankSharedPot(snap, monthKey); } catch (ePot) { pot = null; }
     return bankFoldMonthRows(bankSpendVisible(cats).map(function (row) {
       var inPot = !!(pot && row && row.tier !== "required");
       return {
@@ -14402,7 +14486,7 @@ function bankCategorySpentLookup(bag, row) {
 }
 
 function bankCategoryFigures(snap, monthKey) {
-  var cats = bankSpendCategories(snap) || [];
+  var cats = bankSpendCategories(snap, monthKey) || [];
   var key = bankMonthKey(monthKey);
   var live = bankCategoryMonthLive(snap, key);
   var monthRows = bankSpendRowsForMonth(snap, cats, key, live ? "budget" : "historical");
@@ -14668,7 +14752,7 @@ function bankBudgetFit(snap, monthKey) {
     var figs = bankCategoryFigures(snap, key);
     var pot = null;
     if (bankCategoryMonthLive(snap, key)) {
-      try { pot = bankSharedPot(snap); } catch (ePot) { pot = null; }
+      try { pot = bankSharedPot(snap, key); } catch (ePot) { pot = null; }
     }
     Object.keys(figs).forEach(function (id) {
       var row = figs[id];
@@ -15003,9 +15087,9 @@ function bankPlanSpendTableHtml(rows) {
 }
 
 function bankCategorySummaryHtml(snap, opts, mode, month) {
-  var cats = bankSpendCategories(snap);
-  if (!cats || !cats.length) return "";
   var monthKey = bankMonthKey(month);
+  var cats = bankSpendCategories(snap, monthKey);
+  if (!cats || !cats.length) return "";
   var figs = bankCategoryFigures(snap, monthKey);
   var bills = [];
   var rest = [];
@@ -15031,7 +15115,7 @@ function bankCategorySummaryHtml(snap, opts, mode, month) {
   }
   var pot = null;
   if (!monthKey || bankCategoryMonthLive(snap, monthKey)) {
-    try { pot = bankSharedPot(snap); } catch (ePot) { pot = null; }
+    try { pot = bankSharedPot(snap, monthKey); } catch (ePot) { pot = null; }
   }
   var potLine = pot && pot.total != null
     ? "Shared pot " + bankMoney(pot.total) + ". Each line is a guide."
@@ -15419,6 +15503,27 @@ function bankSpendCatSelectHtml(snap, raw, opts) {
     '" aria-label="Category">' + options + "</select>";
 }
 
+/* Merged rows stay in category_merge_ids. The save list is the active rows only. */
+function bankSpendActiveList(list) {
+  return (list || []).filter(function (row) { return row && !row.merged_into; });
+}
+
+function bankSpendBudgetStamps(shown, nextRows, prior, savedAt) {
+  var before = {};
+  (shown || []).forEach(function (row) {
+    if (row && row.id) before[row.id] = row.budget;
+  });
+  var stamps = {};
+  if (prior && typeof prior === "object" && !Array.isArray(prior)) {
+    Object.keys(prior).forEach(function (k) { stamps[k] = prior[k]; });
+  }
+  (nextRows || []).forEach(function (row) {
+    if (!row || !row.id) return;
+    if (!Object.prototype.hasOwnProperty.call(before, row.id) || before[row.id] !== row.budget) stamps[row.id] = savedAt;
+  });
+  return stamps;
+}
+
 function bankSpendWire(list) {
   return (list || []).map(function (row) {
     var out = {
@@ -15579,10 +15684,11 @@ function bankSpendApply(snap, body) {
   if (!snap.tier_doc || typeof snap.tier_doc !== "object" || Array.isArray(snap.tier_doc)) snap.tier_doc = { plans: {}, rules: {} };
   if (body && Array.isArray(body.categories)) {
     snap.tier_doc.categories = body.categories;
-    if (body.updated_at) {
-      snap.tier_doc.updated_at = body.updated_at;
-      snap._categorySaveAt = body.updated_at;
-    }
+    if (body.updated_at) snap.tier_doc.updated_at = body.updated_at;
+    snap._tiersFromGet = true;
+  }
+  if (body && body.budgets_updated_at && typeof body.budgets_updated_at === "object" && !Array.isArray(body.budgets_updated_at)) {
+    snap.tier_doc.budgets_updated_at = body.budgets_updated_at;
   }
   function merge(field, patch) {
     if (!patch) return;
@@ -15608,7 +15714,8 @@ function bankSpendCommit(root, nextList, rulesPatch, txPatch) {
   if (!root || !root._bank) return Promise.resolve(false);
   var snap = root._bank.data || {};
   var doc = bankCategoryDoc(snap) || snap.tier_doc || { rules: {}, category_rules: {}, category_tx: {} };
-  var list = nextList || bankSpendClone(bankSpendCategories(snap) || []);
+  var shown = bankSpendCategories(snap) || [];
+  var list = bankSpendActiveList(nextList || bankSpendClone(shown));
   var wire = bankSpendWire(list);
   var issue = bankSpendListIssue(wire);
   if (issue) return bankSpendFail(root, issue, root._bank.catDraft);
@@ -15617,6 +15724,8 @@ function bankSpendCommit(root, nextList, rulesPatch, txPatch) {
   if (bankSpendRuleCount(doc, rulesPatch, txPatch) > BANK_SPEND_RULE_CAP) return bankSpendFail(root, "too_many_rules", root._bank.catDraft);
   var savedAt = new Date().toISOString();
   var body = { categories: wire, updated_at: savedAt };
+  var stamps = bankSpendBudgetStamps(shown, wire, doc.budgets_updated_at, savedAt);
+  if (stamps && Object.keys(stamps).length) body.budgets_updated_at = stamps;
   if (rulesPatch && Object.keys(rulesPatch).length) body.category_rules = rulesPatch;
   if (txPatch && Object.keys(txPatch).length) body.category_tx = txPatch;
   var undo = bankSpendUndoSnap(doc);
@@ -15692,7 +15801,7 @@ function bankSpendSaveRow(root, id, name, tier, rawBudget) {
 
 function bankSpendAdd(root, name, tier, rawBudget) {
   if (!root || !root._bank) return Promise.resolve(false);
-  var list = bankSpendClone(bankSpendCategories(root._bank.data) || []);
+  var list = bankSpendActiveList(bankSpendClone(bankSpendCategories(root._bank.data) || []));
   if (list.length >= BANK_SPEND_MAX) return bankSpendFail(root, "bad_category", { id: "new", name: name == null ? "" : String(name) });
   var nextName = String(name == null ? "" : name).trim();
   var nextTier = tier === "required" || tier === "needs" || tier === "wants" ? tier : "needs";
@@ -21579,12 +21688,24 @@ function bankPayloadListsCategory(payload, name) {
 /* A replacement print may be older than the label this seat just saved.
    An empty custom_categories list does not drop names already on this seat. */
 function bankAdoptSnapshot(st, payload) {
-  var prev = bankCustomCategories(st && st.data);
+  var prevData = st && st.data;
+  var prev = bankCustomCategories(prevData);
+  var keepDoc = null;
+  var keepMoves;
+  if (prevData && prevData._tiersFromGet && prevData.tier_doc && typeof prevData.tier_doc === "object" && !Array.isArray(prevData.tier_doc)) {
+    keepDoc = prevData.tier_doc;
+    if (Object.prototype.hasOwnProperty.call(prevData, "_txMoves")) keepMoves = prevData._txMoves;
+  }
   st.data = payload;
   if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
   var incoming = bankCustomCategories(st.data);
   if (!incoming.length && prev.length) st.data.custom_categories = prev.slice();
   else prev.forEach(function (n) { bankRememberCategory(st.data, n); });
+  if (keepDoc) {
+    st.data.tier_doc = keepDoc;
+    st.data._tiersFromGet = true;
+    if (keepMoves !== undefined) st.data._txMoves = keepMoves;
+  }
   bankMigrateOverrideKeys(st.data);
   bankMigrateTierOverrides(st.data);
 }
@@ -21796,7 +21917,13 @@ function bankTierPayloadDoc(payload) {
   return null;
 }
 
-/* Cookie GET of tiers.json. A miss keeps budget.tier_doc.doc. */
+function bankTierPaintBefore(root) {
+  var data = root && root._bank && root._bank.data;
+  try { return bankCategoryBudgetHash(data) + "\n" + bankTierSideHash(data); } catch (eBefore) { return ""; }
+}
+
+/* Cookie GET of tiers.json. A miss keeps budget.tier_doc.doc.
+   A doc whose categories and budgets did not change does not repaint. */
 function bankRehydrateTiers(root) {
   if (!root || !root._bank) return Promise.resolve(false);
   var gen = (root._bank.tierGen = (root._bank.tierGen || 0) + 1);
@@ -21806,16 +21933,17 @@ function bankRehydrateTiers(root) {
     if (!root._bank || root._bank.tierGen !== gen) return false;
     var st = root._bank;
     if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
+    var before = bankTierPaintBefore(root);
     if (res && (Number(res.status) === 401 || Number(res.status) === 403)) {
       st.data._tiersFromGet = false;
       st.data._tiersGetFailed = false;
-      bankPaint(root);
+      bankPaintCategories(root, before);
       return false;
     }
     if (!res || res.ok !== true || res.type === "opaqueredirect") {
       st.data._tiersFromGet = false;
       st.data._tiersGetFailed = true;
-      bankPaint(root);
+      bankPaintCategories(root, before);
       return false;
     }
     return bankReadJson(res).then(function (payload) {
@@ -21824,7 +21952,7 @@ function bankRehydrateTiers(root) {
       if (!doc) {
         st.data._tiersFromGet = false;
         st.data._tiersGetFailed = true;
-        bankPaint(root);
+        bankPaintCategories(root, before);
         return false;
       }
       st.data.tier_doc = doc;
@@ -21833,15 +21961,16 @@ function bankRehydrateTiers(root) {
       st.data._txMoves = Object.prototype.hasOwnProperty.call(doc, "tx_overrides");
       return bankWarmTxOverrideKeys(st.data).then(function () {
         if (!root._bank || root._bank.tierGen !== gen) return false;
-        bankPaint(root);
+        bankPaintCategories(root, before);
         return true;
       });
     });
   }).catch(function () {
     if (!root._bank || root._bank.tierGen !== gen || !root._bank.data) return false;
+    var before = bankTierPaintBefore(root);
     root._bank.data._tiersFromGet = false;
     root._bank.data._tiersGetFailed = true;
-    bankPaint(root);
+    bankPaintCategories(root, before);
     return false;
   });
 }

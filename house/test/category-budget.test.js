@@ -404,11 +404,11 @@ test("rename keeps the id, merge sets merged_into, and delete re-points", async 
   assert.equal(renamed.budget, 12.34);
   assert.equal(calls[0].body.categories.length, SLUGS.length);
   assert.equal(await ctx.bankSpendMerge(el, "shopping", "other"), true);
-  const merged = calls[1].body.categories.filter(function (row) { return row.id === "shopping"; })[0];
-  assert.equal(merged.merged_into, "other");
+  assert.equal(calls[1].body.categories.some(function (row) { return row.id === "shopping" || row.merged_into; }), false);
   assert.equal(calls[1].body.category_rules["corner-market"], "other");
   assert.equal(calls[1].body.category_tx[HASH], "other");
-  assert.equal(calls[1].body.categories.length, SLUGS.length);
+  assert.equal(calls[1].body.categories.length, SLUGS.length - 1);
+  assert.ok(calls[1].body.categories.length <= 30);
   assert.doesNotMatch(el.innerHTML, /data-bank-cat-row="shopping"/);
   assert.equal(await ctx.bankSpendUndo(el), true);
   assert.equal(calls[2].body.category_rules["corner-market"], "shopping");
@@ -1288,9 +1288,9 @@ test("tiers overlay cleans the category list and keeps redacted rules", function
   assert.equal(visible.indexOf("household-health"), -1);
   assert.ok(visible.indexOf("pets") >= 0);
   assert.equal(ctx.bankSpendById(cats, "household-health").merged_into, "shopping");
-  assert.equal(ctx.bankSpendById(cats, "groceries").budget, 20);
-  assert.equal(ctx.bankSpendById(cats, "groceries").in_pot, true);
-  assert.equal(ctx.bankSpendById(cats, "dining").guide, 15);
+  assert.equal(ctx.bankSpendById(cats, "groceries").budget, 1);
+  assert.equal(ctx.bankSpendById(cats, "groceries").in_pot, undefined);
+  assert.equal(ctx.bankSpendById(cats, "dining").guide, undefined);
   assert.equal(ctx.bankSpendById(cats, "car-insurance-loans").budget, 8);
   assert.equal(ctx.bankSpendById(cats, "car-insurance-loans").in_pot, undefined);
   const doc = ctx.bankEffectiveCategoryDoc(snap);
@@ -1300,22 +1300,171 @@ test("tiers overlay cleans the category list and keeps redacted rules", function
   assert.equal(doc.category_rules["auto policy two"], "car-insurance-loans");
   assert.equal(doc.category_tx["h:" + "ef".repeat(16)], "shopping");
   const fit = ctx.bankBudgetFit(snap, "2026-10");
-  assert.equal(fit.categories, 90);
+  assert.notEqual(fit.categories, 90);
+  assert.equal(ctx.bankSharedPot(snap), null);
+  assert.equal(ctx.bankSharedPot(snap, "2026-10"), null);
   const edits = ctx.bankPageHtml(snap, { tab: "edits", now: "2026-10-16T12:00:00-04:00" });
-  assert.match(edits, /data-bank-pot="1"/);
-  assert.match(edits, /Shared pot \$90/);
-  assert.match(edits, /data-bank-guide="20"/);
+  assert.doesNotMatch(edits, /data-bank-pot="1"/);
+  assert.doesNotMatch(edits, /Shared pot/);
+  assert.doesNotMatch(edits, /data-bank-guide=/);
   assert.match(edits, /Pets/);
   assert.doesNotMatch(edits, /Household &amp; Health/);
   snap.tier_doc.updated_at = "2026-10-16T18:00:00Z";
   snap.tier_doc.categories.forEach(function (row) {
     if (row.id === "groceries") row.budget = 7;
   });
+  snap.tier_doc.categories.push({ id: "tv", name: "TV", tier: "wants", budget: 4, merged_into: "" });
   const saved = ctx.bankSpendCategories(snap);
-  assert.equal(ctx.bankSpendById(saved, "groceries").budget, 7);
+  const savedIds = ctx.bankSpendVisible(saved).map(function (row) { return row.id; });
+  assert.equal(savedIds.indexOf("tv"), -1);
+  assert.ok(savedIds.indexOf("pets") >= 0);
+  assert.equal(ctx.bankSpendById(saved, "groceries").budget, 1);
+  assert.equal(ctx.bankSpendById(saved, "shopping").name, "General Shopping");
   assert.equal(ctx.bankSharedPot(snap), null);
   assert.equal(ctx.bankEffectiveCategoryDoc(snap).category_rules["auto policy one"], "car-insurance-loans");
   assert.equal(ctx.bankEffectiveCategoryDoc(snap).category_rules.cafe, "groceries");
+  snap.tier_doc.budgets_updated_at = { groceries: "2026-10-16T18:00:00Z" };
+  const stamped = ctx.bankSpendCategories(snap);
+  assert.equal(ctx.bankSpendById(stamped, "groceries").budget, 7);
+  assert.equal(ctx.bankSpendById(stamped, "dining").budget, 1);
+  const november = ctx.bankSpendCategories(snap, "2026-11");
+  assert.equal(ctx.bankSpendById(november, "groceries").budget, 7);
+  assert.equal(ctx.bankSpendById(november, "dining").budget, 15);
+  assert.equal(ctx.bankSpendById(november, "dining").in_pot, true);
+  assert.equal(ctx.bankSharedPot(snap, "2026-11").total, 90);
+  snap.current.month = "2026-11";
+  assert.equal(ctx.bankBudgetFit(snap, "2026-11").categories, 90);
+  delete snap.tier_doc.budgets_updated_at;
+  const guides = ctx.bankSpendCategories(snap, "2026-11");
+  assert.equal(ctx.bankSpendById(guides, "groceries").budget, 20);
+  assert.equal(ctx.bankSpendById(guides, "groceries").guide, 20);
+  assert.equal(ctx.bankBudgetFit(snap, "2026-11").categories, 90);
+  snap.current.month = "2026-10";
+  assert.equal(ctx.bankSpendById(ctx.bankSpendCategories(snap, "2026-10"), "groceries").budget, 1);
+  assert.notEqual(ctx.bankBudgetFit(snap, "2026-10").categories, 90);
+});
+
+test("mount, tiers GET, and refetch keep one category set and one After budgets figure", async function () {
+  const ctx = boot();
+  const snap = bare(ctx);
+  snap.current.month = "2026-10";
+  snap.budget.budget_month = { start: "2026-09-30", end: "2026-10-29", month: "2026-10" };
+  snap.tier_doc.updated_at = "2026-10-15T02:01:00Z";
+  snap.tier_doc.categories = [
+    { id: "groceries", name: "Groceries", tier: "needs", budget: 10, merged_into: "" },
+    { id: "tv", name: "TV", tier: "wants", budget: 4, merged_into: "" }
+  ];
+  snap.budget.category_deleted_ids = ["tv"];
+  snap.budget.box_categories = { categories: [{ name: "Pets" }] };
+  snap.budget.tiers_overlay = {
+    updated_at: "2026-10-15T22:32:00-04:00",
+    tiers: {
+      categories: [
+        { id: "groceries", name: "Groceries", tier: "needs", budget: 40 },
+        { id: "dining", name: "Dining", tier: "wants", budget: 12 },
+        { id: "tv", name: "TV", tier: "wants", budget: 4 }
+      ]
+    },
+    november_budget: { pot: 200, guides: { groceries: 80, dining: 50 } }
+  };
+  const printed = JSON.parse(JSON.stringify(snap));
+  delete printed.tier_doc;
+  function signature(data) {
+    return ctx.bankSpendVisible(ctx.bankSpendCategories(data, "2026-10")).map(function (row) {
+      return row.id + ":" + row.budget;
+    }).join(",");
+  }
+  function afterLine(data) {
+    return ctx.bankCardAfterBudgetsHtml(200, ctx.bankCardCategoryRoom(data, { month: "2026-10" }), [], "now");
+  }
+  const first = signature(snap);
+  const firstLine = afterLine(snap);
+  assert.match(first, /groceries:40/);
+  assert.match(first, /dining:12/);
+  assert.equal(first.indexOf("tv"), -1);
+  assert.match(firstLine, /After budgets/);
+  assert.notEqual(ctx.bankCardCategoryRoom(snap, { month: "2026-10" }).room, ctx.bankCardCategoryRoom(snap, { month: "2026-11" }).room);
+  let paints = 0;
+  const paint = ctx.bankPaint;
+  ctx.bankPaint = function (root) {
+    paints += 1;
+    return paint(root);
+  };
+  ctx.fetch = function (url) {
+    const u = String(url);
+    if (u.indexOf("/data/banking/tiers.json") === 0) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () {
+          return Promise.resolve({
+            schema: "banking-tiers/v1",
+            updated_at: "2026-10-16T18:00:00Z",
+            categories: [
+              { id: "tv", name: "TV", tier: "wants", budget: 4 },
+              { id: "cameras", name: "Cameras", tier: "wants", budget: 9 },
+              { id: "groceries", name: "Groceries", tier: "needs", budget: 120 },
+              { id: "dining", name: "Dining", tier: "wants", budget: 80 }
+            ],
+            category_rules: {},
+            category_tx: {}
+          });
+        }
+      });
+    }
+    if (u.indexOf("/data/banking.json") === 0) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        type: "basic",
+        json: function () { return Promise.resolve(JSON.parse(JSON.stringify(printed))); }
+      });
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      type: "basic",
+      json: function () { return Promise.resolve({ categories: [] }); }
+    });
+  };
+  const root = {
+    innerHTML: "",
+    addEventListener: function () {},
+    querySelector: function () { return null; },
+    querySelectorAll: function () { return []; }
+  };
+  ctx.bankMount(root, snap, { tab: "budget", now: "2026-10-16T12:00:00-04:00" });
+  await root._bank.prune;
+  assert.equal(paints, 1);
+  assert.equal(signature(root._bank.data), first);
+  assert.equal(afterLine(root._bank.data), firstLine);
+  assert.equal(signature(root._bank.data).indexOf("cameras"), -1);
+  assert.equal(await ctx.bankRefetch(root, { silent: true, force: true }), true);
+  assert.equal(root._bank.data._tiersFromGet, true);
+  assert.equal(root._bank.data.tier_doc.updated_at, "2026-10-16T18:00:00Z");
+  assert.equal(signature(root._bank.data), first);
+  assert.equal(afterLine(root._bank.data), firstLine);
+  assert.equal(paints, 1);
+});
+
+test("a save drops merged rows and stays within 30", async function () {
+  const ctx = boot();
+  const snap = bare(ctx);
+  const list = [];
+  let i;
+  for (i = 0; i < 26; i++) list.push({ id: "c" + i, name: "Cat " + i, tier: "wants", budget: 1, merged_into: "" });
+  for (i = 0; i < 7; i++) list.push({ id: "m" + i, name: "Old " + i, tier: "wants", budget: 1, merged_into: "c0" });
+  snap.tier_doc.categories = list;
+  const calls = watch(ctx);
+  const el = desk(snap);
+  assert.equal(await ctx.bankSpendSaveBudget(el, "c1", "4"), true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].body.categories.length, 26);
+  assert.ok(calls[0].body.categories.length <= 30);
+  assert.equal(calls[0].body.categories.some(function (row) { return row.merged_into; }), false);
+  assert.equal(calls[0].body.budgets_updated_at.c1 != null, true);
+  assert.equal(calls[0].body.budgets_updated_at.c0, undefined);
 });
 
 test("this month shows each figure once and tucks the extra cards", function () {
