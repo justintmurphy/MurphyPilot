@@ -357,16 +357,19 @@ test("budget_month is the tier and category spent window, and a missing window s
       categories: [{ id: "groceries", name: "Groceries", tier: "needs", budget: 40 }]
     };
     if (windowed) {
+      snap.current.month = "2026-11";
       snap.budget.budget_month = { start: "2026-10-15", end: "2026-11-13" };
     }
     return snap;
   }
   const open = spendSnap(true);
-  const figs = ctx.bankCategoryFigures(open, "2026-10");
+  assert.equal(ctx.bankBudgetMonth(open).month, "2026-11");
+  assert.equal(ctx.bankBudgetMonthApplies(open, "2026-10"), null);
+  const figs = ctx.bankCategoryFigures(open, "2026-11");
   assert.equal(figs.groceries.spent, 13);
-  const tierSpent = ctx.bankTierLineSpent(open, { name: "Groceries", key: "Groceries", amount: 40 }, "2026-10", "plan", null, "2026-10-13");
+  const tierSpent = ctx.bankTierLineSpent(open, { name: "Groceries", key: "Groceries", amount: 40 }, "2026-11", "plan", null, "2026-10-13");
   assert.equal(tierSpent, 13);
-  const tiers = ctx.bankTierSpend(open, "2026-10");
+  const tiers = ctx.bankTierSpend(open, "2026-11");
   assert.equal(tiers.needs, 13);
   const calendar = spendSnap(false);
   assert.equal(ctx.bankTierLineSpent(calendar, { name: "Groceries", key: "Groceries", amount: 40 }, "2026-10", "plan", null, "2026-10-13"), 99);

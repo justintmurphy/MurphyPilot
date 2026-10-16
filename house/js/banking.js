@@ -4317,6 +4317,23 @@ function bankCalendarBlockOk(block, key) {
   return true;
 }
 
+/* Most of a paycheck window sits in the month of its end date.
+   The start date is the previous month's last paycheck, so it is not the label.
+   A missing end uses the day after the start, which lands in that same month. */
+function bankWindowMonthKey(start, end, named) {
+  var endKey = bankMonthKey(end);
+  if (endKey) return endKey;
+  var startDay = bankYmdOnly(bankCopyDate(start) || start);
+  if (startDay) {
+    var nextKey = bankMonthKey(bankAddDays(startDay, 1));
+    if (nextKey) return nextKey;
+  }
+  var namedKey = bankMonthKey(named);
+  var startKey = bankMonthKey(start);
+  if (namedKey && namedKey !== startKey) return namedKey;
+  return "";
+}
+
 /* Last pay deposit through the day before the next one. Inclusive. Missing means the calendar month. */
 function bankBudgetMonth(snap) {
   var raw = snap && snap.budget && snap.budget.budget_month;
@@ -4327,7 +4344,7 @@ function bankBudgetMonth(snap) {
   return {
     start: start,
     end: end,
-    month: bankMonthKey(raw.month) || bankMonthKey(start)
+    month: bankWindowMonthKey(start, end, raw.month || raw.label || raw.key)
   };
 }
 
@@ -17221,7 +17238,8 @@ function bankWindowFromDates(start, end, key, basis) {
   start = bankYmdOnly(bankCopyDate(start) || start);
   end = bankYmdOnly(bankCopyDate(end) || end);
   if (!start || !end || end < start) return null;
-  return { start: start, end: end, basis: basis || "budget", month: key || bankMonthKey(end) || "" };
+  var month = bankWindowMonthKey(start, end, key) || key || "";
+  return { start: start, end: end, basis: basis || "budget", month: month };
 }
 
 function bankCalendarWindow(key) {
@@ -17244,8 +17262,7 @@ function bankPrintedBudgetWindow(snap, key) {
     var start = row.start || row.from || row.window_start;
     var end = row.end || row.to || row.window_end;
     if (!start || !end) return null;
-    var named = bankMonthKey(row.month || row.label || row.key || "");
-    var mk = named || bankMonthKey(end);
+    var mk = bankWindowMonthKey(start, end, row.month || row.label || row.key || "");
     if (key && mk !== key) return null;
     return bankWindowFromDates(start, end, mk || key, "budget");
   }
@@ -18691,7 +18708,7 @@ function bankSpendBarMonth(snap, opts) {
   var printed = null;
   try { printed = bankBudgetMonth(snap); } catch (ePrint) { printed = null; }
   if (printed && today && today >= printed.start && today <= printed.end) {
-    return printed.month || bankMonthKey(printed.end) || "";
+    return bankWindowMonthKey(printed.start, printed.end, printed.month) || "";
   }
   var keys = [];
   try { keys.push(bankMonthKey(opts.planMonth || opts.month || "")); } catch (ePlan) {}
@@ -18702,9 +18719,14 @@ function bankSpendBarMonth(snap, opts) {
     if (!keys[i]) continue;
     var win = null;
     try { win = bankBudgetWindowFor(snap, keys[i]); } catch (eWin) { win = null; }
-    if (win && today && today >= win.start && today <= win.end) return win.month || keys[i];
+    if (win && today && today >= win.start && today <= win.end) {
+      return bankWindowMonthKey(win.start, win.end, win.month) || keys[i];
+    }
   }
-  if (printed && printed.month && (!today || (printed.end && today <= printed.end))) return printed.month;
+  if (printed && printed.end && (!today || today <= printed.end)) {
+    var late = bankWindowMonthKey(printed.start, printed.end, printed.month);
+    if (late) return late;
+  }
   try { return bankFitMonth(snap, opts) || ""; } catch (eBack) { return ""; }
 }
 

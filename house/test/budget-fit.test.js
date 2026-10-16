@@ -390,6 +390,80 @@ test("October spending uses this budget month while the income bar stays on the 
   assert.match(later, />November</);
 });
 
+test("today 2026-10-16 labels the 9/30-10/29 window October and spends against that month", function () {
+  const ctx = boot();
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" };
+  function octoberSnap(monthField) {
+    const budgetMonth = { start: "2026-09-30", end: "2026-10-29" };
+    if (monthField) budgetMonth.month = monthField;
+    return {
+      asof: "2026-10-16T12:00:00-04:00",
+      accounts: [],
+      current: {
+        month: "2026-10",
+        edits_tx: [{ date: "2026-10-12", amount: 40, flow: "outflow", desc: "Market", category: "Groceries", tx_key: "m1" }],
+        recent_tx: []
+      },
+      history: { months: [] },
+      budget: {
+        budget_month: budgetMonth,
+        pay_schedule: [
+          { name: "Payroll", kind: "payroll", date: "2026-09-30", amount: 4000 },
+          { name: "Payroll", kind: "payroll", date: "2026-10-30", amount: 4000 },
+          { name: "Payroll", kind: "payroll", date: "2026-11-30", amount: 4000 }
+        ],
+        pay_periods: [{
+          current: true,
+          start: "2026-10-30",
+          end: "2026-11-13",
+          accounts: { "1111": { nickname: "Everyday", role: "everyday", subType: "checking", left_at_end: 20 } }
+        }],
+        bills: [],
+        subscriptions: [],
+        tiers_overlay: {
+          updated_at: "2026-10-16T12:00:00Z",
+          tiers: { categories: [
+            { id: "groceries", name: "Groceries", tier: "needs", budget: 100 },
+            { id: "dining", name: "Dining", tier: "wants", budget: 50 }
+          ] },
+          november_budget: { month: "2026-11", pot: 900, guides: { groceries: 20, dining: 10 } }
+        }
+      },
+      tier_doc: {
+        categories: [
+          { id: "groceries", name: "Groceries", tier: "needs", budget: 100, merged_into: "" },
+          { id: "dining", name: "Dining", tier: "wants", budget: 50, merged_into: "" }
+        ],
+        budgets_updated_at: { groceries: "2026-10-16T15:00:00Z", dining: "2026-10-16T15:00:00Z" },
+        category_rules: {},
+        category_tx: {}
+      }
+    };
+  }
+  [undefined, "2026-09"].forEach(function (named) {
+    const snap = octoberSnap(named);
+    const printed = ctx.bankBudgetMonth(snap);
+    assert.equal(printed.month, "2026-10");
+    assert.equal(printed.start, "2026-09-30");
+    assert.equal(printed.end, "2026-10-29");
+    const win = ctx.bankBudgetWindowFor(snap, "2026-10");
+    assert.equal(win.start, "2026-09-30");
+    assert.equal(win.end, "2026-10-29");
+    assert.equal(win.month, "2026-10");
+    assert.equal(ctx.bankSpendBarMonth(snap, opts), "2026-10");
+    assert.ok(ctx.bankSpendingSpent(snap, "2026-10") > 0);
+    assert.equal(ctx.bankSpendingSpent(snap, "2026-09"), 0);
+    assert.equal(ctx.bankFitPot(snap, "2026-10", null), 150);
+    const page = ctx.bankPageHtml(snap, opts);
+    const spend = page.slice(page.indexOf('data-bank-bar="spend"'), page.indexOf('data-bank-bar="spend"') + 700);
+    assert.match(spend, /data-bank-bar-month="2026-10"/);
+    assert.match(spend, />October</);
+    assert.match(spend, /data-bank-spend-spent="40"/);
+    assert.doesNotMatch(spend, /September/);
+    assert.match(page, /November plan/);
+  });
+});
+
 test("an unfunded reserve note uses the full bill minus the shared monthly set-asides", function () {
   const ctx = boot();
   const snap = {
