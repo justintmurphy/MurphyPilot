@@ -435,7 +435,7 @@ test("everyday spending adds the opening balance and landed pay", function () {
   assert.doesNotMatch(src, /2296\.25|2,296\.25|9491\.50|9,491\.50|7838\.21|2835\.12|2,835\.12/);
 });
 
-test("after budgets shows the same spare as the income bar", function () {
+test("after budgets uses the in-month spare left", function () {
   const ctx = boot();
   const fx = snap();
   fx.tier_doc.categories = [
@@ -452,8 +452,9 @@ test("after budgets shows the same spare as the income bar", function () {
   assert.equal(room, 763);
   assert.equal(rows.some(function (row) { return row.name === "Mortgage"; }), false);
   const html = ctx.bankPageHtml(fx, { tab: "budget", planMonth: "2026-10", now: NOW });
-  const fit = ctx.bankBudgetFit(fx, ctx.bankFitMonth(fx, { planMonth: "2026-10", now: NOW }));
-  const spare = fit.left;
+  const opts = { planMonth: "2026-10", now: NOW };
+  const fit = ctx.bankBudgetFit(fx, ctx.bankFitMonth(fx, opts), opts);
+  const spare = ctx.bankMonthSpare(fx, opts).left;
   const tone = spare < -0.004 ? "tone-stop" : "tone-go";
   const nowPanel = html.slice(html.indexOf('data-bank-now="1"'), html.indexOf('data-bank-overall="1"'));
   const overallPanel = html.slice(html.indexOf('data-bank-overall="1"'), html.indexOf("fills-more"));
@@ -471,6 +472,6 @@ test("after budgets shows the same spare as the income bar", function () {
   const catsAfter = Number((html.match(/data-bank-after-cats="([^"]+)"/) || [])[1]);
   assert.equal(catsAfter, spare);
   const barSpare = Number((html.match(/data-bank-bar="income"[^>]*data-bank-fit-spare="([^"]+)"/) || [])[1]);
-  assert.equal(barSpare, spare);
+  assert.equal(barSpare, fit.left);
   assert.equal(card.nowLeft != null, true);
 });

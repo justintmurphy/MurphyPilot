@@ -223,7 +223,7 @@ test("a positive balance under the cushion still lists cuts, and room above it d
   const lowOpts = { tab: "budget", planMonth: "2026-10", now: NOW, edits: { cushionPct: 50 } };
   const lowHtml = ctx.bankPageHtml(low, lowOpts);
   const lowFree = Number((lowHtml.match(/data-bank-free="([^"]*)"/) || [])[1]);
-  const lowSpare = ctx.bankBudgetFit(low, ctx.bankFitMonth(low, lowOpts), lowOpts).left;
+  const lowSpare = ctx.bankMonthSpare(low, lowOpts).left;
   assert.equal(lowFree, lowSpare);
   assert.match(lowHtml, /What you can put off/);
   const high = snap();
@@ -233,7 +233,7 @@ test("a positive balance under the cushion still lists cuts, and room above it d
   high.current.balance_after_pending = { "1111": 400, "2222": 0, "3333": 900 };
   const highOpts = { tab: "budget", planMonth: "2026-10", now: NOW };
   const highHtml = ctx.bankPageHtml(high, highOpts);
-  const highSpare = ctx.bankBudgetFit(high, ctx.bankFitMonth(high, highOpts), highOpts).left;
+  const highSpare = ctx.bankMonthSpare(high, highOpts).left;
   assert.doesNotMatch(highHtml, /What you can put off/);
   assert.doesNotMatch(highHtml, /data-bank-defer="1"/);
   assert.equal(Number((highHtml.match(/data-bank-free="([^"]*)"/) || [])[1]), highSpare);

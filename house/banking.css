@@ -3278,6 +3278,11 @@ button.bank-bill-tile:focus-visible {
 }
 .bank-income-bar { margin: 0 0 12px; }
 .bank-spare-break { margin: 2px 0 10px; font-size: 12px; line-height: 1.35; }
+.bank-month-legend .bank-leg-head,
+.bank-month-legend .bank-leg-spent,
+.bank-month-legend .bank-leg-left { display: none; }
+.bank-month-legend .bank-leg-total { font-weight: 700; }
+.bank-month-legend .bank-leg-total > span { color: var(--ink); }
 .bank-income-bar [data-bank-fit-verdict] { font-style: normal; margin-left: 6px; }
 .bank-stack-track {
   display: flex;
@@ -3325,6 +3330,8 @@ button.bank-bill-tile:focus-visible {
   flex: 0 0 auto;
 }
 .bank-stack-legend b { color: var(--ink); font-weight: 600; }
+.bank-stack-legend b.tone-stop,
+.bank-stack-legend .tone-stop { color: var(--stop); }
 .bank-card-bar-label {
   display: flex;
   justify-content: space-between;
@@ -3367,4 +3374,30 @@ button.bank-bill-tile:focus-visible {
     gap: 2px;
   }
   .bank-card-bar-label b { text-align: left; }
+  .bank-month-legend {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .bank-month-legend li {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) auto auto;
+    column-gap: 10px;
+    width: 100%;
+  }
+  .bank-month-legend .bank-leg-sentence { display: none; }
+  .bank-month-legend .bank-leg-head { display: grid; }
+  .bank-month-legend .bank-leg-spent,
+  .bank-month-legend .bank-leg-left { display: block; }
+  .bank-month-legend .bank-leg-spent,
+  .bank-month-legend .bank-leg-left {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .bank-month-legend .bank-leg-head {
+    color: var(--ink-soft);
+    font-size: 11px;
+    font-weight: 600;
+  }
 }
