@@ -1836,7 +1836,10 @@ test("a saved budget wins everywhere and survives reload", async function () {
   assert.equal(drafted.over, true);
   assert.match(drafted.text, /Over by /);
   const nodes = [{ textContent: "", className: "", setAttribute: function () {} }];
-  el.querySelectorAll = function () { return nodes; };
+  el.querySelectorAll = function (sel) {
+    if (String(sel).indexOf("spare-break") >= 0) return [];
+    return nodes;
+  };
   ctx.bankSyncFitVerdict(el, "groceries", "2000");
   assert.match(nodes[0].textContent, /Over by /);
   assert.equal(await ctx.bankSpendSaveBudget(el, "groceries", "2000"), true);

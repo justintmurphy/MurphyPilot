@@ -220,20 +220,25 @@ test("a positive balance under the cushion still lists cuts, and room above it d
     { name: "Payroll", kind: "payroll", date: "2026-10-20", amount: 10 },
     { name: "Payroll", kind: "payroll", date: "2026-10-30", amount: 40 }
   ];
-  const lowHtml = ctx.bankPageHtml(low, { tab: "budget", planMonth: "2026-10", now: NOW, edits: { cushionPct: 50 } });
+  const lowOpts = { tab: "budget", planMonth: "2026-10", now: NOW, edits: { cushionPct: 50 } };
+  const lowHtml = ctx.bankPageHtml(low, lowOpts);
   const lowFree = Number((lowHtml.match(/data-bank-free="([^"]*)"/) || [])[1]);
-  assert.ok(lowFree > 0);
-  assert.match(lowHtml, /data-bank-free="[^"]*" class="tone-warn"/);
+  const lowSpare = ctx.bankBudgetFit(low, ctx.bankFitMonth(low, lowOpts), lowOpts).left;
+  assert.equal(lowFree, lowSpare);
   assert.match(lowHtml, /What you can put off/);
   const high = snap();
   high.budget.bills = [];
   high.budget.one_time_bills = [];
   high.budget.pay_schedule = [{ name: "Payroll", kind: "payroll", date: "2026-10-30", amount: 40 }];
   high.current.balance_after_pending = { "1111": 400, "2222": 0, "3333": 900 };
-  const highHtml = ctx.bankPageHtml(high, { tab: "budget", planMonth: "2026-10", now: NOW });
+  const highOpts = { tab: "budget", planMonth: "2026-10", now: NOW };
+  const highHtml = ctx.bankPageHtml(high, highOpts);
+  const highSpare = ctx.bankBudgetFit(high, ctx.bankFitMonth(high, highOpts), highOpts).left;
   assert.doesNotMatch(highHtml, /What you can put off/);
   assert.doesNotMatch(highHtml, /data-bank-defer="1"/);
-  assert.doesNotMatch(highHtml.match(/data-bank-free="[^"]*" class="([^"]*)"/)[1], /tone-stop/);
+  assert.equal(Number((highHtml.match(/data-bank-free="([^"]*)"/) || [])[1]), highSpare);
+  if (highSpare < -0.004) assert.match(highHtml, /data-bank-free="[^"]*" class="tone-stop"/);
+  else assert.doesNotMatch(highHtml.match(/data-bank-free="[^"]*" class="([^"]*)"/)[1], /tone-stop/);
 });
 
 test("Edits stores the cushion percent and the public script has no backstop digits", function () {

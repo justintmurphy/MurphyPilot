@@ -3277,6 +3277,7 @@ button.bank-bill-tile:focus-visible {
   min-width: 0;
 }
 .bank-income-bar { margin: 0 0 12px; }
+.bank-spare-break { margin: 2px 0 10px; font-size: 12px; line-height: 1.35; }
 .bank-income-bar [data-bank-fit-verdict] { font-style: normal; margin-left: 6px; }
 .bank-stack-track {
   display: flex;

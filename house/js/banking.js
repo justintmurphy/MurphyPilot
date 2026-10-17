@@ -15016,6 +15016,76 @@ function bankFitOtherIncome(snap, monthKey) {
   return bankRoundCents(sum);
 }
 
+/* Paychecks and stipends stay in pay. Everything else that comes in adds to Spare once. */
+function bankFitExtraIncome(snap, monthKey, opts) {
+  opts = opts || {};
+  var win = null;
+  try { win = bankBudgetWindowFor(snap, monthKey); } catch (eWin) { win = null; }
+  var seen = {};
+  var sum = 0;
+  function add(name, amount, date, kind) {
+    var label = name || "";
+    var probe = { name: label, kind: kind || "", label: label };
+    if (bankCardPayKind(probe)) return;
+    var day = "";
+    try { day = bankYmdOnly(date || "") || ""; } catch (eDay) { day = ""; }
+    if (win && win.start && win.end) {
+      if (!day || day < win.start || day > win.end) return;
+    }
+    var n = bankNum(amount);
+    if (n == null || !(Math.abs(n) > 0.004)) return;
+    var id = day + "|" + bankFoldName(label) + "|" + bankRoundCents(Math.abs(n));
+    if (seen[id]) return;
+    seen[id] = true;
+    sum += Math.abs(n);
+  }
+  var budget = (snap && snap.budget) || {};
+  (Array.isArray(budget.other_income) ? budget.other_income : []).forEach(function (row) {
+    if (!row) return;
+    add(row.name || row.label || "Income", row.amount, row.date || row.on || "", row.kind || "");
+  });
+  var today = "";
+  try { today = bankTodayIso(snap, opts); } catch (eToday) { today = ""; }
+  var periods = [];
+  try { periods = bankCardPeriods(snap) || []; } catch (ePer) { periods = []; }
+  var deposits = [];
+  try { deposits = bankCardDeposits(snap, periods, win, today) || []; } catch (eDep) { deposits = []; }
+  var split = { surplus: [] };
+  try { split = bankCardSplitInflows(snap, deposits) || split; } catch (eSplit) { split = { surplus: [] }; }
+  (split.surplus || []).forEach(function (ev) {
+    if (!ev) return;
+    add(ev.name || ev.label || "Income", ev.amount, ev.date, ev.payKind || ev.kind || "");
+  });
+  return bankRoundCents(sum);
+}
+
+/* Actual is the larger of spent and due. Only the part above the budget comes out of Spare. */
+function bankFitOverage(snap, monthKey, draft) {
+  var dueMap = {};
+  try { dueMap = bankStackDueMap(snap, monthKey) || {}; } catch (eDue) { dueMap = {}; }
+  var figs = {};
+  try { figs = bankCategoryFigures(snap, monthKey) || {}; } catch (eFigs) { figs = {}; }
+  var cats = [];
+  try { cats = bankSpendVisible(bankSpendCategories(snap, monthKey) || []); } catch (eCats) { cats = []; }
+  var rows = [];
+  var total = 0;
+  (cats || []).forEach(function (row) {
+    if (!row || row.merged_into) return;
+    var budget = typeof row.budget === "number" && isFinite(row.budget) && row.budget > 0 ? row.budget : 0;
+    if (draft && draft.id === row.id && typeof draft.budget === "number" && isFinite(draft.budget) && draft.budget >= 0) budget = draft.budget;
+    budget = bankRoundCents(budget);
+    var due = bankRoundCents(Math.abs(bankNum(dueMap[row.id]) || 0));
+    var spent = 0;
+    if (figs[row.id] && figs[row.id].spent) spent = bankRoundCents(Math.abs(bankNum(figs[row.id].spent) || 0));
+    var actual = bankRoundCents(Math.max(spent, due));
+    var over = actual > budget + 0.004 ? bankRoundCents(actual - budget) : 0;
+    if (!(over > 0.004)) return;
+    rows.push({ id: row.id, name: row.name || row.id, budget: budget, actual: actual, over: over });
+    total += over;
+  });
+  return { total: bankRoundCents(total), rows: rows };
+}
+
 function bankBudgetParts(snap, monthKey, draft) {
   var cats = [];
   try { cats = bankSpendVisible(bankSpendCategories(snap, monthKey) || []); } catch (eCats) { cats = []; }
@@ -15080,8 +15150,18 @@ function bankSpendingSpent(snap, monthKey) {
   return bankRoundCents(sum);
 }
 
-function bankFitVerdict(snap, monthKey, draft) {
-  var fit = bankBudgetFit(snap, monthKey, { draft: draft });
+function bankSpareBreakText(fit) {
+  fit = fit || {};
+  var spare = fit.spare != null ? fit.spare : fit.left;
+  var extra = fit.extra != null ? fit.extra : fit.other;
+  return "Spare " + bankMoney(spare) + " = " + bankMoney(fit.base) + ", minus " + bankMoney(fit.overage) +
+    " overages, plus " + bankMoney(extra) + " extra income";
+}
+
+function bankFitVerdict(snap, monthKey, draft, opts) {
+  var fitOpts = Object.assign({}, opts || {});
+  if (draft) fitOpts.draft = draft;
+  var fit = bankBudgetFit(snap, monthKey, fitOpts);
   var spare = fit.left;
   var over = spare < -0.004;
   var text = over ? ("Over by " + bankMoney(bankRoundCents(-spare))) : ("Fits: " + bankMoney(spare) + " to spare");
@@ -15095,7 +15175,10 @@ function bankFitVerdict(snap, monthKey, draft) {
     spare: spare,
     over: over,
     text: text,
-    other: fit.other
+    other: fit.other,
+    extra: fit.extra,
+    overage: fit.overage,
+    base: fit.base
   };
 }
 
@@ -15107,11 +15190,11 @@ function bankFitSnapshotMark(snap) {
   return !!(snap && snap._tiersGetFailed && !snap._tiersFromGet && !snap._tiersPending);
 }
 
-function bankFitVerdictHtml(snap, monthKey, draft) {
+function bankFitVerdictHtml(snap, monthKey, draft, opts) {
   if (bankFitPending(snap)) {
     return '<p data-bank-fit-verdict="1" data-bank-fit-pending="1">Checking budgets\u2026</p>';
   }
-  var v = bankFitVerdict(snap, monthKey, draft);
+  var v = bankFitVerdict(snap, monthKey, draft, opts);
   var source = bankFitSnapshotMark(snap) ? ' data-bank-fit-source="snapshot"' : "";
   var hint = bankFitSnapshotMark(snap) ? '<p class="hint" data-bank-fit-source="snapshot">Saved snapshot</p>' : "";
   return '<p class="' + (v.over ? "tone-stop" : "tone-go") + '" data-bank-fit-verdict="1" data-bank-fit-spare="' + v.spare +
@@ -15129,7 +15212,7 @@ function bankSyncFitVerdict(root, id, raw) {
   try { month = bankFitMonth(root._bank.data, { planMonth: root._bank.planMonth || "" }); } catch (eMonth) { month = ""; }
   if (!month) month = root._bank.planMonth || "";
   var verdict = null;
-  try { verdict = bankFitVerdict(root._bank.data, month, draft); } catch (eFit) { verdict = null; }
+  try { verdict = bankFitVerdict(root._bank.data, month, draft, { planMonth: root._bank.planMonth || "", now: root._bank.now || "" }); } catch (eFit) { verdict = null; }
   if (!verdict) return;
   var nodes = root.querySelectorAll("[data-bank-fit-verdict]");
   var i;
@@ -15148,6 +15231,16 @@ function bankSyncFitVerdict(root, id, raw) {
       else if (node.removeAttribute) node.removeAttribute("data-bank-fit-source");
     }
   }
+  var breaks = root.querySelectorAll("[data-bank-spare-break]");
+  for (i = 0; i < breaks.length; i++) {
+    if (!breaks[i]) continue;
+    breaks[i].textContent = bankSpareBreakText(verdict);
+    if (breaks[i].setAttribute) {
+      breaks[i].setAttribute("data-bank-spare-base", String(verdict.base));
+      breaks[i].setAttribute("data-bank-spare-overage", String(verdict.overage));
+      breaks[i].setAttribute("data-bank-spare-extra", String(verdict.extra));
+    }
+  }
 }
 
 function bankBudgetFit(snap, monthKey, opts) {
@@ -15157,8 +15250,11 @@ function bankBudgetFit(snap, monthKey, opts) {
   try { income = bankBudgetPayIncome(snap, key); } catch (eIn) { income = 0; }
   var parts = { bills: 0, subs: 0, spend: 0, total: 0 };
   try { parts = bankBudgetParts(snap, key, opts.draft || null) || parts; } catch (eParts) { parts = { bills: 0, subs: 0, spend: 0, total: 0 }; }
-  var other = 0;
-  try { other = bankFitOtherIncome(snap, key); } catch (eOther) { other = 0; }
+  var extra = 0;
+  try { extra = bankFitExtraIncome(snap, key, opts); } catch (eExtra) { extra = 0; }
+  var overPack = { total: 0, rows: [] };
+  try { overPack = bankFitOverage(snap, key, opts.draft || null) || overPack; } catch (eOver) { overPack = { total: 0, rows: [] }; }
+  var base = bankRoundCents(income - parts.total);
   return {
     income: income,
     bills: parts.bills,
@@ -15166,8 +15262,12 @@ function bankBudgetFit(snap, monthKey, opts) {
     pot: parts.spend,
     categories: parts.spend,
     budgeted: parts.total,
-    other: other,
-    left: bankRoundCents(income - parts.total)
+    other: extra,
+    extra: extra,
+    overage: overPack.total,
+    overages: overPack.rows,
+    base: base,
+    left: bankRoundCents(base - overPack.total + extra)
   };
 }
 
@@ -15317,13 +15417,9 @@ function bankBudgetFitHtml(snap, opts, month) {
       (items ? '<ul class="bank-cut-list">' + items + "</ul>" : "") + "</div>";
   }
   var verdict = "";
-  try { verdict = (opts.fitHead === false ? "" : "<h3>Budget fit</h3>") + bankFitVerdictHtml(snap, key, null); } catch (eVerdict) { verdict = ""; }
-  var otherNote = fit.other > 0.004
-    ? '<p class="hint" data-bank-fit-other="1">Other income ' + bankEsc(bankMoney(fit.other)) + " is not counted.</p>"
-    : "";
+  try { verdict = (opts.fitHead === false ? "" : "<h3>Budget fit</h3>") + bankFitVerdictHtml(snap, key, null, opts); } catch (eVerdict) { verdict = ""; }
   var body = verdict +
     line("Income", fit.income, "income", "") +
-    otherNote +
     line("Bills", fit.bills, "bills", "") +
     line("Subscriptions", fit.subs, "subs", "") +
     line("Category budgets", fit.categories, "categories", "") +
@@ -17778,6 +17874,11 @@ function bankBudgetGlance(snap, opts) {
   var gap = free < cushion - 0.004 ? bankRoundCents(cushion - free) : 0;
   var once = oblig.remaining.filter(function (item) { return item.source === "once" && item.flexible && !item.protected; });
   var grace = oblig.remaining.filter(function (item) { return item.source !== "once" && !item.protected; });
+  try {
+    var fitKey = bankFitMonth(snap, opts);
+    var fitFree = fitKey ? bankBudgetFit(snap, fitKey, opts) : null;
+    if (fitFree && typeof fitFree.left === "number") free = fitFree.left;
+  } catch (eSpareFree) {}
   var model = {
     window: win,
     label: bankMonthRangeLabel(win),
@@ -18860,7 +18961,7 @@ function bankStackBillWeights(snap, monthKey) {
   return Object.keys(groups).map(function (id) { return groups[id]; });
 }
 
-/* Due and charged amounts never change a segment or the spare. */
+/* Due and charged amounts never change a segment. The part above the budget comes out of Spare. */
 function bankStackDueMap(snap, monthKey) {
   var map = {};
   bankStackBillWeights(snap, monthKey).forEach(function (row) {
@@ -18889,19 +18990,20 @@ function bankStackDueMap(snap, monthKey) {
 }
 
 /* Each segment is that category's budget. Due amounts are not added in. */
-function bankStackPlanGroups(snap, monthKey) {
+function bankStackPlanGroups(snap, monthKey, opts) {
   var fit = null;
-  try { fit = bankBudgetFit(snap, monthKey); } catch (eFit) { fit = null; }
-  fit = fit || { income: 0, bills: 0, subs: 0, pot: 0, budgeted: 0 };
-  var dueMap = {};
-  try { dueMap = bankStackDueMap(snap, monthKey) || {}; } catch (eDue) { dueMap = {}; }
+  try { fit = bankBudgetFit(snap, monthKey, opts); } catch (eFit) { fit = null; }
+  fit = fit || { income: 0, bills: 0, subs: 0, pot: 0, budgeted: 0, extra: 0, overage: 0, overages: [] };
+  var overById = {};
+  (fit.overages || []).forEach(function (row) {
+    if (row && row.id) overById[row.id] = row.over;
+  });
   var parts = [];
   bankStackCats(snap, monthKey).forEach(function (row) {
     var kind = "spend";
     try { kind = bankBudgetPartKind(row.id, row.tier); } catch (eKind) { kind = "spend"; }
     var budget = bankRoundCents(bankStackBudget(row));
-    var due = bankRoundCents(dueMap[row.id] || 0);
-    var over = due > budget + 0.004 ? bankRoundCents(due - budget) : 0;
+    var over = bankRoundCents(overById[row.id] || 0);
     if (!(budget > 0.004) && !(over > 0.004)) return;
     parts.push({
       id: row.id,
@@ -18909,7 +19011,7 @@ function bankStackPlanGroups(snap, monthKey) {
       amount: budget,
       plan: budget,
       kind: kind,
-      due: due,
+      due: 0,
       over: over
     });
   });
@@ -19046,9 +19148,12 @@ function bankStackLayout(parts, track) {
   return { track: track, total: total, spare: spare, over: over, segments: segments };
 }
 
-function bankStackPlanModel(snap, monthKey) {
-  var grouped = bankStackPlanGroups(snap, monthKey);
-  var laid = bankStackLayout(grouped.parts, grouped.fit.income);
+function bankStackPlanModel(snap, monthKey, opts) {
+  var grouped = bankStackPlanGroups(snap, monthKey, opts);
+  var fit = grouped.fit || {};
+  var track = bankRoundCents((fit.income || 0) + (fit.extra || 0) - (fit.overage || 0));
+  if (track < 0) track = 0;
+  var laid = bankStackLayout(grouped.parts, track);
   laid.legend = grouped.parts.map(function (row) {
     return { id: row.id, name: row.name, amount: row.amount, plan: row.plan, kind: row.kind, due: row.due || 0, over: row.over || 0, color: bankStackColor(row.id) };
   });
@@ -19085,9 +19190,10 @@ function bankStackBarHtml(barKey, stackKind, monthKey, label, summary, model, ve
   }).join("");
   var legend = (model.legend || []).map(function (row) {
     var textLine = bankMoney(row.amount);
+    var hot = stackKind === "plan" && row.kind !== "spare" && row.kind !== "over" && row.over > 0.004;
     return '<li data-bank-leg="' + bankEsc(row.id) + '" data-amount="' + row.amount + '" data-plan="' + (row.plan == null ? row.amount : row.plan) +
       '" data-color="' + bankEsc(row.color || bankStackColor(row.id)) + '"><i style="background:' + bankEsc(row.color || bankStackColor(row.id)) +
-      '"></i><span>' + bankEsc(row.name) + "</span> <b>" + bankEsc(textLine) + "</b></li>";
+      '"></i><span>' + bankEsc(row.name) + '</span> <b' + (hot ? ' class="tone-stop"' : "") + ">" + bankEsc(textLine) + "</b></li>";
   }).join("");
   return '<div class="bank-card-bar bank-stack' + (barKey === "income" ? " bank-income-bar" : "") + '" data-bank-bar="' + bankEsc(barKey) +
     '" data-bank-stack="' + bankEsc(stackKind) + '" data-bank-bar-month="' + bankEsc(monthKey || "") + '" data-pct="' + shown +
@@ -19113,7 +19219,7 @@ function bankIncomeBudgetBarHtml(snap, opts) {
       '<p class="bank-card-bar-label"><span>' + bankEsc(incomeLabel) + '</span> <b data-bank-fit-verdict="1" data-bank-fit-pending="1">Checking budgets\u2026</b></p></div>';
   }
   var verdict = null;
-  try { verdict = bankFitVerdict(snap, key, null); } catch (eFit) { verdict = null; }
+  try { verdict = bankFitVerdict(snap, key, null, opts); } catch (eFit) { verdict = null; }
   if (!verdict) return "";
   var income = verdict.income;
   var budgeted = verdict.budgeted;
@@ -19123,7 +19229,7 @@ function bankIncomeBudgetBarHtml(snap, opts) {
   var amounts = bankMoney(budgeted) + " of " + bankMoney(income) + ", " + shown + "%";
   var label = amounts + ", " + verdict.text;
   var model = null;
-  try { model = bankStackPlanModel(snap, key); } catch (eModel) { model = null; }
+  try { model = bankStackPlanModel(snap, key, opts); } catch (eModel) { model = null; }
   var source = bankFitSnapshotMark(snap) ? ' data-bank-fit-source="snapshot"' : "";
   var extra = ' data-bank-fit-income="' + income + '" data-bank-fit-budgeted="' + budgeted + '" data-bank-fit-spare="' + verdict.spare +
     '" data-bank-fit-bills="' + verdict.bills + '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot + '"' + source;
@@ -19134,7 +19240,10 @@ function bankIncomeBudgetBarHtml(snap, opts) {
   try { reserveNote = bankFitReserveNote(snap, key); } catch (eNote) { reserveNote = ""; }
   var reserveHtml = reserveNote ? '<p class="hint" data-bank-reserve-note="1">' + bankEsc(reserveNote) + "</p>" : "";
   var sourceHint = bankFitSnapshotMark(snap) ? '<p class="hint" data-bank-fit-source="snapshot">Saved snapshot</p>' : "";
-  return bankStackBarHtml("income", "plan", key, incomeLabel, label, model, verdictHtml, extra) + reserveHtml + sourceHint;
+  var breakHtml = '<p class="hint bank-spare-break" data-bank-spare-break="1" data-bank-spare-base="' + verdict.base +
+    '" data-bank-spare-overage="' + verdict.overage + '" data-bank-spare-extra="' + verdict.extra + '">' +
+    bankEsc(bankSpareBreakText(verdict)) + "</p>";
+  return bankStackBarHtml("income", "plan", key, incomeLabel, label, model, verdictHtml, extra) + breakHtml + reserveHtml + sourceHint;
 }
 
 function bankCardBarsHtml(card, snap, opts) {
