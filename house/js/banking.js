@@ -15152,9 +15152,11 @@ function bankSpendingSpent(snap, monthKey) {
 
 function bankSpareBreakText(fit) {
   fit = fit || {};
-  var spare = fit.spare != null ? fit.spare : fit.left;
-  var extra = fit.extra != null ? fit.extra : fit.other;
-  return "Spare " + bankMoney(spare) + " = " + bankMoney(fit.base) + ", minus " + bankMoney(fit.overage) +
+  var left = fit.left != null ? fit.left : fit.spare;
+  var typical = fit.typical != null ? fit.typical : fit.base;
+  var extra = fit.extra != null ? fit.extra : (fit.other != null ? fit.other : 0);
+  var overage = fit.overage != null ? fit.overage : 0;
+  return "Spare left " + bankMoney(left) + " = " + bankMoney(typical) + ", minus " + bankMoney(overage) +
     " overages, plus " + bankMoney(extra) + " extra income";
 }
 
@@ -15231,14 +15233,18 @@ function bankSyncFitVerdict(root, id, raw) {
       else if (node.removeAttribute) node.removeAttribute("data-bank-fit-source");
     }
   }
+  var monthSpare = null;
+  try {
+    monthSpare = bankMonthSpare(root._bank.data, { planMonth: root._bank.planMonth || "", now: root._bank.now || "", draft: draft });
+  } catch (eMonth) { monthSpare = null; }
   var breaks = root.querySelectorAll("[data-bank-spare-break]");
   for (i = 0; i < breaks.length; i++) {
-    if (!breaks[i]) continue;
-    breaks[i].textContent = bankSpareBreakText(verdict);
+    if (!breaks[i] || !monthSpare) continue;
+    breaks[i].textContent = bankSpareBreakText(monthSpare);
     if (breaks[i].setAttribute) {
-      breaks[i].setAttribute("data-bank-spare-base", String(verdict.base));
-      breaks[i].setAttribute("data-bank-spare-overage", String(verdict.overage));
-      breaks[i].setAttribute("data-bank-spare-extra", String(verdict.extra));
+      breaks[i].setAttribute("data-bank-spare-base", String(monthSpare.typical));
+      breaks[i].setAttribute("data-bank-spare-overage", String(monthSpare.overage));
+      breaks[i].setAttribute("data-bank-spare-extra", String(monthSpare.extra));
     }
   }
 }
@@ -15250,10 +15256,6 @@ function bankBudgetFit(snap, monthKey, opts) {
   try { income = bankBudgetPayIncome(snap, key); } catch (eIn) { income = 0; }
   var parts = { bills: 0, subs: 0, spend: 0, total: 0 };
   try { parts = bankBudgetParts(snap, key, opts.draft || null) || parts; } catch (eParts) { parts = { bills: 0, subs: 0, spend: 0, total: 0 }; }
-  var extra = 0;
-  try { extra = bankFitExtraIncome(snap, key, opts); } catch (eExtra) { extra = 0; }
-  var overPack = { total: 0, rows: [] };
-  try { overPack = bankFitOverage(snap, key, opts.draft || null) || overPack; } catch (eOver) { overPack = { total: 0, rows: [] }; }
   var base = bankRoundCents(income - parts.total);
   return {
     income: income,
@@ -15262,12 +15264,45 @@ function bankBudgetFit(snap, monthKey, opts) {
     pot: parts.spend,
     categories: parts.spend,
     budgeted: parts.total,
-    other: extra,
-    extra: extra,
-    overage: overPack.total,
-    overages: overPack.rows,
+    other: 0,
+    extra: 0,
+    overage: 0,
+    overages: [],
     base: base,
-    left: bankRoundCents(base - overPack.total + extra)
+    left: base
+  };
+}
+
+/* In-month spare: typical spare, minus this month's overages, plus extra income received. */
+function bankMonthSpare(snap, opts) {
+  opts = opts || {};
+  var fitKey = "";
+  try { fitKey = bankFitMonth(snap, opts); } catch (eFit) { fitKey = ""; }
+  if (!fitKey) fitKey = bankMonthKey(opts.planMonth || opts.month || "");
+  var spendKey = "";
+  try { spendKey = bankSpendBarMonth(snap, opts); } catch (eSpend) { spendKey = ""; }
+  if (!spendKey) spendKey = fitKey;
+  var fit = { income: 0, budgeted: 0, left: 0 };
+  try { fit = bankBudgetFit(snap, fitKey, opts) || fit; } catch (eBudget) { fit = { income: 0, budgeted: 0, left: 0 }; }
+  var overPack = { total: 0, rows: [] };
+  try { overPack = bankFitOverage(snap, spendKey, opts.draft || null) || overPack; } catch (eOver) { overPack = { total: 0, rows: [] }; }
+  var extra = 0;
+  try { extra = bankFitExtraIncome(snap, spendKey, opts); } catch (eExtra) { extra = 0; }
+  var typical = bankRoundCents(fit.left || 0);
+  var left = bankRoundCents(typical - (overPack.total || 0) + extra);
+  return {
+    typical: typical,
+    base: typical,
+    income: fit.income || 0,
+    budgeted: fit.budgeted || 0,
+    overage: overPack.total || 0,
+    overages: overPack.rows || [],
+    extra: extra,
+    other: extra,
+    spare: left,
+    left: left,
+    spendMonth: spendKey,
+    fitMonth: fitKey
   };
 }
 
@@ -17875,9 +17910,8 @@ function bankBudgetGlance(snap, opts) {
   var once = oblig.remaining.filter(function (item) { return item.source === "once" && item.flexible && !item.protected; });
   var grace = oblig.remaining.filter(function (item) { return item.source !== "once" && !item.protected; });
   try {
-    var fitKey = bankFitMonth(snap, opts);
-    var fitFree = fitKey ? bankBudgetFit(snap, fitKey, opts) : null;
-    if (fitFree && typeof fitFree.left === "number") free = fitFree.left;
+    var monthSpare = bankMonthSpare(snap, opts);
+    if (monthSpare && typeof monthSpare.left === "number") free = monthSpare.left;
   } catch (eSpareFree) {}
   var model = {
     window: win,
@@ -18645,7 +18679,7 @@ function bankBudgetPanelsHtml(snap, opts) {
     bankEsc(card.monthLeft == null ? "\u2014" : bankMoney(card.monthLeft)) + "</b></div></div>";
   var roomPack = bankCardCategoryRoom(snap, opts);
   var fitSpare = null;
-  try { fitSpare = bankBudgetFit(snap, bankFitMonth(snap, opts), opts).left; } catch (eSpare) { fitSpare = null; }
+  try { fitSpare = bankMonthSpare(snap, opts).left; } catch (eSpare) { fitSpare = null; }
   var fitFlags = { pending: bankFitPending(snap), snapshot: bankFitSnapshotMark(snap) };
   var now = '<div class="bank-card-panel" data-bank-now="1"><h3>Right now</h3>' + nowHero +
     bankCardAfterBudgetsHtml(card.nowLeft, roomPack, card.nowAccounts, "now", fitSpare, fitFlags) +
@@ -18989,22 +19023,17 @@ function bankStackDueMap(snap, monthKey) {
   return map;
 }
 
-/* Each segment is that category's budget. Due amounts are not added in. */
+/* Each segment is that category's budget. Due amounts and overages stay off this bar. */
 function bankStackPlanGroups(snap, monthKey, opts) {
   var fit = null;
   try { fit = bankBudgetFit(snap, monthKey, opts); } catch (eFit) { fit = null; }
   fit = fit || { income: 0, bills: 0, subs: 0, pot: 0, budgeted: 0, extra: 0, overage: 0, overages: [] };
-  var overById = {};
-  (fit.overages || []).forEach(function (row) {
-    if (row && row.id) overById[row.id] = row.over;
-  });
   var parts = [];
   bankStackCats(snap, monthKey).forEach(function (row) {
     var kind = "spend";
     try { kind = bankBudgetPartKind(row.id, row.tier); } catch (eKind) { kind = "spend"; }
     var budget = bankRoundCents(bankStackBudget(row));
-    var over = bankRoundCents(overById[row.id] || 0);
-    if (!(budget > 0.004) && !(over > 0.004)) return;
+    if (!(budget > 0.004)) return;
     parts.push({
       id: row.id,
       name: row.name || row.id,
@@ -19012,7 +19041,7 @@ function bankStackPlanGroups(snap, monthKey, opts) {
       plan: budget,
       kind: kind,
       due: 0,
-      over: over
+      over: 0
     });
   });
   return { fit: fit, parts: bankStackSort(parts), lumpSubs: false };
@@ -19151,7 +19180,7 @@ function bankStackLayout(parts, track) {
 function bankStackPlanModel(snap, monthKey, opts) {
   var grouped = bankStackPlanGroups(snap, monthKey, opts);
   var fit = grouped.fit || {};
-  var track = bankRoundCents((fit.income || 0) + (fit.extra || 0) - (fit.overage || 0));
+  var track = bankRoundCents(fit.income || 0);
   if (track < 0) track = 0;
   var laid = bankStackLayout(grouped.parts, track);
   laid.legend = grouped.parts.map(function (row) {
@@ -19164,10 +19193,34 @@ function bankStackPlanModel(snap, monthKey, opts) {
 function bankStackActualModel(snap, monthKey, opts) {
   var grouped = bankStackActualGroups(snap, monthKey, opts);
   var laid = bankStackLayout(grouped.parts, grouped.income);
+  var spentSum = 0;
+  var budgetSum = 0;
   laid.legend = (grouped.legend || []).map(function (row) {
-    return { id: row.id, name: row.name, amount: row.amount, plan: row.plan, kind: row.kind, color: bankStackColor(row.id) };
+    var spent = bankRoundCents(row.amount || 0);
+    var budget = bankRoundCents(row.plan == null ? 0 : row.plan);
+    var gap = bankRoundCents(budget - spent);
+    spentSum += spent;
+    budgetSum += budget;
+    return {
+      id: row.id,
+      name: row.name,
+      amount: spent,
+      plan: budget,
+      kind: row.kind,
+      spent: spent,
+      remain: gap > 0.004 ? gap : 0,
+      overAmt: gap < -0.004 ? bankRoundCents(-gap) : 0,
+      color: bankStackColor(row.id)
+    };
   });
-  if (laid.spare > 0.004) laid.legend.push({ id: "spare", name: "Spare", amount: laid.spare, plan: laid.spare, kind: "spare", color: bankStackColor("spare") });
+  spentSum = bankRoundCents(spentSum);
+  budgetSum = bankRoundCents(budgetSum);
+  var net = bankRoundCents(budgetSum - spentSum);
+  laid.month = true;
+  laid.monthSpent = spentSum;
+  laid.monthBudget = budgetSum;
+  laid.monthLeft = net > 0.004 ? net : 0;
+  laid.monthOver = net < -0.004 ? bankRoundCents(-net) : 0;
   return laid;
 }
 
@@ -19188,13 +19241,46 @@ function bankStackBarHtml(barKey, stackKind, monthKey, label, summary, model, ve
   var pops = (model.legend || []).filter(function (row) { return row.kind !== "spare" && row.kind !== "over"; }).map(function (row) {
     return '<p class="bank-stack-pop" data-for="' + bankEsc(row.id) + '">' + bankEsc(row.name + " " + bankMoney(row.amount)) + "</p>";
   }).join("");
-  var legend = (model.legend || []).map(function (row) {
-    var textLine = bankMoney(row.amount);
-    var hot = stackKind === "plan" && row.kind !== "spare" && row.kind !== "over" && row.over > 0.004;
-    return '<li data-bank-leg="' + bankEsc(row.id) + '" data-amount="' + row.amount + '" data-plan="' + (row.plan == null ? row.amount : row.plan) +
-      '" data-color="' + bankEsc(row.color || bankStackColor(row.id)) + '"><i style="background:' + bankEsc(row.color || bankStackColor(row.id)) +
-      '"></i><span>' + bankEsc(row.name) + '</span> <b' + (hot ? ' class="tone-stop"' : "") + ">" + bankEsc(textLine) + "</b></li>";
-  }).join("");
+  function monthSide(amount, over) {
+    if (over) return '<b class="bank-leg-left tone-stop">' + bankEsc(bankMoney(amount) + " over") + "</b>";
+    return '<b class="bank-leg-left">' + bankEsc(bankMoney(amount)) + "</b>";
+  }
+  function monthSentence(spent, left, over) {
+    var tail = over
+      ? '<b class="tone-stop">' + bankEsc(bankMoney(over) + " over") + "</b>"
+      : bankEsc(bankMoney(left) + " left");
+    return '<span class="bank-leg-sentence">' + bankEsc(bankMoney(spent)) + " spent \u00b7 " + tail + "</span>";
+  }
+  var legend = "";
+  if (model.month) {
+    var rows = (model.legend || []).filter(function (row) { return row && row.kind !== "spare" && row.kind !== "over"; });
+    legend = '<li class="bank-leg-head" aria-hidden="true"><i></i><span></span><span class="bank-leg-spent">Spent</span><span class="bank-leg-left">Left</span></li>' +
+      rows.map(function (row) {
+        var over = row.overAmt > 0.004 ? row.overAmt : 0;
+        var left = over ? 0 : (row.remain || 0);
+        return '<li data-bank-leg="' + bankEsc(row.id) + '" data-amount="' + row.amount + '" data-plan="' + (row.plan == null ? row.amount : row.plan) +
+          '" data-spent="' + (row.spent == null ? row.amount : row.spent) + '" data-left="' + left + '" data-above="' + over +
+          '" data-color="' + bankEsc(row.color || bankStackColor(row.id)) + '"><i style="background:' + bankEsc(row.color || bankStackColor(row.id)) +
+          '"></i><span>' + bankEsc(row.name) + "</span> " + monthSentence(row.spent == null ? row.amount : row.spent, left, over) +
+          '<b class="bank-leg-spent">' + bankEsc(bankMoney(row.spent == null ? row.amount : row.spent)) + "</b>" + monthSide(over || left, over) + "</li>";
+      }).join("");
+    var totalOver = model.monthOver > 0.004 ? model.monthOver : 0;
+    var totalLeft = totalOver ? 0 : (model.monthLeft || 0);
+    legend += '<li class="bank-leg-total" data-bank-leg-total="1" data-spent="' + (model.monthSpent || 0) + '" data-left="' + totalLeft +
+      '" data-above="' + totalOver + '"><i></i><span>Total</span> <b class="bank-leg-sentence">' + bankEsc(bankMoney(model.monthSpent || 0)) +
+      " spent \u00b7 " + (totalOver
+        ? '<b class="tone-stop">' + bankEsc(bankMoney(totalOver) + " over") + "</b>"
+        : bankEsc(bankMoney(totalLeft) + " left")) + "</b>" +
+      '<b class="bank-leg-spent">' + bankEsc(bankMoney(model.monthSpent || 0)) + "</b>" + monthSide(totalOver || totalLeft, totalOver) + "</li>";
+  } else {
+    legend = (model.legend || []).map(function (row) {
+      var textLine = bankMoney(row.amount);
+      return '<li data-bank-leg="' + bankEsc(row.id) + '" data-amount="' + row.amount + '" data-plan="' + (row.plan == null ? row.amount : row.plan) +
+        '" data-color="' + bankEsc(row.color || bankStackColor(row.id)) + '"><i style="background:' + bankEsc(row.color || bankStackColor(row.id)) +
+        '"></i><span>' + bankEsc(row.name) + "</span> <b>" + bankEsc(textLine) + "</b></li>";
+    }).join("");
+  }
+  var legendClass = model.month ? "bank-stack-legend bank-month-legend" : "bank-stack-legend";
   return '<div class="bank-card-bar bank-stack' + (barKey === "income" ? " bank-income-bar" : "") + '" data-bank-bar="' + bankEsc(barKey) +
     '" data-bank-stack="' + bankEsc(stackKind) + '" data-bank-bar-month="' + bankEsc(monthKey || "") + '" data-pct="' + shown +
     '" data-over="' + (model.over > 0.004 ? "1" : "0") + '" data-bank-stack-total="' + model.total + '" data-bank-stack-track="' + model.track +
@@ -19203,7 +19289,7 @@ function bankStackBarHtml(barKey, stackKind, monthKey, label, summary, model, ve
     '<div class="bank-card-bar-track bank-stack-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + shown +
     '" aria-valuetext="' + bankEsc(text) + '" aria-label="' + bankEsc(label) + '">' + segs + "</div>" +
     pops +
-    '<ul class="bank-stack-legend">' + legend + "</ul></div>";
+    '<ul class="' + legendClass + '"' + (model.month ? ' data-bank-month-legend="1"' : "") + ">" + legend + "</ul></div>";
 }
 
 function bankIncomeBudgetBarHtml(snap, opts) {
@@ -19236,14 +19322,8 @@ function bankIncomeBudgetBarHtml(snap, opts) {
   var verdictHtml = bankEsc(amounts) + ', <em class="' + (over ? "tone-stop" : "tone-go") + '" data-bank-fit-verdict="1" data-bank-fit-spare="' +
     verdict.spare + '" data-bank-fit-bills="' + verdict.bills + '" data-bank-fit-subs="' + verdict.subs + '" data-bank-fit-pot="' + verdict.pot +
     '"' + source + ">" + bankEsc(verdict.text) + "</em>";
-  var reserveNote = "";
-  try { reserveNote = bankFitReserveNote(snap, key); } catch (eNote) { reserveNote = ""; }
-  var reserveHtml = reserveNote ? '<p class="hint" data-bank-reserve-note="1">' + bankEsc(reserveNote) + "</p>" : "";
   var sourceHint = bankFitSnapshotMark(snap) ? '<p class="hint" data-bank-fit-source="snapshot">Saved snapshot</p>' : "";
-  var breakHtml = '<p class="hint bank-spare-break" data-bank-spare-break="1" data-bank-spare-base="' + verdict.base +
-    '" data-bank-spare-overage="' + verdict.overage + '" data-bank-spare-extra="' + verdict.extra + '">' +
-    bankEsc(bankSpareBreakText(verdict)) + "</p>";
-  return bankStackBarHtml("income", "plan", key, incomeLabel, label, model, verdictHtml, extra) + breakHtml + reserveHtml + sourceHint;
+  return bankStackBarHtml("income", "plan", key, incomeLabel, label, model, verdictHtml, extra) + sourceHint;
 }
 
 function bankCardBarsHtml(card, snap, opts) {
@@ -19278,7 +19358,20 @@ function bankCardBarsHtml(card, snap, opts) {
     try { spendModel = bankStackActualModel(snap, spendKey, opts); } catch (eModel) { spendModel = null; }
     var spendSummary = bankMoney(spendModel && spendModel.total || 0) + " of " + bankMoney(spendModel && spendModel.track || 0);
     var spendAttrs = ' data-bank-spend-spent="' + spendSpent + '" data-bank-spend-budget="' + spendBudget + '"';
-    rows.push(bankStackBarHtml("spend", "actual", spendKey, spendLabel, spendSummary, spendModel, "", spendAttrs));
+    var monthNote = "";
+    if (!bankFitPending(snap)) {
+      var monthSpare = null;
+      try { monthSpare = bankMonthSpare(snap, opts || {}); } catch (eSpare) { monthSpare = null; }
+      if (monthSpare) {
+        monthNote = '<p class="hint bank-spare-break" data-bank-spare-break="1" data-bank-spare-base="' + monthSpare.typical +
+          '" data-bank-spare-overage="' + monthSpare.overage + '" data-bank-spare-extra="' + monthSpare.extra + '">' +
+          bankEsc(bankSpareBreakText(monthSpare)) + "</p>";
+      }
+      var reserveNote = "";
+      try { reserveNote = bankFitReserveNote(snap, spendKey); } catch (eNote) { reserveNote = ""; }
+      if (reserveNote) monthNote += '<p class="hint" data-bank-reserve-note="1">' + bankEsc(reserveNote) + "</p>";
+    }
+    rows.push(bankStackBarHtml("spend", "actual", spendKey, spendLabel, spendSummary, spendModel, "", spendAttrs) + monthNote);
   }
   if (!rows.length) return "";
   return '<div class="bank-card-bars" data-bank-card-bars="1">' + rows.join("") + "</div>";
@@ -19346,7 +19439,7 @@ function bankHeroHtml(snap, opts, flows) {
     var monthLeft = null;
     var fitSpare = null;
     try { monthLeft = bankBudgetCard(snap, opts).monthLeft; } catch (eLeft) { monthLeft = null; }
-    try { fitSpare = bankBudgetFit(snap, bankFitMonth(snap, opts), opts).left; } catch (eSpare) { fitSpare = null; }
+    try { fitSpare = bankMonthSpare(snap, opts).left; } catch (eSpare) { fitSpare = null; }
     var fitFlags = { pending: bankFitPending(snap), snapshot: bankFitSnapshotMark(snap) };
     moreBody = bankPaceHtml(glance) + bankCategoryRoomHtml(glance, monthLeft, fitSpare, fitFlags) + (defer.face || "") +
       bankGlanceMoreHtml(glance) + (defer.restHtml || "") + bankCushionNoteHtml(glance);
