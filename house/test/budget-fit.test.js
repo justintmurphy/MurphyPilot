@@ -815,8 +815,8 @@ test("spare carries each month's leftover and drops scheduled pay from extra", f
         { name: "Payroll", kind: "payroll", date: "2026-11-14", amount: 90 }
       ],
       other_income: [
-        { name: "Direct deposit", amount: 40, date: "2026-09-15" },
-        { name: "Care deposit", amount: 15, date: "2026-09-10" },
+        { name: "Desk deposit", amount: 22, date: "2026-09-14", category: "Payroll" },
+        { name: "Care deposit", amount: 9, date: "2026-09-11", source: "Stipend" },
         { name: "Rebate", amount: 5, date: "2026-09-12" },
         { name: "Payroll", amount: 50, date: "2026-10-15", kind: "payroll" },
         { name: "Interest", amount: 3, date: "2026-10-04" }
@@ -835,7 +835,12 @@ test("spare carries each month's leftover and drops scheduled pay from extra", f
   const septFit = ctx.bankBudgetFit(snap, "2026-09", opts);
   assert.notEqual(septFit.left, 60);
   const rawSept = ctx.bankFitExtraRows(snap, "2026-09", opts);
-  assert.equal(rawSept.some(function (row) { return row.name === "Direct deposit" && row.amount === 40; }), true);
+  assert.equal(rawSept.some(function (row) {
+    return row.name === "Desk deposit" && row.amount === 22 && row.date === "2026-09-14" && row.category === "Payroll";
+  }), true);
+  const keptSept = ctx.bankCarryExtraRows(snap, "2026-09", opts);
+  assert.equal(keptSept.some(function (row) { return row.name === "Desk deposit" || row.name === "Care deposit"; }), false);
+  assert.equal(keptSept.some(function (row) { return row.name === "Rebate" && row.amount === 5; }), true);
   const intoOct = ctx.bankCarriedOverage(snap, "2026-10", Object.assign({}, opts, { typical: 60 }));
   assert.equal(intoOct.month, "2026-09");
   assert.equal(intoOct.typical, 60);
@@ -876,6 +881,13 @@ test("spare carries each month's leftover and drops scheduled pay from extra", f
   const octPage = ctx.bankPageHtml(octView, octOpts);
   assert.match(octPage, /data-bank-spare-carried="-55"/);
   assert.match(octPage, /Carried from September/);
+  assert.equal((octPage.match(/Carried from September/g) || []).length, 1);
+  const carryLi = (octPage.match(/<li data-bank-spare-carried="-55">[\s\S]*?<\/li>/) || [""])[0];
+  assert.equal((carryLi.match(/Carried from September/g) || []).length, 1);
+  const breakAt = octPage.indexOf("data-bank-spare-break");
+  const breakBlock = octPage.slice(breakAt, octPage.indexOf("</p>", breakAt));
+  assert.match(breakBlock, /carried from September/);
+  assert.doesNotMatch(breakBlock, /Carried from September/);
   assert.match(octPage, /tone-stop/);
   assert.match(octPage, /\u2212\$55\.00/);
   assert.match(octPage, /data-bank-spare-carry-row="groceries"/);
