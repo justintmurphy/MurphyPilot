@@ -262,22 +262,32 @@
     "kind": "bill",
     "paid_current_month": {
      "month": "2026-10",
-     "status": "due",
+     "status": "partial",
+     "paid_count": 1,
+     "expected": 2,
+     "paid_days": [15],
      "source": "alert_email",
      "paid_date": "2026-10-17",
      "tx_key": "2026-10-17|acct-2222|52|Withdrawal (alert)",
      "slots": [
       {
        "due": "2026-10-15",
-       "status": "paid",
+       "amount": 52,
        "source": "alert_email"
       },
       {
        "due": "2026-10-29",
-       "status": "due"
+       "status": "due",
+       "amount": 50
       }
      ]
-    }
+    },
+    "schedule": [
+     { "date": "2026-09-15", "status": "paid", "bill_id": "phone" },
+     { "date": "2026-09-29", "status": "paid", "bill_id": "phone" },
+     { "date": "2026-10-15", "status": "paid", "paid_date": "2026-10-17", "amount": 52, "source": "alert_email", "bill_id": "phone" },
+     { "date": "2026-10-29", "status": "due", "amount": 50, "bill_id": "phone" }
+    ]
    },
    {
     "bill_id": "water",
@@ -289,7 +299,10 @@
     "cadence": "quarterly",
     "quarterly_amount": 90,
     "next_due": "2027-01-07",
-    "reserve": "wsw"
+    "reserve": "wsw",
+    "schedule": [
+     { "date": "2027-01-07", "status": "due", "amount": 90, "bill_id": "water" }
+    ]
    },
    {
     "bill_id": "sewer",
@@ -302,7 +315,10 @@
     "quarterly_amount": 120,
     "next_due": "2026-11-10",
     "reserve_funded": null,
-    "reserve": "wsw"
+    "reserve": "wsw",
+    "schedule": [
+     { "date": "2026-11-10", "status": "due", "amount": 120, "bill_id": "sewer" }
+    ]
    }
   ],
   "one_time_bills": [
@@ -327,7 +343,11 @@
     "category": "software-ai",
     "status": null,
     "typical_day": 12,
-    "cadence": "monthly"
+    "cadence": "monthly",
+    "schedule": [
+     { "date": "2026-09-12", "status": "paid", "paid_date": "2026-09-12", "amount": 10, "sub_id": "toolco" },
+     { "date": "2026-10-12", "status": "paid", "paid_date": "2026-10-12", "amount": 10, "sub_id": "toolco" }
+    ]
    }
   ]
  },
@@ -382,6 +402,9 @@
     "from": "2026-10",
     "set_at": "2026-10-16T03:00:00Z"
    }
+  },
+  "manual_paid": {
+   "phone": { "month": "2026-10", "paid_date": "2026-10-17" }
   }
  }
 }
