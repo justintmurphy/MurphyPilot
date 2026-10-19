@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("fs");
 const path = require("path");
 const test = require("node:test");
@@ -75,6 +76,10 @@ function attr(html, name) {
   return found;
 }
 
+function flat(html) {
+  return String(html || "").replace(/<span class="sep">\s*·\s*<\/span>/g, " · ");
+}
+
 test("pay deposits collapse to one event per paycheck and stay inside the window", function () {
   const ctx = bootBank();
   const snap = loadSnap(ctx);
@@ -118,20 +123,20 @@ test("a paid slot marks that due date and leaves the later slot unpaid", functio
   const opts = optsFor();
   const due = ctx.bankRenderDueList(snap, opts, "plan", "2026-10", false);
   assert.match(due, /data-bank-row-date="2026-10-15"[^>]*data-bank-row-paid="1"/);
-  assert.match(due, /due 10\/15[\s\S]{0,40}paid Oct 17/);
+  assert.match(flat(due), /Phone paid \$52\.00 · \$50\.00 due 10\/29/);
   assert.match(due, /\$52\.00/);
   const unpaid = due.split("data-bank-row-date=\"2026-10-29\"")[1] || "";
   assert.equal(unpaid.slice(0, 80).indexOf('data-bank-row-paid="1"'), -1);
   assert.equal(/data-bank-row-date="2026-10-3/.test(due), false);
   const next = ctx.bankNextPaySection(snap, opts);
-  assert.match(next, /due 10\/15 · paid/);
+  assert.match(flat(next), /Phone paid \$52\.00 · \$50\.00 due 10\/29/);
   assert.match(next, /\$52\.00/);
   const tiers = ctx.bankTierSummaryHtml(snap, opts, "plan", "2026-10");
-  assert.match(tiers, /10\/15 paid · 10\/29 unpaid/);
+  assert.match(flat(tiers), /Phone paid \$52\.00 · \$50\.00 due 10\/29/);
   const panels = ctx.bankBudgetPanelsHtml(snap, opts);
   assert.match(panels, /Due this window /);
   assert.match(panels, /data-state="paid"/);
-  assert.match(panels, /\$52\.00/);
+  assert.match(flat(panels), /Phone paid \$52\.00 · \$50\.00 due 10\/29/);
   const glance = ctx.bankBudgetGlance(snap, opts);
   assert.equal(glance.remainingBills, 50);
   const win = ctx.bankBudgetWindowFor(snap, "2026-10");
@@ -186,7 +191,7 @@ test("past-month next pay reads schedule for bills and subs", function () {
   const tool = rows.filter(function (row) { return row.name === "Toolco" && row.due === "2026-09-29"; })[0];
   assert.equal(bill && bill.paid, true);
   assert.equal(bill && bill.amount, 48);
-  assert.match(bill.phrase, /due 9\/29 · paid/);
+  assert.match(bill.phrase, /paid \$48\.00/);
   assert.equal(tool && tool.paid, true);
   assert.equal(tool && tool.amount, 11);
   assert.match(tool.phrase, /paid late/);
@@ -255,7 +260,7 @@ test("a retired one-time bill is spend, not a planned row", function () {
   const line = ctx.bankIncomeBudgetLineHtml(snap, "2026-10");
   const lineBudget = Number((line.match(/data-budget="([^"]*)"/) || [])[1]);
   assert.equal(fit.budgeted, 270);
-  assert.equal(lineBudget, 370);
+  assert.equal(lineBudget, 270);
   const scan = ctx.bankSpendScan(snap, "2026-10", ctx.bankSpendCategories(snap, "2026-10"));
   assert.equal(scan.totals["household-health"], 60);
 });
@@ -330,4 +335,155 @@ test("a category_tx assignment wins over a transfer feed and an atm merchant rul
   const scan = ctx.bankSpendScan(snap, "2026-10", ctx.bankSpendCategories(snap, "2026-10"));
   assert.equal(scan.totals["personal-health"], 30);
   assert.equal(scan.totals.cash || 0, 0);
+});
+
+function payHash(text) {
+  return "h:" + crypto.createHash("sha256").update(String(text)).digest("hex").slice(0, 32);
+}
+
+test("the October 30 payroll card and its move stay on next pay", function () {
+  const ctx = bootBank();
+  const snap = loadSnap(ctx);
+  const opts = optsFor();
+  const periods = ctx.bankPayPeriods(snap, opts) || [];
+  assert.equal(periods.some(function (period) { return period && period.focus && period.focus.date === "2026-10-30"; }), true);
+  snap.budget.pay_periods.push({
+    start: "2026-10-30",
+    end: "2026-11-13",
+    deposit: { name: "Payroll", kind: "payroll", amount: 1000, account: "2222", date: "2026-10-30" },
+    moves: [{
+      date: "2026-10-30",
+      move_by: "2026-10-30",
+      name: "Planned move",
+      amount: 15,
+      from: "1111",
+      to: "2222"
+    }]
+  });
+  const next = ctx.bankNextPaySection(snap, opts);
+  const card = next.split('data-bank-next-date="2026-10-30"')[1] || "";
+  assert.notEqual(card, "");
+  const body = card.split('data-bank-next-date="')[0];
+  assert.match(body, /Move \$15 from/);
+  const earlier = next.split('data-bank-next-date="2026-10-30"')[0];
+  assert.equal(earlier.indexOf("Move $15 from"), -1);
+});
+
+test("a hashed stipend key is pay, not extra income", function () {
+  const ctx = bootBank();
+  const snap = loadSnap(ctx);
+  const opts = optsFor();
+  const rawKey = "2026-10-08|acct-1111|400|Deposit Agency Edi Paymts";
+  const hashed = payHash(rawKey);
+  assert.equal(ctx.bankTxHashedKey(rawKey), hashed);
+  const stip = snap.budget.pay_schedule.filter(function (row) { return row.kind === "stipend" && row.received_tx_key; })[0];
+  const tx = snap.current.edits_tx.filter(function (row) { return row.desc === "Deposit Agency Edi Paymts"; })[0];
+  stip.received_tx_key = hashed;
+  tx.tx_key = rawKey;
+  assert.equal(ctx.bankFitExtraIncome(snap, "2026-10", opts), 25);
+  const card = ctx.bankBudgetCard(snap, opts);
+  assert.equal(card.pay, 2800);
+  assert.equal(card.surplus, 25);
+  const blob = (card.surplusRows || []).map(function (row) { return String(row.name || ""); }).join(" | ");
+  assert.equal(/Agency Edi|400/.test(blob), false);
+  stip.received_tx_key = payHash("different-stipend-key");
+  assert.equal(ctx.bankFitExtraIncome(snap, "2026-10", opts), 25);
+  assert.equal(ctx.bankBudgetCard(snap, opts).pay, 2800);
+});
+
+test("phone slots stay split when a month tick or a future schedule day is present", function () {
+  const ctx = bootBank();
+  const snap = loadSnap(ctx);
+  const opts = optsFor();
+  const phone = snap.budget.bills.filter(function (row) { return row.bill_id === "phone"; })[0];
+  const rawKey = phone.paid_current_month.tx_key;
+  const hashed = payHash(rawKey);
+  phone.paid_current_month.tx_key = hashed;
+  phone.paid_current_month.slots[0].tx_key = hashed;
+  phone.schedule = [{ date: "2026-10-15", status: "paid", paid_date: "2026-10-17", amount: 52, tx_key: hashed, bill_id: "phone" }];
+  const prepared = ctx.bankPreparedBills(snap, undefined).filter(function (row) { return row.bill_id === "phone"; })[0];
+  const marks = ctx.bankBillDueMarks(prepared, { year: 2026, month: 10 }).map(function (mark) { return mark.day; });
+  assert.equal(marks.indexOf(15) >= 0, true);
+  assert.equal(marks.indexOf(29) >= 0, true);
+  const phrase = /Phone paid \$52\.00 · \$50\.00 due 10\/29/;
+  assert.match(flat(ctx.bankRenderDueList(snap, opts, "plan", "2026-10", false)), phrase);
+  assert.match(flat(ctx.bankNextPaySection(snap, opts)), phrase);
+  assert.match(flat(ctx.bankTierSummaryHtml(snap, opts, "plan", "2026-10")), phrase);
+  assert.match(flat(ctx.bankBudgetPanelsHtml(snap, opts)), phrase);
+  assert.equal(ctx.bankBudgetGlance(snap, opts).remainingBills, 50);
+  const late = ctx.bankPeriodBillRows(snap, opts, "2026-10-01", "2026-10-17");
+  const earlyPhone = late.filter(function (row) { return row.name === "Phone" && row.due === "2026-10-15"; })[0];
+  assert.equal(earlyPhone && earlyPhone.paid, false);
+  assert.equal(String(earlyPhone && earlyPhone.phrase || "").indexOf("paid $52.00"), -1);
+  phone.paid_current_month.slots[0].status = "due";
+  if (!snap.tier_doc.manual_paid) snap.tier_doc.manual_paid = {};
+  snap.tier_doc.manual_paid.phone = { month: "2026-10", paid_date: "2026-10-16" };
+  const ticked = ctx.bankPreparedBills(snap, undefined).filter(function (row) { return row.bill_id === "phone"; })[0];
+  const near = ctx.bankPayCheckState(ticked, "2026-10", true, "2026-10-15");
+  assert.equal(near.on, true);
+  assert.equal(near.manual, true);
+  assert.equal(ctx.bankPayCheckState(ticked, "2026-10", true, "2026-10-29").on, false);
+  assert.equal(ctx.bankPayCheckState(ticked, "2026-10", true).on, false);
+  assert.match(flat(ctx.bankTierSummaryHtml(snap, opts, "plan", "2026-10")), phrase);
+  assert.equal(ctx.bankBudgetGlance(snap, opts).remainingBills, 50);
+});
+
+test("bill groups and categories add up to the main budget once", function () {
+  const ctx = bootBank();
+  const snap = loadSnap(ctx);
+  const opts = optsFor();
+  const fit = ctx.bankBudgetFit(snap, "2026-10", opts);
+  const tiers = ctx.bankTierSummaryHtml(snap, opts, "plan", "2026-10");
+  const line = tiers.match(/data-bank-income-line="1"[^>]*data-budget="([^"]*)"/);
+  assert.equal(Number(line && line[1]), fit.budgeted);
+  assert.equal(fit.budgeted, 270);
+  const groups = attr(tiers, "data-bank-bill-group").filter(function (id) { return id && id !== "categories"; });
+  const cats = attr(tiers, "data-bank-cat-row");
+  groups.forEach(function (id) {
+    assert.equal(cats.indexOf(id), -1, id);
+  });
+  let plan = 0;
+  groups.forEach(function (id) {
+    const block = tiers.split('data-bank-bill-group="' + id + '"')[1] || "";
+    plan += Number((block.match(/data-bank-group-budget="([^"]*)"/) || [])[1] || 0);
+    const spent = Number((block.match(/data-spent="([^"]*)"/) || [])[1]);
+    assert.equal(spent, ctx.bankMonthCategoryActual(snap, "2026-10", id));
+  });
+  cats.forEach(function (id) {
+    const row = tiers.split('data-bank-cat-row="' + id + '"')[1] || "";
+    const budget = (row.match(/data-budget="([^"]*)"/) || [])[1];
+    if (budget != null && budget !== "") plan += Number(budget);
+  });
+  assert.equal(ctx.bankRoundCents(plan), fit.budgeted);
+});
+
+test("one electric payment covers two months on the card that holds its date", function () {
+  const ctx = bootBank();
+  const snap = loadSnap(ctx);
+  const opts = optsFor();
+  snap.budget.bills.push({
+    bill_id: "electric",
+    name: "Electric",
+    amount: 80,
+    cadence: "monthly",
+    typical_day: 15,
+    category: "utilities",
+    kind: "bill",
+    schedule: [
+      { date: "2026-08-15", status: "paid", paid_date: "2026-09-29", tx_key: "elec-1", amount: 80, bill_id: "electric", covers: 2 },
+      { date: "2026-09-15", status: "paid", paid_date: "2026-09-29", tx_key: "elec-1", amount: 80, bill_id: "electric", covers: 2 }
+    ]
+  });
+  const rows = ctx.bankPeriodBillRows(snap, opts, "2026-09-29", "2026-10-15");
+  const electric = rows.filter(function (row) { return row.name === "Electric"; });
+  assert.equal(electric.length, 1);
+  assert.equal(electric[0].paid, true);
+  assert.equal(electric[0].amount, 80);
+  assert.match(electric[0].phrase, /paid \$80\.00 on Sep 29 \(covers 2 bills\)/);
+  assert.equal(/-\$80|due/.test(electric[0].phrase), false);
+  const counted = ctx.bankMoveWindowBills(snap, opts, { focus: { date: "2026-09-29" }, end: "2026-10-15" }, "2026-10-19").counted;
+  assert.equal(counted.filter(function (row) { return row.name === "Electric"; }).length, 0);
+  const wide = ctx.bankPeriodBillRows(snap, opts, "2026-08-01", "2026-10-01").filter(function (row) { return row.name === "Electric"; });
+  assert.equal(wide.length, 1);
+  assert.equal(wide[0].amount, 80);
 });

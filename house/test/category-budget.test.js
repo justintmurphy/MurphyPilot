@@ -1523,7 +1523,9 @@ test("this month shows each figure once and tucks the extra cards", function () 
   assert.ok(html.indexOf("<h2>Insights</h2>") < 0 || html.indexOf("<h2>Insights</h2>") > moreAt);
   assert.ok(html.indexOf("bank-tier-summary") < moreAt);
   assert.match(html, /data-bank-income-line="1"/);
-  assert.match(html, /data-over="1"/);
+  assert.match(html, /data-bank-income-line="1"[^>]*data-budget="0"/);
+  assert.match(html, /data-bank-income-line="1"[^>]*data-over="0"/);
+  assert.match(html, /data-bank-fit-budgeted="0"/);
   assert.match(html, /data-bank-trim="1"/);
   assert.match(html, /Already counted in Groceries \$1\.25/);
   assert.doesNotMatch(html, /Overlap/);
@@ -1537,7 +1539,7 @@ test("this month shows each figure once and tucks the extra cards", function () 
   assert.match(html, /data-bank-scale="income"/);
   assert.match(html, /<span>Income<\/span>/);
   assert.match(html, /<span>Budgeted<\/span>/);
-  assert.match(html, /<span>Short<\/span>/);
+  assert.match(html, /<span>Left<\/span>/);
   assert.match(html, /General Shopping/);
   const under = JSON.parse(JSON.stringify(snap));
   under.budget.tiers.plan_total_tiers = 10;
