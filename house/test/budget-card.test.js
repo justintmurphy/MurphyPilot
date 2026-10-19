@@ -435,7 +435,7 @@ test("everyday spending adds the opening balance and landed pay", function () {
   assert.doesNotMatch(src, /2296\.25|2,296\.25|9491\.50|9,491\.50|7838\.21|2835\.12|2,835\.12/);
 });
 
-test("after budgets uses the in-month spare left", function () {
+test("after budgets subtracts remaining category budgets from that left", function () {
   const ctx = boot();
   const fx = snap();
   fx.tier_doc.categories = [
@@ -455,11 +455,13 @@ test("after budgets uses the in-month spare left", function () {
   const opts = { planMonth: "2026-10", now: NOW };
   const fit = ctx.bankBudgetFit(fx, ctx.bankFitMonth(fx, opts), opts);
   const spare = ctx.bankMonthSpare(fx, opts).left;
-  const tone = spare < -0.004 ? "tone-stop" : "tone-go";
+  const nowAfter = ctx.bankRoundCents(card.nowLeft - room);
+  const monthAfter = ctx.bankRoundCents(card.monthLeft - room);
+  function tone(amount) { return amount < -0.004 ? "tone-stop" : "tone-go"; }
   const nowPanel = html.slice(html.indexOf('data-bank-now="1"'), html.indexOf('data-bank-overall="1"'));
   const overallPanel = html.slice(html.indexOf('data-bank-overall="1"'), html.indexOf("fills-more"));
-  assert.match(nowPanel, new RegExp('class="' + tone + '" data-bank-after-now="' + spare + '"'));
-  assert.match(overallPanel, new RegExp('class="' + tone + '" data-bank-after-month="' + spare + '"'));
+  assert.match(nowPanel, new RegExp('class="' + tone(nowAfter) + '" data-bank-after-now="' + nowAfter + '"'));
+  assert.match(overallPanel, new RegExp('class="' + tone(monthAfter) + '" data-bank-after-month="' + monthAfter + '"'));
   assert.match(nowPanel, /After budgets/);
   assert.match(nowPanel, /Groceries, Gas, Dining…/);
   assert.doesNotMatch(nowPanel, /Fun|Mortgage/);
@@ -474,4 +476,62 @@ test("after budgets uses the in-month spare left", function () {
   const barSpare = Number((html.match(/data-bank-bar="income"[^>]*data-bank-fit-spare="([^"]+)"/) || [])[1]);
   assert.equal(barSpare, fit.left);
   assert.equal(card.nowLeft != null, true);
+});
+
+test("after budgets is left minus remaining budgets and ignores carried spare", function () {
+  const ctx = boot();
+  const cats = [
+    { id: "groceries", name: "Groceries", tier: "needs", budget: 180 },
+    { id: "personal-health", name: "Personal Health", tier: "wants", budget: 120 },
+    { id: "rent", name: "Rent", tier: "required", budget: 500 }
+  ];
+  const snap = {
+    asof: "2026-10-16T12:00:00-04:00",
+    accounts: [{ id: "chk", nickname: "Everyday", last4: "1111", role: "everyday", subType: "checking" }],
+    current: { month: "2026-10", edits_tx: [], recent_tx: [] },
+    history: { months: [] },
+    budget: {
+      budget_month: { month: "2026-10", start: "2026-10-01", end: "2026-10-31" },
+      pay_schedule: [{ name: "Payroll", kind: "payroll", date: "2026-10-15", amount: 400 }],
+      pay_periods: [{
+        current: true,
+        start: "2026-10-01",
+        end: "2026-10-31",
+        accounts: {
+          "1111": { nickname: "Everyday", role: "everyday", subType: "checking", left_at_end: 1000 }
+        }
+      }],
+      bills: [],
+      subscriptions: [],
+      carried_spare: { month: "2026-09", net: 250 }
+    },
+    tier_doc: { categories: cats, category_rules: {}, category_tx: {}, bill_status: {}, manual_paid: {} }
+  };
+  const opts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z" };
+  const room = ctx.bankCardCategoryRoom(snap, opts);
+  assert.equal(room.room, 300);
+  assert.equal(room.rows.map(function (row) { return row.name; }).join(", "), "Groceries, Personal Health");
+  const card = ctx.bankBudgetCard(snap, opts);
+  assert.equal(card.nowLeft, 1000);
+  assert.equal(card.monthLeft, 1000);
+  const spare = ctx.bankMonthSpare(snap, opts);
+  assert.notEqual(spare.left, 700);
+  const page = ctx.bankPageHtml(snap, opts);
+  assert.match(page, /data-bank-now-left="1000"/);
+  assert.match(page, /data-bank-month-left="1000"/);
+  assert.match(page, /data-bank-after-now="700"/);
+  assert.match(page, /data-bank-after-month="700"/);
+  assert.match(page, /Groceries, Personal Health/);
+  assert.match(page, /\$300\.00/);
+  assert.match(page, /href="#edits">Adjust budgets/);
+  const nowPanel = page.slice(page.indexOf('data-bank-now="1"'), page.indexOf('data-bank-overall="1"'));
+  assert.match(nowPanel, /class="tone-go" data-bank-after-now="700"/);
+  const short = ctx.bankCardAfterBudgetsHtml(200, room, [], "now");
+  assert.match(short, /class="tone-stop" data-bank-after-now="-100"/);
+  assert.equal(Number((page.match(/data-bank-free="([^"]*)"/) || [])[1]), spare.left);
+  snap.budget.carried_spare = { month: "2026-09", net: -40 };
+  const again = ctx.bankPageHtml(snap, opts);
+  assert.match(again, /data-bank-after-now="700"/);
+  assert.match(again, /data-bank-after-month="700"/);
+  assert.notEqual(ctx.bankMonthSpare(snap, opts).left, spare.left);
 });

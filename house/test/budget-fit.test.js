@@ -304,8 +304,10 @@ test("November uses the computed window and one spare across the bar, Edits, and
   assert.match(spendTail, /Spare left /);
   assert.match(spendTail, new RegExp("Spare left " + ctx.bankMoney(month.left).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
     " = " + ctx.bankMoney(month.typical).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(page, new RegExp('data-bank-after-now="' + month.left + '"'));
-  assert.match(page, new RegExp('data-bank-after-month="' + month.left + '"'));
+  const card = ctx.bankBudgetCard(snap, opts);
+  const room = ctx.bankCardCategoryRoom(snap, opts).room;
+  assert.equal(Number((page.match(/data-bank-after-now="([^"]*)"/) || [])[1]), ctx.bankRoundCents(card.nowLeft - room));
+  assert.equal(Number((page.match(/data-bank-after-month="([^"]*)"/) || [])[1]), ctx.bankRoundCents(card.monthLeft - room));
   assert.match(page, new RegExp('data-bank-after-cats="' + month.left + '"'));
   assert.equal(Number((page.match(/data-bank-free="([^"]*)"/) || [])[1]), month.left);
   assert.doesNotMatch(page, /data-bank-cat-row="subscriptions"/);
@@ -786,8 +788,11 @@ test("an overage reduces spare, extra income increases it, and a paycheck is not
   assert.match(spendLegend, /Groceries<\/span> <span class="bank-leg-sentence">\$0\.00 spent · \$100\.00 left<\/span>/);
   assert.match(spendLegend, /Total<\/span> <b class="bank-leg-sentence">\$0\.00 spent · \$300\.00 left<\/b>/);
   assert.match(page.slice(spendAt), /Spare left \$760\.00 = \$700\.00, \+\$0\.00 carried from October, minus \$60\.00 overages, plus \$120\.00 extra income/);
-  assert.match(page, /data-bank-after-now="760"/);
-  assert.match(page, /data-bank-after-month="760"/);
+  const card = ctx.bankBudgetCard(snap, opts);
+  const room = ctx.bankCardCategoryRoom(snap, opts).room;
+  assert.equal(Number((page.match(/data-bank-after-now="([^"]*)"/) || [])[1]), ctx.bankRoundCents(card.nowLeft - room));
+  assert.equal(Number((page.match(/data-bank-after-month="([^"]*)"/) || [])[1]), ctx.bankRoundCents(card.monthLeft - room));
+  assert.notEqual(Number((page.match(/data-bank-after-now="([^"]*)"/) || [])[1]), 760);
   assert.equal(Number((page.match(/data-bank-free="([^"]*)"/) || [])[1]), 760);
   const edits = ctx.bankPageHtml(snap, { tab: "edits", planMonth: "2026-11", now: opts.now });
   assert.match(edits, /data-bank-fit-spare="700"/);
