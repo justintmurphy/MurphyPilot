@@ -15708,8 +15708,9 @@ function bankFitExtraRows(snap, monthKey, opts) {
   try { win = bankBudgetWindowFor(snap, monthKey); } catch (eWin) { win = null; }
   var seen = {};
   var rows = [];
-  function add(name, amount, date, kind, category, source) {
-    var label = name || "Income";
+  function add(name, amount, date, kind, category, source, raw) {
+    raw = raw || {};
+    var label = name || raw.desc || raw.description || "Income";
     var probe = { name: label, kind: kind || "", label: label };
     if (bankCardPayKind(probe)) return;
     var day = "";
@@ -15722,19 +15723,26 @@ function bankFitExtraRows(snap, monthKey, opts) {
     var id = day + "|" + bankRoundCents(Math.abs(n));
     if (seen[id]) return;
     seen[id] = true;
+    var nominal = "";
+    try { nominal = bankYmdOnly(bankCopyDate(raw.nominal_date || "")) || ""; } catch (eNom) { nominal = ""; }
     rows.push({
       name: label,
       amount: bankRoundCents(Math.abs(n)),
       date: day,
       kind: kind || "",
-      category: category || "",
-      source: source || ""
+      category: category || raw.category || "",
+      source: source || raw.source || raw.type || "",
+      nominal_date: nominal,
+      tx_key: String(raw.tx_key || raw.txKey || raw.received_tx_key || "").trim(),
+      desc: raw.desc || "",
+      description: raw.description || "",
+      payKind: raw.payKind || ""
     });
   }
   var budget = (snap && snap.budget) || {};
   (Array.isArray(budget.other_income) ? budget.other_income : []).forEach(function (row) {
     if (!row) return;
-    add(row.name || row.label || "Income", row.amount, row.date || row.on || "", row.kind || "", row.category || "", row.source || row.type || "");
+    add(row.name || row.label || "Income", row.amount, row.date || row.on || "", row.kind || "", row.category || "", row.source || row.type || "", row);
   });
   var today = "";
   try { today = bankTodayIso(snap, opts); } catch (eToday) { today = ""; }
@@ -15746,7 +15754,7 @@ function bankFitExtraRows(snap, monthKey, opts) {
   try { split = bankCardSplitInflows(snap, deposits) || split; } catch (eSplit) { split = { surplus: [] }; }
   (split.surplus || []).forEach(function (ev) {
     if (!ev) return;
-    add(ev.name || ev.label || "Income", ev.amount, ev.date, ev.payKind || ev.kind || "", ev.category || "", ev.source || ev.type || "");
+    add(ev.name || ev.label || "Income", ev.amount, ev.date, ev.payKind || ev.kind || "", ev.category || "", ev.source || ev.type || "", ev);
   });
   return rows;
 }
@@ -15860,23 +15868,67 @@ function bankCarryMonthHasFigures(snap, monthKey) {
   return Object.keys(spent).length > 0;
 }
 
-/* Same payroll and stipend classification the deposit list uses. Day and amount are not the match. */
-function bankCarryPayKind(row) {
-  if (!row) return "";
-  var classified = row.kind || row.category || row.source || row.type || "";
-  return bankCardPayKind({ name: row.name || "", kind: classified, type: row.source || row.type || "" });
+/* A scheduled pay day. Posted date and amount are not the match. */
+function bankCarryNominalPay(snap, nominal) {
+  if (!nominal) return false;
+  var budget = (snap && snap.budget) || {};
+  var hit = false;
+  (budget.pay_schedule || []).forEach(function (sched) {
+    if (hit || !sched || !bankCardPayKind(sched)) return;
+    var days = [sched.nominal_date, sched.date, sched.pay_date];
+    var member = "";
+    try { member = bankPayWindowDate(sched); } catch (eMem) { member = ""; }
+    if (member) days.push(member);
+    days.forEach(function (day) {
+      var iso = "";
+      try { iso = bankYmdOnly(bankCopyDate(day || "")) || ""; } catch (eDay) { iso = ""; }
+      if (iso && iso === nominal) hit = true;
+    });
+  });
+  return hit;
+}
+
+/* Same Pay vs Surplus split the Budget card uses. Not a schedule date and amount match. */
+function bankCarryIsPayRow(snap, row) {
+  if (!row) return false;
+  var described = row.desc || row.description || "";
+  var name = row.name || row.label || described || "";
+  var kind = row.kind || row.category || "";
+  var payKind = row.payKind || bankCardPayKind({ name: name, kind: kind || row.source || "" });
+  if (!payKind && described) payKind = bankCardPayKind({ name: described, kind: kind });
+  if (!payKind && row.source) payKind = bankCardPayKind({ name: row.source, kind: row.source });
+  var catalog = null;
+  try { catalog = bankCardPayCatalog(snap); } catch (eCat) { catalog = null; }
+  var probe = {
+    name: name,
+    label: name,
+    kind: kind,
+    type: row.source || row.type || "",
+    payKind: payKind || "",
+    txKey: row.tx_key || row.txKey || "",
+    tx_key: row.tx_key || row.txKey || "",
+    nominal_date: row.nominal_date || "",
+    date: row.date || "",
+    desc: described,
+    description: row.description || "",
+    category: row.category || "",
+    source: row.source || ""
+  };
+  if (bankCardIsPayDeposit(probe, catalog)) return true;
+  var keys = null;
+  try { keys = bankCardPayTxKeys(snap); } catch (eKeys) { keys = null; }
+  if (bankCardPayKeyHit(keys, probe)) return true;
+  var nominal = "";
+  try { nominal = bankYmdOnly(bankCopyDate(row.nominal_date || "")) || ""; } catch (eNom) { nominal = ""; }
+  if (payKind && nominal) return true;
+  if (nominal && bankCarryNominalPay(snap, nominal)) return true;
+  return false;
 }
 
 function bankCarryExtraRows(snap, monthKey, opts) {
   var rows = [];
   try { rows = bankFitExtraRows(snap, monthKey, opts) || []; } catch (eRows) { rows = []; }
-  return rows.filter(function (row) {
-    if (!row) return false;
-    if (bankCarryPayKind(row)) return false;
-    var probe = { name: row.name || "", kind: row.kind || row.category || row.source || "" };
-    if (bankIsScheduledDeposit(probe)) return false;
-    return true;
-  });
+  return rows.filter(function (row) { return row && !bankCarryIsPayRow(snap, row); });
 }
 
 function bankPublishedCarry(snap, monthKey) {
@@ -19177,7 +19229,10 @@ function bankCardPushEvent(out, ev, suffix, nick, kindForce) {
     toLast: ends.toLast,
     nick: nick || "",
     txKey: String(ev.tx_key || ev.txKey || "").trim(),
-    source: String(ev.source || "").toLowerCase()
+    source: String(ev.source || "").toLowerCase(),
+    nominal_date: bankYmdOnly(bankCopyDate(ev.nominal_date || "")) || "",
+    category: ev.category || "",
+    desc: ev.desc || ev.description || ""
   });
 }
 

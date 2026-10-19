@@ -809,15 +809,18 @@ test("spare carries each month's leftover and drops scheduled pay from extra", f
     history: { months: [] },
     budget: {
       pay_schedule: [
-        { name: "Payroll", kind: "payroll", date: "2026-09-15", amount: 40 },
-        { name: "Stipend", kind: "stipend", date: "2026-09-10", amount: 15 },
+        { name: "Payroll", kind: "payroll", date: "2026-09-15", nominal_date: "2026-09-15", amount: 40 },
+        { name: "Stipend", kind: "stipend", date: "2026-09-10", amount: 15, received_tx_key: "stip-early" },
+        { name: "Stipend", kind: "stipend", date: "2026-09-24", amount: 16 },
         { name: "Payroll", kind: "payroll", date: "2026-10-15", amount: 50 },
         { name: "Payroll", kind: "payroll", date: "2026-11-14", amount: 90 }
       ],
       other_income: [
-        { name: "Desk deposit", amount: 22, date: "2026-09-14", category: "Payroll" },
-        { name: "Care deposit", amount: 9, date: "2026-09-11", source: "Stipend" },
-        { name: "Rebate", amount: 5, date: "2026-09-12" },
+        { name: "Desk deposit", amount: 22, date: "2026-09-14", nominal_date: "2026-09-15" },
+        { name: "Care deposit", amount: 9, date: "2026-09-11", tx_key: "stip-early" },
+        { name: "Second care", amount: 11, date: "2026-09-26", desc: "Stipend" },
+        { name: "Mobile deposit", amount: 2, date: "2026-09-08" },
+        { name: "Fee rebate", amount: 3, date: "2026-09-12" },
         { name: "Payroll", amount: 50, date: "2026-10-15", kind: "payroll" },
         { name: "Interest", amount: 3, date: "2026-10-04" }
       ],
@@ -836,11 +839,16 @@ test("spare carries each month's leftover and drops scheduled pay from extra", f
   assert.notEqual(septFit.left, 60);
   const rawSept = ctx.bankFitExtraRows(snap, "2026-09", opts);
   assert.equal(rawSept.some(function (row) {
-    return row.name === "Desk deposit" && row.amount === 22 && row.date === "2026-09-14" && row.category === "Payroll";
+    return row.name === "Desk deposit" && row.amount === 22 && row.date === "2026-09-14" && row.nominal_date === "2026-09-15";
   }), true);
+  assert.equal(rawSept.some(function (row) { return row.name === "Care deposit" && row.amount === 9 && row.date === "2026-09-11"; }), true);
+  assert.equal(rawSept.some(function (row) { return row.name === "Second care" && row.amount === 11 && row.date === "2026-09-26"; }), true);
   const keptSept = ctx.bankCarryExtraRows(snap, "2026-09", opts);
-  assert.equal(keptSept.some(function (row) { return row.name === "Desk deposit" || row.name === "Care deposit"; }), false);
-  assert.equal(keptSept.some(function (row) { return row.name === "Rebate" && row.amount === 5; }), true);
+  assert.equal(keptSept.some(function (row) {
+    return row.name === "Desk deposit" || row.name === "Care deposit" || row.name === "Second care";
+  }), false);
+  assert.equal(keptSept.some(function (row) { return row.name === "Mobile deposit" && row.amount === 2; }), true);
+  assert.equal(keptSept.some(function (row) { return row.name === "Fee rebate" && row.amount === 3; }), true);
   const intoOct = ctx.bankCarriedOverage(snap, "2026-10", Object.assign({}, opts, { typical: 60 }));
   assert.equal(intoOct.month, "2026-09");
   assert.equal(intoOct.typical, 60);
