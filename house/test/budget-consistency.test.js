@@ -880,6 +880,44 @@ test("a landed payroll deposit replaces the expected payroll when the names diff
   assert.equal(model.track, income);
 });
 
+test("a landed stipend uses the arrived amount and date on the bar and expected income", function () {
+  const ctx = bootBank();
+  const snap = loadSnap(ctx);
+  const opts = optsFor();
+  const stip = snap.budget.pay_schedule.filter(function (row) {
+    return row && row.kind === "stipend" && row.nominal_date === "2026-10-10";
+  })[0];
+  stip.date = "2026-10-09";
+  stip.nominal_date = "2026-10-10";
+  stip.amount = 80;
+  stip.received = true;
+  stip.received_amount = 70;
+  stip.received_date = "2026-10-09";
+  const card = ctx.bankBudgetCard(snap, opts);
+  const landed = (card.deposits || []).filter(function (row) {
+    return row.payKind === "stipend" && row.amount === 70;
+  });
+  assert.equal(landed.length, 1);
+  assert.equal(landed[0].date, "2026-10-09");
+  const income = ctx.bankBudgetPayIncome(snap, "2026-10", opts);
+  assert.equal(income, card.pay);
+  const model = ctx.bankStackActualModel(snap, "2026-10", opts);
+  assert.equal(model.track, card.pay);
+  const bars = ctx.bankCardBarsHtml(card, snap, opts);
+  assert.match(bars, new RegExp('data-bank-stack-track="' + card.pay + '"'));
+  assert.match(bars, new RegExp(ctx.bankMoney(model.total).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + " of " + ctx.bankMoney(card.pay).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  const rows = ctx.bankIncomeRowsFor(snap, "2026-10", opts) || [];
+  const arrived = rows.filter(function (row) { return row.label === "Stipend" && row.amount === 70; });
+  assert.equal(arrived.length, 1);
+  assert.equal(arrived[0].meta, "Oct 9");
+  assert.equal(rows.some(function (row) { return row.amount === 80 || row.meta === "Oct 10"; }), false);
+  const later = rows.filter(function (row) { return row.label === "Stipend" && row.meta === "Oct 23"; })[0];
+  assert.equal(later && later.amount, 400);
+  const table = ctx.bankIncomeListHtml(null, "2026-10", snap, opts);
+  assert.match(table, /Stipend<\/span> <span class="sub">Oct 9<\/span><\/td><td class="num">\$70\.00/);
+  assert.doesNotMatch(table, /\$80\.00|Oct 10/);
+});
+
 test("an unpaid bill over its budget reads as due, not spent", function () {
   const ctx = bootBank();
   const snap = loadSnap(ctx);

@@ -13025,21 +13025,12 @@ function bankIncomeRowsFor(snap, ym, opts) {
   var budget = (snap && snap.budget) || {};
   var hasSchedule = Array.isArray(budget.pay_schedule) && budget.pay_schedule.length;
   if (hasSchedule) {
-    var events = bankCollectPayEvents(snap, bankParseYm(key) || ym).filter(function (ev) {
-      return ev && ev.date && bankMonthKey(ev.date) === key && ev.amount > 0;
-    });
-    if (events.length) {
-      var incomeWin = null;
-      try { incomeWin = bankBudgetWindowFor(snap, key); } catch (eIncomeWin) { incomeWin = null; }
-      if (incomeWin && incomeWin.end) {
-        events = events.filter(function (ev) {
-          var day = bankPayWindowDate(ev);
-          return !day || (day >= (incomeWin.start || day) && day <= incomeWin.end);
-        });
-      }
-      return events.map(function (ev) {
+    var payRows = [];
+    try { payRows = bankCardPayRows(snap, key, opts) || []; } catch (ePayRows) { payRows = []; }
+    if (payRows.length) {
+      return payRows.map(function (ev) {
         return {
-          label: ev.kind || bankBillDisplayName(ev.name) || "Income",
+          label: bankCardPayFace(ev),
           amount: ev.amount,
           meta: bankShortDate(ev.date) || ev.date
         };
@@ -15826,86 +15817,17 @@ function bankBudgetParts(snap, monthKey, draft) {
   return { bills: bills, subs: subs, spend: spend, total: bankRoundCents(bills + subs + spend) };
 }
 
-function bankPayIncomeDays(ev) {
-  var days = [];
-  function add(raw) {
-    var day = "";
-    try { day = bankYmdOnly(bankCopyDate(raw || "")) || ""; } catch (eDay) { day = ""; }
-    if (day && days.indexOf(day) < 0) days.push(day);
-  }
-  if (!ev) return days;
-  add(ev.nominal_date);
-  add(ev.date);
-  add(ev.received_date);
-  if (!days.length) {
-    try { add(bankPayWindowDate(ev)); } catch (eWin) {}
-  }
-  return days;
-}
-
-function bankPayIncomeLanded(ev) {
-  if (!ev) return false;
-  if (ev.received === true || ev.landed === true || ev.posted === true) return true;
-  return !!String(ev.tx_key || ev.received_tx_key || "").trim();
-}
-
-/* A landed deposit and the expected paycheck for that slot are one income. Names can differ. */
-function bankPayIncomeSameSlot(a, b) {
-  if (!a || !b || bankCardPayKind(a) !== bankCardPayKind(b)) return false;
-  var left = bankPayIncomeDays(a);
-  var right = bankPayIncomeDays(b);
-  var i;
-  var j;
-  for (i = 0; i < left.length; i++) {
-    for (j = 0; j < right.length; j++) {
-      if (bankDayDistance(left[i], right[j]) <= 2) return true;
-    }
-  }
-  return false;
-}
-
-function bankBudgetPayIncome(snap, monthKey) {
-  var key = bankMonthKey(monthKey);
-  var win = null;
-  try { win = bankBudgetWindowFor(snap, key); } catch (eWin) { win = null; }
-  var months = {};
-  if (key) months[key] = true;
-  if (win && win.start) months[bankMonthKey(win.start)] = true;
-  if (win && win.end) months[bankMonthKey(win.end)] = true;
-  var seen = {};
-  var picked = [];
-  Object.keys(months).forEach(function (mk) {
-    if (!mk) return;
-    var events = [];
-    try { events = bankCollectPayEvents(snap, bankParseYm(mk)); } catch (eEv) { events = []; }
-    (events || []).forEach(function (ev) {
-      if (!ev || !bankCardPayKind(ev)) return;
-      var day = "";
-      try { day = bankPayWindowDate(ev) || bankYmdOnly(ev.date) || ""; } catch (eDay) { day = ""; }
-      if (win && win.start && win.end) {
-        if (!day || day < win.start || day > win.end) return;
-      } else if (key && bankMonthKey(day || ev.date) !== key) return;
-      var id = (day || bankMonthKey(ev.date) || "") + "|" + String(ev.name || ev.label || "") + "|" + bankCardPayKind(ev);
-      if (seen[id]) return;
-      seen[id] = true;
-      picked.push(ev);
-    });
-  });
-  var kept = picked.filter(function (ev) {
-    if (bankPayIncomeLanded(ev)) return true;
-    var drop = false;
-    picked.forEach(function (other) {
-      if (drop || other === ev || !bankPayIncomeLanded(other)) return;
-      if (bankPayIncomeSameSlot(ev, other)) drop = true;
-    });
-    return !drop;
-  });
+/* The October bar and the fit use the Pay card's pay total, including a landed deposit's posted amount. */
+function bankBudgetPayIncome(snap, monthKey, opts) {
+  var key = bankMonthKey(monthKey) || monthKey;
+  var rows = [];
+  try { rows = bankCardPayRows(snap, key, opts) || []; } catch (eRows) { rows = []; }
   var sum = 0;
-  kept.forEach(function (ev) {
-    var n = bankNum(ev.amount);
-    if (n != null) sum += Math.abs(n);
+  rows.forEach(function (ev) {
+    var n = bankNum(ev && ev.amount);
+    if (n != null) sum += n;
   });
-  return bankRoundCents(sum);
+  return rows.length ? bankRoundCents(sum) : 0;
 }
 
 function bankSpendingSpent(snap, monthKey) {
@@ -16023,7 +15945,7 @@ function bankBudgetFit(snap, monthKey, opts) {
   opts = opts || {};
   var key = bankMonthKey(monthKey);
   var income = 0;
-  try { income = bankBudgetPayIncome(snap, key); } catch (eIn) { income = 0; }
+  try { income = bankBudgetPayIncome(snap, key, opts); } catch (eIn) { income = 0; }
   var parts = { bills: 0, subs: 0, spend: 0, total: 0 };
   try { parts = bankBudgetParts(snap, key, opts.draft || null) || parts; } catch (eParts) { parts = { bills: 0, subs: 0, spend: 0, total: 0 }; }
   var base = bankRoundCents(income - parts.total);
@@ -18953,6 +18875,16 @@ function bankCardFlowEnds(raw) {
   return { fromLast: bankCardEndLast(raw, "from"), toLast: bankCardEndLast(raw, "to") };
 }
 
+function bankCardPayFace(ev) {
+  if (!ev) return "Income";
+  if (ev.payKind === "stipend") return "Stipend";
+  if (ev.payKind === "payroll") return "Payroll";
+  var kind = bankCardPayKind(ev);
+  if (kind === "stipend") return "Stipend";
+  if (kind === "payroll") return "Payroll";
+  return ev.name || ev.label || "Income";
+}
+
 function bankCardPayKind(ev) {
   if (!ev) return "";
   var kind = String(ev.kind || ev.type || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -19540,6 +19472,28 @@ function bankCardSum(rows, field) {
   return any ? bankRoundCents(n) : null;
 }
 
+/* Pay rows the budget card, the month bar, and Expected income all read. */
+function bankCardInflowSplit(snap, ym, opts) {
+  opts = opts || {};
+  var win = null;
+  try { win = bankBudgetWindowFor(snap, ym); } catch (eWin) { win = null; }
+  var today = "";
+  try { today = bankTodayIso(snap, opts); } catch (eToday) { today = ""; }
+  var periods = [];
+  try { periods = bankCardPeriods(snap); } catch (ePer) { periods = []; }
+  var raw = [];
+  try { raw = bankCardDeposits(snap, periods, win, today); } catch (eDep) { raw = []; }
+  var split = { pay: [], surplus: [] };
+  try { split = bankCardSplitInflows(snap, raw) || split; } catch (eSplit) { split = { pay: [], surplus: [] }; }
+  if (!split.pay) split.pay = [];
+  if (!split.surplus) split.surplus = [];
+  return split;
+}
+
+function bankCardPayRows(snap, ym, opts) {
+  return bankCardInflowSplit(snap, ym, opts).pay;
+}
+
 function bankBudgetCard(snap, opts) {
   opts = opts || {};
   var ym = opts.month || bankScreenMonth(snap, opts);
@@ -19558,7 +19512,7 @@ function bankBudgetCard(snap, opts) {
   var dueEvents = bankCardEvents(current).filter(function (ev) {
     return ev.kind === "out" && !ev.paid;
   });
-  var split = bankCardSplitInflows(snap, bankCardDeposits(snap, periods, win, today));
+  var split = bankCardInflowSplit(snap, ym, opts);
   var deposits = split.pay;
   var surplusRows = split.surplus;
   var pay = 0;
@@ -20219,7 +20173,7 @@ function bankStackPaidMap(snap, monthKey, kind) {
 function bankStackActualGroups(snap, monthKey, opts) {
   var plan = bankStackPlanGroups(snap, monthKey);
   var income = 0;
-  try { income = bankBudgetPayIncome(snap, monthKey); } catch (eIn) { income = 0; }
+  try { income = bankBudgetPayIncome(snap, monthKey, opts); } catch (eIn) { income = 0; }
   var cats = bankStackCats(snap, monthKey);
   var fitKey = monthKey;
   try { fitKey = bankFitMonth(snap, opts) || monthKey; } catch (eFitKey) { fitKey = monthKey; }

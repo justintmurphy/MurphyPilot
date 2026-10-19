@@ -796,7 +796,7 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/house\/js\/paydesk\.js\?v=20261007en/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
-  assert.match(html, /\/house\/js\/banking\.js\?v=20261019gf/);
+  assert.match(html, /\/house\/js\/banking\.js\?v=20261019gg/);
   assert.match(html, /\/house\/house\.css\?v=20261008ey/);
     assert.match(html, /list-cap\.js\?v=20261007eh/);
     assert.match(html, /id="clock"/);
@@ -830,7 +830,7 @@ test("pay and taxes number and control rules stay off Investments", function () 
 test("house.css and banking.js share one cache bust", function () {
   const houseVersion = "20261008ey";
 
-  const bankVersion = "20261019gf";
+  const bankVersion = "20261019gg";
   const pages = ["index.html", "investments/index.html", "pay/index.html", "taxes/index.html"];
   const house = new Set();
   const banking = new Set();
@@ -850,7 +850,7 @@ test("house.css and banking.js share one cache bust", function () {
   assert.deepEqual(Array.from(banking), [bankVersion]);
   assert.match(read("house/house.css"), /house-b\.css\?v=20261007ei/);
 
-  assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261019gf)/);
+  assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261019gg)/);
 });
 
 test("banking menu links Pay and Taxes on absolute paths", function () {
