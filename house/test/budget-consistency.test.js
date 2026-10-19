@@ -488,6 +488,52 @@ test("one electric payment covers two months on the card that holds its date", f
   assert.equal(wide[0].amount, 80);
 });
 
+test("the budget page passes a month object into the bill tiles", function () {
+  const ctx = bootBank();
+  const snap = loadSnap(ctx);
+  const opts = optsFor();
+  const screen = ctx.bankScreenMonth(snap, opts);
+  assert.equal(screen.year, 2026);
+  assert.equal(screen.month, 10);
+  assert.equal(typeof screen, "object");
+  assert.equal(ctx.bankParseYm(screen), null);
+  const phoneRow = ctx.bankPreparedBills(snap, undefined).filter(function (row) { return row.bill_id === "phone"; })[0];
+  assert.equal(ctx.bankSlotLine(snap, phoneRow, screen), "Phone paid $52.00 · $50.00 due 10/29");
+  const face = ctx.bankDatedTileFace(snap, phoneRow, screen);
+  assert.equal(face.phrase, "Phone paid $52.00 · $50.00 due 10/29");
+  assert.equal(face.paid, false);
+  const page = ctx.bankPageHtml(snap, opts);
+  const phone = page.slice(page.indexOf('data-bank-tile-key="phone"'), page.indexOf("</button>", page.indexOf('data-bank-tile-key="phone"')));
+  assert.match(phone, /Phone paid \$52\.00 · \$50\.00 due 10\/29/);
+  assert.equal(phone.indexOf(">Unpaid<"), -1);
+  assert.equal(phone.indexOf("<b>$100.00</b>"), -1);
+  assert.match(phone, /data-bank-bill-status="slot"/);
+  function paidBill(id, name, amount, day, category) {
+    snap.budget.bills.push({
+      bill_id: id,
+      name: name,
+      amount: amount,
+      cadence: "monthly",
+      typical_day: day,
+      category: category,
+      kind: "bill",
+      paid_current_month: { month: "2026-10", status: "paid", source: "bank", paid_date: "2026-10-0" + day },
+      schedule: [
+        { date: "2026-09-0" + day, status: "paid", paid_date: "2026-09-0" + day, amount: amount, bill_id: id },
+        { date: "2026-10-0" + day, status: "paid", paid_date: "2026-10-0" + day, amount: amount, bill_id: id }
+      ]
+    });
+  }
+  paidBill("mortgage", "Mortgage", 40, 1, "household-health");
+  paidBill("electric", "Electric", 48, 3, "utilities");
+  const again = ctx.bankPageHtml(snap, opts);
+  ["mortgage", "electric", "phone"].forEach(function (key) {
+    const tile = again.slice(again.indexOf('data-bank-tile-key="' + key + '"'), again.indexOf("</button>", again.indexOf('data-bank-tile-key="' + key + '"')));
+    assert.notEqual(tile, "", key);
+    assert.equal(tile.indexOf(">Unpaid<"), -1, key);
+  });
+});
+
 test("the phone bill tile uses the per-slot line", function () {
   const ctx = bootBank();
   const snap = loadSnap(ctx);
@@ -617,6 +663,16 @@ test("streaming spent matches on the bills group and the october bar", function 
   assert.equal(groupOver, ctx.bankRoundCents(actual - 45));
   assert.match(block, /Over/);
   assert.match(block, /\$10\.00/);
+  const page = ctx.bankPageHtml(snap, opts);
+  const at = page.indexOf('data-bank-cat-name="Streaming');
+  const cat = page.slice(page.lastIndexOf("<tr", at), page.indexOf("</tr>", at));
+  assert.match(cat, /data-bank-cat-over="10"/);
+  assert.match(cat, /Over \$10\.00/);
+  assert.equal(cat.indexOf("Over $3.00"), -1);
+  const monthLegend = page.indexOf('data-bank-month-legend="1"');
+  const legend = page.slice(page.indexOf('data-bank-leg="streaming-entertainment"', monthLegend), page.indexOf("</li>", page.indexOf('data-bank-leg="streaming-entertainment"', monthLegend)));
+  assert.match(legend, /data-above="10"/);
+  assert.match(legend, /\$10\.00 over/);
 });
 
 test("the surplus fold lists the same rows as extra income", function () {

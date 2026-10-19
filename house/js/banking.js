@@ -7178,7 +7178,10 @@ function bankSlotPaidOn(row, due, monthKey, fromManual) {
 }
 
 function bankSlotMoneyPhrase(snap, row, monthKey, end) {
-  var ym = bankParseYm(monthKey);
+  var key = "";
+  try { key = bankMonthKey(monthKey); } catch (eKey) { key = ""; }
+  var ym = null;
+  try { ym = bankParseYm(key); } catch (eYm) { ym = null; }
   if (!row || !ym) return "";
   var days = [];
   try { days = bankBillDueDays(row, ym); } catch (eDays) { days = []; }
@@ -7191,12 +7194,12 @@ function bankSlotMoneyPhrase(snap, row, monthKey, end) {
     var due = bankDateKey(ym.year, ym.month, day);
     if (!due) return;
     var occPaid = !!bankBillOccurrencePaid(row, due);
-    var manualPaid = bankManualCoversSlot(row, due, monthKey);
+    var manualPaid = bankManualCoversSlot(row, due, key);
     var marked = false;
     try { marked = bankPaidDayMarked(row, due); } catch (eMark) { marked = false; }
     var paid = occPaid || manualPaid || marked;
     if (paid && stop) {
-      var paidOn = bankSlotPaidOn(row, due, monthKey, !occPaid && manualPaid);
+      var paidOn = bankSlotPaidOn(row, due, key, !occPaid && manualPaid);
       if (paidOn && paidOn >= stop) paid = false;
     }
     var face = null;
@@ -8066,6 +8069,8 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     var needsRemain = 0;
     var wantsRemain = 0;
     var figs = bankCategoryFigures(snap, monthKey);
+    var dueMap = {};
+    try { dueMap = bankStackDueMap(snap, monthKey) || {}; } catch (eDueMap) { dueMap = {}; }
     var tierParts = { required: [], needs: [], wants: [] };
     function pushPart(tier, name, remain, over) {
       tierParts[tier].push({
@@ -8081,8 +8086,10 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       var plan = row.plan || 0;
       var spent = row.spent || 0;
       var listed = listedByCat[id] || 0;
-      var over = spent - plan > 0.004 ? spent - plan : 0;
-      var left = over ? 0 : Math.max(0, plan - spent - listed);
+      var due = Math.abs(bankNum(dueMap[id]) || 0);
+      var actual = Math.max(spent, due);
+      var over = actual - plan > 0.004 ? actual - plan : 0;
+      var left = spent - plan > 0.004 ? 0 : Math.max(0, plan - spent - listed);
       if (row.tier === "needs") needsRemain += left;
       else if (row.tier === "wants") wantsRemain += left;
       var quiet = !(plan > 0.004) && !(spent > 0.004) && !(listed > 0.004);
@@ -17337,31 +17344,35 @@ function bankResolvedPlanCategory(snap, row, month) {
   return id || "";
 }
 
-/* A schedule or a second due day still gets a paid check on each date. All paid reads Paid. */
+/* A schedule or a second due day still gets a paid check on each date. All paid reads Paid.
+   The page hands this a { year, month } object. Slot lines and paid dates need YYYY-MM. */
 function bankDatedTileFace(snap, row, month) {
+  var key = "";
+  try { key = bankMonthKey(month); } catch (eKey) { key = ""; }
+  var ym = null;
+  try { ym = bankParseYm(key); } catch (eYm) { ym = null; }
   var phrase = "";
-  try { phrase = bankSlotLine(snap, row, month); } catch (ePhrase) { phrase = ""; }
+  try { phrase = bankSlotLine(snap, row, key || month); } catch (ePhrase) { phrase = ""; }
   var days = [];
-  try { days = bankBillDueDays(row, month); } catch (eDays) { days = []; }
+  try { days = bankBillDueDays(row, ym || month); } catch (eDays) { days = []; }
   var many = days.length > 1 || bankBillHasSlotList(row);
+  var faceMonth = ym || month;
   if (!many) {
     var single = false;
     if (!phrase) {
-      try { single = !!(bankPayCheckState(row, month) || {}).on; } catch (ePaid) { single = false; }
+      try { single = !!(bankPayCheckState(row, faceMonth) || {}).on; } catch (ePaid) { single = false; }
       if (!single) {
-        try { single = !!bankRowPaidThisMonth(row, month); } catch (ePaid2) { single = false; }
+        try { single = !!bankRowPaidThisMonth(row, faceMonth); } catch (ePaid2) { single = false; }
       }
     }
     return { phrase: phrase, paid: single };
   }
-  var ym = null;
-  try { ym = bankParseYm(month); } catch (eYm) { ym = null; }
   var paidN = 0;
   var openN = 0;
   days.forEach(function (day) {
     var due = ym ? bankDateKey(ym.year, ym.month, day) : "";
     var on = false;
-    try { on = !!(due && (bankPayCheckState(row, month, true, due) || {}).on); } catch (eOn) { on = false; }
+    try { on = !!(due && (bankPayCheckState(row, faceMonth, true, due) || {}).on); } catch (eOn) { on = false; }
     if (!on && due) {
       try { on = bankPaidDayMarked(row, due); } catch (eMark) { on = false; }
     }
