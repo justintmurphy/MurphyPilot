@@ -1,0 +1,387 @@
+{
+ "schema": "banking-snapshot/v1",
+ "asof": "2026-10-19T07:54:00-04:00",
+ "accounts": [
+  {
+   "last4": "1111",
+   "nickname": "Checking",
+   "subType": "checking",
+   "balance": 500,
+   "balance_after_pending": 500
+  },
+  {
+   "last4": "2222",
+   "nickname": "Debit",
+   "subType": "checking",
+   "balance": 300,
+   "balance_after_pending": 300
+  }
+ ],
+ "current": {
+  "month": "2026-10",
+  "through_date": "2026-10-19",
+  "balance_after_pending": {
+   "1111": 500,
+   "2222": 300
+  },
+  "recent_tx": [],
+  "edits_tx": [
+   {
+    "date": "2026-10-14",
+    "id": "acct-2222",
+    "amount": 1000,
+    "desc": "Deposit Acme Payroll",
+    "flow": "inflow",
+    "direction": "in",
+    "tx_key": "h:pay1014"
+   },
+   {
+    "date": "2026-10-08",
+    "id": "acct-1111",
+    "amount": 400,
+    "desc": "Deposit Agency Edi Paymts",
+    "flow": "inflow",
+    "direction": "in",
+    "tx_key": "h:stip1008"
+   },
+   {
+    "date": "2026-10-14",
+    "id": "acct-2222",
+    "amount": 5,
+    "desc": "ATM Rebate",
+    "flow": "inflow",
+    "direction": "in",
+    "tx_key": "h:reb1014"
+   },
+   {
+    "date": "2026-10-13",
+    "id": "acct-2222",
+    "amount": 20,
+    "desc": "Mobile Deposit",
+    "flow": "inflow",
+    "direction": "in",
+    "tx_key": "h:mob1013"
+   },
+   {
+    "date": "2026-10-16",
+    "id": "acct-2222",
+    "amount": 30,
+    "desc": "ATM Withdrawal Sample Atms",
+    "category": "personal-health",
+    "name_override": "Salon",
+    "flow": "outflow",
+    "direction": "out",
+    "tx_key": "h:atm1016"
+   },
+   {
+    "date": "2026-10-07",
+    "id": "acct-2222",
+    "amount": 40,
+    "desc": "Pos Debit Toolco Usage",
+    "category": "software-ai",
+    "flow": "outflow",
+    "direction": "out",
+    "tx_key": "h:use1007"
+   },
+   {
+    "date": "2026-10-15",
+    "id": "acct-2222",
+    "amount": 60,
+    "desc": "Lawnco",
+    "category": "household-health",
+    "flow": "outflow",
+    "direction": "out",
+    "tx_key": "h:lawn1015"
+   },
+   {
+    "date": "2026-10-17",
+    "id": "acct-2222",
+    "amount": 52,
+    "desc": "Withdrawal (alert)",
+    "category": "phone-internet",
+    "bill_id": "phone",
+    "provisional": true,
+    "flow": "outflow",
+    "direction": "out",
+    "tx_key": "2026-10-17|acct-2222|52|Withdrawal (alert)"
+   }
+  ]
+ },
+ "budget": {
+  "budget_month": {
+   "label": "2026-10",
+   "start": "2026-09-30",
+   "end": "2026-10-29"
+  },
+  "income_total": 2800,
+  "other_income": [
+   {
+    "date": "2026-10-14",
+    "name": "Fee rebate",
+    "amount": 5
+   },
+   {
+    "date": "2026-10-13",
+    "name": "Mobile deposit",
+    "amount": 20
+   }
+  ],
+  "pay_schedule": [
+   {
+    "name": "Payroll",
+    "kind": "payroll",
+    "date": "2026-09-30",
+    "nominal_date": "2026-09-30",
+    "amount": 1000,
+    "account": {
+     "last4": "2222"
+    },
+    "received": true,
+    "received_date": "2026-09-29",
+    "received_amount": 1000,
+    "received_tx_key": "h:pay0929"
+   },
+   {
+    "name": "Stipend",
+    "kind": "stipend",
+    "date": "2026-10-09",
+    "nominal_date": "2026-10-10",
+    "amount": 400,
+    "account": {
+     "last4": "1111"
+    },
+    "received": true,
+    "received_date": "2026-10-08",
+    "received_amount": 400,
+    "received_tx_key": "h:stip1008"
+   },
+   {
+    "name": "Payroll",
+    "kind": "payroll",
+    "date": "2026-10-15",
+    "nominal_date": "2026-10-15",
+    "amount": 1000,
+    "account": {
+     "last4": "2222"
+    },
+    "received": true,
+    "received_date": "2026-10-14",
+    "received_amount": 1000,
+    "received_tx_key": "h:pay1014"
+   },
+   {
+    "name": "Stipend",
+    "kind": "stipend",
+    "date": "2026-10-23",
+    "amount": 400,
+    "account": {
+     "last4": "1111"
+    },
+    "received": false
+   },
+   {
+    "name": "Payroll",
+    "kind": "payroll",
+    "date": "2026-10-30",
+    "amount": 1000,
+    "account": {
+     "last4": "2222"
+    },
+    "received": false
+   }
+  ],
+  "pay_periods": [
+   {
+    "start": "2026-10-15",
+    "end": "2026-10-22",
+    "current": true,
+    "deposit": {
+     "name": "Payroll",
+     "kind": "payroll",
+     "amount": 1000,
+     "account": "2222",
+     "date": "2026-10-15"
+    },
+    "accounts": {
+     "2222": {
+      "start_balance": 300,
+      "left_at_end": 248,
+      "events": []
+     }
+    }
+   },
+   {
+    "start": "2026-10-23",
+    "end": "2026-10-29",
+    "deposit": {
+     "name": "Stipend",
+     "kind": "stipend",
+     "amount": 400,
+     "account": "1111",
+     "date": "2026-10-23"
+    },
+    "moves": [
+     {
+      "date": "2026-10-23",
+      "name": "Planned move from Checking 1111",
+      "amount": 50,
+      "kind": "in",
+      "from": "1111",
+      "to": "2222"
+     }
+    ],
+    "accounts": {
+     "2222": {
+      "start_balance": 248,
+      "left_at_end": 10,
+      "events": [
+       {
+        "date": "2026-10-23",
+        "kind": "in",
+        "name": "Planned move from Checking 1111",
+        "amount": 50,
+        "source": "move"
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "bills": [
+   {
+    "bill_id": "phone",
+    "name": "Phone",
+    "amount": 50,
+    "monthly_amount": 100,
+    "cadence": "twice_monthly",
+    "typical_days": [
+     15,
+     29
+    ],
+    "category": "phone-internet",
+    "kind": "bill",
+    "paid_current_month": {
+     "month": "2026-10",
+     "status": "due",
+     "source": "alert_email",
+     "paid_date": "2026-10-17",
+     "tx_key": "2026-10-17|acct-2222|52|Withdrawal (alert)",
+     "slots": [
+      {
+       "due": "2026-10-15",
+       "status": "paid",
+       "source": "alert_email"
+      },
+      {
+       "due": "2026-10-29",
+       "status": "due"
+      }
+     ]
+    }
+   },
+   {
+    "bill_id": "water",
+    "name": "Water",
+    "amount": 30,
+    "monthly_amount": 30,
+    "kind": "set_aside",
+    "category": "utilities",
+    "cadence": "quarterly",
+    "quarterly_amount": 90,
+    "next_due": "2027-01-07",
+    "reserve": "wsw"
+   },
+   {
+    "bill_id": "sewer",
+    "name": "Sewer",
+    "amount": 30,
+    "monthly_amount": 30,
+    "kind": "set_aside",
+    "category": "utilities",
+    "cadence": "quarterly",
+    "quarterly_amount": 120,
+    "next_due": "2026-11-10",
+    "reserve_funded": null,
+    "reserve": "wsw"
+   }
+  ],
+  "one_time_bills": [
+   {
+    "id": "lawn",
+    "name": "Lawnco",
+    "display_label": "Lawn service",
+    "amount": 60,
+    "kind": "one_time",
+    "status": "retired",
+    "category": "household-health",
+    "paid": {
+     "date": "2026-10-15"
+    }
+   }
+  ],
+  "subscriptions": [
+   {
+    "sub_id": "toolco",
+    "name": "Toolco",
+    "amount": 10,
+    "category": "software-ai",
+    "status": null,
+    "typical_day": 12,
+    "cadence": "monthly"
+   }
+  ]
+ },
+ "_tier_doc_for_test": {
+  "budgets_updated_at": {
+   "software-ai": "2026-10-16T14:00:00Z",
+   "household-health": "2026-10-16T14:00:00Z",
+   "personal-health": "2026-10-16T14:00:00Z",
+   "phone-internet": "2026-10-16T14:00:00Z"
+  },
+  "categories": [
+   {
+    "id": "software-ai",
+    "name": "Software & AI",
+    "budget": 20,
+    "tier": "wants"
+   },
+   {
+    "id": "household-health",
+    "name": "Household & Health",
+    "budget": 50,
+    "tier": "needs"
+   },
+   {
+    "id": "personal-health",
+    "name": "Personal Health",
+    "budget": 40,
+    "tier": "needs"
+   },
+   {
+    "id": "phone-internet",
+    "name": "Phone & Internet",
+    "budget": 100,
+    "tier": "required"
+   },
+   {
+    "id": "utilities",
+    "name": "Utilities",
+    "budget": 60,
+    "tier": "required"
+   },
+   {
+    "id": "cash",
+    "name": "Cash",
+    "budget": 0,
+    "tier": "wants"
+   }
+  ],
+  "bill_status": {
+   "toolco": {
+    "status": "cancelled",
+    "from": "2026-10",
+    "set_at": "2026-10-16T03:00:00Z"
+   }
+  }
+ }
+}

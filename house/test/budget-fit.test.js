@@ -782,7 +782,7 @@ test("an overage reduces spare, extra income increases it, and a paycheck is not
   const spendAt = page.indexOf('data-bank-bar="spend"');
   const spendLegendAt = page.indexOf("bank-month-legend", spendAt);
   const spendLegend = page.slice(spendLegendAt, page.indexOf("</ul>", spendLegendAt));
-  assert.match(spendLegend, /Utilities<\/span> <span class="bank-leg-sentence">\$0\.00 spent · \$200\.00 left<\/span>/);
+  assert.match(spendLegend, /Utilities<\/span> <span class="bank-leg-sentence">\$0\.00 spent · <b class="tone-stop">\$60\.00 over<\/b><\/span>/);
   assert.match(spendLegend, /Groceries<\/span> <span class="bank-leg-sentence">\$0\.00 spent · \$100\.00 left<\/span>/);
   assert.match(spendLegend, /Total<\/span> <b class="bank-leg-sentence">\$0\.00 spent · \$300\.00 left<\/b>/);
   assert.match(page.slice(spendAt), /Spare left \$760\.00 = \$700\.00, minus \$60\.00 overages, plus \$120\.00 extra income/);
