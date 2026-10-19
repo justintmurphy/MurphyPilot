@@ -248,9 +248,9 @@ test("next pay moves match by account and the hero identity holds", function () 
   const byAt = html.indexOf('fills-sum">By account');
   assert.ok(byAt >= 0);
   const by = html.slice(byAt, html.indexOf("</details>", byAt));
-  const byMoves = listed(by);
-  assert.ok(byMoves.length >= 1);
-  assert.match(by, /Move \$70\.00 ··1111 → ··2222 by Oct 19/);
+  assert.equal(listed(by).length, 0);
+  assert.doesNotMatch(by, /→/);
+  assert.match(by, /Move \$70 from Pay ··1111 to Bills ··2222 by Thu Oct 15, for Neighborhood Electric Cooperative/);
   assert.match(next, /Move \$70 from Pay ··1111 to Bills ··2222 by Thu Oct 15, for Neighborhood Electric Cooperative/);
   assert.match(next, /to Pay ··1111/);
   function num(attr) {
@@ -266,16 +266,11 @@ test("next pay moves match by account and the hero identity holds", function () 
   assert.equal(end, ledger);
   assert.equal(num("data-bank-alloc-total"), 70);
   assert.match(next, /data-bank-left="/);
-  const moveBlock = (by.match(/<div data-bank-move="1"[\s\S]*?<\/div>/) || [""])[0];
-  const sentence = (moveBlock.match(/<p class="mix-leg wrap">[\s\S]*?<\/p>/) || [""])[0];
   const sheet = html.slice(html.indexOf('data-bank-cancel-sheet="1"'));
-  assert.match(sentence, /mix-leg-name">Move \$70\.00 ··1111 → ··2222 by Oct 19</);
-  assert.doesNotMatch(sentence, /Neighborhood Electric Cooperative/);
-  assert.match(moveBlock, /<p class="mix-hint">Neighborhood Electric Cooperative<\/p>/);
   assert.match(sheet, /data-bank-payfrom-row="1"[\s\S]*mix-leg-name">Neighborhood Electric Cooperative</);
   assert.match(sheet, /aria-label="Pay from"/);
   assert.match(sheet, /Default \(history\)/);
-  assert.doesNotMatch(moveBlock + sheet.slice(0, 1200), /…|\.\.\.|hellip/);
+  assert.doesNotMatch(by + sheet.slice(0, 1200), /…|\.\.\.|hellip/);
   const css = fs.readFileSync(path.join(root, "house/house.css"), "utf8");
   assert.match(css, /\.mix-leg\.wrap \.mix-leg-name[\s\S]{0,160}text-overflow:\s*unset/);
   assert.match(css, /\[data-bank-move\] > \.mix-hint[\s\S]{0,220}text-overflow:\s*unset/);
