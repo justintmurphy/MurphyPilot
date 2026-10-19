@@ -1,5 +1,5 @@
-/* tip fw — Under each Budget card Left number, After budgets subtracts the category room More details already lists.
-   That room is unspent needs and wants. Red when the result is negative, green when it is positive.
+/* tip fw — Under each Budget card Left number, After budgets is that Left minus the unspent needs and wants already listed.
+   It does not use Spare left. Red when the result is negative, green when it is positive.
    Adjust budgets opens Edits. A printed category_room on a spend-cash account is the per-account line.
    tip fv — Pay on the Budget card is paychecks and stipends only. Opening cash and every other inflow are Surplus.
    Everyday spending is opening plus pay plus those surplus inflows, minus owed, minus month-end left.
@@ -19845,14 +19845,14 @@ function bankCardCategoryRoom(snap, opts) {
   return { rows: rows, room: bankRoundCents(room) };
 }
 
-function bankCardAfterBudgetsHtml(left, pack, accounts, key, spare, flags) {
+function bankCardAfterBudgetsHtml(left, pack, accounts, key, flags) {
   flags = flags || {};
   if (left == null || !pack || !(pack.room > 0.004)) return "";
   if (flags.pending) {
     return '<div class="bank-after-budgets" data-bank-after-budgets="' + key + '" data-bank-fit-pending="1"><p><span>After budgets</span> <b data-bank-fit-pending="1" data-bank-after-' +
       key + '="">Checking budgets\u2026</b> <a href="#edits">Adjust budgets</a></p></div>';
   }
-  var amount = spare == null ? bankRoundCents(left - pack.room) : bankRoundCents(spare);
+  var amount = bankRoundCents(left - pack.room);
   var cls = amount < -0.004 ? "tone-stop" : "tone-go";
   var names = [];
   (pack.rows || []).forEach(function (row) {
@@ -19869,7 +19869,7 @@ function bankCardAfterBudgetsHtml(left, pack, accounts, key, spare, flags) {
   }).join("");
   var source = flags.snapshot ? ' data-bank-fit-source="snapshot"' : "";
   var mark = flags.snapshot ? ' <i class="hint" data-bank-fit-source="snapshot">Saved snapshot</i>' : "";
-  return '<div class="bank-after-budgets" data-bank-after-budgets="' + key + '" data-bank-fit-spare="' + amount + '"' + source + '><p><span>After budgets</span> <b class="' + cls +
+  return '<div class="bank-after-budgets" data-bank-after-budgets="' + key + '"' + source + '><p><span>After budgets</span> <b class="' + cls +
     '" data-bank-after-' + key + '="' + amount + '"' + source + ">" + bankEsc(bankMoney(amount)) + "</b>" + mark + detail +
     ' <a href="#edits">Adjust budgets</a></p>' + accts + "</div>";
 }
@@ -19945,18 +19945,16 @@ function bankBudgetPanelsHtml(snap, opts) {
     '</span> <b data-bank-month-left="' + (card.monthLeft == null ? "" : String(card.monthLeft)) + '" class="' + monthLeftCls.trim() + '">' +
     bankEsc(card.monthLeft == null ? "\u2014" : bankMoney(card.monthLeft)) + "</b></div></div>";
   var roomPack = bankCardCategoryRoom(snap, opts);
-  var fitSpare = null;
-  try { fitSpare = bankMonthSpare(snap, opts).left; } catch (eSpare) { fitSpare = null; }
   var fitFlags = { pending: bankFitPending(snap), snapshot: bankFitSnapshotMark(snap) };
   var now = '<div class="bank-card-panel" data-bank-now="1"><h3>Right now</h3>' + nowHero +
-    bankCardAfterBudgetsHtml(card.nowLeft, roomPack, card.nowAccounts, "now", fitSpare, fitFlags) +
+    bankCardAfterBudgetsHtml(card.nowLeft, roomPack, card.nowAccounts, "now", fitFlags) +
     bankCardAccountLines(card.nowAccounts, "bank-now-acct") +
     bankCardFold("Balances " + bankCardAmt(card.nowBalances, "now-balances"), startHtml) +
     bankCardFold("Paid so far " + bankCardAmt(card.paid, "paid"), paidHtml) +
     bankCardFold("Due before " + bankEsc(dueWhen) + " " + bankCardAmt(card.nowDue, "now-due"),
       dueHtml || '<p class="bank-empty">Nothing due before the next deposit.</p>') + "</div>";
   var overall = '<div class="bank-card-panel" data-bank-overall="1"><h3>Overall</h3>' + monthHero +
-    bankCardAfterBudgetsHtml(card.monthLeft, roomPack, card.endAccounts, "month", fitSpare, fitFlags) +
+    bankCardAfterBudgetsHtml(card.monthLeft, roomPack, card.endAccounts, "month", fitFlags) +
     bankCardAccountLines(card.endAccounts, "bank-month-acct") +
     bankCardFold("Pay " + bankCardAmt(card.pay, "pay-total") + " (landed " + bankCardAmt(card.landed, "pay-landed") + ")", payHtml) +
     (surplusShown == null ? "" : bankCardFold("Surplus " + bankCardAmt(surplusShown, "surplus"),
