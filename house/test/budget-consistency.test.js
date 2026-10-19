@@ -846,3 +846,83 @@ test("a payroll deposit with nominal_date counts when the schedule has no row", 
   const names = (card.surplusRows || []).map(function (row) { return row.name; }).join(" ");
   assert.equal(/Payroll|Acme/.test(names), false);
 });
+
+test("a landed payroll deposit replaces the expected payroll when the names differ", function () {
+  const ctx = bootBank();
+  const snap = loadSnap(ctx);
+  const opts = optsFor();
+  const before = ctx.bankBudgetCard(snap, opts).pay;
+  snap.budget.pay_schedule.push({
+    name: "Payroll",
+    kind: "payroll",
+    date: "2026-10-02",
+    nominal_date: "2026-10-02",
+    amount: 640,
+    account: { last4: "2222" },
+    received: false
+  });
+  snap.budget.pay_schedule.push({
+    name: "Deposit North Payroll",
+    kind: "payroll",
+    date: "2026-10-01",
+    nominal_date: "2026-10-02",
+    amount: 640,
+    account: { last4: "2222" },
+    received: true,
+    received_date: "2026-10-01",
+    received_amount: 640
+  });
+  const card = ctx.bankBudgetCard(snap, opts);
+  const income = ctx.bankBudgetPayIncome(snap, "2026-10");
+  assert.equal(card.pay, before + 640);
+  assert.equal(income, card.pay);
+  const model = ctx.bankStackActualModel(snap, "2026-10", opts);
+  assert.equal(model.track, income);
+});
+
+test("an unpaid bill over its budget reads as due, not spent", function () {
+  const ctx = bootBank();
+  const snap = loadSnap(ctx);
+  const opts = optsFor();
+  snap.tier_doc.categories.push({
+    id: "rent-desk",
+    name: "Rent Desk",
+    budget: 70,
+    tier: "required"
+  });
+  snap.budget.bills.push({
+    bill_id: "rentdesk",
+    name: "Rent Desk",
+    amount: 80,
+    cadence: "monthly",
+    typical_day: 20,
+    category: "rent-desk",
+    kind: "bill",
+    schedule: [
+      { date: "2026-10-20", status: "due", amount: 80, bill_id: "rentdesk" }
+    ]
+  });
+  const groups = ctx.bankDatedPlanGroupsHtml(snap, opts, "2026-10");
+  const block = groups.split('data-bank-bill-group="rent-desk"')[1] || "";
+  assert.equal(Number((block.match(/data-spent="([^"]*)"/) || [])[1]), 0);
+  assert.equal(Number((block.match(/data-above="([^"]*)"/) || [])[1]), 10);
+  assert.match(block, /\$80\.00 due 10\/20 · \$10\.00 over budget/);
+  assert.equal(block.indexOf("$0.00 spent"), -1);
+  const model = ctx.bankStackActualModel(snap, "2026-10", opts);
+  const leg = (model.legend || []).filter(function (row) { return row.id === "rent-desk"; })[0];
+  assert.equal(leg && leg.spent, 0);
+  assert.equal(leg && leg.overAmt, 10);
+  assert.equal(leg && leg.due, 80);
+  const beforeSpent = model.monthSpent;
+  const beforeOver = model.monthOver;
+  const html = ctx.bankStackBarHtml("spend", "actual", "2026-10", "October so far", "", model, "");
+  const row = html.slice(html.indexOf('data-bank-leg="rent-desk"'), html.indexOf("</li>", html.indexOf('data-bank-leg="rent-desk"')));
+  assert.match(row, /\$80\.00 due 10\/20 · \$10\.00 over budget/);
+  assert.equal(row.indexOf("$0.00 spent"), -1);
+  assert.match(row, /data-spent="0"/);
+  assert.match(row, /data-above="10"/);
+  assert.equal(model.monthSpent, beforeSpent);
+  assert.equal(model.monthOver, beforeOver);
+  const total = html.slice(html.indexOf('data-bank-leg-total="1"'), html.indexOf("</li>", html.indexOf('data-bank-leg-total="1"')));
+  assert.match(total, /\$[\d,]+\.\d{2} spent/);
+});
