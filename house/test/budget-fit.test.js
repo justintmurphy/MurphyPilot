@@ -297,7 +297,7 @@ test("November uses the computed window and one spare across the bar, Edits, and
   assert.match(page, /data-bank-bar="spend"[\s\S]{0,900}>October so far</);
   const month = ctx.bankMonthSpare(snap, opts);
   assert.equal(month.typical, 6322.12);
-  assert.equal(month.left, ctx.bankRoundCents(month.typical - month.overage + month.extra));
+  assert.equal(month.left, ctx.bankRoundCents(month.typical + (month.carried || 0) - month.overage + month.extra));
   assert.equal(ctx.bankSpendBarMonth(snap, opts), "2026-10");
   const spendAt = page.indexOf('data-bank-bar="spend"');
   const spendTail = page.slice(spendAt, page.indexOf('data-bank-spare-break', spendAt) + 800);
@@ -785,7 +785,7 @@ test("an overage reduces spare, extra income increases it, and a paycheck is not
   assert.match(spendLegend, /Utilities<\/span> <span class="bank-leg-sentence" data-bank-due-line="1">\$260\.00 due 11\/8 · \$60\.00 over budget<\/span>/);
   assert.match(spendLegend, /Groceries<\/span> <span class="bank-leg-sentence">\$0\.00 spent · \$100\.00 left<\/span>/);
   assert.match(spendLegend, /Total<\/span> <b class="bank-leg-sentence">\$0\.00 spent · \$300\.00 left<\/b>/);
-  assert.match(page.slice(spendAt), /Spare left \$760\.00 = \$700\.00, minus \$60\.00 overages, plus \$120\.00 extra income/);
+  assert.match(page.slice(spendAt), /Spare left \$760\.00 = \$700\.00, \+\$0\.00 carried from October, minus \$60\.00 overages, plus \$120\.00 extra income/);
   assert.match(page, /data-bank-after-now="760"/);
   assert.match(page, /data-bank-after-month="760"/);
   assert.equal(Number((page.match(/data-bank-free="([^"]*)"/) || [])[1]), 760);
@@ -793,4 +793,95 @@ test("an overage reduces spare, extra income increases it, and a paycheck is not
   assert.match(edits, /data-bank-fit-spare="700"/);
   assert.match(edits, /data-bank-fit-bills="200"/);
   assert.match(edits, /Fits: \$700\.00 to spare/);
+});
+
+test("spare carries each month's leftover and drops scheduled pay from extra", function () {
+  const ctx = boot();
+  const cats = [
+    { id: "groceries", name: "Groceries", tier: "needs", budget: 20 },
+    { id: "dining", name: "Dining", tier: "wants", budget: 0 },
+    { id: "fun", name: "Fun", tier: "wants", budget: 10 }
+  ];
+  const snap = {
+    asof: "2026-11-16T12:00:00-04:00",
+    accounts: [{ id: "chk", nickname: "Everyday", last4: "1111", role: "everyday", subType: "checking" }],
+    current: { month: "2026-11", edits_tx: [], recent_tx: [] },
+    history: { months: [] },
+    budget: {
+      pay_schedule: [
+        { name: "Payroll", kind: "payroll", date: "2026-09-15", amount: 40 },
+        { name: "Stipend", kind: "stipend", date: "2026-09-10", amount: 15 },
+        { name: "Payroll", kind: "payroll", date: "2026-10-15", amount: 50 },
+        { name: "Payroll", kind: "payroll", date: "2026-11-14", amount: 90 }
+      ],
+      other_income: [
+        { name: "Direct deposit", amount: 40, date: "2026-09-15" },
+        { name: "Care deposit", amount: 15, date: "2026-09-10" },
+        { name: "Rebate", amount: 5, date: "2026-09-12" },
+        { name: "Payroll", amount: 50, date: "2026-10-15", kind: "payroll" },
+        { name: "Interest", amount: 3, date: "2026-10-04" }
+      ],
+      actuals_by_month: {
+        "2026-09": { categories_spent: { groceries: 100 } },
+        "2026-10": { categories_spent: { dining: 8 } }
+      },
+      bills: [],
+      subscriptions: []
+    },
+    tier_doc: { categories: cats, category_rules: {}, category_tx: {}, bill_status: {}, manual_paid: {} }
+  };
+  const opts = { tab: "budget", planMonth: "2026-11", now: "2026-11-16T16:00:00Z", month: "2026-11" };
+  assert.equal(ctx.bankCarriedOverage(snap, "2026-09", opts).net, 0);
+  const septFit = ctx.bankBudgetFit(snap, "2026-09", opts);
+  assert.notEqual(septFit.left, 60);
+  const rawSept = ctx.bankFitExtraRows(snap, "2026-09", opts);
+  assert.equal(rawSept.some(function (row) { return row.name === "Direct deposit" && row.amount === 40; }), true);
+  const intoOct = ctx.bankCarriedOverage(snap, "2026-10", Object.assign({}, opts, { typical: 60 }));
+  assert.equal(intoOct.month, "2026-09");
+  assert.equal(intoOct.typical, 60);
+  assert.equal(intoOct.overage, 80);
+  assert.equal(intoOct.extra, 5);
+  assert.equal(intoOct.net, -15);
+  assert.equal(intoOct.overRows.filter(function (row) { return row.id === "groceries"; })[0].over, 80);
+  const intoNov = ctx.bankCarriedOverage(snap, "2026-11", opts);
+  assert.equal(intoNov.month, "2026-10");
+  assert.equal(intoNov.typical, 60);
+  assert.equal(intoNov.overage, 8);
+  assert.equal(intoNov.extra, 3);
+  assert.equal(intoNov.net, 40);
+  assert.equal(intoNov.overRows.filter(function (row) { return row.id === "dining"; })[0].budget, 0);
+  assert.equal(intoNov.overRows.filter(function (row) { return row.id === "dining"; })[0].over, 8);
+  const spare = ctx.bankMonthSpare(snap, opts);
+  assert.equal(spare.typical, 60);
+  assert.equal(spare.carried, 40);
+  assert.equal(spare.left, 100);
+  assert.equal(spare.left, ctx.bankRoundCents(spare.typical + spare.carried - spare.overage + spare.extra));
+  const page = ctx.bankPageHtml(snap, opts);
+  assert.match(page, /data-bank-spare-carried="40"/);
+  assert.match(page, /Carried from October/);
+  assert.match(page, /\+\$40\.00/);
+  assert.match(page, /data-bank-spare-carry-row="dining"/);
+  assert.match(page, /\$0\.00 budget/);
+  assert.match(page, /\$8\.00 actual/);
+  assert.equal(Number((page.match(/data-bank-free="([^"]*)"/) || [])[1]), 100);
+  const oct = JSON.parse(JSON.stringify(snap));
+  delete oct.budget.actuals_by_month["2026-10"];
+  assert.equal(ctx.bankCarriedOverage(oct, "2026-11", opts).net, 0);
+  const octView = JSON.parse(JSON.stringify(snap));
+  octView.current.month = "2026-10";
+  const octOpts = { tab: "budget", planMonth: "2026-10", now: "2026-10-16T16:00:00Z", month: "2026-10" };
+  const octSpare = ctx.bankMonthSpare(octView, octOpts);
+  assert.equal(octSpare.carried, -55);
+  assert.equal(octSpare.carriedMonth, "2026-09");
+  const octPage = ctx.bankPageHtml(octView, octOpts);
+  assert.match(octPage, /data-bank-spare-carried="-55"/);
+  assert.match(octPage, /Carried from September/);
+  assert.match(octPage, /tone-stop/);
+  assert.match(octPage, /\u2212\$55\.00/);
+  assert.match(octPage, /data-bank-spare-carry-row="groceries"/);
+  const printed = JSON.parse(JSON.stringify(snap));
+  printed.budget.carried_spare = { month: "2026-10", net: 12, overRows: [{ id: "dining", name: "Dining", budget: 0, actual: 8, over: 8 }] };
+  const published = ctx.bankMonthSpare(printed, opts);
+  assert.equal(published.carried, 12);
+  assert.equal(published.left, 72);
 });

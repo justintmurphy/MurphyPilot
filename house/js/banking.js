@@ -15842,14 +15842,173 @@ function bankSpendingSpent(snap, monthKey) {
   return bankRoundCents(sum);
 }
 
+/* Carry starts September 2026. A month with no spent map contributes 0. */
+function bankCarryMonthHasFigures(snap, monthKey) {
+  var key = bankMonthKey(monthKey);
+  if (!key) return false;
+  var bag = bankActualsMap(snap)[key];
+  if (!bag || typeof bag !== "object" || Array.isArray(bag)) return false;
+  var spent = bag.categories_spent;
+  if (!spent || typeof spent !== "object" || Array.isArray(spent)) return false;
+  return Object.keys(spent).length > 0;
+}
+
+function bankCarryScheduledAmounts(snap, monthKey) {
+  var map = {};
+  var events = [];
+  try { events = bankCollectPayEvents(snap, bankParseYm(monthKey)) || []; } catch (eEv) { events = []; }
+  (events || []).forEach(function (ev) {
+    if (!ev || (!bankIsScheduledDeposit(ev) && !bankCardPayKind(ev))) return;
+    var day = "";
+    try { day = bankYmdOnly(bankCopyDate(ev.date || "")) || ""; } catch (eDay) { day = ""; }
+    var n = bankNum(ev.amount);
+    if (day && n != null) map[day + "|" + bankRoundCents(Math.abs(n))] = true;
+  });
+  return map;
+}
+
+/* Past months count landed paychecks as extra. Drop scheduled payroll and stipend rows. */
+function bankCarryExtraRows(snap, monthKey, opts) {
+  var rows = [];
+  try { rows = bankFitExtraRows(snap, monthKey, opts) || []; } catch (eRows) { rows = []; }
+  var scheduled = bankCarryScheduledAmounts(snap, monthKey);
+  return rows.filter(function (row) {
+    if (!row) return false;
+    var probe = { name: row.name || "", kind: row.kind || row.name || "" };
+    if (bankIsScheduledDeposit(probe) || bankCardPayKind(probe)) return false;
+    var id = (row.date || "") + "|" + bankRoundCents(Math.abs(bankNum(row.amount) || 0));
+    if (scheduled[id]) return false;
+    return true;
+  });
+}
+
+function bankPublishedCarry(snap, monthKey) {
+  var raw = snap && snap.budget && snap.budget.carried_spare;
+  if (raw == null || raw === "") return null;
+  var net = typeof raw === "number" ? raw : bankNum(raw.net);
+  if (net == null) return null;
+  var asked = bankMonthKey(monthKey);
+  var prev = bankShiftYm(asked, -1);
+  var month = "";
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) month = bankMonthKey(raw.month || "");
+  if (month && asked && month !== asked && month !== prev) return null;
+  if (!month) month = prev || "";
+  var rows = [];
+  if (raw && typeof raw === "object") rows = Array.isArray(raw.overRows) ? raw.overRows : (Array.isArray(raw.rows) ? raw.rows : []);
+  return {
+    month: month,
+    typical: raw && typeof raw === "object" && raw.typical != null ? bankRoundCents(bankNum(raw.typical) || 0) : 0,
+    overage: raw && typeof raw === "object" && raw.overage != null ? bankRoundCents(bankNum(raw.overage) || 0) : 0,
+    overRows: rows,
+    extra: raw && typeof raw === "object" && raw.extra != null ? bankRoundCents(bankNum(raw.extra) || 0) : 0,
+    extraRows: raw && typeof raw === "object" && Array.isArray(raw.extraRows) ? raw.extraRows : [],
+    net: bankRoundCents(net)
+  };
+}
+
+function bankCarryOneMonth(snap, monthKey, carriedIn, typical, opts) {
+  if (!bankCarryMonthHasFigures(snap, monthKey)) {
+    return { month: monthKey, typical: 0, overage: 0, overRows: [], extra: 0, extraRows: [], net: 0 };
+  }
+  var over = { total: 0, rows: [] };
+  try { over = bankFitOverage(snap, monthKey, null) || over; } catch (eOver) { over = { total: 0, rows: [] }; }
+  var extraRows = bankCarryExtraRows(snap, monthKey, opts);
+  var extra = 0;
+  extraRows.forEach(function (row) { if (row && row.amount) extra += row.amount; });
+  extra = bankRoundCents(extra);
+  var net = bankRoundCents((carriedIn || 0) + (typical || 0) - (over.total || 0) + extra);
+  return {
+    month: monthKey,
+    typical: bankRoundCents(typical || 0),
+    overage: over.total || 0,
+    overRows: over.rows || [],
+    extra: extra,
+    extraRows: extraRows,
+    net: net
+  };
+}
+
+/* Carried into monthKey. Past months reuse the current typical spare, not bankBudgetFit(prev). */
+function bankCarriedOverage(snap, monthKey, opts) {
+  opts = opts || {};
+  var key = bankMonthKey(monthKey);
+  var published = bankPublishedCarry(snap, key);
+  if (published) return published;
+  var template = opts.typical;
+  if (template == null) {
+    try { template = (bankBudgetFit(snap, key, opts) || {}).left; } catch (eFit) { template = 0; }
+  }
+  template = bankRoundCents(bankNum(template) || 0);
+  var empty = { month: "", typical: template, overage: 0, overRows: [], extra: 0, extraRows: [], net: 0 };
+  if (!key || key <= "2026-09") return empty;
+  var carried = 0;
+  var cursor = "2026-09";
+  var last = empty;
+  var guard = 0;
+  while (cursor && cursor < key && guard < 36) {
+    last = bankCarryOneMonth(snap, cursor, carried, template, opts);
+    carried = last.net || 0;
+    cursor = bankShiftYm(cursor, 1);
+    guard += 1;
+  }
+  return last || empty;
+}
+
+function bankSpareCarryBits(fit) {
+  fit = fit || {};
+  var name = bankMonthFull(fit.carriedMonth) || "";
+  if (!name) return null;
+  var carried = bankRoundCents(bankNum(fit.carried) || 0);
+  var signed = bankSignedFlow(carried, carried < -0.004 ? "out" : "in");
+  return {
+    carried: carried,
+    name: name,
+    text: signed.text,
+    cls: carried < -0.004 ? "tone-stop" : "",
+    rows: fit.carriedRows || []
+  };
+}
+
 function bankSpareBreakText(fit) {
   fit = fit || {};
   var left = fit.left != null ? fit.left : fit.spare;
   var typical = fit.typical != null ? fit.typical : fit.base;
   var extra = fit.extra != null ? fit.extra : (fit.other != null ? fit.other : 0);
   var overage = fit.overage != null ? fit.overage : 0;
-  return "Spare left " + bankMoney(left) + " = " + bankMoney(typical) + ", minus " + bankMoney(overage) +
+  var carry = bankSpareCarryBits(fit);
+  var carryText = carry ? ", " + carry.text + " carried from " + carry.name : "";
+  return "Spare left " + bankMoney(left) + " = " + bankMoney(typical) + carryText + ", minus " + bankMoney(overage) +
     " overages, plus " + bankMoney(extra) + " extra income";
+}
+
+function bankSpareBreakInner(fit) {
+  fit = fit || {};
+  var left = fit.left != null ? fit.left : fit.spare;
+  var typical = fit.typical != null ? fit.typical : fit.base;
+  var extra = fit.extra != null ? fit.extra : (fit.other != null ? fit.other : 0);
+  var overage = fit.overage != null ? fit.overage : 0;
+  var carry = bankSpareCarryBits(fit);
+  var carryHtml = "";
+  if (carry) {
+    var amt = carry.cls ? '<b class="' + carry.cls + '">' + bankEsc(carry.text) + "</b>" : bankEsc(carry.text);
+    carryHtml = ", " + amt + " carried from " + bankEsc(carry.name);
+  }
+  return "Spare left " + bankEsc(bankMoney(left)) + " = " + bankEsc(bankMoney(typical)) + carryHtml +
+    ", minus " + bankEsc(bankMoney(overage)) + " overages, plus " + bankEsc(bankMoney(extra)) + " extra income";
+}
+
+function bankSpareCarryDetails(fit) {
+  var carry = bankSpareCarryBits(fit);
+  if (!carry) return "";
+  var items = (carry.rows || []).map(function (row) {
+    if (!row) return "";
+    return '<li data-bank-spare-carry-row="' + bankEsc(row.id || "") + '"><span>' + bankEsc(row.name || row.id || "") +
+      "</span> <b>" + bankEsc(bankMoney(row.budget)) + " budget</b> <b>" + bankEsc(bankMoney(row.actual)) +
+      " actual</b> <b>" + bankEsc(bankMoney(row.over)) + " over</b></li>";
+  }).join("");
+  var amt = '<b class="' + carry.cls + '">' + bankEsc(carry.text) + "</b>";
+  return '<details class="bank-spare-carried" data-bank-spare-carried-list="1"><summary>Carried from ' +
+    bankEsc(carry.name) + " " + amt + "</summary>" + (items ? "<ul>" + items + "</ul>" : "") + "</details>";
 }
 
 function bankFitVerdict(snap, monthKey, draft, opts) {
@@ -15932,12 +16091,16 @@ function bankSyncFitVerdict(root, id, raw) {
   var breaks = root.querySelectorAll("[data-bank-spare-break]");
   for (i = 0; i < breaks.length; i++) {
     if (!breaks[i] || !monthSpare) continue;
-    breaks[i].textContent = bankSpareBreakText(monthSpare);
+    breaks[i].innerHTML = bankSpareBreakInner(monthSpare);
     if (breaks[i].setAttribute) {
       breaks[i].setAttribute("data-bank-spare-base", String(monthSpare.typical));
+      breaks[i].setAttribute("data-bank-spare-carried", String(monthSpare.carried || 0));
       breaks[i].setAttribute("data-bank-spare-overage", String(monthSpare.overage));
       breaks[i].setAttribute("data-bank-spare-extra", String(monthSpare.extra));
     }
+    var carryList = breaks[i].parentNode && breaks[i].parentNode.querySelector
+      ? breaks[i].parentNode.querySelector("[data-bank-spare-carried-list]") : null;
+    if (carryList && carryList.outerHTML != null) carryList.outerHTML = bankSpareCarryDetails(monthSpare);
   }
 }
 
@@ -15965,7 +16128,7 @@ function bankBudgetFit(snap, monthKey, opts) {
   };
 }
 
-/* In-month spare: typical spare, minus this month's overages, plus extra income received. */
+/* Spare left = typical + carried − this month's overages + extra income. */
 function bankMonthSpare(snap, opts) {
   opts = opts || {};
   var fitKey = "";
@@ -15981,12 +16144,20 @@ function bankMonthSpare(snap, opts) {
   var extra = 0;
   try { extra = bankFitExtraIncome(snap, spendKey, opts); } catch (eExtra) { extra = 0; }
   var typical = bankRoundCents(fit.left || 0);
-  var left = bankRoundCents(typical - (overPack.total || 0) + extra);
+  var carriedPack = { net: 0, month: "", overRows: [] };
+  try {
+    carriedPack = bankCarriedOverage(snap, spendKey, Object.assign({}, opts, { typical: typical })) || carriedPack;
+  } catch (eCarry) { carriedPack = { net: 0, month: "", overRows: [] }; }
+  var carried = bankRoundCents(carriedPack.net || 0);
+  var left = bankRoundCents(typical + carried - (overPack.total || 0) + extra);
   return {
     typical: typical,
     base: typical,
     income: fit.income || 0,
     budgeted: fit.budgeted || 0,
+    carried: carried,
+    carriedMonth: carriedPack.month || "",
+    carriedRows: carriedPack.overRows || [],
     overage: overPack.total || 0,
     overages: overPack.rows || [],
     extra: extra,
@@ -18720,6 +18891,9 @@ function bankBudgetGlance(snap, opts) {
     spareTypical: sparePack && sparePack.typical != null ? sparePack.typical : null,
     spareOverage: sparePack && sparePack.overage != null ? sparePack.overage : null,
     spareExtra: sparePack && sparePack.extra != null ? sparePack.extra : null,
+    spareCarried: sparePack && sparePack.carried != null ? sparePack.carried : null,
+    spareCarriedMonth: sparePack && sparePack.carriedMonth ? sparePack.carriedMonth : "",
+    spareCarriedRows: sparePack && sparePack.carriedRows ? sparePack.carriedRows : [],
     events: bankPayEventList(snap, win.month || win.end)
   };
   var time = totalDays > 0 ? elapsed / totalDays : 1;
@@ -19819,7 +19993,23 @@ function bankGlanceMoreHtml(model) {
   }
   var rows = "";
   if (model.spareTypical != null && model.spareOverage != null && model.spareExtra != null) {
+    var carry = bankSpareCarryBits({
+      carried: model.spareCarried,
+      carriedMonth: model.spareCarriedMonth,
+      carriedRows: model.spareCarriedRows
+    });
+    var carryLine = "";
+    if (carry) {
+      carryLine = '<li data-bank-spare-carried="' + carry.carried + '"><span>Carried from ' + bankEsc(carry.name) +
+        '</span> <b class="' + carry.cls + '" data-bank-free-carried="' + carry.carried + '">' + bankEsc(carry.text) +
+        "</b> " + bankSpareCarryDetails({
+          carried: model.spareCarried,
+          carriedMonth: model.spareCarriedMonth,
+          carriedRows: model.spareCarriedRows
+        }) + "</li>";
+    }
     rows = line("Typical spare", model.spareTypical, "typical") +
+      carryLine +
       line("Overages", bankRoundCents(-(model.spareOverage || 0)), "over") +
       line("Extra income", model.spareExtra, "extra") +
       line("Spare left", model.free, "result");
@@ -20467,8 +20657,9 @@ function bankCardBarsHtml(card, snap, opts) {
       try { monthSpare = bankMonthSpare(snap, opts || {}); } catch (eSpare) { monthSpare = null; }
       if (monthSpare) {
         monthNote = '<p class="hint bank-spare-break" data-bank-spare-break="1" data-bank-spare-base="' + monthSpare.typical +
-          '" data-bank-spare-overage="' + monthSpare.overage + '" data-bank-spare-extra="' + monthSpare.extra + '">' +
-          bankEsc(bankSpareBreakText(monthSpare)) + "</p>";
+          '" data-bank-spare-carried="' + (monthSpare.carried || 0) + '" data-bank-spare-overage="' + monthSpare.overage +
+          '" data-bank-spare-extra="' + monthSpare.extra + '">' +
+          bankSpareBreakInner(monthSpare) + "</p>" + bankSpareCarryDetails(monthSpare);
       }
       var reserveNote = "";
       try { reserveNote = bankFitReserveNote(snap, spendKey); } catch (eNote) { reserveNote = ""; }
