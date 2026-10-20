@@ -535,3 +535,71 @@ test("after budgets is left minus remaining budgets and ignores carried spare", 
   assert.match(again, /data-bank-after-month="700"/);
   assert.notEqual(ctx.bankMonthSpare(snap, opts).left, spare.left);
 });
+
+test("bill match memo keeps budget and current html and drops after an edit", () => {
+  const ctx = boot();
+  function sample() {
+    return {
+      asof: "2026-10-19T12:00:00-04:00",
+      accounts: [{ last4: "1111", nickname: "Checking", subType: "checking", balance: 100, balance_after_pending: 100 }],
+      tier_doc: {
+        categories: [{ id: "groceries", name: "Groceries", budget: 30, tier: "needs" }],
+        budgets_updated_at: { groceries: "2026-10-01T00:00:00Z" },
+        rules: {},
+        plans: {},
+        category_rules: {},
+        category_tx: {}
+      },
+      current: {
+        month: "2026-10",
+        balance_after_pending: { "1111": 100 },
+        recent_tx: [],
+        edits_tx: [
+          { date: "2026-10-10", id: "acct-1111", amount: 4, desc: "Sample Bill 1", name: "Sample Bill 1", category: "groceries", bill_id: "bill-1", direction: "out", flow: "outflow", tx_key: "t-match" },
+          { date: "2026-10-11", id: "acct-1111", amount: 5, desc: "Corner shop", name: "Corner shop", category: "groceries", direction: "out", flow: "outflow", tx_key: "t-shop" },
+          { date: "2026-10-12", id: "acct-1111", amount: 6, desc: "Sample Bill 1", bill_id: "other-bill", direction: "out", flow: "outflow", tx_key: "t-other" }
+        ]
+      },
+      history: { months: [] },
+      budget: {
+        budget_month: { label: "2026-10", start: "2026-09-30", end: "2026-10-29" },
+        bills: [{ bill_id: "bill-1", name: "Sample Bill 1", amount: 4, typical_day: 10, category: "groceries", category_id: "groceries" }],
+        categories: [{ id: "groceries", name: "Groceries", budget: 30, tier: "needs" }],
+        pay_periods: [{
+          current: true,
+          start: "2026-10-01",
+          end: "2026-10-29",
+          accounts: { "1111": { nickname: "Checking", role: "everyday", subType: "checking", start_balance: 100, left_at_end: 80, events: [] } }
+        }]
+      }
+    };
+  }
+  const now = "2026-10-19T15:00:00Z";
+  const left = sample();
+  const right = sample();
+  const budgetA = ctx.bankPageHtml(left, { tab: "budget", now: now });
+  const budgetB = ctx.bankPageHtml(right, { tab: "budget", now: now });
+  assert.equal(budgetA, budgetB);
+  const currentA = ctx.bankPageHtml(left, { tab: "current", now: now });
+  const currentB = ctx.bankPageHtml(right, { tab: "current", now: now });
+  assert.equal(currentA, currentB);
+  const bill = { name: "Sample Bill 1", bill_id: "bill-1" };
+  assert.equal(ctx.bankTxMatchesBill(bill, left.current.edits_tx[0]), true);
+  assert.equal(ctx.bankTxMatchesBill(bill, left.current.edits_tx[1]), false);
+  assert.equal(ctx.bankTxMatchesItem(left.current.edits_tx[2], bill), false);
+  assert.equal(ctx.bankTxMatchesItem({ desc: "sample-bill-1" }, bill), true);
+  assert.equal(ctx.bankKeysMatch("Sample Bill 1", "sample-bill-1"), true);
+  assert.equal(ctx.bankKeysMatch("ab", "a-b"), false);
+  assert.equal(ctx.bankBillMatchesKey({ name: "Sample Bill 1", alias_keys: ["Old Name"] }, "old-name"), true);
+  assert.equal(ctx.bankBillMatchesKey(bill, ""), false);
+  left.tier_doc.categories[0].budget = 8;
+  left.tier_doc.budgets_updated_at.groceries = "2026-10-20T00:00:00Z";
+  ctx.bankInvalidateCaches();
+  const edited = ctx.bankPageHtml(left, { tab: "budget", now: now });
+  assert.notEqual(edited, budgetA);
+  assert.match(edited, /\$8\.00/);
+  ctx.bankWriteStore({ bills: {}, income: {}, moves: {} });
+  ctx.bankSettleTiersGet({ data: left }, { categories: left.tier_doc.categories, budgets_updated_at: { groceries: "2026-10-21T00:00:00Z" }, rules: {}, plans: {} }, false);
+  const settled = ctx.bankCategoryFigures(left, "2026-10");
+  assert.equal(settled.groceries.plan, 8);
+});
