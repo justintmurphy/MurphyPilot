@@ -1456,7 +1456,13 @@ var bankMemo = {
   sigHold: false,
   sigSnap: null,
   sigGen: -1,
-  sig: ""
+  sig: "",
+  sigList: null,
+  bagList: null,
+  rowList: null,
+  txSigs: null,
+  actSigs: null,
+  prep: null
 };
 var bankStr = {
   slug: Object.create(null),
@@ -1472,6 +1478,12 @@ function bankInvalidateCaches() {
   bankMemo.sigSnap = null;
   bankMemo.sigGen = -1;
   bankMemo.sig = "";
+  bankMemo.sigList = null;
+  bankMemo.bagList = null;
+  bankMemo.rowList = null;
+  bankMemo.txSigs = null;
+  bankMemo.actSigs = null;
+  bankMemo.prep = null;
   bankMemo.tx = null;
   bankMemo.txSnap = null;
   bankMemo.txGen = -1;
@@ -1481,8 +1493,29 @@ function bankInvalidateCaches() {
   bankStr.forms = Object.create(null);
 }
 
+/* A page build fills these once. A later call must not reuse that fill after the inputs change in place. */
+function bankMemoBeginHold() {
+  var held = bankMemo.sigHold;
+  if (!held) {
+    bankMemo.sigList = [];
+    bankMemo.bagList = [];
+    bankMemo.rowList = [];
+    bankMemo.txSigs = [];
+    bankMemo.actSigs = [];
+    bankMemo.prep = [];
+  }
+  bankMemo.sigHold = true;
+  return held;
+}
+
 function bankMemoBagSig(bag) {
   if (!bag || typeof bag !== "object" || Array.isArray(bag)) return "";
+  if (bankMemo.sigHold && bankMemo.bagList) {
+    var cached;
+    for (cached = 0; cached < bankMemo.bagList.length; cached++) {
+      if (bankMemo.bagList[cached].bag === bag) return bankMemo.bagList[cached].sig;
+    }
+  }
   var keys = Object.keys(bag);
   keys.sort();
   var i, key, val, part;
@@ -1494,6 +1527,10 @@ function bankMemoBagSig(bag) {
       try { part = JSON.stringify(val); } catch (eBag) { part = ""; }
     } else part = val == null ? "" : String(val);
     out += key + "=" + part + "\n";
+  }
+  if (bankMemo.sigHold) {
+    if (!bankMemo.bagList) bankMemo.bagList = [];
+    bankMemo.bagList.push({ bag: bag, sig: out });
   }
   return out;
 }
@@ -1510,6 +1547,21 @@ function bankMemoCatSig(rows) {
 }
 
 function bankMemoTxSig(snap) {
+  if (bankMemo.sigHold && bankMemo.txSigs) {
+    var hit;
+    for (hit = 0; hit < bankMemo.txSigs.length; hit++) {
+      if (bankMemo.txSigs[hit].snap === snap) return bankMemo.txSigs[hit].sig;
+    }
+  }
+  var sig = bankMemoTxSigWork(snap);
+  if (bankMemo.sigHold) {
+    if (!bankMemo.txSigs) bankMemo.txSigs = [];
+    bankMemo.txSigs.push({ snap: snap, sig: sig });
+  }
+  return sig;
+}
+
+function bankMemoTxSigWork(snap) {
   var n = 0;
   var sum = 0;
   var mix = 0;
@@ -1589,12 +1641,23 @@ function bankMemoInputSig(snap) {
 
 function bankMemoRowSig(rows, fields) {
   if (!Array.isArray(rows)) return "";
+  var fieldKey = (fields || []).join("\n");
+  if (bankMemo.sigHold && bankMemo.rowList) {
+    var cached;
+    for (cached = 0; cached < bankMemo.rowList.length; cached++) {
+      if (bankMemo.rowList[cached].rows === rows && bankMemo.rowList[cached].fields === fieldKey) return bankMemo.rowList[cached].sig;
+    }
+  }
   var out = "";
   var i, row, f;
   for (i = 0; i < rows.length; i++) {
     row = rows[i] || {};
     for (f = 0; f < fields.length; f++) out += row[fields[f]] == null ? "\t" : String(row[fields[f]]) + "\t";
     out += "\n";
+  }
+  if (bankMemo.sigHold) {
+    if (!bankMemo.rowList) bankMemo.rowList = [];
+    bankMemo.rowList.push({ rows: rows, fields: fieldKey, sig: out });
   }
   return out;
 }
@@ -1623,6 +1686,21 @@ function bankMemoSnapCatSig(snap) {
 }
 
 function bankMemoActualSig(snap) {
+  if (bankMemo.sigHold && bankMemo.actSigs) {
+    var hit;
+    for (hit = 0; hit < bankMemo.actSigs.length; hit++) {
+      if (bankMemo.actSigs[hit].snap === snap) return bankMemo.actSigs[hit].sig;
+    }
+  }
+  var sig = bankMemoActualSigWork(snap);
+  if (bankMemo.sigHold) {
+    if (!bankMemo.actSigs) bankMemo.actSigs = [];
+    bankMemo.actSigs.push({ snap: snap, sig: sig });
+  }
+  return sig;
+}
+
+function bankMemoActualSigWork(snap) {
   var bag = snap && snap.budget && snap.budget.actuals_by_month;
   if (!bag || typeof bag !== "object" || Array.isArray(bag)) return "";
   var keys = Object.keys(bag);
@@ -1643,11 +1721,20 @@ function bankMemoFiguresKey(snap, monthKey) {
 }
 
 function bankMemoSig(snap) {
-  if (bankMemo.sigHold && bankMemo.sigSnap === snap && bankMemo.sigGen === bankMemo.gen && bankMemo.sig) return bankMemo.sig;
+  if (bankMemo.sigHold && bankMemo.sigList) {
+    var hit;
+    for (hit = 0; hit < bankMemo.sigList.length; hit++) {
+      if (bankMemo.sigList[hit].snap === snap) return bankMemo.sigList[hit].sig;
+    }
+  }
   var sig = bankMemoInputSig(snap);
   bankMemo.sigSnap = snap;
   bankMemo.sigGen = bankMemo.gen;
   bankMemo.sig = sig;
+  if (bankMemo.sigHold) {
+    if (!bankMemo.sigList) bankMemo.sigList = [];
+    bankMemo.sigList.push({ snap: snap, sig: sig });
+  }
   return sig;
 }
 
@@ -2316,27 +2403,45 @@ function bankDeskRowByKey(snap, key) {
   return found;
 }
 
-function bankCancelTarget(snap, raw) {
-  if (!raw || !snap) return null;
+function bankCancelMatch(items, raw) {
   var found = null;
-  function consider(row) {
-    if (found || !row) return;
-    if (raw.bill_id && (bankKeysMatch(raw.bill_id, row.bill_id) || bankKeysMatch(raw.bill_id, row.cancel_key))) found = row;
-    else if (raw.sub_id && (bankKeysMatch(raw.sub_id, row.sub_id) || bankKeysMatch(raw.sub_id, row.cancel_key))) found = row;
-    else if (raw.cancel_key && bankBillMatchesKey(row, raw.cancel_key)) found = row;
+  var i, row;
+  for (i = 0; i < items.length; i++) {
+    row = items[i];
+    if (!row) continue;
+    if (raw.bill_id && (bankKeysMatch(raw.bill_id, row.bill_id) || bankKeysMatch(raw.bill_id, row.cancel_key))) return row;
+    else if (raw.sub_id && (bankKeysMatch(raw.sub_id, row.sub_id) || bankKeysMatch(raw.sub_id, row.cancel_key))) return row;
+    else if (raw.cancel_key && bankBillMatchesKey(row, raw.cancel_key)) return row;
   }
-  try { bankPreparedBills(snap, undefined).forEach(consider); } catch (e) {}
-  try { bankPreparedSubs(snap).forEach(consider); } catch (e2) {}
-  if (found) return found;
   if (!(raw.bill_id || raw.sub_id || raw.kind === "bill" || raw.kind === "subscription" || raw.kind === "sub")) return null;
   var blob = raw.name || raw.desc || raw.merchant || "";
-  function byName(row) {
-    if (found || !row || !blob) return;
-    if (bankBillMatchesKey(row, blob) || bankKeysMatch(row.name, blob)) found = row;
+  if (!blob) return null;
+  for (i = 0; i < items.length; i++) {
+    row = items[i];
+    if (!row) continue;
+    if (bankBillMatchesKey(row, blob) || bankKeysMatch(row.name, blob)) return row;
   }
-  try { bankPreparedBills(snap, undefined).forEach(byName); } catch (e3) {}
-  try { bankPreparedSubs(snap).forEach(byName); } catch (e4) {}
   return found;
+}
+
+function bankCancelItems(snap) {
+  var items = [];
+  try { items = bankPreparedBills(snap, undefined) || []; } catch (eItems) { items = []; }
+  try { items = items.concat(bankPreparedSubs(snap) || []); } catch (eSubs) {}
+  return items;
+}
+
+function bankCancelTarget(snap, raw) {
+  if (!raw || !snap) return null;
+  if (!bankMemo.building && typeof raw === "object") {
+    var index = null;
+    try { index = bankEnsureTxIndex(snap); } catch (eIdx) { index = null; }
+    var sig = bankTxMatchSig(raw);
+    if (index && index.cancel && index.sigs && index.sigs[sig] && Object.prototype.hasOwnProperty.call(index.cancel, sig)) {
+      return index.cancel[sig];
+    }
+  }
+  return bankCancelMatch(bankCancelItems(snap), raw);
 }
 
 function bankTxMatchSig(raw) {
@@ -2393,9 +2498,44 @@ function bankEnsureTxIndex(snap) {
         if (bankTxMatchesItem(tx, row)) itemHits[txSig] = 1;
         if (bankTxMatchesBill(row, tx)) billHits[txSig] = 1;
       }
-      bills[key] = { item: itemHits, bill: billHits };
+      bills[key] = { item: itemHits, bill: billHits, row: row };
     }
-    index = { sigs: sigs, bills: bills };
+    var spendRows = [];
+    try { spendRows = bankSpendTxRows(snap); } catch (eSpend) { spendRows = []; }
+    var allocRows = [];
+    try {
+      bankAllocTxLists(snap).forEach(function (list) {
+        var a;
+        if (!Array.isArray(list)) return;
+        for (a = 0; a < list.length; a++) if (list[a]) allocRows.push(list[a]);
+      });
+    } catch (eAlloc) { allocRows = []; }
+    var cancel = Object.create(null);
+    for (j = 0; j < txs.length; j++) {
+      cancel[bankTxMatchSig(txs[j])] = bankCancelMatch(items, txs[j]) || null;
+    }
+    var billKeys = Object.keys(bills);
+    for (i = 0; i < billKeys.length; i++) {
+      var bag = bills[billKeys[i]];
+      var spend = [];
+      var alloc = [];
+      for (j = 0; j < spendRows.length; j++) {
+        var spendRaw = spendRows[j];
+        var spendSig = bankTxMatchSig(spendRaw);
+        var spendHit = sigs[spendSig] ? !!bag.item[spendSig] : bankTxMatchesItem(spendRaw, bag.row);
+        if (spendHit) spend.push(spendRaw);
+      }
+      for (j = 0; j < allocRows.length; j++) {
+        var allocRaw = allocRows[j];
+        if (bankFlowSide(allocRaw) === "in") continue;
+        var allocSig = bankTxMatchSig(allocRaw);
+        var allocHit = sigs[allocSig] ? !!bag.bill[allocSig] : bankTxMatchesBill(bag.row, allocRaw);
+        if (allocHit) alloc.push(allocRaw);
+      }
+      bag.spend = spend;
+      bag.alloc = alloc;
+    }
+    index = { sigs: sigs, bills: bills, cancel: cancel };
   } catch (eIdx) {
     index = null;
   }
@@ -2446,6 +2586,22 @@ function bankTxChargedAfter(snap, raw) {
 
 function bankItemChargedAfter(snap, item) {
   if (!snap || !item) return false;
+  if (!bankMemo.building) {
+    var index = null;
+    try { index = bankEnsureTxIndex(snap); } catch (eIdx) { index = null; }
+    var key = bankBillIndexKey(item);
+    var bag = index && key && index.bills && index.bills[key];
+    if (bag && bag.row === item && bag.spend) {
+      var s;
+      for (s = 0; s < bag.spend.length; s++) {
+        var hit = bag.spend[s];
+        if (hit.charged_after_cancel === true) return true;
+        if (hit.charged_after_cancel === false) continue;
+        if (bankTxChargedAfter(snap, hit)) return true;
+      }
+      return false;
+    }
+  }
   var txs = [];
   try { txs = bankSpendTxRows(snap); } catch (e) { txs = []; }
   var i;
@@ -2859,11 +3015,31 @@ function bankApplyBillStatuses(bills, snap) {
   return bills;
 }
 
+function bankPrepFind(kind, snap, dueArg) {
+  if (!bankMemo.sigHold || !bankMemo.prep) return null;
+  var i;
+  for (i = 0; i < bankMemo.prep.length; i++) {
+    var row = bankMemo.prep[i];
+    if (row.kind === kind && row.snap === snap && row.due === dueArg) return row.list;
+  }
+  return null;
+}
+
+function bankPrepSave(kind, snap, dueArg, list) {
+  if (!bankMemo.sigHold) return;
+  if (!bankMemo.prep) bankMemo.prep = [];
+  bankMemo.prep.push({ kind: kind, snap: snap, due: dueArg, list: list });
+}
+
 function bankPreparedBills(snap, dueArg) {
+  var hit = bankPrepFind("bills", snap, dueArg);
+  if (hit) return hit;
   var budget = (snap && snap.budget) || {};
   var bills = bankSurfaceBills(bankNormalizeBills(budget, dueArg), budget);
   bills = bankStampDueDays(bankApplyBillStatuses(bills, snap), snap);
-  return bankAttachCovers(bills, budget);
+  bills = bankAttachCovers(bills, budget);
+  bankPrepSave("bills", snap, dueArg, bills);
+  return bills;
 }
 
 function bankWholeDollarUp(n) {
@@ -3981,6 +4157,8 @@ function bankSubStatusRows(budget) {
 }
 
 function bankPreparedSubs(snap) {
+  var hit = bankPrepFind("subs", snap, null);
+  if (hit) return hit;
   var budget = (snap && snap.budget) || {};
   var subs = bankNormalizeSubs(budget);
   bankApplyBillStatuses(subs, snap);
@@ -4001,7 +4179,9 @@ function bankPreparedSubs(snap) {
       s.cancel_note = entry.note || s.cancel_note;
     });
   });
-  return bankStampDueDays(subs, snap);
+  subs = bankStampDueDays(subs, snap);
+  bankPrepSave("subs", snap, null, subs);
+  return subs;
 }
 
 function bankChipKey(name) {
@@ -10979,13 +11159,28 @@ function bankHistoryPayFrom(snap, row) {
       push(hit.date, hit.account_last4 || hit.last4 || (acct && (acct.suffix || acct.last4)), acct && (acct.nickname || acct.name));
     });
   } catch (eHit) {}
-  bankAllocTxLists(snap).forEach(function (list) {
-    list.forEach(function (raw) {
+  var indexedPay = null;
+  if (!bankMemo.building) {
+    var payIndex = null;
+    try { payIndex = bankEnsureTxIndex(snap); } catch (ePay) { payIndex = null; }
+    var payKey = bankBillIndexKey(row);
+    var payBag = payIndex && payKey && payIndex.bills && payIndex.bills[payKey];
+    if (payBag && payBag.row === row && payBag.alloc) indexedPay = payBag.alloc;
+  }
+  if (indexedPay) {
+    indexedPay.forEach(function (raw) {
       if (!raw || bankFlowSide(raw) === "in") return;
-      if (!bankTxMatchesBill(row, raw)) return;
       push(raw.date, bankAccountLast4(snap, raw), "");
     });
-  });
+  } else {
+    bankAllocTxLists(snap).forEach(function (list) {
+      list.forEach(function (raw) {
+        if (!raw || bankFlowSide(raw) === "in") return;
+        if (!bankTxMatchesBill(row, raw)) return;
+        push(raw.date, bankAccountLast4(snap, raw), "");
+      });
+    });
+  }
   var today = "";
   try { today = bankTodayIso(snap, {}); } catch (eToday) { today = ""; }
   try {
@@ -14887,8 +15082,7 @@ function bankEffectiveCategoryDoc(snap, monthKey) {
   var key = bankMemoCatKey(snap, monthKey);
   var hit = bankMemoRead("docs", key);
   if (hit) return hit.v;
-  var held = bankMemo.sigHold;
-  bankMemo.sigHold = true;
+  var held = bankMemoBeginHold();
   var doc;
   try { doc = bankEffectiveCategoryDocWork(snap, monthKey); }
   finally { bankMemo.sigHold = held; }
@@ -15616,8 +15810,7 @@ function bankCategoryFigures(snap, monthKey) {
   var key = bankMemoFiguresKey(snap, monthKey);
   var hit = bankMemoRead("figs", key);
   if (hit) return bankCloneFigures(hit.v);
-  var held = bankMemo.sigHold;
-  bankMemo.sigHold = true;
+  var held = bankMemoBeginHold();
   var figs;
   try { figs = bankCategoryFiguresWork(snap, monthKey); }
   finally { bankMemo.sigHold = held; }
@@ -23289,8 +23482,17 @@ function bankPageHtml(snap, opts) {
   try { bankScrubStoredBills(snap); } catch (eScrub) {}
   bankMergeLocalTiers(snap);
   bankMemo.sigSnap = null;
+  bankMemo.sigList = [];
+  bankMemo.bagList = [];
+  bankMemo.rowList = [];
+  bankMemo.txSigs = [];
+  bankMemo.actSigs = [];
+  bankMemo.prep = [];
   var held = bankMemo.sigHold;
   bankMemo.sigHold = true;
+  try { bankMemoSig(snap || {}); } catch (eSig) {}
+  try { bankMemoTxSig(snap || {}); } catch (eTxSig) {}
+  try { bankMemoActualSig(snap || {}); } catch (eAct) {}
   try { bankEnsureTxIndex(snap || {}); } catch (eIdx) {}
   try {
   var rawTab = String(opts.tab == null ? "" : opts.tab).replace(/^#/, "");
@@ -25064,10 +25266,11 @@ function bankRehydrateCategories(root, opts) {
       var prior = bankCustomCategories(st.data);
       bankMergeCustomCategories(st.data, payload.categories);
       bankRetainOccupiedCustoms(st.data, prior);
-      bankInvalidateCaches();
       if (!root._bank || root._bank.catGen !== gen) return false;
       var after = bankCustomCategories(st.data).join("\n");
-      if (!opts.silent && before !== after) bankPaint(root);
+      if (before === after) return true;
+      bankInvalidateCaches();
+      if (!opts.silent) bankPaint(root);
       return true;
     });
   }).catch(function () { return false; });
@@ -25087,9 +25290,9 @@ function bankTierPayloadDoc(payload) {
 
 function bankTierPaintBefore(root) {
   var data = root && root._bank && root._bank.data;
-  var flag = "0";
-  if (data && data._tiersPending) flag = "p";
-  else if (bankFitSnapshotMark(data)) flag = "s";
+  var flag = data && data._tiersFromGet ? "1" : "0";
+  if (data && data._tiersGetFailed) flag += "f";
+  if (bankFitSnapshotMark(data)) flag += "s";
   try { return flag + "\n" + bankCategoryBudgetHash(data) + "\n" + bankTierSideHash(data); } catch (eBefore) { return flag; }
 }
 
@@ -25422,13 +25625,23 @@ function bankMount(root, data, opts) {
     prune: Promise.resolve()
   };
   try { bankApplyTiersCache(root._bank.data); } catch (eCache) {}
+  if (opts.tierDoc) {
+    root._bank.data.tier_doc = opts.tierDoc;
+    root._bank.data._tiersFromGet = true;
+    root._bank.data._tiersGetFailed = false;
+    root._bank.data._tiersPending = false;
+    if (Object.prototype.hasOwnProperty.call(opts.tierDoc, "tx_overrides")) root._bank.data._txMoves = true;
+    if (opts.tierDoc.categories || opts.tierDoc.budgets_updated_at) {
+      try { bankWriteTiersDoc(opts.tierDoc); } catch (eTierWrite) {}
+    }
+  }
   if (root._bank.tab === "edits") root._bank.prune = bankRefreshEmptyCustoms(root);
   else {
     bankPaint(root);
-    root._bank.prune = Promise.all([
-      bankRehydrateCategories(root),
-      bankRehydrateTiers(root)
-    ]);
+    var startupJobs = [];
+    if (!opts.startupCats) startupJobs.push(bankRehydrateCategories(root));
+    if (!opts.tierDoc) startupJobs.push(bankRehydrateTiers(root));
+    root._bank.prune = startupJobs.length ? Promise.all(startupJobs) : Promise.resolve(true);
   }
   bankBindHistory(root);
   if (root._bankBound || !root.addEventListener) return;
@@ -26245,11 +26458,37 @@ function bankMount(root, data, opts) {
   });
 }
 
+function bankLoadExtra(url) {
+  var pending;
+  try { pending = fetch(url, bankFetchInit()); }
+  catch (eExtra) { return Promise.resolve(null); }
+  return Promise.resolve(pending).then(function (res) {
+    if (!res || res.ok !== true || res.type === "opaqueredirect") return null;
+    return Promise.resolve(res.json()).then(function (payload) {
+      return payload && typeof payload === "object" ? payload : null;
+    }).catch(function () { return null; });
+  }).catch(function () { return null; });
+}
+
+function bankSeedCategories(data, payload) {
+  if (!data || !payload || !Array.isArray(payload.categories)) return false;
+  var prior = [];
+  try { prior = bankCustomCategories(data); } catch (ePrior) { prior = []; }
+  try { bankMergeCustomCategories(data, payload.categories); } catch (eMerge) { return false; }
+  try { bankRetainOccupiedCustoms(data, prior); } catch (eKeep) {}
+  return true;
+}
+
 function bankLoad(root, fetcher) {
   var run = fetcher || function () {
     return fetch(bankDataUrl(), bankFetchInit());
   };
-  return Promise.resolve().then(run).then(function (res) {
+  return Promise.all([
+    Promise.resolve().then(run),
+    bankLoadExtra(BANK_CATEGORIES_URL),
+    bankLoadExtra(BANK_TIERS_URL)
+  ]).then(function (parts) {
+    var res = parts[0];
     if (!res || res.ok !== true) {
       var kind = bankIsLockedResponse(res) ? "gate" : bankClassifyStatus(res && res.status);
       root.innerHTML = bankGateHtml(kind);
@@ -26260,7 +26499,10 @@ function bankLoad(root, fetcher) {
         root.innerHTML = bankGateHtml("missing");
         return;
       }
-      bankMount(root, data);
+      var seededCats = bankSeedCategories(data, parts[1]);
+      var tierDoc = null;
+      try { tierDoc = bankTierPayloadDoc(parts[2]); } catch (eTier) { tierDoc = null; }
+      bankMount(root, data, { startupCats: seededCats, tierDoc: tierDoc });
       return root._bank && root._bank.prune;
     });
   }).catch(function () {
