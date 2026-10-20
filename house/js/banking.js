@@ -1444,15 +1444,19 @@ function bankFixedBillDay(name) {
   return null;
 }
 
-/* Slug, category, and bill-match caches. Cleared when the snapshot, categories, tiers, or edits change. */
+/* Slug, category, and bill-match caches. Cleared when the snapshot, categories, tiers, plan, or edits change. */
 var bankMemo = {
-  depth: 0,
   gen: 0,
-  slots: null,
   tx: null,
   txSnap: null,
   txGen: -1,
-  building: false
+  building: false,
+  docs: null,
+  figs: null,
+  sigHold: false,
+  sigSnap: null,
+  sigGen: -1,
+  sig: ""
 };
 var bankStr = {
   slug: Object.create(null),
@@ -1463,7 +1467,11 @@ var bankStr = {
 
 function bankInvalidateCaches() {
   bankMemo.gen += 1;
-  bankMemo.slots = null;
+  bankMemo.docs = null;
+  bankMemo.figs = null;
+  bankMemo.sigSnap = null;
+  bankMemo.sigGen = -1;
+  bankMemo.sig = "";
   bankMemo.tx = null;
   bankMemo.txSnap = null;
   bankMemo.txGen = -1;
@@ -1473,34 +1481,191 @@ function bankInvalidateCaches() {
   bankStr.forms = Object.create(null);
 }
 
-function bankMemoSlot(monthKey) {
-  var key = "";
-  try { key = bankMonthKey(monthKey) || ""; } catch (eSlot) { key = ""; }
-  return String(bankMemo.gen) + "\n" + key;
-}
-
-function bankMemoRow(snap) {
-  if (!bankMemo.depth || !snap) return null;
-  if (!bankMemo.slots) bankMemo.slots = [];
-  var i;
-  for (i = 0; i < bankMemo.slots.length; i++) {
-    if (bankMemo.slots[i].snap === snap) return bankMemo.slots[i];
+function bankMemoBagSig(bag) {
+  if (!bag || typeof bag !== "object" || Array.isArray(bag)) return "";
+  var keys = Object.keys(bag);
+  keys.sort();
+  var i, key, val, part;
+  var out = "";
+  for (i = 0; i < keys.length; i++) {
+    key = keys[i];
+    val = bag[key];
+    if (val && typeof val === "object") {
+      try { part = JSON.stringify(val); } catch (eBag) { part = ""; }
+    } else part = val == null ? "" : String(val);
+    out += key + "=" + part + "\n";
   }
-  var row = { snap: snap, docs: Object.create(null), figs: Object.create(null) };
-  bankMemo.slots.push(row);
-  return row;
+  return out;
 }
 
-function bankMemoRead(kind, snap, slot) {
-  var row = bankMemoRow(snap);
-  if (!row || !row[kind] || !Object.prototype.hasOwnProperty.call(row[kind], slot)) return null;
-  return row[kind][slot];
+function bankMemoCatSig(rows) {
+  if (!Array.isArray(rows)) return "";
+  var out = "";
+  var i, row;
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i] || {};
+    out += [row.id || "", row.name || "", row.tier || "", row.budget == null ? "" : row.budget, row.merged_into || ""].join("\t") + "\n";
+  }
+  return out;
 }
 
-function bankMemoStore(kind, snap, slot, value) {
-  var row = bankMemoRow(snap);
-  if (!row) return;
-  row[kind][slot] = { v: value };
+function bankMemoTxSig(snap) {
+  var n = 0;
+  var sum = 0;
+  var mix = 0;
+  function take(list) {
+    if (!Array.isArray(list)) return;
+    var i, row, text, k, ch;
+    for (i = 0; i < list.length; i++) {
+      row = list[i];
+      if (!row || typeof row !== "object") continue;
+      n += 1;
+      sum += Number(row.amount) || 0;
+      text = String(row.category || "") + "|" + String(row.desc || row.name || "") + "|" + String(row.tx_key || row.bill_id || "");
+      for (k = 0; k < text.length; k++) {
+        ch = text.charCodeAt(k);
+        mix = ((mix * 33) + ch) >>> 0;
+      }
+    }
+  }
+  var cur = snap && snap.current;
+  if (cur) {
+    take(cur.edits_tx);
+    take(cur.recent_tx);
+    take(cur.history_tx);
+  }
+  var hist = snap && snap.history;
+  if (hist && !Array.isArray(hist)) take(hist.tx);
+  var months = hist && hist.months;
+  if (Array.isArray(months)) {
+    var m;
+    for (m = 0; m < months.length; m++) {
+      if (!months[m]) continue;
+      take(months[m].tx);
+      take(months[m].transactions);
+    }
+  }
+  return n + ":" + sum + ":" + mix;
+}
+
+/* Month, tier, plan, and overrides. A matching key is safe to reuse until the snapshot changes. */
+function bankMemoInputSig(snap) {
+  var doc = null;
+  try { doc = bankCategoryDoc(snap); } catch (eDoc) { doc = null; }
+  var tier = snap && snap.tier_doc && typeof snap.tier_doc === "object" ? snap.tier_doc : {};
+  var budget = (snap && snap.budget) || {};
+  var overlay = null;
+  try { overlay = bankTiersOverlay(snap); } catch (eOver) { overlay = null; }
+  return [
+    bankMemoCatSig(doc && doc.categories),
+    bankMemoBagSig(doc && doc.budgets_updated_at),
+    bankMemoBagSig(doc && doc.plans),
+    bankMemoBagSig(tier.plans),
+    bankMemoBagSig(doc && doc.rules),
+    bankMemoBagSig(tier.rules),
+    bankMemoBagSig(doc && doc.category_rules),
+    bankMemoBagSig(doc && doc.category_tx),
+    bankMemoBagSig(tier.category_rules),
+    bankMemoBagSig(tier.category_tx),
+    bankMemoBagSig(tier.tx_overrides),
+    bankMemoBagSig(tier.bill_status),
+    bankMemoBagSig(tier.manual_paid),
+    bankMemoBagSig(snap && snap.category_overrides),
+    bankMemoBagSig(budget.tiers && budget.tiers.by_category),
+    bankMemoBagSig(budget.tiers_mtd && budget.tiers_mtd.by_category),
+    bankMemoBagSig(overlay && overlay.category_rules),
+    bankMemoBagSig(overlay && overlay.category_tx),
+    bankMemoBagSig(overlay && overlay.november_budget),
+    bankMemoSnapCatSig(snap),
+    bankMemoBoxSig(budget),
+    bankMemoRowSig(budget.bills, ["bill_id", "name", "amount", "status", "status_from", "category", "category_id", "due_day", "typical_day", "counted"]),
+    bankMemoRowSig(budget.subscriptions, ["sub_id", "name", "amount", "status", "status_from", "category", "next_date"]),
+    bankMemoBagSig(budget.category_merge_ids),
+    bankMemoBagSig(budget.category_merges),
+    bankMemoBagSig(budget.category_deleted_ids),
+    bankMemoBagSig(budget.category_deleted)
+  ].join("\u0002");
+}
+
+function bankMemoRowSig(rows, fields) {
+  if (!Array.isArray(rows)) return "";
+  var out = "";
+  var i, row, f;
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i] || {};
+    for (f = 0; f < fields.length; f++) out += row[fields[f]] == null ? "\t" : String(row[fields[f]]) + "\t";
+    out += "\n";
+  }
+  return out;
+}
+
+function bankMemoBoxSig(budget) {
+  var box = budget && budget.box_categories;
+  if (Array.isArray(box)) return bankMemoCatSig(box);
+  if (!box || typeof box !== "object") return "";
+  var list = Array.isArray(box.categories) ? box.categories : [];
+  return bankMemoCatSig(list) + "\n" + bankMemoBagSig(box.merged_into) + "\n" + bankMemoBagSig(box.deleted);
+}
+
+function bankMemoSnapCatSig(snap) {
+  var shots = snap && snap.budget && snap.budget.snapshots;
+  if (!shots || typeof shots !== "object" || Array.isArray(shots)) return "";
+  var keys = Object.keys(shots).sort();
+  var out = "";
+  var i, shot, cats;
+  for (i = 0; i < keys.length; i++) {
+    shot = shots[keys[i]];
+    cats = shot && shot.categories;
+    if (!Array.isArray(cats) && shot && shot.budget) cats = shot.budget.categories;
+    out += keys[i] + "\n" + bankMemoCatSig(cats);
+  }
+  return out;
+}
+
+function bankMemoActualSig(snap) {
+  var bag = snap && snap.budget && snap.budget.actuals_by_month;
+  if (!bag || typeof bag !== "object" || Array.isArray(bag)) return "";
+  var keys = Object.keys(bag);
+  var sum = 0;
+  var i, month, spent, names, j;
+  for (i = 0; i < keys.length; i++) {
+    month = bag[keys[i]];
+    spent = month && month.categories_spent;
+    if (!spent || typeof spent !== "object" || Array.isArray(spent)) continue;
+    names = Object.keys(spent);
+    for (j = 0; j < names.length; j++) sum += Number(spent[names[j]]) || 0;
+  }
+  return keys.length + ":" + sum;
+}
+
+function bankMemoFiguresKey(snap, monthKey) {
+  return bankMemoCatKey(snap, monthKey) + "\n" + bankMemoTxSig(snap) + "\n" + bankMemoActualSig(snap);
+}
+
+function bankMemoSig(snap) {
+  if (bankMemo.sigHold && bankMemo.sigSnap === snap && bankMemo.sigGen === bankMemo.gen && bankMemo.sig) return bankMemo.sig;
+  var sig = bankMemoInputSig(snap);
+  bankMemo.sigSnap = snap;
+  bankMemo.sigGen = bankMemo.gen;
+  bankMemo.sig = sig;
+  return sig;
+}
+
+function bankMemoCatKey(snap, monthKey) {
+  var month = "";
+  try { month = bankMonthKey(monthKey) || ""; } catch (eMonth) { month = ""; }
+  return String(bankMemo.gen) + "\n" + month + "\n" + bankMemoSig(snap);
+}
+
+function bankMemoRead(kind, key) {
+  var bag = bankMemo[kind];
+  if (!bag || !Object.prototype.hasOwnProperty.call(bag, key)) return null;
+  return bag[key];
+}
+
+function bankMemoStore(kind, key, value) {
+  if (!bankMemo[kind]) bankMemo[kind] = Object.create(null);
+  bankMemo[kind][key] = { v: value };
 }
 
 function bankCloneFigures(figs) {
@@ -14719,11 +14884,15 @@ function bankApplyCategoryBudgets(rows, snap, monthKey) {
 
 /* Read model. Structure is the snapshot. A later budget save wins for that category only. */
 function bankEffectiveCategoryDoc(snap, monthKey) {
-  var slot = bankMemoSlot(monthKey);
-  var hit = bankMemoRead("docs", snap, slot);
+  var key = bankMemoCatKey(snap, monthKey);
+  var hit = bankMemoRead("docs", key);
   if (hit) return hit.v;
-  var doc = bankEffectiveCategoryDocWork(snap, monthKey);
-  bankMemoStore("docs", snap, slot, doc);
+  var held = bankMemo.sigHold;
+  bankMemo.sigHold = true;
+  var doc;
+  try { doc = bankEffectiveCategoryDocWork(snap, monthKey); }
+  finally { bankMemo.sigHold = held; }
+  bankMemoStore("docs", bankMemoCatKey(snap, monthKey), doc);
   return doc;
 }
 
@@ -15444,11 +15613,15 @@ function bankCategorySpentLookup(bag, row) {
 }
 
 function bankCategoryFigures(snap, monthKey) {
-  var slot = bankMemoSlot(monthKey);
-  var hit = bankMemoRead("figs", snap, slot);
+  var key = bankMemoFiguresKey(snap, monthKey);
+  var hit = bankMemoRead("figs", key);
   if (hit) return bankCloneFigures(hit.v);
-  var figs = bankCategoryFiguresWork(snap, monthKey);
-  bankMemoStore("figs", snap, slot, bankCloneFigures(figs));
+  var held = bankMemo.sigHold;
+  bankMemo.sigHold = true;
+  var figs;
+  try { figs = bankCategoryFiguresWork(snap, monthKey); }
+  finally { bankMemo.sigHold = held; }
+  bankMemoStore("figs", bankMemoFiguresKey(snap, monthKey), bankCloneFigures(figs));
   return bankCloneFigures(figs);
 }
 
@@ -23115,11 +23288,10 @@ function bankPageHtml(snap, opts) {
   opts = opts || {};
   try { bankScrubStoredBills(snap); } catch (eScrub) {}
   bankMergeLocalTiers(snap);
-  var top = bankMemo.depth === 0;
-  bankMemo.depth += 1;
-  if (top) bankMemo.slots = [];
+  bankMemo.sigSnap = null;
+  var held = bankMemo.sigHold;
+  bankMemo.sigHold = true;
   try { bankEnsureTxIndex(snap || {}); } catch (eIdx) {}
-  if (top) bankMemo.slots = [];
   try {
   var rawTab = String(opts.tab == null ? "" : opts.tab).replace(/^#/, "");
   /* A direct current tab still renders that mode. Hashes and the menu open Budget. */
@@ -23141,8 +23313,8 @@ function bankPageHtml(snap, opts) {
     bankDetailPopupHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
     bankCancelSheetHtml(snap || {}, Object.assign({ tab: tab }, opts));
   } finally {
-    bankMemo.depth -= 1;
-    if (top) bankMemo.slots = null;
+    bankMemo.sigHold = held;
+    if (!held) bankMemo.sigSnap = null;
   }
 }
 
