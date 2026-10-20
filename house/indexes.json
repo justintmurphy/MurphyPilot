@@ -1,18 +1,18 @@
 {
-  "asof": "2026-10-16T16:23:30-04:00",
+  "asof": "2026-10-20T16:11:56-04:00",
   "spx": {
     "symbol": "SPX",
     "label": "S&P",
-    "last": 7659.44,
-    "prev": 7744.06,
-    "pct": -1.09
+    "last": 7712.57,
+    "prev": 7690.73,
+    "pct": 0.28
   },
   "ndx": {
     "symbol": "NDX",
     "label": "Nasdaq",
-    "last": 29187.5488,
-    "prev": 29935.6,
-    "pct": -2.5
+    "last": 29490.2832,
+    "prev": 29529.35,
+    "pct": -0.13
   },
-  "source": "Yahoo ^GSPC/^NDX Fri 10-16 close (~16:25 ET) as last + Thu 10-15 close as prev/pct; RH equity/crypto quotes OK (batched); crypto_positions qty+cost_bases live"
+  "source": "Yahoo ^GSPC/^NDX Tue 10-20 close (~16:20 ET) as last + Mon 10-19 close as prev/pct; RH equity/crypto quotes OK (batched); crypto_positions qty+cost_bases live"
 }

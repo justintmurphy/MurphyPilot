@@ -1,29 +1,29 @@
 {
-  "asof": "2026-10-16",
+  "asof": "2026-10-20",
   "source": "Finance (Fidelity) + Truthifi (Voya)",
   "note": "Fidelity balances from Finance/Plaid; Voya from Truthifi (block kept from prior). Display: last-4 suffixes.",
-  "scanned_at": "2026-10-16T16:23:10-04:00",
+  "scanned_at": "2026-10-20T16:12:11-04:00",
   "holdings_asof": "2026-10-13",
   "overall": {
-    "equity": 68875.946,
-    "live_equity": 3242.21,
-    "custodial_equity": 65633.736,
-    "asof": "2026-10-16T16:23:10-04:00",
+    "equity": 68906.502,
+    "live_equity": 3277.53,
+    "custodial_equity": 65628.972,
+    "asof": "2026-10-20T16:12:11-04:00",
     "holdings_asof": "2026-10-13",
-    "live_asof": "2026-10-16T16:23:30-04:00"
+    "live_asof": "2026-10-20T16:11:56-04:00"
   },
   "accounts": {
     "fidelity": {
       "id": "fidelity",
       "label": "Fidelity",
       "source": "Finance",
-      "asof": "2026-10-16",
-      "equity": 3118.184,
-      "equity_value": 3118.184,
+      "asof": "2026-10-20",
+      "equity": 3113.42,
+      "equity_value": 3113.42,
       "cash": 108.98,
       "buying_power": 0.0,
       "pending_deposits": 0.0,
-      "invested_pct": 96.51,
+      "invested_pct": 96.5,
       "open_orders": 0,
       "names": [
         {
@@ -31,345 +31,345 @@
           "name": "Employer stock",
           "kind": "equity",
           "qty": 8.755,
-          "last": 142.09,
-          "value": 1243.95,
+          "last": 142.44,
+          "value": 1247.01,
           "cost": 973.5804,
           "sleeve": "Individual",
           "account": "fidelity",
           "accounts": [
             "9084"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "SPCX",
           "name": "Space Exploration Technologies Corp. - Ordinary Shares - Class A",
           "kind": "equity",
           "qty": 3.208,
-          "last": 148.62,
-          "value": 476.77,
+          "last": 147.96,
+          "value": 474.65,
           "cost": 516.0601,
           "sleeve": "Individual",
           "account": "fidelity",
           "accounts": [
             "9084"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "MU",
           "name": "Micron Technology Inc.",
           "kind": "equity",
           "qty": 0.065,
-          "last": 931.24,
-          "value": 60.53,
+          "last": 904.9,
+          "value": 58.81,
           "cost": 57.53,
           "sleeve": "Individual",
           "account": "fidelity",
           "accounts": [
             "9084"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "LMT",
           "name": "Lockheed Martin Corp.",
           "kind": "equity",
           "qty": 0.095,
-          "last": 532.64,
-          "value": 50.6,
+          "last": 548.23,
+          "value": 52.08,
           "cost": 50.21,
           "sleeve": "Individual",
           "account": "fidelity",
           "accounts": [
             "9084"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "NVDA",
           "name": "NVIDIA Corp",
           "kind": "equity",
           "qty": 0.222,
-          "last": 217.23,
-          "value": 48.22,
+          "last": 217.09,
+          "value": 48.19,
           "cost": 49.79,
           "sleeve": "Individual",
           "account": "fidelity",
           "accounts": [
             "9084"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "TMUS",
           "name": "T-Mobile US Inc",
           "kind": "equity",
           "qty": 0.294,
-          "last": 157.03,
-          "value": 46.16,
+          "last": 156.09,
+          "value": 45.89,
           "cost": 55.06,
           "sleeve": "Individual",
           "account": "fidelity",
           "accounts": [
             "9084"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "TSLA",
           "name": "Tesla Inc",
           "kind": "equity",
           "qty": 0.121,
-          "last": 362.44,
-          "value": 43.85,
+          "last": 368.06,
+          "value": 44.53,
           "cost": 50.0,
           "sleeve": "Individual",
           "account": "fidelity",
           "accounts": [
             "9084"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "FDFIX",
           "name": "Fidelity Concord Street Trust - Fidelity Flex 500 Index Fund USD",
           "kind": "fund",
           "qty": 5.389,
-          "last": 32.91,
-          "value": 177.35,
+          "last": 32.68,
+          "value": 176.11,
           "cost": 157.3302,
           "sleeve": "Roth",
           "account": "fidelity",
           "accounts": [
             "5550"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "FITFX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex International Index Fund USD",
           "kind": "fund",
           "qty": 4.173,
-          "last": 18.97,
-          "value": 79.16,
+          "last": 18.87,
+          "value": 78.74,
           "cost": 75.8401,
           "sleeve": "Roth",
           "account": "fidelity",
           "accounts": [
             "5550"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "FIBUX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex U.S. Bond Index Fund USD MNT",
           "kind": "fund",
           "qty": 5.331,
-          "last": 8.81,
-          "value": 46.96,
+          "last": 8.78,
+          "value": 46.8,
           "cost": 48.2098,
           "sleeve": "Roth",
           "account": "fidelity",
           "accounts": [
             "5550"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "FLAPX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex Mid Cap Index Fund USD",
           "kind": "fund",
           "qty": 0.454,
-          "last": 25.02,
-          "value": 11.35,
+          "last": 24.71,
+          "value": 11.21,
           "cost": 10.57,
           "sleeve": "Roth",
           "account": "fidelity",
           "accounts": [
             "5550"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "FLXSX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex Small Cap Index Fund USD",
           "kind": "fund",
           "qty": 0.357,
-          "last": 20.0,
-          "value": 7.14,
+          "last": 19.68,
+          "value": 7.02,
           "cost": 6.86,
           "sleeve": "Roth",
           "account": "fidelity",
           "accounts": [
             "5550"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "BNY.RSU",
           "name": "Employer stock",
           "kind": "equity",
           "qty": 2.0,
-          "last": 142.09,
-          "value": 284.18,
+          "last": 142.44,
+          "value": 284.88,
           "cost": null,
           "sleeve": "RSU",
           "account": "fidelity",
           "accounts": [
             "9382"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "NRG",
           "name": "NRG Energy Inc.",
           "kind": "equity",
           "qty": 0.557,
-          "last": 102.86,
-          "value": 57.29,
+          "last": 99.38,
+          "value": 55.35,
           "cost": 74.37,
           "sleeve": "PER",
           "account": "fidelity",
           "accounts": [
             "6913"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "DXCM",
           "name": "Dexcom Inc",
           "kind": "equity",
           "qty": 0.296,
-          "last": 87.71,
-          "value": 25.96,
+          "last": 85.98,
+          "value": 25.45,
           "cost": 19.99,
           "sleeve": "PER",
           "account": "fidelity",
           "accounts": [
             "6913"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "ABT",
           "name": "Abbott Laboratories",
           "kind": "equity",
           "qty": 0.225,
-          "last": 104.68,
-          "value": 23.55,
+          "last": 104.06,
+          "value": 23.41,
           "cost": 20.1,
           "sleeve": "PER",
           "account": "fidelity",
           "accounts": [
             "6913"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "VST",
           "name": "Vistra Corp",
           "kind": "equity",
           "qty": 0.148,
-          "last": 154.17,
-          "value": 22.81,
+          "last": 149.7,
+          "value": 22.15,
           "cost": 19.96,
           "sleeve": "PER",
           "account": "fidelity",
           "accounts": [
             "6913"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "EW",
           "name": "Edwards Lifesciences Corp",
           "kind": "equity",
           "qty": 0.242,
-          "last": 88.1,
-          "value": 21.32,
+          "last": 87.22,
+          "value": 21.1,
           "cost": 19.94,
           "sleeve": "PER",
           "account": "fidelity",
           "accounts": [
             "6913"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "ALGN",
           "name": "Align Technology, Inc.",
           "kind": "equity",
           "qty": 0.129,
-          "last": 149.34,
-          "value": 19.26,
+          "last": 149.0,
+          "value": 19.22,
           "cost": 19.99,
           "sleeve": "PER",
           "account": "fidelity",
           "accounts": [
             "6913"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "BDX",
           "name": "Becton Dickinson & Co.",
           "kind": "equity",
           "qty": 0.068,
-          "last": 193.76,
-          "value": 13.17,
+          "last": 190.74,
+          "value": 12.97,
           "cost": 9.99,
           "sleeve": "PER",
           "account": "fidelity",
           "accounts": [
             "6913"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "FTI",
           "name": "TechnipFMC plc",
           "kind": "equity",
           "qty": 0.137,
-          "last": 68.23,
-          "value": 9.34,
+          "last": 69.86,
+          "value": 9.57,
           "cost": 9.99,
           "sleeve": "PER",
           "account": "fidelity",
           "accounts": [
             "6913"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "BTC",
           "name": "Bitcoin",
           "kind": "equity",
           "qty": 0.001,
-          "last": 82015.7825,
-          "value": 102.473,
+          "last": 82025.1275,
+          "value": 102.485,
           "cost": 92.26,
           "sleeve": "Crypto",
           "account": "fidelity",
           "accounts": [
             "7835"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "ETH",
           "name": "Ethereum",
           "kind": "equity",
           "qty": 0.013,
-          "last": 2436.8875,
-          "value": 30.661,
+          "last": 2411.7525,
+          "value": 30.345,
           "cost": 25.0,
           "sleeve": "Crypto",
           "account": "fidelity",
           "accounts": [
             "7835"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "USD",
@@ -392,75 +392,75 @@
           "name": "Fidelity Concord Street Trust - Fidelity Flex 500 Index Fund USD",
           "kind": "fund",
           "qty": 1.751,
-          "last": 32.91,
-          "value": 57.62,
+          "last": 32.68,
+          "value": 57.22,
           "cost": 56.54,
           "sleeve": "Trad",
           "account": "fidelity",
           "accounts": [
             "0306"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "FITFX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex International Index Fund USD",
           "kind": "fund",
           "qty": 1.356,
-          "last": 18.97,
-          "value": 25.72,
+          "last": 18.87,
+          "value": 25.58,
           "cost": 26.0799,
           "sleeve": "Trad",
           "account": "fidelity",
           "accounts": [
             "0306"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "FIBUX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex U.S. Bond Index Fund USD MNT",
           "kind": "fund",
           "qty": 1.731,
-          "last": 8.81,
-          "value": 15.25,
+          "last": 8.78,
+          "value": 15.19,
           "cost": 15.5401,
           "sleeve": "Trad",
           "account": "fidelity",
           "accounts": [
             "0306"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "FLAPX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex Mid Cap Index Fund USD",
           "kind": "fund",
           "qty": 0.147,
-          "last": 25.02,
-          "value": 3.67,
+          "last": 24.71,
+          "value": 3.63,
           "cost": 3.74,
           "sleeve": "Trad",
           "account": "fidelity",
           "accounts": [
             "0306"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         },
         {
           "symbol": "FLXSX",
           "name": "Fidelity Salem Street Trust - Fidelity Flex Small Cap Index Fund USD",
           "kind": "fund",
           "qty": 0.116,
-          "last": 20.0,
-          "value": 2.32,
+          "last": 19.68,
+          "value": 2.28,
           "cost": 2.48,
           "sleeve": "Trad",
           "account": "fidelity",
           "accounts": [
             "0306"
           ],
-          "holdings_asof": "2026-10-16"
+          "holdings_asof": "2026-10-20"
         }
       ],
       "accounts": [
@@ -469,55 +469,55 @@
           "accountId": "15838899",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 1970.18,
-          "equity": 1970.18,
+          "endingBalance": 1971.26,
+          "equity": 1971.26,
           "suffix": "9084",
-          "balance_asof": "2026-10-16",
-          "holdings_asof": "2026-10-16"
+          "balance_asof": "2026-10-20",
+          "holdings_asof": "2026-10-20"
         },
         {
           "name": "Roth IRA 5550",
           "accountId": "15838900",
           "type": "Retirement",
           "subType": "roth_ira",
-          "endingBalance": 323.67,
-          "equity": 323.67,
+          "endingBalance": 321.59,
+          "equity": 321.59,
           "suffix": "5550",
-          "balance_asof": "2026-10-16",
-          "holdings_asof": "2026-10-16"
+          "balance_asof": "2026-10-20",
+          "holdings_asof": "2026-10-20"
         },
         {
           "name": "Stock award 9382",
           "accountId": "15838944",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 284.18,
-          "equity": 284.18,
+          "endingBalance": 284.88,
+          "equity": 284.88,
           "suffix": "9382",
-          "balance_asof": "2026-10-16",
-          "holdings_asof": "2026-10-16"
+          "balance_asof": "2026-10-20",
+          "holdings_asof": "2026-10-20"
         },
         {
           "name": "Individual 6913",
           "accountId": "15838901",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 192.87,
-          "equity": 192.87,
+          "endingBalance": 189.39,
+          "equity": 189.39,
           "suffix": "6913",
-          "balance_asof": "2026-10-16",
-          "holdings_asof": "2026-10-16"
+          "balance_asof": "2026-10-20",
+          "holdings_asof": "2026-10-20"
         },
         {
           "name": "Crypto 7835",
           "accountId": "37419664",
           "type": "Investing",
           "subType": "brokerage",
-          "endingBalance": 133.134,
-          "equity": 133.134,
+          "endingBalance": 132.83,
+          "equity": 132.83,
           "suffix": "7835",
-          "balance_asof": "2026-10-16",
-          "holdings_asof": "2026-10-16"
+          "balance_asof": "2026-10-20",
+          "holdings_asof": "2026-10-20"
         },
         {
           "name": "Stock plan 9907",
@@ -527,7 +527,7 @@
           "endingBalance": 108.98,
           "equity": 108.98,
           "suffix": "9907",
-          "balance_asof": "2026-10-16",
+          "balance_asof": "2026-10-20",
           "holdings_asof": "2026-10-12"
         },
         {
@@ -535,11 +535,11 @@
           "accountId": "15838942",
           "type": "Retirement",
           "subType": "ira",
-          "endingBalance": 105.17,
-          "equity": 105.17,
+          "endingBalance": 104.49,
+          "equity": 104.49,
           "suffix": "0306",
-          "balance_asof": "2026-10-16",
-          "holdings_asof": "2026-10-16"
+          "balance_asof": "2026-10-20",
+          "holdings_asof": "2026-10-20"
         }
       ],
       "holdings_asof": "2026-10-12",
@@ -674,39 +674,39 @@
     "fidelity_trad": {
       "id": "fidelity_trad",
       "label": "Trad",
-      "asof": "2026-10-16",
-      "equity": 105.17,
+      "asof": "2026-10-20",
+      "equity": 104.49,
       "cash": 0,
-      "holdings_asof": "2026-10-16"
+      "holdings_asof": "2026-10-20"
     },
     "fidelity_per": {
       "id": "fidelity_per",
       "label": "PER",
-      "asof": "2026-10-16",
-      "equity": 192.87,
+      "asof": "2026-10-20",
+      "equity": 189.39,
       "cash": 0,
-      "holdings_asof": "2026-10-16"
+      "holdings_asof": "2026-10-20"
     },
     "fidelity_roth": {
       "id": "fidelity_roth",
       "label": "Roth",
-      "asof": "2026-10-16",
-      "equity": 323.67,
+      "asof": "2026-10-20",
+      "equity": 321.59,
       "cash": 0,
-      "holdings_asof": "2026-10-16"
+      "holdings_asof": "2026-10-20"
     },
     "fidelity_bny": {
       "id": "fidelity_bny",
       "label": "Individual",
-      "asof": "2026-10-16",
-      "equity": 1970.18,
+      "asof": "2026-10-20",
+      "equity": 1971.26,
       "cash": 0,
-      "holdings_asof": "2026-10-16"
+      "holdings_asof": "2026-10-20"
     },
     "fidelity_espp": {
       "id": "fidelity_espp",
       "label": "ESPP",
-      "asof": "2026-10-16",
+      "asof": "2026-10-20",
       "equity": 108.98,
       "cash": 108.98,
       "holdings_asof": "2026-10-12"
@@ -714,10 +714,10 @@
     "fidelity_rsu": {
       "id": "fidelity_rsu",
       "label": "RSU",
-      "asof": "2026-10-16",
-      "equity": 284.18,
+      "asof": "2026-10-20",
+      "equity": 284.88,
       "cash": 0,
-      "holdings_asof": "2026-10-16"
+      "holdings_asof": "2026-10-20"
     },
     "voya_401k": {
       "id": "voya_401k",
@@ -729,10 +729,10 @@
     "fidelity_crypto": {
       "id": "fidelity_crypto",
       "label": "Crypto",
-      "asof": "2026-10-16",
-      "equity": 133.134,
+      "asof": "2026-10-20",
+      "equity": 132.83,
       "cash": 0,
-      "holdings_asof": "2026-10-16"
+      "holdings_asof": "2026-10-20"
     }
   },
   "tape": {
@@ -799,6 +799,13 @@
         "equity": 68875.946,
         "live": 3242.21,
         "custodial": 65633.736
+      },
+      {
+        "t": "2026-10-20T16:12:11-04:00",
+        "dtg": "201612R OCT 26",
+        "equity": 68906.502,
+        "live": 3277.53,
+        "custodial": 65628.972
       }
     ]
   }
