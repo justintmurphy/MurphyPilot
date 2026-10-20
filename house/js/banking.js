@@ -1444,14 +1444,97 @@ function bankFixedBillDay(name) {
   return null;
 }
 
+/* Slug, category, and bill-match caches. Cleared when the snapshot, categories, tiers, or edits change. */
+var bankMemo = {
+  depth: 0,
+  gen: 0,
+  slots: null,
+  tx: null,
+  txSnap: null,
+  txGen: -1,
+  building: false
+};
+var bankStr = {
+  slug: Object.create(null),
+  norm: Object.create(null),
+  bill: Object.create(null),
+  forms: Object.create(null)
+};
+
+function bankInvalidateCaches() {
+  bankMemo.gen += 1;
+  bankMemo.slots = null;
+  bankMemo.tx = null;
+  bankMemo.txSnap = null;
+  bankMemo.txGen = -1;
+  bankStr.slug = Object.create(null);
+  bankStr.norm = Object.create(null);
+  bankStr.bill = Object.create(null);
+  bankStr.forms = Object.create(null);
+}
+
+function bankMemoSlot(monthKey) {
+  var key = "";
+  try { key = bankMonthKey(monthKey) || ""; } catch (eSlot) { key = ""; }
+  return String(bankMemo.gen) + "\n" + key;
+}
+
+function bankMemoRow(snap) {
+  if (!bankMemo.depth || !snap) return null;
+  if (!bankMemo.slots) bankMemo.slots = [];
+  var i;
+  for (i = 0; i < bankMemo.slots.length; i++) {
+    if (bankMemo.slots[i].snap === snap) return bankMemo.slots[i];
+  }
+  var row = { snap: snap, docs: Object.create(null), figs: Object.create(null) };
+  bankMemo.slots.push(row);
+  return row;
+}
+
+function bankMemoRead(kind, snap, slot) {
+  var row = bankMemoRow(snap);
+  if (!row || !row[kind] || !Object.prototype.hasOwnProperty.call(row[kind], slot)) return null;
+  return row[kind][slot];
+}
+
+function bankMemoStore(kind, snap, slot, value) {
+  var row = bankMemoRow(snap);
+  if (!row) return;
+  row[kind][slot] = { v: value };
+}
+
+function bankCloneFigures(figs) {
+  if (!figs || typeof figs !== "object") return figs;
+  var out = {};
+  Object.keys(figs).forEach(function (id) {
+    var row = figs[id];
+    if (!row || typeof row !== "object") {
+      out[id] = row;
+      return;
+    }
+    var copy = {};
+    Object.keys(row).forEach(function (k) { copy[k] = row[k]; });
+    out[id] = copy;
+  });
+  return out;
+}
+
 function bankBillKey(name) {
-  return String(name || "").trim().toLowerCase();
+  var raw = String(name || "");
+  if (bankStr.bill[raw] !== undefined) return bankStr.bill[raw];
+  var out = raw.trim().toLowerCase();
+  bankStr.bill[raw] = out;
+  return out;
 }
 
 /* Forge bill_id is a slug of the bill name. tiers.json bill_status and manual_paid use the same slug.
    A missing id falls back to that slug so older prints still join. Display text stays on bill.name. */
 function bankBillSlug(name) {
-  return String(name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  var raw = String(name || "");
+  if (bankStr.slug[raw] !== undefined) return bankStr.slug[raw];
+  var out = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  bankStr.slug[raw] = out;
+  return out;
 }
 
 function bankBillIdOf(row) {
@@ -1505,13 +1588,38 @@ function bankKeysMatch(a, b) {
   return false;
 }
 
-function bankBillMatchesKey(row, key) {
+function bankBillForms(row) {
   var keys = bankBillMatchKeys(row);
+  var id = keys.join("\n");
+  var cached = bankStr.forms[id];
+  if (cached) return cached;
+  var set = Object.create(null);
   var i;
   for (i = 0; i < keys.length; i++) {
-    if (bankKeysMatch(keys[i], key)) return true;
+    var left = String(keys[i] || "").trim();
+    if (!left) continue;
+    set[left] = 1;
+    set[bankNormKey(left)] = 1;
+    set[bankBillKey(left)] = 1;
+    var slug = bankBillSlug(left);
+    if (slug) set[slug] = 1;
   }
-  return false;
+  bankStr.forms[id] = set;
+  return set;
+}
+
+function bankBillFormHit(forms, key) {
+  var right = String(key || "").trim();
+  if (!right || !forms) return false;
+  if (forms[right]) return true;
+  if (forms[bankNormKey(right)]) return true;
+  if (forms[bankBillKey(right)]) return true;
+  var slug = bankBillSlug(right);
+  return !!(slug && forms[slug]);
+}
+
+function bankBillMatchesKey(row, key) {
+  return bankBillFormHit(bankBillForms(row), key);
 }
 
 /* bill_id first, then the name, then a prev_key alias such as an old phone-carrier key. */
@@ -2066,8 +2174,90 @@ function bankCancelTarget(snap, raw) {
   return found;
 }
 
+function bankTxMatchSig(raw) {
+  return [
+    raw.category == null ? "" : String(raw.category),
+    raw.desc == null ? "" : String(raw.desc),
+    raw.description == null ? "" : String(raw.description),
+    raw.name == null ? "" : String(raw.name),
+    raw.merchant == null ? "" : String(raw.merchant),
+    raw.merchant_key == null ? "" : String(raw.merchant_key),
+    raw.bill_id == null ? "" : String(raw.bill_id),
+    raw.sub_id == null ? "" : String(raw.sub_id)
+  ].join("\u0001");
+}
+
+function bankBillIndexKey(row) {
+  try { return bankBillMatchKeys(row).join("\n"); } catch (eKey) { return ""; }
+}
+
+/* One pass over the loaded transactions, keyed by bill match keys. Unknown rows fall back to the matcher. */
+function bankEnsureTxIndex(snap) {
+  if (!snap || bankMemo.building) return null;
+  if (bankMemo.tx && bankMemo.txSnap === snap && bankMemo.txGen === bankMemo.gen) return bankMemo.tx;
+  bankMemo.building = true;
+  var index = null;
+  try {
+    var packed = bankCollectRawTx(snap);
+    var sigs = Object.create(null);
+    var txs = [];
+    var i;
+    for (i = 0; i < packed.length; i++) {
+      var raw = packed[i];
+      if (!raw || typeof raw !== "object") continue;
+      var sig = bankTxMatchSig(raw);
+      if (sigs[sig]) continue;
+      sigs[sig] = 1;
+      txs.push(raw);
+    }
+    var bills = Object.create(null);
+    var items = [];
+    try { items = bankPreparedBills(snap, undefined) || []; } catch (eBills) { items = []; }
+    try { items = items.concat(bankPreparedSubs(snap) || []); } catch (eSubs) {}
+    for (i = 0; i < items.length; i++) {
+      var row = items[i];
+      if (!row) continue;
+      var key = bankBillIndexKey(row);
+      if (!key || bills[key]) continue;
+      var itemHits = Object.create(null);
+      var billHits = Object.create(null);
+      var j;
+      for (j = 0; j < txs.length; j++) {
+        var tx = txs[j];
+        var txSig = bankTxMatchSig(tx);
+        if (bankTxMatchesItem(tx, row)) itemHits[txSig] = 1;
+        if (bankTxMatchesBill(row, tx)) billHits[txSig] = 1;
+      }
+      bills[key] = { item: itemHits, bill: billHits };
+    }
+    index = { sigs: sigs, bills: bills };
+  } catch (eIdx) {
+    index = null;
+  }
+  bankMemo.building = false;
+  if (!index) return null;
+  bankMemo.tx = index;
+  bankMemo.txSnap = snap;
+  bankMemo.txGen = bankMemo.gen;
+  return index;
+}
+
+function bankTxIndexHit(kind, row, raw) {
+  if (bankMemo.building || !bankMemo.tx || !row || !raw || typeof raw !== "object") return null;
+  var sig = bankTxMatchSig(raw);
+  if (!bankMemo.tx.sigs[sig]) return null;
+  var key = bankBillIndexKey(row);
+  var bag = key && bankMemo.tx.bills[key];
+  if (!bag) return null;
+  return bag[kind][sig] ? true : false;
+}
+
 function bankTxMatchesItem(raw, item) {
   if (!raw || !item) return false;
+  if (!bankMemo.building) {
+    var indexed = bankTxIndexHit("item", item, raw);
+    if (indexed !== null) return indexed;
+  }
   if (raw.bill_id && (bankKeysMatch(raw.bill_id, item.bill_id) || bankKeysMatch(raw.bill_id, item.cancel_key) || bankBillMatchesKey(item, raw.bill_id))) return true;
   if (raw.sub_id && (bankKeysMatch(raw.sub_id, item.sub_id) || bankKeysMatch(raw.sub_id, item.cancel_key) || bankBillMatchesKey(item, raw.sub_id))) return true;
   if (raw.bill_id || raw.sub_id) return false;
@@ -2209,7 +2399,11 @@ function bankBillCounted(row) {
 
 /* Keys match the worker: lowercase, trim, collapse spaces. */
 function bankNormKey(name) {
-  return String(name || "").toLowerCase().replace(/\s+/g, " ").trim();
+  var raw = String(name || "");
+  if (bankStr.norm[raw] !== undefined) return bankStr.norm[raw];
+  var out = raw.toLowerCase().replace(/\s+/g, " ").trim();
+  bankStr.norm[raw] = out;
+  return out;
 }
 
 function bankBagLookup(bag, name) {
@@ -10590,13 +10784,18 @@ function bankAllocTxLists(snap) {
 
 function bankTxMatchesBill(row, raw) {
   if (!row || !raw) return false;
-  if (bankBillMatchesKey(row, raw.category || "")) return true;
-  if (bankBillMatchesKey(row, raw.desc || "")) return true;
-  if (bankBillMatchesKey(row, raw.description || "")) return true;
-  if (bankBillMatchesKey(row, raw.name || "")) return true;
-  if (bankBillMatchesKey(row, raw.merchant_key || "")) return true;
-  if (raw.bill_id && bankBillMatchesKey(row, raw.bill_id)) return true;
-  if (raw.sub_id && bankBillMatchesKey(row, raw.sub_id)) return true;
+  if (!bankMemo.building) {
+    var indexed = bankTxIndexHit("bill", row, raw);
+    if (indexed !== null) return indexed;
+  }
+  var forms = bankBillForms(row);
+  if (bankBillFormHit(forms, raw.category || "")) return true;
+  if (bankBillFormHit(forms, raw.desc || "")) return true;
+  if (bankBillFormHit(forms, raw.description || "")) return true;
+  if (bankBillFormHit(forms, raw.name || "")) return true;
+  if (bankBillFormHit(forms, raw.merchant_key || "")) return true;
+  if (raw.bill_id && bankBillFormHit(forms, raw.bill_id)) return true;
+  if (raw.sub_id && bankBillFormHit(forms, raw.sub_id)) return true;
   return false;
 }
 
@@ -14520,6 +14719,15 @@ function bankApplyCategoryBudgets(rows, snap, monthKey) {
 
 /* Read model. Structure is the snapshot. A later budget save wins for that category only. */
 function bankEffectiveCategoryDoc(snap, monthKey) {
+  var slot = bankMemoSlot(monthKey);
+  var hit = bankMemoRead("docs", snap, slot);
+  if (hit) return hit.v;
+  var doc = bankEffectiveCategoryDocWork(snap, monthKey);
+  bankMemoStore("docs", snap, slot, doc);
+  return doc;
+}
+
+function bankEffectiveCategoryDocWork(snap, monthKey) {
   var kv = bankCategoryDoc(snap);
   var overlay = bankTiersOverlay(snap);
   var structural = bankBoxStructuralRows(snap) || bankOverlayCategoryRows(overlay) || (kv && kv.categories) || null;
@@ -15236,6 +15444,15 @@ function bankCategorySpentLookup(bag, row) {
 }
 
 function bankCategoryFigures(snap, monthKey) {
+  var slot = bankMemoSlot(monthKey);
+  var hit = bankMemoRead("figs", snap, slot);
+  if (hit) return bankCloneFigures(hit.v);
+  var figs = bankCategoryFiguresWork(snap, monthKey);
+  bankMemoStore("figs", snap, slot, bankCloneFigures(figs));
+  return bankCloneFigures(figs);
+}
+
+function bankCategoryFiguresWork(snap, monthKey) {
   var cats = bankSpendCategories(snap, monthKey) || [];
   var key = bankMonthKey(monthKey);
   var live = bankCategoryMonthLive(snap, key);
@@ -17164,6 +17381,7 @@ function bankSpendDiffMap(prev, current) {
 }
 
 function bankSpendApply(snap, body) {
+  bankInvalidateCaches();
   if (!snap || typeof snap !== "object") return;
   if (!snap.tier_doc || typeof snap.tier_doc !== "object" || Array.isArray(snap.tier_doc)) snap.tier_doc = { plans: {}, rules: {} };
   if (body && Array.isArray(body.categories)) {
@@ -22897,6 +23115,12 @@ function bankPageHtml(snap, opts) {
   opts = opts || {};
   try { bankScrubStoredBills(snap); } catch (eScrub) {}
   bankMergeLocalTiers(snap);
+  var top = bankMemo.depth === 0;
+  bankMemo.depth += 1;
+  if (top) bankMemo.slots = [];
+  try { bankEnsureTxIndex(snap || {}); } catch (eIdx) {}
+  if (top) bankMemo.slots = [];
+  try {
   var rawTab = String(opts.tab == null ? "" : opts.tab).replace(/^#/, "");
   /* A direct current tab still renders that mode. Hashes and the menu open Budget. */
   var tab = rawTab === "current" ? "current" : bankResolveTab(opts.tab || "budget");
@@ -22916,6 +23140,10 @@ function bankPageHtml(snap, opts) {
     bankSpendPopupHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
     bankDetailPopupHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
     bankCancelSheetHtml(snap || {}, Object.assign({ tab: tab }, opts));
+  } finally {
+    bankMemo.depth -= 1;
+    if (top) bankMemo.slots = null;
+  }
 }
 
 function bankCopyTierBag(raw) {
@@ -22978,6 +23206,7 @@ function bankMergeLocalTiers(snap) {
 }
 
 function bankWriteStore(store) {
+  bankInvalidateCaches();
   try {
     if (typeof localStorage === "undefined" || !localStorage.setItem) return;
     localStorage.setItem(BANK_STORE, JSON.stringify(store || { bills: {}, income: {} }));
@@ -23410,6 +23639,7 @@ function bankReadJson(res) {
 }
 
 function bankRememberOverride(snap, key, category, txId) {
+  bankInvalidateCaches();
   var map = {};
   var prev = snap && snap.category_overrides;
   if (prev && typeof prev === "object" && !Array.isArray(prev)) {
@@ -23465,6 +23695,7 @@ function bankRefetch(root, opts) {
 
 /* A 200 body can be a stale snapshot or an empty ack. The row must show the category that just saved. */
 function bankApplyPostedOverride(snap, key, category, txId) {
+  bankInvalidateCaches();
   if (!snap || !key) return;
   var next = category == null ? "" : String(category).trim();
   if (!next) return;
@@ -23492,6 +23723,7 @@ function bankTakeOverrideResponse(root, payload, key, category, txId) {
   if (payload && payload.overrides && typeof payload.overrides === "object" && !Array.isArray(payload.overrides)) {
     if (!st.data || typeof st.data !== "object") st.data = {};
     st.data.category_overrides = payload.overrides;
+    bankInvalidateCaches();
     return finish();
   }
   /* bankEditPost already refetched. A body with no map still has to keep the category that just saved. */
@@ -23526,6 +23758,7 @@ function bankTakeDueResponse(root, payload, key, day) {
       typeof payload.overrides === "object" && !Array.isArray(payload.overrides)) {
     if (!st.data || typeof st.data !== "object") st.data = {};
     st.data.dueday_overrides = payload.overrides;
+    bankInvalidateCaches();
     st.dueError = "";
     st.billKey = key || st.billKey || "";
     bankPaint(root);
@@ -23533,6 +23766,7 @@ function bankTakeDueResponse(root, payload, key, day) {
   }
   if (payload && payload.current && typeof payload.current === "object" && !Array.isArray(payload.current)) {
     st.data = payload;
+    bankInvalidateCaches();
     st.dueError = "";
     st.billKey = key || st.billKey || "";
     bankPaint(root);
@@ -23688,6 +23922,7 @@ function bankSaveMustPay(root, name, kind) {
 }
 
 function bankApplyTierRule(snap, name, tier) {
+  bankInvalidateCaches();
   if (!snap || typeof snap !== "object" || Array.isArray(snap) || !name) return;
   if (!snap.tier_doc || typeof snap.tier_doc !== "object" || Array.isArray(snap.tier_doc)) snap.tier_doc = { plans: {}, rules: {} };
   if (!snap.tier_doc.rules || typeof snap.tier_doc.rules !== "object" || Array.isArray(snap.tier_doc.rules)) snap.tier_doc.rules = {};
@@ -23697,6 +23932,7 @@ function bankApplyTierRule(snap, name, tier) {
 }
 
 function bankApplyTierPlan(snap, key, amount) {
+  bankInvalidateCaches();
   if (!snap || typeof snap !== "object" || Array.isArray(snap) || !key) return;
   if (!snap.tier_doc || typeof snap.tier_doc !== "object" || Array.isArray(snap.tier_doc)) snap.tier_doc = { plans: {}, rules: {} };
   if (!snap.tier_doc.plans || typeof snap.tier_doc.plans !== "object" || Array.isArray(snap.tier_doc.plans)) snap.tier_doc.plans = {};
@@ -24409,7 +24645,12 @@ function bankRememberCategory(snap, name) {
   var next = bankClipCategory(name);
   if (!next || !snap) return;
   var list = bankCustomCategories(snap);
-  if (list.indexOf(next) < 0) list.push(next);
+  if (list.indexOf(next) < 0) {
+    list.push(next);
+    snap.custom_categories = list;
+    bankInvalidateCaches();
+    return;
+  }
   snap.custom_categories = list;
 }
 
@@ -24438,6 +24679,7 @@ function bankPayloadListsCategory(payload, name) {
 /* A replacement print may be older than the label this seat just saved.
    An empty custom_categories list does not drop names already on this seat. */
 function bankAdoptSnapshot(st, payload) {
+  bankInvalidateCaches();
   var prevData = st && st.data;
   var prev = bankCustomCategories(prevData);
   var keepDoc = null;
@@ -24521,6 +24763,7 @@ function bankTakeEmptyCustoms(st) {
   });
   if (!removed.length) return removed;
   st.data.custom_categories = list;
+  bankInvalidateCaches();
   if (keep[st.editCat] !== true && removed.indexOf(st.editCat) >= 0) st.editCat = "";
   if (removed.indexOf(st.keptEmpty) >= 0) st.keptEmpty = "";
   return removed;
@@ -24543,6 +24786,7 @@ function bankNoteCategoryRemoved(st, name, payload, pending) {
     if (bankOverrideHasCategory(st.data, n) || bankCategoryCount(st.data, n) > 0) delete drop[n];
   });
   st.data.custom_categories = bankCustomCategories(st.data).filter(function (n) { return !drop[n]; });
+  bankInvalidateCaches();
   if (st.keptEmpty && !drop[st.keptEmpty]) bankRememberCategory(st.data, st.keptEmpty);
   if (drop[st.editCat]) st.editCat = "";
   if (drop[st.keptEmpty]) st.keptEmpty = "";
@@ -24611,6 +24855,7 @@ function bankPruneCustomIfEmpty(root, name) {
   if (bankDraftKeep(st)[name]) return Promise.resolve();
   st.catGen = (st.catGen || 0) + 1;
   st.data.custom_categories = bankCustomCategories(st.data).filter(function (n) { return n !== name; });
+  bankInvalidateCaches();
   if (st.editCat === name) st.editCat = "";
   if (st.keptEmpty === name) st.keptEmpty = "";
   st.categoryError = "";
@@ -24647,6 +24892,7 @@ function bankRehydrateCategories(root, opts) {
       var prior = bankCustomCategories(st.data);
       bankMergeCustomCategories(st.data, payload.categories);
       bankRetainOccupiedCustoms(st.data, prior);
+      bankInvalidateCaches();
       if (!root._bank || root._bank.catGen !== gen) return false;
       var after = bankCustomCategories(st.data).join("\n");
       if (!opts.silent && before !== after) bankPaint(root);
@@ -24736,6 +24982,7 @@ function bankApplyTiersCache(data) {
   var cached = null;
   try { cached = bankReadTiersDoc(); } catch (eCache) { cached = null; }
   if (cached && bankCachedTiersNewer(cached, data)) {
+    bankInvalidateCaches();
     data.tier_doc = cached;
     data._tiersFromGet = true;
     data._tiersPending = false;
@@ -24749,6 +24996,7 @@ function bankApplyTiersCache(data) {
 
 function bankSettleTiersGet(st, doc, failed) {
   if (!st || !st.data) return;
+  bankInvalidateCaches();
     if (doc) {
     st.data.tier_doc = doc;
     st.data._tiersFromGet = true;
@@ -24848,7 +25096,10 @@ function bankTakeCategoryResponse(root, payload, name, hold) {
   if (payload && Array.isArray(payload.categories)) {
     if (!st.data || typeof st.data !== "object" || Array.isArray(st.data)) st.data = {};
     var cleaned = bankCustomCategories({ custom_categories: payload.categories });
-    if (cleaned.length) st.data.custom_categories = cleaned;
+    if (cleaned.length) {
+      st.data.custom_categories = cleaned;
+      bankInvalidateCaches();
+    }
   } else if (payload && payload.current && typeof payload.current === "object" && !Array.isArray(payload.current)) {
     bankAdoptSnapshot(st, payload);
   } else {
@@ -24958,6 +25209,7 @@ function bankConfirmRowAdd(root, keyOverride) {
 
 function bankMount(root, data, opts) {
   if (!root) return;
+  bankInvalidateCaches();
   opts = opts || {};
   var parsed = bankParseHash(typeof location !== "undefined" ? location.hash : "");
   var tab = opts.tab ? bankResolveTab(opts.tab) : parsed.tab;
