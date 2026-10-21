@@ -19816,8 +19816,33 @@ function bankCardPushEvent(out, ev, suffix, nick, kindForce) {
     source: String(ev.source || "").toLowerCase(),
     nominal_date: bankYmdOnly(bankCopyDate(ev.nominal_date || "")) || "",
     category: ev.category || "",
-    desc: ev.desc || ev.description || ""
+    desc: ev.desc || ev.description || "",
+    due_date: bankYmdOnly(bankCopyDate(ev.due_date || ev.due || "")) || "",
+    overdue: ev.overdue === true
   });
+}
+
+function bankCardDueName(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+/* The move date stays on ev.date. A missing due comes from the account's bills[] row. */
+function bankCardCopyBillDue(ev, bills) {
+  if (!ev || ev.kind !== "out" || ev.due_date || !Array.isArray(bills)) return;
+  var want = bankCardDueName(ev.name);
+  if (!want) return;
+  var wantAmt = bankRoundCents(Math.abs(bankNum(ev.amount) || 0));
+  var i, bill, amt;
+  for (i = 0; i < bills.length; i++) {
+    bill = bills[i];
+    if (!bill || bankCardDueName(bill.name) !== want) continue;
+    amt = bankNum(bill.amount);
+    if (amt == null) continue;
+    if (bankRoundCents(Math.abs(amt)) !== wantAmt) continue;
+    ev.due_date = bankYmdOnly(bankCopyDate(bill.due || "")) || "";
+    ev.overdue = bill.overdue === true;
+    return;
+  }
 }
 
 function bankCardEvents(period) {
@@ -19832,9 +19857,12 @@ function bankCardEvents(period) {
       var acct = accounts[key];
       if (!acct) return;
       var nick = acct.nickname || acct.name || "";
+      var from = out.length;
       (acct.events || []).forEach(function (ev) { bankCardPushEvent(out, ev, key, nick); });
       (acct.outs || acct.out || []).forEach(function (ev) { bankCardPushEvent(out, ev, key, nick, "out"); });
       (acct.deposits || acct["in"] || []).forEach(function (ev) { bankCardPushEvent(out, ev, key, nick, "in"); });
+      var n;
+      for (n = from; n < out.length; n++) bankCardCopyBillDue(out[n], acct.bills);
     });
   }
   return out;
@@ -20480,8 +20508,11 @@ function bankBudgetPanelsHtml(snap, opts) {
     var sample = rows[0];
     var title = sample.nick ? (sample.nick + (sample.suffix ? " " + bankAccountMask(sample.suffix) : "")) : (bankAccountMask(sample.suffix) || "Account");
     var items = rows.map(function (ev) {
-      return "<li><span>" + bankEsc(ev.name) + "</span> <b>" + bankEsc(bankMoney(ev.amount)) + "</b> <i>" +
-        bankEsc(bankShortDate(ev.date) || ev.date) + "</i></li>";
+      var when = ev.due_date || ev.date;
+      var late = !!(ev.overdue || (ev.due_date && card.today && ev.due_date < card.today));
+      var text = (bankShortDate(when) || when || "") + (late ? " \u00b7 overdue" : "");
+      return "<li><span>" + bankEsc(ev.name) + "</span> <b>" + bankEsc(bankMoney(ev.amount)) +
+        '</b> <i' + (late ? ' class="tone-stop"' : "") + ">" + bankEsc(text) + "</i></li>";
     }).join("");
     return '<div data-bank-window-group="1"><h3>' + bankEsc(title) + '</h3><ul class="bank-edit-list">' + items + "</ul></div>";
   }).join("");
