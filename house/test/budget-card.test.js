@@ -684,10 +684,63 @@ test("an overdue bill shows its due date in Due before and leaves Left alone", f
     assert.match(row, /<i class="tone-stop">Oct 20 \u00b7 overdue<\/i>/);
     assert.doesNotMatch(row, /Oct 21/);
     const lamp = dueRow(fold, "Quiet Lamp");
-    if (carry === "event") assert.match(lamp, /<i class="tone-stop">Oct 19 \u00b7 overdue<\/i>/);
-    else {
+    if (carry === "event") {
+      assert.match(lamp, /<i>Oct 19<\/i>/);
+      assert.doesNotMatch(lamp, /overdue|tone-stop/);
+    } else {
       assert.match(lamp, /<i>Oct 22<\/i>/);
       assert.doesNotMatch(lamp, /overdue/);
     }
   });
+});
+
+test("a past-due pending or paid bill is not labeled overdue", function () {
+  const ctx = boot();
+  const now = "2026-10-21T15:00:00-04:00";
+  const fx = {
+    asof: "2026-10-21T12:00:00-04:00",
+    current: { month: "2026-10" },
+    budget: {
+      budget_month: { start: "2026-09-30", end: "2026-10-29" },
+      pay_periods: [{
+        current: true,
+        start: "2026-10-16",
+        end: "2026-10-29",
+        accounts: {
+          "1111": {
+            nickname: "Desk",
+            role: "bills",
+            subType: "checking",
+            start_balance: 80,
+            left_at_end: 40,
+            events: [
+              { kind: "out", name: "City Bin", amount: 18, date: "2026-10-21", status: "pending" },
+              { kind: "out", name: "Settled Bin", amount: 9, date: "2026-10-21", status: "paid", paid: true, due_date: "2026-10-17" }
+            ],
+            bills: [
+              { name: "City Bin", amount: 18, due: "2026-10-18", status: "pending" },
+              { name: "Settled Bin", amount: 9, due: "2026-10-17", status: "paid" }
+            ]
+          }
+        }
+      }],
+      bills: [],
+      subscriptions: []
+    }
+  };
+  const card = ctx.bankBudgetCard(fx, { now: now, planMonth: "2026-10" });
+  const pending = card.dueEvents.filter(function (ev) { return ev.name === "City Bin"; })[0];
+  assert.equal(pending.date, "2026-10-21");
+  assert.equal(pending.due_date, "2026-10-18");
+  assert.equal(pending.overdue, false);
+  assert.equal(card.dueEvents.some(function (ev) { return ev.name === "Settled Bin"; }), false);
+  assert.equal(card.nowDue, 18);
+  assert.equal(card.nowLeft, 40);
+  const html = ctx.bankBudgetPanelsHtml(fx, { now: now, planMonth: "2026-10" });
+  const fold = dueFold(html);
+  const row = dueRow(fold, "City Bin");
+  assert.match(row, /<i>Oct 18<\/i>/);
+  assert.doesNotMatch(row, /overdue|tone-stop/);
+  assert.doesNotMatch(fold, /Settled Bin/);
+  assert.doesNotMatch(html, /overdue/);
 });

@@ -20509,7 +20509,7 @@ function bankBudgetPanelsHtml(snap, opts) {
     var title = sample.nick ? (sample.nick + (sample.suffix ? " " + bankAccountMask(sample.suffix) : "")) : (bankAccountMask(sample.suffix) || "Account");
     var items = rows.map(function (ev) {
       var when = ev.due_date || ev.date;
-      var late = !!(ev.overdue || (ev.due_date && card.today && ev.due_date < card.today));
+      var late = ev.overdue === true;
       var text = (bankShortDate(when) || when || "") + (late ? " \u00b7 overdue" : "");
       return "<li><span>" + bankEsc(ev.name) + "</span> <b>" + bankEsc(bankMoney(ev.amount)) +
         '</b> <i' + (late ? ' class="tone-stop"' : "") + ">" + bankEsc(text) + "</i></li>";
