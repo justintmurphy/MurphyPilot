@@ -1034,12 +1034,47 @@ function plannerReadStore() {
 function plannerWriteStore(sel) {
   try {
     if (typeof localStorage === "undefined" || !localStorage.setItem) return;
-    localStorage.setItem(PLANNER_KEY, JSON.stringify({
+    var saved = {
       w4: sel.w4,
       extra: sel.extra,
       adoption: sel.adoption === true
-    }));
+    };
+    if (sel.year != null && sel.year !== "") saved.year = String(sel.year);
+    localStorage.setItem(PLANNER_KEY, JSON.stringify(saved));
   } catch (eWrite) {}
+}
+
+function plannerYearEntries(planner) {
+  var rows = planner && planner.years;
+  if (!Array.isArray(rows) || !rows.length) return null;
+  var out = [];
+  var i;
+  for (i = 0; i < rows.length; i++) {
+    if (rows[i] && typeof rows[i] === "object" && !Array.isArray(rows[i])) out.push(rows[i]);
+  }
+  if (!out.length) return null;
+  out.sort(function (a, b) {
+    var ay = Number(a.year);
+    var by = Number(b.year);
+    var aOk = isFinite(ay);
+    var bOk = isFinite(by);
+    if (aOk && bOk && ay !== by) return ay - by;
+    if (aOk !== bOk) return aOk ? -1 : 1;
+    return String(a.year == null ? "" : a.year).localeCompare(String(b.year == null ? "" : b.year));
+  });
+  return out;
+}
+
+function plannerForYear(planner, raw) {
+  var entries = plannerYearEntries(planner);
+  if (!entries) return { entries: null, entry: planner };
+  var want = raw && raw.year != null ? String(raw.year) : "";
+  var entry = entries[0];
+  var i;
+  for (i = 0; i < entries.length; i++) {
+    if (String(entries[i].year) === want) { entry = entries[i]; break; }
+  }
+  return { entries: entries, entry: entry };
 }
 
 function plannerChoices(planner) {
@@ -1337,9 +1372,16 @@ function plannerNotes(planner) {
 }
 
 function plannerCard(doc, state) {
-  var planner = doc && doc.estimate && doc.estimate.planner;
-  if (!planner || typeof planner !== "object" || Array.isArray(planner)) return "";
+  var rootPlanner = doc && doc.estimate && doc.estimate.planner;
+  if (!rootPlanner || typeof rootPlanner !== "object" || Array.isArray(rootPlanner)) return "";
+  var raw = state && state.planner ? state.planner : plannerReadStore();
+  var picked = plannerForYear(rootPlanner, raw);
+  var planner = picked.entry;
   var sel = plannerSelection(planner, state);
+  if (picked.entries) {
+    sel.year = planner.year == null ? "" : String(planner.year);
+    if (state) state.planner = sel;
+  }
   var w4Id = plannerResolveId(planner, sel);
   var cell = plannerFindCell(planner, w4Id, sel.adoption);
   var choices = plannerChoices(planner);
@@ -1358,10 +1400,18 @@ function plannerCard(doc, state) {
     return plannerOption(row.id ? "true" : "false", row.label, row.id === sel.adoption);
   }).join("");
   fields += plannerSelect("tax-planner-adoption", "Adoption", "adoption", adoptHtml);
+  var yearHtml = "";
+  if (picked.entries) {
+    yearHtml = plannerSelect("tax-planner-year", "Estimate", "year", picked.entries.map(function (row) {
+      var y = row.year == null ? "" : String(row.year);
+      return plannerOption(y, y + " estimate", y === sel.year);
+    }).join(""));
+  }
   var title = "W-4 planner";
   var scope = '<p class="hint" data-planner-scope="1">For 2027 W-4 and 2027 taxes. 2026 withholding isn\'t changing.</p>';
   return card(title, "planner",
     scope +
+    yearHtml +
     '<div class="tax-planner-fields">' + fields + "</div>" +
     plannerResult(cell, w4Id, sel.adoption, planner.basis) +
     plannerCompare(planner, sel.adoption, w4Id) +
@@ -1543,11 +1593,15 @@ function bind(root, kind) {
       var doc = mem[kind];
       var planner = doc && doc.estimate && doc.estimate.planner;
       var state = root._paydeskState;
-      var cur = plannerNormalize(planner, state.planner || plannerReadStore() || {});
+      var remembered = state.planner || plannerReadStore() || {};
+      var picked = plannerForYear(planner, remembered);
+      if (plannerWhich === "year") picked = plannerForYear(planner, { year: sel.value });
+      var cur = plannerNormalize(picked.entry, remembered);
       if (plannerWhich === "w4") cur.w4 = sel.value;
       else if (plannerWhich === "extra") cur.extra = Number(sel.value);
       else if (plannerWhich === "adoption") cur.adoption = sel.value === "true";
-      cur = plannerNormalize(planner, cur);
+      cur = plannerNormalize(picked.entry, cur);
+      if (picked.entries) cur.year = picked.entry.year == null ? "" : String(picked.entry.year);
       state.planner = cur;
       plannerWriteStore(cur);
       if (doc) paint(root, kind, { ok: true, doc: doc });
