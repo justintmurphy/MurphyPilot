@@ -166,7 +166,7 @@ function glueCopyHits(text) {
       .replace(/\([A-Za-z]+-\d+\)/g, " ")
       .replace(/\$[\d,.]*\d\s*k\b/gi, " ")
       .replace(/\(\d+ checks through [^)]+\)/g, " ")
-      .replace(/\(\u2212?\$[\d,]+\.\d{2}\)/g, " ");
+      .replace(/\(\u2212?\$[\d,]+(?:\.\d{2})?\)/g, " ");
     if (/[A-Za-z)][$\d]|[$\d][A-Za-z)]/.test(stripped)) hits.push(line.trim().slice(0, 160));
     if (/[a-z][A-Z]/.test(line)) hits.push(line.trim().slice(0, 160));
   });
@@ -798,11 +798,11 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
-    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ae/);
+    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022af/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
   assert.match(html, /\/house\/js\/banking\.js\?v=20261021aa/);
-  assert.match(html, /\/house\/house\.css\?v=20261022aa/);
+  assert.match(html, /\/house\/house\.css\?v=20261022ab/);
     assert.match(html, /list-cap\.js\?v=20261007eh/);
     assert.match(html, /id="clock"/);
     assert.match(html, /id="mp-ticker"/);
@@ -833,7 +833,7 @@ test("pay and taxes number and control rules stay off Investments", function () 
 });
 
 test("house.css and banking.js share one cache bust", function () {
-  const houseVersion = "20261022aa";
+  const houseVersion = "20261022ab";
 
   const bankVersion = "20261021aa";
   const pages = ["index.html", "investments/index.html", "pay/index.html", "taxes/index.html"];
@@ -853,31 +853,33 @@ test("house.css and banking.js share one cache bust", function () {
   });
   assert.deepEqual(Array.from(house), [houseVersion]);
   assert.deepEqual(Array.from(banking), [bankVersion]);
-  assert.match(read("house/house.css"), /house-b\.css\?v=20261022aa/);
+  assert.match(read("house/house.css"), /house-b\.css\?v=20261022ab/);
 
   assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261021aa)/);
 });
 
-function groupedMoney(n) {
-  const abs = Math.abs(Number(n)).toFixed(2);
-  const bits = abs.split(".");
-  bits[0] = bits[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return bits[0] + "." + bits[1];
+function wholeBody(n) {
+  return String(Math.round(Math.abs(Number(n)))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function plainMoney(n) {
   const v = Number(n);
-  const body = groupedMoney(v);
-  if (v < 0) return "\u2212$" + body;
-  return "$" + body;
+  const whole = Math.round(Math.abs(v));
+  if (v < 0 && whole !== 0) return "\u2212$" + wholeBody(n);
+  return "$" + wholeBody(n);
 }
 
 function signedMoney(n) {
   const v = Number(n);
-  const body = groupedMoney(v);
-  if (v < 0) return "\u2212$" + body;
-  if (v > 0) return "+$" + body;
-  return "$0.00";
+  const whole = Math.round(Math.abs(v));
+  if (v < 0 && whole !== 0) return "\u2212$" + wholeBody(n);
+  if (v > 0 && whole !== 0) return "+$" + wholeBody(n);
+  return "$0";
+}
+
+function hasMoney(html, text) {
+  const esc = String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(esc + "(?![\\d,.])").test(html);
 }
 
 function plannerOf(doc) {
@@ -941,8 +943,21 @@ test("the W-4 planner renders after Scenarios from the payload", function () {
   assert.doesNotMatch(slice, /data-planner="year"/);
   const base = plannerCell(doc, "current", false);
   assert.match(slice, /data-planner-cell="current\|false"/);
-  assert.ok(slice.includes(plainMoney(base.net_per_check)));
-  assert.ok(slice.includes(plainMoney(base.withholding_per_check)));
+  assert.ok(hasMoney(slice, plainMoney(base.net_per_check)));
+  assert.ok(hasMoney(slice, plainMoney(base.withholding_per_check)));
+  assert.ok(slice.indexOf('data-planner-pay="1"') < slice.indexOf('data-planner-federal="1"'));
+  assert.ok(slice.indexOf('data-planner-federal="1"') < slice.indexOf('data-planner-spare="1"'));
+  assert.ok(slice.indexOf('data-planner-spare="1"') < slice.indexOf("tax-planner-details"));
+  assert.ok(slice.indexOf("tax-planner-details") < slice.indexOf('data-planner-withholding="1"'));
+  assert.ok(slice.indexOf('data-planner-withholding="1"') < slice.indexOf('data-planner-monthly="1"'));
+  assert.ok(slice.indexOf('data-planner-monthly="1"') < slice.indexOf('data-planner-credits="1"'));
+  assert.match(slice, />Pay per check</);
+  assert.match(slice, />Refund or owed</);
+  assert.match(slice, />Spare per month after</);
+  assert.match(slice, />Withholding per check</);
+  assert.match(slice, />Monthly change</);
+  assert.match(slice, />Spare now</);
+  assert.doesNotMatch(slice, /\$[\d,]+\.\d{2}/);
   assert.match(slice, /data-planner-inferred="1">Based on your pay stubs; update when the real W-4 is in\./);
   assert.doesNotMatch(slice, /data-planner="extra"/);
   const w4 = slice.split('id="tax-planner-w4"')[1].split("</select>")[0];
@@ -966,13 +981,13 @@ test("the W-4 planner renders after Scenarios from the payload", function () {
   assert.ok(slice.includes("expires after " + base.adoption_carryforward.expires_after));
   const energyLine = slice.split('data-planner-energy="1"')[1].split("</p>")[0];
   assert.match(energyLine, />Energy credit left</);
-  assert.ok(energyLine.includes(plainMoney(base.energy_carryforward.amount)));
+  assert.ok(hasMoney(energyLine, plainMoney(base.energy_carryforward.amount)));
   const usedEnergy = basisEnergy(planner.basis);
-  assert.ok(energyLine.includes("Used up on the " + usedEnergy.year + " return (" + plainMoney(usedEnergy.amount) + ")"));
+  assert.ok(hasMoney(energyLine, "Used up on the " + usedEnergy.year + " return (" + plainMoney(usedEnergy.amount) + ")"));
   assert.doesNotMatch(energyLine, /expires /);
   const adoptLine = slice.split('data-planner-adoption="1"')[1].split("</p>")[0];
-  assert.match(adoptLine, />Adoption</);
-  assert.ok(adoptLine.includes(plainMoney(base.adoption_carryforward.amount)));
+  assert.match(adoptLine, />Adoption left</);
+  assert.ok(hasMoney(adoptLine, plainMoney(base.adoption_carryforward.amount)));
   assertCleanGlue(html, "planner default");
 });
 
@@ -985,24 +1000,23 @@ test("each planner select shows that cell and the extra list only for plus", fun
     const plus = String(cell.w4).indexOf("mfj_plus_") === 0;
     assert.match(slice, new RegExp('data-planner-cell="' + cell.w4 + "\\|" + (cell.adoption ? "true" : "false") + '"'));
     const pay = slice.split('data-planner-pay="1"')[1].split("</div>")[0];
-    assert.ok(pay.includes(plainMoney(cell.net_per_check)), cell.w4);
-    const monthly = slice.split('data-planner-monthly="1"')[1].split("</div>")[0];
-    assert.ok(monthly.includes(signedMoney(cell.monthly_change)), cell.w4);
+    assert.ok(hasMoney(pay, plainMoney(cell.net_per_check)), cell.w4);
+    const monthly = slice.split('data-planner-monthly="1"')[1].split("</p>")[0];
+    assert.ok(hasMoney(monthly, signedMoney(cell.monthly_change)), cell.w4);
     if (cell.monthly_change < 0) assert.match(monthly, /tone-stop/);
     else if (cell.monthly_change > 0) assert.match(monthly, /tone-go/);
     else assert.match(monthly, /tone-flat/);
-    const fed = slice.split('data-planner-federal="1"')[1].split("</tr>")[0];
-    assert.ok(fed.includes(signedMoney(cell.federal_refund_or_owed)), cell.w4);
-    if (cell.federal_refund_or_owed > 0) assert.match(fed, /class="num tone-go"/);
-    else if (cell.federal_refund_or_owed < 0) assert.match(fed, /class="num tone-stop"/);
-    else assert.match(fed, /class="num tone-flat"/);
+    const fed = slice.split('data-planner-federal="1"')[1].split("</div>")[0];
+    assert.ok(hasMoney(fed, signedMoney(cell.federal_refund_or_owed)), cell.w4);
+    if (cell.federal_refund_or_owed > 0) assert.match(fed, /tone-go/);
+    else if (cell.federal_refund_or_owed < 0) assert.match(fed, /tone-stop/);
+    else assert.match(fed, /tone-flat/);
     const spare = slice.split('data-planner-spare="1"')[1].split("</div>")[0];
-    const after = spare.split("<p")[0];
-    const now = spare.split("tax-planner-now")[1] || "";
-    assert.ok(after.includes(plainMoney(cell.budget_spare_after)), cell.w4);
-    assert.ok(now.includes(plainMoney(cell.budget_spare_now)), cell.w4);
-    if (cell.budget_spare_after < 0) assert.match(after, /tone-stop/);
-    else assert.doesNotMatch(after, /tone-stop/);
+    const now = slice.split('class="tax-planner-now"')[1].split("</p>")[0];
+    assert.ok(hasMoney(spare, plainMoney(cell.budget_spare_after)), cell.w4);
+    assert.ok(hasMoney(now, plainMoney(cell.budget_spare_now)), cell.w4);
+    if (cell.budget_spare_after < 0) assert.match(spare, /tone-stop/);
+    else assert.doesNotMatch(spare, /tone-stop/);
     if (cell.budget_spare_now < 0) assert.match(now, /tone-stop/);
     else assert.doesNotMatch(now, /tone-stop/);
     if (cell.inferred === true) {
@@ -1026,20 +1040,20 @@ test("each planner select shows that cell and the extra list only for plus", fun
     }
     assert.match(slice, /data-planner-credits="1"/);
     const adoptRow = slice.split('data-planner-adoption="1"')[1].split("</p>")[0];
-    assert.match(adoptRow, />Adoption</);
+    assert.match(adoptRow, />Adoption left</);
     const adoptAmount = cell.adoption_carryforward ? cell.adoption_carryforward.amount : 0;
-    assert.ok(adoptRow.includes(plainMoney(adoptAmount)), cell.w4);
+    assert.ok(hasMoney(adoptRow, plainMoney(adoptAmount)), cell.w4);
     const energy = cell.energy_carryforward;
     const energyRow = slice.split('data-planner-energy="1"')[1].split("</p>")[0];
     assert.match(energyRow, />Energy credit left</);
-    assert.ok(energyRow.includes(plainMoney(energy ? energy.amount : 0)), cell.w4);
+    assert.ok(hasMoney(energyRow, plainMoney(energy ? energy.amount : 0)), cell.w4);
     const expiry = energy && energy.expires ? String(energy.expires).trim() : "";
     if (expiry) {
       assert.ok(energyRow.includes("expires " + expiry), cell.w4);
       assert.doesNotMatch(energyRow, /Used up on the /);
     } else if (!energy || Number(energy.amount) === 0) {
       const used = basisEnergy(plannerOf(doc).basis);
-      assert.ok(energyRow.includes("Used up on the " + used.year + " return (" + plainMoney(used.amount) + ")"), cell.w4);
+      assert.ok(hasMoney(energyRow, "Used up on the " + used.year + " return (" + plainMoney(used.amount) + ")"), cell.w4);
     } else {
       assert.doesNotMatch(energyRow, /Used up on the /);
       assert.doesNotMatch(energyRow, /expires /);
@@ -1053,16 +1067,16 @@ test("each planner select shows that cell and the extra list only for plus", fun
   delete bareCell.energy_carryforward;
   const bare = plannerSlice(ctx.paydeskHtml("taxes", bareDoc, { planner: { w4: "mfj", adoption: false } }));
   assert.match(bare, /data-planner-credits="1"/);
-  assert.ok(bare.split('data-planner-adoption="1"')[1].split("</p>")[0].includes(plainMoney(0)));
+  assert.ok(hasMoney(bare.split('data-planner-adoption="1"')[1].split("</p>")[0], plainMoney(0)));
   const bareEnergy = bare.split('data-planner-energy="1"')[1].split("</p>")[0];
-  assert.ok(bareEnergy.includes(plainMoney(0)));
+  assert.ok(hasMoney(bareEnergy, plainMoney(0)));
   const used = basisEnergy(plannerOf(bareDoc).basis);
-  assert.ok(bareEnergy.includes("Used up on the " + used.year + " return (" + plainMoney(used.amount) + ")"));
+  assert.ok(hasMoney(bareEnergy, "Used up on the " + used.year + " return (" + plainMoney(used.amount) + ")"));
   const held = loadTaxes();
   const heldCell = plannerCell(held, "mfj_plus_80", false);
   heldCell.energy_carryforward.expires = "";
   const heldRow = plannerSlice(ctx.paydeskHtml("taxes", held, { planner: { w4: heldCell.w4, adoption: false } })).split('data-planner-energy="1"')[1].split("</p>")[0];
-  assert.ok(heldRow.includes(plainMoney(heldCell.energy_carryforward.amount)));
+  assert.ok(hasMoney(heldRow, plainMoney(heldCell.energy_carryforward.amount)));
   assert.doesNotMatch(heldRow, /Used up on the /);
   assert.doesNotMatch(heldRow, /expires /);
 });
@@ -1091,7 +1105,7 @@ test("planner labels are escaped and a saved choice is restored", async function
   store.data.murphyPilotTaxPlanner = JSON.stringify({ w4: picked.w4, adoption: true });
   const restored = fresh.paydeskHtml("taxes", loadTaxes(), {});
   assert.match(plannerSlice(restored), /data-planner-cell="single\|true"/);
-  assert.ok(plannerSlice(restored).includes(plainMoney(picked.net_per_check)));
+  assert.ok(hasMoney(plannerSlice(restored), plainMoney(picked.net_per_check)));
   assert.equal(store.data.murphyPilotTaxPlanner, JSON.stringify({ w4: picked.w4, adoption: true }));
   const listeners = {};
   const root = {
@@ -1179,12 +1193,12 @@ test("a planner year list defaults to the earliest estimate and switches carryfo
   assert.match(yearSel, new RegExp('value="' + early.year + '" selected>' + early.year + "<"));
   assert.match(yearSel, new RegExp('value="' + later.year + '">' + later.year + " Estimate<"));
   assert.doesNotMatch(slice, /data-planner-estimate/);
-  assert.ok(slice.split('data-planner-pay="1"')[1].includes(plainMoney(earlyCell.net_per_check)));
+  assert.ok(hasMoney(slice.split('data-planner-pay="1"')[1], plainMoney(earlyCell.net_per_check)));
   const earlyEnergy = slice.split('data-planner-energy="1"')[1].split("</p>")[0];
   const earlyAdopt = slice.split('data-planner-adoption="1"')[1].split("</p>")[0];
-  assert.ok(earlyEnergy.includes(plainMoney(earlyCell.energy_carryforward.amount)));
-  assert.ok(earlyEnergy.includes("Used up on the " + early.basis.year + " return (" + plainMoney(early.basis.energy_carryforward_used) + ")"));
-  assert.ok(earlyAdopt.includes(plainMoney(earlyCell.adoption_carryforward.amount)));
+  assert.ok(hasMoney(earlyEnergy, plainMoney(earlyCell.energy_carryforward.amount)));
+  assert.ok(hasMoney(earlyEnergy, "Used up on the " + early.basis.year + " return (" + plainMoney(early.basis.energy_carryforward_used) + ")"));
+  assert.ok(hasMoney(earlyAdopt, plainMoney(earlyCell.adoption_carryforward.amount)));
   assert.ok(slice.includes(early.sources[0]));
   assert.doesNotMatch(slice, new RegExp(later.year + " source"));
   assert.doesNotMatch(slice.split('data-planner-energy="1"')[1].split("</p>")[0], new RegExp(plainMoney(laterCell.energy_carryforward.amount).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -1194,16 +1208,16 @@ test("a planner year list defaults to the earliest estimate and switches carryfo
   const laterAdopt = picked.split('data-planner-adoption="1"')[1].split("</p>")[0];
   assert.match(laterAdopt, /data-planner-adoption-detail="1"/);
   assert.ok(laterAdopt.includes("carried in"));
-  assert.ok(laterAdopt.includes(plainMoney(laterCell.adoption_carryforward.carried_in)));
+  assert.ok(hasMoney(laterAdopt, plainMoney(laterCell.adoption_carryforward.carried_in)));
   assert.ok(laterAdopt.includes("used"));
-  assert.ok(laterAdopt.includes(plainMoney(laterCell.adoption_carryforward.used)));
+  assert.ok(hasMoney(laterAdopt, plainMoney(laterCell.adoption_carryforward.used)));
   assert.ok(laterAdopt.includes("expires after " + laterCell.adoption_carryforward.expires_after));
-  assert.ok(laterAdopt.includes(plainMoney(laterCell.adoption_carryforward.amount)));
-  assert.ok(picked.split('data-planner-pay="1"')[1].includes(plainMoney(laterCell.net_per_check)));
+  assert.ok(hasMoney(laterAdopt, plainMoney(laterCell.adoption_carryforward.amount)));
+  assert.ok(hasMoney(picked.split('data-planner-pay="1"')[1], plainMoney(laterCell.net_per_check)));
   const laterEnergy = picked.split('data-planner-energy="1"')[1].split("</p>")[0];
-  assert.ok(laterEnergy.includes(plainMoney(laterCell.energy_carryforward.amount)));
+  assert.ok(hasMoney(laterEnergy, plainMoney(laterCell.energy_carryforward.amount)));
   assert.doesNotMatch(laterEnergy, /Used up on the /);
-  assert.ok(laterAdopt.includes(plainMoney(laterCell.adoption_carryforward.amount)));
+  assert.ok(hasMoney(laterAdopt, plainMoney(laterCell.adoption_carryforward.amount)));
   assert.ok(picked.includes(later.sources[0]));
   assert.doesNotMatch(picked, new RegExp(early.sources[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   const listeners = {};
@@ -1232,8 +1246,8 @@ test("a planner year list defaults to the earliest estimate and switches carryfo
       }
     });
   });
-  assert.ok(rootEl.innerHTML.split('data-planner-energy="1"')[1].includes(plainMoney(laterCell.energy_carryforward.amount)));
-  assert.ok(rootEl.innerHTML.split('data-planner-adoption="1"')[1].includes(plainMoney(laterCell.adoption_carryforward.amount)));
+  assert.ok(hasMoney(rootEl.innerHTML.split('data-planner-energy="1"')[1], plainMoney(laterCell.energy_carryforward.amount)));
+  assert.ok(hasMoney(rootEl.innerHTML.split('data-planner-adoption="1"')[1], plainMoney(laterCell.adoption_carryforward.amount)));
   const saved = JSON.parse(live.localStorage.data.murphyPilotTaxPlanner);
   assert.equal(saved.year, String(later.year));
   assert.equal(saved.adoption, false);
@@ -1243,7 +1257,7 @@ test("a planner year list defaults to the earliest estimate and switches carryfo
   const left = numberCell.adoption_carryforward.amount;
   numberCell.adoption_carryforward = left;
   const numberLine = plannerSlice(boot().paydeskHtml("taxes", numbered, {})).split('data-planner-adoption="1"')[1].split("</p>")[0];
-  assert.ok(numberLine.includes(plainMoney(left)));
+  assert.ok(hasMoney(numberLine, plainMoney(left)));
   assert.doesNotMatch(numberLine, /expires after|carried in|data-planner-adoption-detail/);
 });
 
@@ -1254,7 +1268,7 @@ test("an array basis uses the credits carry for the used-up note", function () {
   doc.credits.energy_carryforward_remaining = carried;
   doc.estimate.planner.basis = ["Sample basis line", "Another basis line"];
   const shown = plannerSlice(ctx.paydeskHtml("taxes", doc, {})).split('data-planner-energy="1"')[1].split("</p>")[0];
-  assert.ok(shown.includes("Used up on the 2026 return (" + plainMoney(carried) + ")"));
+  assert.ok(hasMoney(shown, "Used up on the 2026 return (" + plainMoney(carried) + ")"));
   assert.doesNotMatch(ctx.paydeskHtml("taxes", doc, {}), /Sample basis line|Another basis line/);
   doc.credits.energy_carryforward_remaining = 0;
   const quiet = plannerSlice(ctx.paydeskHtml("taxes", doc, {})).split('data-planner-energy="1"')[1].split("</p>")[0];
@@ -1263,8 +1277,48 @@ test("an array basis uses the credits carry for the used-up note", function () {
   const cell = plannerCell(doc, "current", false);
   cell.energy_carryforward.amount = cell.withholding_per_check;
   const held = plannerSlice(ctx.paydeskHtml("taxes", doc, {})).split('data-planner-energy="1"')[1].split("</p>")[0];
-  assert.ok(held.includes(plainMoney(cell.withholding_per_check)));
+  assert.ok(hasMoney(held, plainMoney(cell.withholding_per_check)));
   assert.doesNotMatch(held, /Used up on the /);
+});
+
+test("planner headlines use whole dollars and signed changes", function () {
+  const ctx = boot();
+  const doc = loadTaxes();
+  const cell = plannerCell(doc, "current", false);
+  cell.net_per_check = 15053.4;
+  cell.federal_refund_or_owed = 1200.6;
+  cell.budget_spare_after = -40.2;
+  cell.monthly_change = -12.6;
+  cell.withholding_per_check = 400.4;
+  cell.budget_spare_now = 0.4;
+  const slice = plannerSlice(ctx.paydeskHtml("taxes", doc, {}));
+  const pay = slice.split('data-planner-pay="1"')[1].split("</div>")[0];
+  assert.ok(hasMoney(pay, "$15,053"));
+  assert.doesNotMatch(pay, /tone-go|tone-stop|\+/);
+  const fed = slice.split('data-planner-federal="1"')[1].split("</div>")[0];
+  assert.ok(hasMoney(fed, "+$1,201"));
+  assert.match(fed, /tone-go/);
+  const spare = slice.split('data-planner-spare="1"')[1].split("</div>")[0];
+  assert.ok(hasMoney(spare, "\u2212$40"));
+  assert.match(spare, /tone-stop/);
+  const monthly = slice.split('data-planner-monthly="1"')[1].split("</p>")[0];
+  assert.ok(hasMoney(monthly, "\u2212$13"));
+  assert.match(monthly, /tone-stop/);
+  const held = slice.split('data-planner-withholding="1"')[1].split("</p>")[0];
+  assert.ok(hasMoney(held, "$400"));
+  const now = slice.split('class="tax-planner-now"')[1].split("</p>")[0];
+  assert.ok(hasMoney(now, "$0"));
+  assert.doesNotMatch(now, /tone-go|\+/);
+  assert.doesNotMatch(slice, /\$[\d,]+\.\d{2}/);
+  cell.monthly_change = 8.5;
+  cell.federal_refund_or_owed = -3.2;
+  const flipped = plannerSlice(ctx.paydeskHtml("taxes", doc, {}));
+  const up = flipped.split('data-planner-monthly="1"')[1].split("</p>")[0];
+  assert.ok(hasMoney(up, "+$9"));
+  assert.match(up, /tone-go/);
+  const owed = flipped.split('data-planner-federal="1"')[1].split("</div>")[0];
+  assert.ok(hasMoney(owed, "\u2212$3"));
+  assert.match(owed, /tone-stop/);
 });
 
 test("planner selects fill one column at 390 without page overflow", async function () {
@@ -1323,11 +1377,48 @@ test("planner selects fill one column at 390 without page overflow", async funct
       });
       var cols = getComputedStyle(card.querySelector(".tax-planner-fields")).gridTemplateColumns;
       if (cols.split(" ").length !== 1) bad.push("columns " + cols);
-      return { vw: vw, bad: bad, widths: widths, cols: cols, selects: selects.length };
+      var payB = card.querySelector(".tax-planner-pay b");
+      var refundB = card.querySelector(".tax-planner-refund b");
+      var spareB = card.querySelector(".tax-planner-spare b");
+      var detail = card.querySelector(".tax-planner-details");
+      var paySize = parseFloat(getComputedStyle(payB).fontSize);
+      var detailSize = parseFloat(getComputedStyle(detail).fontSize);
+      if (paySize < 28) bad.push("headline small " + paySize);
+      if (detailSize >= paySize) bad.push("details not smaller " + detailSize + "/" + paySize);
+      var payTop = card.querySelector(".tax-planner-pay").getBoundingClientRect().top;
+      var refundTop = card.querySelector(".tax-planner-refund").getBoundingClientRect().top;
+      var spareTop = card.querySelector(".tax-planner-spare").getBoundingClientRect().top;
+      var detailTop = detail.getBoundingClientRect().top;
+      if (!(payTop + 8 < refundTop && refundTop + 8 < spareTop && spareTop + 8 < detailTop)) bad.push("headlines not stacked");
+      var monthlyColor = getComputedStyle(card.querySelector("[data-planner-monthly] b")).color;
+      var refundColor = getComputedStyle(refundB).color;
+      var spareColor = getComputedStyle(spareB).color;
+      var payColor = getComputedStyle(payB).color;
+      if (monthlyColor === payColor) bad.push("monthly change not colored");
+      if (spareColor === payColor) bad.push("negative spare not colored");
+      if (refundColor === monthlyColor) bad.push("refund matches a negative change");
+      return { vw: vw, bad: bad, widths: widths, cols: cols, selects: selects.length, paySize: paySize, detailSize: detailSize };
     });
     assert.equal(report.vw, 390);
     assert.equal(report.selects, 4);
     assert.deepEqual(report.bad, []);
+    await page.setViewportSize({ width: 1100, height: 900 });
+    const wide = await page.evaluate(function () {
+      var card = document.querySelector('[data-card="planner"]');
+      var pay = card.querySelector(".tax-planner-pay").getBoundingClientRect();
+      var refund = card.querySelector(".tax-planner-refund").getBoundingClientRect();
+      var spare = card.querySelector(".tax-planner-spare").getBoundingClientRect();
+      var cols = getComputedStyle(card.querySelector(".tax-planner-headlines")).gridTemplateColumns.split(" ").filter(Boolean);
+      var docEl = document.documentElement;
+      return {
+        cols: cols.length,
+        row: Math.abs(pay.top - refund.top) < 2 && Math.abs(refund.top - spare.top) < 2,
+        overflow: docEl.scrollWidth > docEl.clientWidth + 1
+      };
+    });
+    assert.equal(wide.cols, 3);
+    assert.equal(wide.row, true);
+    assert.equal(wide.overflow, false);
   } finally {
     await browser.close();
   }

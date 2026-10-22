@@ -621,7 +621,7 @@ test("touched assets use the ei cache bust", function () {
   const bank = read("index.html");
   const inv = read("investments/index.html");
   assert.match(bank, /\/js\/nav\.js\?v=20261007ep/);
-  assert.match(bank, /\/house\/house\.css\?v=20261022aa/);
+  assert.match(bank, /\/house\/house\.css\?v=20261022ab/);
   assert.match(bank, /\/house\/js\/banking\.js\?v=20261021aa/);
 
   assert.match(bank, /\/house\/banking\.css\?v=20261021aa/);
@@ -633,7 +633,7 @@ test("touched assets use the ei cache bust", function () {
   assert.match(inv, /\/js\/nav\.js\?v=20261007ep/);
   assert.match(inv, /list-cap\.js\?v=20261007eh/);
   assert.match(inv, /list-cap\.css\?v=20261007eh/);
-  assert.match(inv, /\/house\/house\.css\?v=20261022aa/);
+  assert.match(inv, /\/house\/house\.css\?v=20261022ab/);
   assert.match(inv, /\/house\/js\/board-b\.js\?v=20261007ei/);
   assert.match(inv, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(inv, /Murphy Pilot House/);
@@ -692,6 +692,6 @@ test("each asset path has one cache bust across html pages", function () {
   assert.equal(seen.get("house/js/board-c.js").ver, "20261007ei");
   assert.equal(seen.get("house/js/board-d.js").ver, "20261007ei");
   assert.equal(seen.get("house/js/board-e.js").ver, "20261007ei");
-  assert.equal(seen.get("house/js/paydesk.js").ver, "20261022ae");
+  assert.equal(seen.get("house/js/paydesk.js").ver, "20261022af");
   assert.equal(seen.get("house/js/list-cap.js").ver, "20261007eh");
 });
