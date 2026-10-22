@@ -1228,8 +1228,40 @@ function plannerSpareTd(n) {
   return '<td class="num ' + m.tone + '">' + m.text + "</td>";
 }
 
-function plannerSelect(id, label, which, optionsHtml) {
-  return '<div class="tax-planner-field"><label for="' + id + '">' + esc(label) + '</label><select id="' + id + '" data-planner="' + which + '">' + optionsHtml + "</select></div>";
+function plannerSelect(id, label, which, optionsHtml, extra) {
+  return '<div class="tax-planner-field"><label for="' + id + '">' + esc(label) + '</label><select id="' + id + '" data-planner="' + which + '">' + optionsHtml + "</select>" + (extra || "") + "</div>";
+}
+
+function plannerAdoption(adopt) {
+  if (typeof adopt === "number" || (typeof adopt === "string" && adopt !== "" && isFinite(Number(adopt)))) {
+    return { amount: Number(adopt), expires: "", carried: null, used: null, projection: [] };
+  }
+  if (adopt && typeof adopt === "object" && !Array.isArray(adopt)) {
+    var amount = adopt.amount;
+    if (amount == null || amount === "" || !isFinite(Number(amount))) amount = 0;
+    return {
+      amount: amount,
+      expires: adopt.expires_after == null || adopt.expires_after === "" ? "" : String(adopt.expires_after),
+      carried: adopt.carried_in,
+      used: adopt.used,
+      projection: adopt.projection_2028_2031 || []
+    };
+  }
+  return { amount: 0, expires: "", carried: null, used: null, projection: [] };
+}
+
+function plannerAdoptDetail(view) {
+  var bits = [];
+  if (view.carried != null && view.carried !== "" && isFinite(Number(view.carried))) {
+    var carried = plannerSpare(view.carried);
+    bits.push('<span>carried in</span> <b class="' + carried.tone + '">' + carried.text + "</b>");
+  }
+  if (view.used != null && view.used !== "" && isFinite(Number(view.used))) {
+    var used = plannerSpare(view.used);
+    bits.push('<span>used</span> <b class="' + used.tone + '">' + used.text + "</b>");
+  }
+  if (!bits.length) return "";
+  return ' <span data-planner-adoption-detail="1">' + bits.join(" ") + "</span>";
 }
 
 function plannerOption(value, label, selected) {
@@ -1285,14 +1317,13 @@ function plannerEnergyNote(energy, basis) {
 
 function plannerCredits(cell, basis) {
   var parts = [];
-  var adopt = cell && cell.adoption_carryforward;
-  var adoptObj = adopt && typeof adopt === "object" ? adopt : null;
-  var amt = plannerSpare(adoptObj ? adoptObj.amount : 0);
-  var expires = adoptObj && adoptObj.expires_after != null && adoptObj.expires_after !== "" ? String(adoptObj.expires_after) : "";
+  var adoptView = plannerAdoption(cell && cell.adoption_carryforward);
+  var amt = plannerSpare(adoptView.amount);
   parts.push('<p data-planner-adoption="1"><span>Adoption</span> <b class="' + amt.tone + '">' + amt.text + "</b>" +
-    (expires ? ' <span>expires after ' + esc(expires) + "</span>" : "") + "</p>");
-  if (adoptObj) {
-    var years = adoptObj.projection_2028_2031 || [];
+    (adoptView.expires ? ' <span>expires after ' + esc(adoptView.expires) + "</span>" : "") +
+    plannerAdoptDetail(adoptView) + "</p>");
+  if (adoptView.projection.length) {
+    var years = adoptView.projection;
     if (years.length) {
       parts.push('<ul class="tax-planner-years">' + years.map(function (row) {
         if (!row) return "";
@@ -1402,10 +1433,12 @@ function plannerCard(doc, state) {
   fields += plannerSelect("tax-planner-adoption", "Adoption", "adoption", adoptHtml);
   var yearHtml = "";
   if (picked.entries) {
-    yearHtml = plannerSelect("tax-planner-year", "Estimate", "year", picked.entries.map(function (row) {
+    var estimateTag = planner.estimate === true ? '<span data-planner-estimate="1">Estimate</span>' : "";
+    yearHtml = plannerSelect("tax-planner-year", "Year", "year", picked.entries.map(function (row) {
       var y = row.year == null ? "" : String(row.year);
-      return plannerOption(y, y + " estimate", y === sel.year);
-    }).join(""));
+      var text = row.estimate === true ? y + " Estimate" : y;
+      return plannerOption(y, text, y === sel.year);
+    }).join(""), estimateTag);
   }
   var title = "W-4 planner";
   var scope = '<p class="hint" data-planner-scope="1">For 2027 W-4 and 2027 taxes. 2026 withholding isn\'t changing.</p>';

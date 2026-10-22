@@ -798,7 +798,7 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
-    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ac/);
+    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ad/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
   assert.match(html, /\/house\/js\/banking\.js\?v=20261021aa/);
@@ -1150,11 +1150,18 @@ test("a planner year list defaults to the earliest estimate and switches carryfo
   later.basis.year = later.year;
   later.basis.energy_carryforward_used = Number(early.basis.energy_carryforward_used) + Number(early.cells[0].net_per_check);
   later.sources = [String(later.year) + " source"];
+  later.estimate = true;
+  early.estimate = false;
   later.cells.forEach(function (cell) {
     cell.net_per_check = Number(cell.net_per_check) + Number(cell.withholding_per_check);
-    if (cell.adoption_carryforward) {
-      cell.adoption_carryforward.amount = Number(cell.adoption_carryforward.amount) + Number(cell.withholding_per_check);
-    }
+    var old = cell.adoption_carryforward;
+    var oldAmount = old && typeof old === "object" ? Number(old.amount) : Number(old || 0);
+    cell.adoption_carryforward = {
+      carried_in: Number(cell.withholding_per_check),
+      used: oldAmount,
+      amount: oldAmount + Number(cell.withholding_per_check),
+      expires_after: old && old.expires_after ? old.expires_after : ""
+    };
     if (cell.energy_carryforward) {
       cell.energy_carryforward.amount = Number(cell.withholding_per_check);
       cell.energy_carryforward.expires = "";
@@ -1167,10 +1174,11 @@ test("a planner year list defaults to the earliest estimate and switches carryfo
   const slice = plannerSlice(html);
   assert.ok(slice.indexOf('id="tax-planner-year"') < slice.indexOf('id="tax-planner-w4"'));
   assert.ok(slice.indexOf('id="tax-planner-year"') < slice.indexOf('id="tax-planner-adoption"'));
-  assert.match(slice, /<label for="tax-planner-year">Estimate<\/label><select id="tax-planner-year"/);
+  assert.match(slice, /<label for="tax-planner-year">Year<\/label><select id="tax-planner-year"/);
   const yearSel = slice.split('id="tax-planner-year"')[1].split("</select>")[0];
-  assert.match(yearSel, new RegExp('value="' + early.year + '" selected>' + early.year + " estimate<"));
-  assert.match(yearSel, new RegExp('value="' + later.year + '">' + later.year + " estimate<"));
+  assert.match(yearSel, new RegExp('value="' + early.year + '" selected>' + early.year + "<"));
+  assert.match(yearSel, new RegExp('value="' + later.year + '">' + later.year + " Estimate<"));
+  assert.doesNotMatch(slice, /data-planner-estimate/);
   assert.ok(slice.split('data-planner-pay="1"')[1].includes(plainMoney(earlyCell.net_per_check)));
   const earlyEnergy = slice.split('data-planner-energy="1"')[1].split("</p>")[0];
   const earlyAdopt = slice.split('data-planner-adoption="1"')[1].split("</p>")[0];
@@ -1181,14 +1189,21 @@ test("a planner year list defaults to the earliest estimate and switches carryfo
   assert.doesNotMatch(slice, new RegExp(later.year + " source"));
   assert.doesNotMatch(slice.split('data-planner-energy="1"')[1].split("</p>")[0], new RegExp(plainMoney(laterCell.energy_carryforward.amount).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   const picked = plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { year: String(later.year), w4: "current", adoption: false } }));
-  assert.match(picked.split('id="tax-planner-year"')[1].split("</select>")[0], new RegExp('value="' + later.year + '" selected>' + later.year + " estimate<"));
+  assert.match(picked.split('id="tax-planner-year"')[1].split("</select>")[0], new RegExp('value="' + later.year + '" selected>' + later.year + " Estimate<"));
+  assert.match(picked, /data-planner-estimate="1">Estimate</);
+  const laterAdopt = picked.split('data-planner-adoption="1"')[1].split("</p>")[0];
+  assert.match(laterAdopt, /data-planner-adoption-detail="1"/);
+  assert.ok(laterAdopt.includes("carried in"));
+  assert.ok(laterAdopt.includes(plainMoney(laterCell.adoption_carryforward.carried_in)));
+  assert.ok(laterAdopt.includes("used"));
+  assert.ok(laterAdopt.includes(plainMoney(laterCell.adoption_carryforward.used)));
+  assert.ok(laterAdopt.includes("expires after " + laterCell.adoption_carryforward.expires_after));
+  assert.ok(laterAdopt.includes(plainMoney(laterCell.adoption_carryforward.amount)));
   assert.ok(picked.split('data-planner-pay="1"')[1].includes(plainMoney(laterCell.net_per_check)));
   const laterEnergy = picked.split('data-planner-energy="1"')[1].split("</p>")[0];
-  const laterAdopt = picked.split('data-planner-adoption="1"')[1].split("</p>")[0];
   assert.ok(laterEnergy.includes(plainMoney(laterCell.energy_carryforward.amount)));
   assert.doesNotMatch(laterEnergy, /Used up on the /);
   assert.ok(laterAdopt.includes(plainMoney(laterCell.adoption_carryforward.amount)));
-  assert.doesNotMatch(laterAdopt, new RegExp(">" + plainMoney(earlyCell.adoption_carryforward.amount).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "<"));
   assert.ok(picked.includes(later.sources[0]));
   assert.doesNotMatch(picked, new RegExp(early.sources[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   const listeners = {};
@@ -1222,6 +1237,14 @@ test("a planner year list defaults to the earliest estimate and switches carryfo
   const saved = JSON.parse(live.localStorage.data.murphyPilotTaxPlanner);
   assert.equal(saved.year, String(later.year));
   assert.equal(saved.adoption, false);
+  assert.match(rootEl.innerHTML, /data-planner-estimate="1">Estimate</);
+  const numbered = loadTaxes();
+  const numberCell = plannerCell(numbered, "current", false);
+  const left = numberCell.adoption_carryforward.amount;
+  numberCell.adoption_carryforward = left;
+  const numberLine = plannerSlice(boot().paydeskHtml("taxes", numbered, {})).split('data-planner-adoption="1"')[1].split("</p>")[0];
+  assert.ok(numberLine.includes(plainMoney(left)));
+  assert.doesNotMatch(numberLine, /expires after|carried in|data-planner-adoption-detail/);
 });
 
 test("planner selects fill one column at 390 without page overflow", async function () {

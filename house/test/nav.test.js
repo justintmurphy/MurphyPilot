@@ -692,6 +692,6 @@ test("each asset path has one cache bust across html pages", function () {
   assert.equal(seen.get("house/js/board-c.js").ver, "20261007ei");
   assert.equal(seen.get("house/js/board-d.js").ver, "20261007ei");
   assert.equal(seen.get("house/js/board-e.js").ver, "20261007ei");
-  assert.equal(seen.get("house/js/paydesk.js").ver, "20261022ac");
+  assert.equal(seen.get("house/js/paydesk.js").ver, "20261022ad");
   assert.equal(seen.get("house/js/list-cap.js").ver, "20261007eh");
 });
