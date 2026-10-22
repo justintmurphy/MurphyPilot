@@ -603,3 +603,144 @@ test("bill match memo keeps budget and current html and drops after an edit", ()
   const settled = ctx.bankCategoryFigures(left, "2026-10");
   assert.equal(settled.groceries.plan, 8);
 });
+
+function overdueSnap(carry) {
+  const cover = { kind: "out", name: "Sample Cover", amount: 12.4, date: "2026-10-21" };
+  const lamp = { kind: "out", name: "Quiet Lamp", amount: 7.6, date: "2026-10-22" };
+  const bills = [
+    { name: "Sample Cover", amount: 99, due: "2026-09-01", overdue: true },
+    { name: "  sample cover ", amount: 12.4, due: "2026-10-20", overdue: true }
+  ];
+  if (carry === "event") {
+    cover.due_date = "2026-10-20";
+    cover.overdue = true;
+    lamp.due_date = "2026-10-19";
+    bills[1] = { name: "Sample Cover", amount: 12.4, due: "2026-09-01", overdue: false };
+  }
+  return {
+    asof: "2026-10-21T12:00:00-04:00",
+    current: { month: "2026-10" },
+    budget: {
+      budget_month: { start: "2026-09-30", end: "2026-10-29" },
+      pay_periods: [{
+        current: true,
+        start: "2026-10-16",
+        end: "2026-10-29",
+        accounts: {
+          "1111": {
+            nickname: "Desk",
+            role: "bills",
+            subType: "checking",
+            start_balance: 80,
+            left_at_end: 40,
+            events: [cover],
+            bills: bills
+          },
+          "2222": {
+            nickname: "Till",
+            role: "everyday",
+            subType: "checking",
+            start_balance: 30,
+            left_at_end: 10,
+            events: [lamp]
+          }
+        }
+      }],
+      bills: [],
+      subscriptions: []
+    }
+  };
+}
+
+function dueFold(html) {
+  const at = html.indexOf("Due before");
+  assert.ok(at >= 0);
+  return html.slice(at, html.indexOf("</details>", at));
+}
+
+function dueRow(fold, name) {
+  const at = fold.indexOf(name);
+  assert.ok(at >= 0, name);
+  return fold.slice(fold.lastIndexOf("<li", at), fold.indexOf("</li>", at));
+}
+
+test("an overdue bill shows its due date in Due before and leaves Left alone", function () {
+  const ctx = boot();
+  const now = "2026-10-21T15:00:00-04:00";
+  ["event", "bill"].forEach(function (carry) {
+    const fx = overdueSnap(carry);
+    const card = ctx.bankBudgetCard(fx, { now: now, planMonth: "2026-10" });
+    const cover = card.dueEvents.filter(function (ev) { return ev.name === "Sample Cover"; })[0];
+    assert.equal(cover.date, "2026-10-21");
+    assert.equal(cover.due_date, "2026-10-20");
+    assert.equal(cover.overdue, true);
+    assert.equal(card.nowDue, 20);
+    assert.equal(card.nowLeft, 50);
+    const html = ctx.bankBudgetPanelsHtml(fx, { now: now, planMonth: "2026-10" });
+    assert.match(html, /data-bank-now-due="20"/);
+    assert.match(html, /data-bank-now-left="50"/);
+    const fold = dueFold(html);
+    const row = dueRow(fold, "Sample Cover");
+    assert.match(row, /<i class="tone-stop">Oct 20 \u00b7 overdue<\/i>/);
+    assert.doesNotMatch(row, /Oct 21/);
+    const lamp = dueRow(fold, "Quiet Lamp");
+    if (carry === "event") {
+      assert.match(lamp, /<i>Oct 19<\/i>/);
+      assert.doesNotMatch(lamp, /overdue|tone-stop/);
+    } else {
+      assert.match(lamp, /<i>Oct 22<\/i>/);
+      assert.doesNotMatch(lamp, /overdue/);
+    }
+  });
+});
+
+test("a past-due pending or paid bill is not labeled overdue", function () {
+  const ctx = boot();
+  const now = "2026-10-21T15:00:00-04:00";
+  const fx = {
+    asof: "2026-10-21T12:00:00-04:00",
+    current: { month: "2026-10" },
+    budget: {
+      budget_month: { start: "2026-09-30", end: "2026-10-29" },
+      pay_periods: [{
+        current: true,
+        start: "2026-10-16",
+        end: "2026-10-29",
+        accounts: {
+          "1111": {
+            nickname: "Desk",
+            role: "bills",
+            subType: "checking",
+            start_balance: 80,
+            left_at_end: 40,
+            events: [
+              { kind: "out", name: "City Bin", amount: 18, date: "2026-10-21", status: "pending" },
+              { kind: "out", name: "Settled Bin", amount: 9, date: "2026-10-21", status: "paid", paid: true, due_date: "2026-10-17" }
+            ],
+            bills: [
+              { name: "City Bin", amount: 18, due: "2026-10-18", status: "pending" },
+              { name: "Settled Bin", amount: 9, due: "2026-10-17", status: "paid" }
+            ]
+          }
+        }
+      }],
+      bills: [],
+      subscriptions: []
+    }
+  };
+  const card = ctx.bankBudgetCard(fx, { now: now, planMonth: "2026-10" });
+  const pending = card.dueEvents.filter(function (ev) { return ev.name === "City Bin"; })[0];
+  assert.equal(pending.date, "2026-10-21");
+  assert.equal(pending.due_date, "2026-10-18");
+  assert.equal(pending.overdue, false);
+  assert.equal(card.dueEvents.some(function (ev) { return ev.name === "Settled Bin"; }), false);
+  assert.equal(card.nowDue, 18);
+  assert.equal(card.nowLeft, 40);
+  const html = ctx.bankBudgetPanelsHtml(fx, { now: now, planMonth: "2026-10" });
+  const fold = dueFold(html);
+  const row = dueRow(fold, "City Bin");
+  assert.match(row, /<i>Oct 18<\/i>/);
+  assert.doesNotMatch(row, /overdue|tone-stop/);
+  assert.doesNotMatch(fold, /Settled Bin/);
+  assert.doesNotMatch(html, /overdue/);
+});
