@@ -165,7 +165,8 @@ function glueCopyHits(text) {
     const stripped = line
       .replace(/\([A-Za-z]+-\d+\)/g, " ")
       .replace(/\$[\d,.]*\d\s*k\b/gi, " ")
-      .replace(/\(\d+ checks through [^)]+\)/g, " ");
+      .replace(/\(\d+ checks through [^)]+\)/g, " ")
+      .replace(/\(\u2212?\$[\d,]+\.\d{2}\)/g, " ");
     if (/[A-Za-z)][$\d]|[$\d][A-Za-z)]/.test(stripped)) hits.push(line.trim().slice(0, 160));
     if (/[a-z][A-Z]/.test(line)) hits.push(line.trim().slice(0, 160));
   });
@@ -797,7 +798,7 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
-    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022aa/);
+    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ab/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
   assert.match(html, /\/house\/js\/banking\.js\?v=20261021aa/);
@@ -883,6 +884,15 @@ function plannerOf(doc) {
   return doc.estimate.planner;
 }
 
+function basisEnergy(basis) {
+  const credits = basis && basis.credits && typeof basis.credits === "object" ? basis.credits : null;
+  let amount = basis ? basis.energy_carryforward_used : null;
+  if (amount == null && credits) amount = credits.energy_carryforward_used;
+  if (amount == null && basis) amount = basis.energy;
+  const year = basis && (basis.return_year != null ? basis.return_year : basis.year);
+  return { year: year, amount: amount };
+}
+
 function plannerSlice(html) {
   return html.split('data-card="planner"')[1].split("data-card=")[0];
 }
@@ -923,8 +933,10 @@ test("the W-4 planner renders after Scenarios from the payload", function () {
   const plannerAt = html.indexOf('data-card="planner"');
   const splitAt = html.indexOf('class="split-two"');
   assert.ok(estimateAt >= 0 && estimateAt < scenariosAt && scenariosAt < plannerAt && plannerAt < splitAt);
-  assert.match(html, new RegExp("<h2>W-4 planner " + planner.year + "</h2>"));
+  assert.match(html, /<h2>W-4 planner<\/h2>/);
+  assert.doesNotMatch(html, /<h2>W-4 planner /);
   const slice = plannerSlice(html);
+  assert.match(slice, /data-planner-scope="1">For 2027 W-4 and 2027 taxes\. 2026 withholding isn't changing\./);
   const base = plannerCell(doc, "current", false);
   assert.match(slice, /data-planner-cell="current\|false"/);
   assert.ok(slice.includes(plainMoney(base.net_per_check)));
@@ -950,7 +962,15 @@ test("the W-4 planner renders after Scenarios from the payload", function () {
   assert.ok(slice.includes(planner.sources[0]));
   assert.match(slice, /tax-planner-years/);
   assert.ok(slice.includes("expires after " + base.adoption_carryforward.expires_after));
-  assert.doesNotMatch(slice, />Energy</);
+  const energyLine = slice.split('data-planner-energy="1"')[1].split("</p>")[0];
+  assert.match(energyLine, />Energy credit left</);
+  assert.ok(energyLine.includes(plainMoney(base.energy_carryforward.amount)));
+  const usedEnergy = basisEnergy(planner.basis);
+  assert.ok(energyLine.includes("Used up on the " + usedEnergy.year + " return (" + plainMoney(usedEnergy.amount) + ")"));
+  assert.doesNotMatch(energyLine, /expires /);
+  const adoptLine = slice.split('data-planner-adoption="1"')[1].split("</p>")[0];
+  assert.match(adoptLine, />Adoption</);
+  assert.ok(adoptLine.includes(plainMoney(base.adoption_carryforward.amount)));
   assertCleanGlue(html, "planner default");
 });
 
@@ -1002,17 +1022,47 @@ test("each planner select shows that cell and the extra list only for plus", fun
       assert.doesNotMatch(slice, /data-planner="extra"/);
       assert.doesNotMatch(slice, /id="tax-planner-extra"/);
     }
+    assert.match(slice, /data-planner-credits="1"/);
+    const adoptRow = slice.split('data-planner-adoption="1"')[1].split("</p>")[0];
+    assert.match(adoptRow, />Adoption</);
+    const adoptAmount = cell.adoption_carryforward ? cell.adoption_carryforward.amount : 0;
+    assert.ok(adoptRow.includes(plainMoney(adoptAmount)), cell.w4);
     const energy = cell.energy_carryforward;
-    if (energy && Number(energy.amount) !== 0) {
-      assert.match(slice, />Energy</);
-      assert.ok(slice.includes(plainMoney(energy.amount)));
-      if (energy.expires) assert.ok(slice.includes("expires " + energy.expires));
+    const energyRow = slice.split('data-planner-energy="1"')[1].split("</p>")[0];
+    assert.match(energyRow, />Energy credit left</);
+    assert.ok(energyRow.includes(plainMoney(energy ? energy.amount : 0)), cell.w4);
+    const expiry = energy && energy.expires ? String(energy.expires).trim() : "";
+    if (expiry) {
+      assert.ok(energyRow.includes("expires " + expiry), cell.w4);
+      assert.doesNotMatch(energyRow, /Used up on the /);
+    } else if (!energy || Number(energy.amount) === 0) {
+      const used = basisEnergy(plannerOf(doc).basis);
+      assert.ok(energyRow.includes("Used up on the " + used.year + " return (" + plainMoney(used.amount) + ")"), cell.w4);
     } else {
-      assert.doesNotMatch(slice, />Energy</);
+      assert.doesNotMatch(energyRow, /Used up on the /);
+      assert.doesNotMatch(energyRow, /expires /);
     }
     assert.match(slice, new RegExp('<tr class="on" data-planner-row="' + cell.w4 + '">'));
     assert.equal((slice.match(/<tr class="on"/g) || []).length, 1);
   });
+  const bareDoc = loadTaxes();
+  const bareCell = plannerCell(bareDoc, "mfj", false);
+  delete bareCell.adoption_carryforward;
+  delete bareCell.energy_carryforward;
+  const bare = plannerSlice(ctx.paydeskHtml("taxes", bareDoc, { planner: { w4: "mfj", adoption: false } }));
+  assert.match(bare, /data-planner-credits="1"/);
+  assert.ok(bare.split('data-planner-adoption="1"')[1].split("</p>")[0].includes(plainMoney(0)));
+  const bareEnergy = bare.split('data-planner-energy="1"')[1].split("</p>")[0];
+  assert.ok(bareEnergy.includes(plainMoney(0)));
+  const used = basisEnergy(plannerOf(bareDoc).basis);
+  assert.ok(bareEnergy.includes("Used up on the " + used.year + " return (" + plainMoney(used.amount) + ")"));
+  const held = loadTaxes();
+  const heldCell = plannerCell(held, "mfj_plus_80", false);
+  heldCell.energy_carryforward.expires = "";
+  const heldRow = plannerSlice(ctx.paydeskHtml("taxes", held, { planner: { w4: heldCell.w4, adoption: false } })).split('data-planner-energy="1"')[1].split("</p>")[0];
+  assert.ok(heldRow.includes(plainMoney(heldCell.energy_carryforward.amount)));
+  assert.doesNotMatch(heldRow, /Used up on the /);
+  assert.doesNotMatch(heldRow, /expires /);
 });
 
 test("planner labels are escaped and a saved choice is restored", async function () {

@@ -1206,16 +1206,58 @@ function plannerStat(label, n, mode) {
   return '<div><span>' + esc(label) + '</span> <b class="' + m.tone + '">' + m.text + "</b></div>";
 }
 
-function plannerCredits(cell) {
-  if (!cell) return "";
+function plannerBasisEnergy(basis) {
+  if (!basis || typeof basis !== "object" || Array.isArray(basis)) return null;
+  var year = basis.return_year != null ? basis.return_year : basis.year;
+  var credits = basis.credits && typeof basis.credits === "object" ? basis.credits : null;
+  var amount = basis.energy_carryforward_used;
+  if (amount == null && credits) amount = credits.energy_carryforward_used;
+  if (amount == null) amount = basis.energy;
+  if (amount == null) {
+    var keys = Object.keys(basis);
+    var i, key, val;
+    for (i = 0; i < keys.length; i++) {
+      key = keys[i];
+      if (key.indexOf("energy") < 0) continue;
+      val = basis[key];
+      if (isFinite(Number(val))) { amount = val; break; }
+      if (val && typeof val === "object") {
+        if (val.year != null) year = val.year;
+        val = val.amount != null ? val.amount : val.used;
+        if (isFinite(Number(val))) { amount = val; break; }
+      }
+    }
+  }
+  if (amount && typeof amount === "object") {
+    if (amount.year != null) year = amount.year;
+    amount = amount.amount != null ? amount.amount : amount.used;
+  }
+  if (amount == null || amount === "" || !isFinite(Number(amount))) return null;
+  return { year: year == null || year === "" ? "" : String(year), amount: Number(amount) };
+}
+
+function plannerEnergyNote(energy, basis) {
+  var when = energy && energy.expires != null ? String(energy.expires).trim() : "";
+  if (when) return ' <span>expires ' + esc(when) + "</span>";
+  var left = energy && energy.amount != null && energy.amount !== "" && isFinite(Number(energy.amount)) ? Number(energy.amount) : 0;
+  if (left !== 0) return "";
+  var used = plannerBasisEnergy(basis);
+  if (!used) return "";
+  var money = plannerSpare(used.amount);
+  var year = used.year || "2026";
+  return " <span>Used up on the " + esc(year) + " return (" + money.text + ")</span>";
+}
+
+function plannerCredits(cell, basis) {
   var parts = [];
-  var adopt = cell.adoption_carryforward;
-  if (adopt && typeof adopt === "object") {
-    var amt = plannerSpare(adopt.amount);
-    var expires = adopt.expires_after == null ? "" : String(adopt.expires_after);
-    parts.push('<p><span>Adoption</span> <b class="' + amt.tone + '">' + amt.text + "</b>" +
-      (expires ? ' <span>expires after ' + esc(expires) + "</span>" : "") + "</p>");
-    var years = adopt.projection_2028_2031 || [];
+  var adopt = cell && cell.adoption_carryforward;
+  var adoptObj = adopt && typeof adopt === "object" ? adopt : null;
+  var amt = plannerSpare(adoptObj ? adoptObj.amount : 0);
+  var expires = adoptObj && adoptObj.expires_after != null && adoptObj.expires_after !== "" ? String(adoptObj.expires_after) : "";
+  parts.push('<p data-planner-adoption="1"><span>Adoption</span> <b class="' + amt.tone + '">' + amt.text + "</b>" +
+    (expires ? ' <span>expires after ' + esc(expires) + "</span>" : "") + "</p>");
+  if (adoptObj) {
+    var years = adoptObj.projection_2028_2031 || [];
     if (years.length) {
       parts.push('<ul class="tax-planner-years">' + years.map(function (row) {
         if (!row) return "";
@@ -1226,19 +1268,16 @@ function plannerCredits(cell) {
       }).join("") + "</ul>");
     }
   }
-  var energy = cell.energy_carryforward;
-  if (energy && typeof energy === "object" && isFinite(Number(energy.amount)) && Number(energy.amount) !== 0) {
-    var en = plannerSpare(energy.amount);
-    var when = energy.expires == null ? "" : String(energy.expires);
-    parts.push('<p><span>Energy</span> <b class="' + en.tone + '">' + en.text + "</b>" +
-      (when ? ' <span>expires ' + esc(when) + "</span>" : "") + "</p>");
-  }
-  if (!parts.length) return "";
+  var energy = cell && cell.energy_carryforward;
+  var energyObj = energy && typeof energy === "object" ? energy : null;
+  var en = plannerSpare(energyObj ? energyObj.amount : 0);
+  parts.push('<p data-planner-energy="1"><span>Energy credit left</span> <b class="' + en.tone + '">' + en.text + "</b>" +
+    plannerEnergyNote(energyObj, basis) + "</p>");
   return '<div class="tax-planner-credits" data-planner-credits="1"><span class="sym">Credits carried forward</span>' +
     parts.join("") + "</div>";
 }
 
-function plannerResult(cell, w4Id, adoption) {
+function plannerResult(cell, w4Id, adoption, basis) {
   var key = esc(w4Id) + "|" + (adoption ? "true" : "false");
   var pay = moneyText(cell && cell.net_per_check, "plain");
   var spare = plannerSpare(cell && cell.budget_spare_after);
@@ -1257,7 +1296,7 @@ function plannerResult(cell, w4Id, adoption) {
     federal +
     '<div class="tax-planner-spare" data-planner-spare="1"><span>Budget spare after</span> <b class="' + spare.tone + '">' + spare.text +
     '</b><p class="tax-planner-now">now <b class="' + now.tone + '">' + now.text + "</b></p></div>" +
-    plannerCredits(cell) +
+    plannerCredits(cell, basis) +
     inferred +
     "</div>";
 }
@@ -1320,10 +1359,11 @@ function plannerCard(doc, state) {
   }).join("");
   fields += plannerSelect("tax-planner-adoption", "Adoption", "adoption", adoptHtml);
   var title = "W-4 planner";
-  if (planner.year != null && planner.year !== "") title += " " + planner.year;
+  var scope = '<p class="hint" data-planner-scope="1">For 2027 W-4 and 2027 taxes. 2026 withholding isn\'t changing.</p>';
   return card(title, "planner",
+    scope +
     '<div class="tax-planner-fields">' + fields + "</div>" +
-    plannerResult(cell, w4Id, sel.adoption) +
+    plannerResult(cell, w4Id, sel.adoption, planner.basis) +
     plannerCompare(planner, sel.adoption, w4Id) +
     plannerNotes(planner));
 }
