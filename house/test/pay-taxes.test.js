@@ -1285,7 +1285,7 @@ test("planner headlines use whole dollars and signed changes", function () {
   const ctx = boot();
   const doc = loadTaxes();
   const cell = plannerCell(doc, "current", false);
-  cell.net_per_check = 15053.4;
+  cell.net_per_check = 12345.6;
   cell.federal_refund_or_owed = 1200.6;
   cell.budget_spare_after = -40.2;
   cell.monthly_change = -12.6;
@@ -1293,7 +1293,7 @@ test("planner headlines use whole dollars and signed changes", function () {
   cell.budget_spare_now = 0.4;
   const slice = plannerSlice(ctx.paydeskHtml("taxes", doc, {}));
   const pay = slice.split('data-planner-pay="1"')[1].split("</div>")[0];
-  assert.ok(hasMoney(pay, "$15,053"));
+  assert.ok(hasMoney(pay, "$12,346"));
   assert.doesNotMatch(pay, /tone-go|tone-stop|\+/);
   const fed = slice.split('data-planner-federal="1"')[1].split("</div>")[0];
   assert.ok(hasMoney(fed, "+$1,201"));
