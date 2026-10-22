@@ -798,7 +798,7 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
-    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ad/);
+    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ae/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
   assert.match(html, /\/house\/js\/banking\.js\?v=20261021aa/);
@@ -1245,6 +1245,26 @@ test("a planner year list defaults to the earliest estimate and switches carryfo
   const numberLine = plannerSlice(boot().paydeskHtml("taxes", numbered, {})).split('data-planner-adoption="1"')[1].split("</p>")[0];
   assert.ok(numberLine.includes(plainMoney(left)));
   assert.doesNotMatch(numberLine, /expires after|carried in|data-planner-adoption-detail/);
+});
+
+test("an array basis uses the credits carry for the used-up note", function () {
+  const ctx = boot();
+  const doc = loadTaxes();
+  const carried = doc.estimate.planner.basis.energy_carryforward_used;
+  doc.credits.energy_carryforward_remaining = carried;
+  doc.estimate.planner.basis = ["Sample basis line", "Another basis line"];
+  const shown = plannerSlice(ctx.paydeskHtml("taxes", doc, {})).split('data-planner-energy="1"')[1].split("</p>")[0];
+  assert.ok(shown.includes("Used up on the 2026 return (" + plainMoney(carried) + ")"));
+  assert.doesNotMatch(ctx.paydeskHtml("taxes", doc, {}), /Sample basis line|Another basis line/);
+  doc.credits.energy_carryforward_remaining = 0;
+  const quiet = plannerSlice(ctx.paydeskHtml("taxes", doc, {})).split('data-planner-energy="1"')[1].split("</p>")[0];
+  assert.doesNotMatch(quiet, /Used up on the /);
+  doc.credits.energy_carryforward_remaining = carried;
+  const cell = plannerCell(doc, "current", false);
+  cell.energy_carryforward.amount = cell.withholding_per_check;
+  const held = plannerSlice(ctx.paydeskHtml("taxes", doc, {})).split('data-planner-energy="1"')[1].split("</p>")[0];
+  assert.ok(held.includes(plainMoney(cell.withholding_per_check)));
+  assert.doesNotMatch(held, /Used up on the /);
 });
 
 test("planner selects fill one column at 390 without page overflow", async function () {

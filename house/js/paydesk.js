@@ -1303,19 +1303,22 @@ function plannerBasisEnergy(basis) {
   return { year: year == null || year === "" ? "" : String(year), amount: Number(amount) };
 }
 
-function plannerEnergyNote(energy, basis) {
+function plannerEnergyNote(energy, basis, remaining) {
   var when = energy && energy.expires != null ? String(energy.expires).trim() : "";
   if (when) return ' <span>expires ' + esc(when) + "</span>";
   var left = energy && energy.amount != null && energy.amount !== "" && isFinite(Number(energy.amount)) ? Number(energy.amount) : 0;
   if (left !== 0) return "";
   var used = plannerBasisEnergy(basis);
-  if (!used) return "";
+  if (!used && remaining != null && remaining !== "" && isFinite(Number(remaining)) && Number(remaining) > 0) {
+    used = { year: "2026", amount: Number(remaining) };
+  }
+  if (!used || !(Number(used.amount) > 0)) return "";
   var money = plannerSpare(used.amount);
   var year = used.year || "2026";
   return " <span>Used up on the " + esc(year) + " return (" + money.text + ")</span>";
 }
 
-function plannerCredits(cell, basis) {
+function plannerCredits(cell, basis, remaining) {
   var parts = [];
   var adoptView = plannerAdoption(cell && cell.adoption_carryforward);
   var amt = plannerSpare(adoptView.amount);
@@ -1338,12 +1341,12 @@ function plannerCredits(cell, basis) {
   var energyObj = energy && typeof energy === "object" ? energy : null;
   var en = plannerSpare(energyObj ? energyObj.amount : 0);
   parts.push('<p data-planner-energy="1"><span>Energy credit left</span> <b class="' + en.tone + '">' + en.text + "</b>" +
-    plannerEnergyNote(energyObj, basis) + "</p>");
+    plannerEnergyNote(energyObj, basis, remaining) + "</p>");
   return '<div class="tax-planner-credits" data-planner-credits="1"><span class="sym">Credits carried forward</span>' +
     parts.join("") + "</div>";
 }
 
-function plannerResult(cell, w4Id, adoption, basis) {
+function plannerResult(cell, w4Id, adoption, basis, remaining) {
   var key = esc(w4Id) + "|" + (adoption ? "true" : "false");
   var pay = moneyText(cell && cell.net_per_check, "plain");
   var spare = plannerSpare(cell && cell.budget_spare_after);
@@ -1362,7 +1365,7 @@ function plannerResult(cell, w4Id, adoption, basis) {
     federal +
     '<div class="tax-planner-spare" data-planner-spare="1"><span>Budget spare after</span> <b class="' + spare.tone + '">' + spare.text +
     '</b><p class="tax-planner-now">now <b class="' + now.tone + '">' + now.text + "</b></p></div>" +
-    plannerCredits(cell, basis) +
+    plannerCredits(cell, basis, remaining) +
     inferred +
     "</div>";
 }
@@ -1446,7 +1449,7 @@ function plannerCard(doc, state) {
     scope +
     yearHtml +
     '<div class="tax-planner-fields">' + fields + "</div>" +
-    plannerResult(cell, w4Id, sel.adoption, planner.basis) +
+    plannerResult(cell, w4Id, sel.adoption, planner.basis, doc && doc.credits ? doc.credits.energy_carryforward_remaining : null) +
     plannerCompare(planner, sel.adoption, w4Id) +
     plannerNotes(planner));
 }
