@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const test = require("node:test");
 const vm = require("vm");
@@ -192,7 +193,9 @@ test("routes are the exact pay and taxes paths with no trailing slash", async fu
   assert.match(src, /var TAX_URL = "\/data\/taxes"/);
   assert.doesNotMatch(src, /\/data\/pay\//);
   assert.doesNotMatch(src, /\/data\/taxes\//);
-  assert.doesNotMatch(src, /localStorage|sessionStorage/);
+  assert.doesNotMatch(src, /sessionStorage/);
+  assert.match(src, /murphyPilotTaxPlanner/);
+  assert.doesNotMatch(src, /localStorage\.(get|set)Item\((?!PLANNER_KEY)/);
   assert.doesNotMatch(src, /Authorization/);
   assert.match(src, /credentials:\s*"same-origin"/);
   assert.match(src, /cache:\s*"no-store"/);
@@ -292,7 +295,8 @@ test("pay summary is analytics first and agrees on the stub", function () {
   const doc = loadPay();
   const src = read("house/js/paydesk.js");
   assert.equal(FAKE_NOW.toISOString().slice(0, 10), "2026-10-16");
-  assert.doesNotMatch(src, /new Date|Date\.now|localStorage|sessionStorage|Authorization/);
+  assert.doesNotMatch(src, /new Date|Date\.now|sessionStorage|Authorization/);
+  assert.doesNotMatch(src, /localStorage\.(get|set)Item\((?!PLANNER_KEY)/);
   assert.doesNotMatch(src, /Full year|On the card|Scenario B|kids|spouse pay/i);
   assert.match(src, /\\u2212\$/);
   const html = ctx.paydeskHtml("pay", doc, {});
@@ -435,7 +439,7 @@ test("taxes summary uses payload labels and the base flag", function () {
   const src = read("house/js/paydesk.js");
   assert.doesNotMatch(src, /spouse_income|car_loan_deduction/);
   const html = ctx.paydeskHtml("taxes", doc, {});
-  const summary = html.split("<details")[0];
+  const summary = visibleCards(html);
   assert.match(summary, /class="bank-view-title"[^>]*>Taxes</);
   assert.doesNotMatch(summary, /Taxes ·/);
   assert.doesNotMatch(summary, /data-year-pick/);
@@ -793,11 +797,11 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
-    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261007en/);
+    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022aa/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
   assert.match(html, /\/house\/js\/banking\.js\?v=20261021aa/);
-  assert.match(html, /\/house\/house\.css\?v=20261008ey/);
+  assert.match(html, /\/house\/house\.css\?v=20261022aa/);
     assert.match(html, /list-cap\.js\?v=20261007eh/);
     assert.match(html, /id="clock"/);
     assert.match(html, /id="mp-ticker"/);
@@ -828,7 +832,7 @@ test("pay and taxes number and control rules stay off Investments", function () 
 });
 
 test("house.css and banking.js share one cache bust", function () {
-  const houseVersion = "20261008ey";
+  const houseVersion = "20261022aa";
 
   const bankVersion = "20261021aa";
   const pages = ["index.html", "investments/index.html", "pay/index.html", "taxes/index.html"];
@@ -848,9 +852,303 @@ test("house.css and banking.js share one cache bust", function () {
   });
   assert.deepEqual(Array.from(house), [houseVersion]);
   assert.deepEqual(Array.from(banking), [bankVersion]);
-  assert.match(read("house/house.css"), /house-b\.css\?v=20261007ei/);
+  assert.match(read("house/house.css"), /house-b\.css\?v=20261022aa/);
 
   assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261021aa)/);
+});
+
+function groupedMoney(n) {
+  const abs = Math.abs(Number(n)).toFixed(2);
+  const bits = abs.split(".");
+  bits[0] = bits[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return bits[0] + "." + bits[1];
+}
+
+function plainMoney(n) {
+  const v = Number(n);
+  const body = groupedMoney(v);
+  if (v < 0) return "\u2212$" + body;
+  return "$" + body;
+}
+
+function signedMoney(n) {
+  const v = Number(n);
+  const body = groupedMoney(v);
+  if (v < 0) return "\u2212$" + body;
+  if (v > 0) return "+$" + body;
+  return "$0.00";
+}
+
+function plannerOf(doc) {
+  return doc.estimate.planner;
+}
+
+function plannerSlice(html) {
+  return html.split('data-card="planner"')[1].split("data-card=")[0];
+}
+
+function plannerCell(doc, w4, adoption) {
+  return plannerOf(doc).cells.find(function (cell) {
+    return cell && cell.w4 === w4 && cell.adoption === adoption;
+  });
+}
+
+test("the W-4 planner card stays hidden when the payload has no planner", function () {
+  const ctx = boot();
+  const missing = loadTaxes();
+  delete missing.estimate.planner;
+  const html = ctx.paydeskHtml("taxes", missing, {});
+  assert.doesNotMatch(html, /data-card="planner"/);
+  assert.doesNotMatch(html, /W-4 planner/);
+  assert.doesNotMatch(html, /tax-planner/);
+  assert.doesNotMatch(html, /data-gate=/);
+  assert.match(html, /data-card="estimate"/);
+  const empty = loadTaxes();
+  empty.estimate.planner = null;
+  const blank = ctx.paydeskHtml("taxes", empty, {});
+  assert.doesNotMatch(blank, /data-card="planner"/);
+  assert.match(blank, /data-card="scenarios"/);
+  assertCleanGlue(blank, "planner absent");
+});
+
+test("the W-4 planner renders after Scenarios from the payload", function () {
+  const ctx = boot();
+  const src = read("house/js/paydesk.js");
+  const doc = loadTaxes();
+  const planner = plannerOf(doc);
+  assert.doesNotMatch(src, /Married plus|sample-year|sample-energy|Sample assumption/);
+  const html = ctx.paydeskHtml("taxes", doc, {});
+  const estimateAt = html.indexOf('data-card="estimate"');
+  const scenariosAt = html.indexOf('data-card="scenarios"');
+  const plannerAt = html.indexOf('data-card="planner"');
+  const splitAt = html.indexOf('class="split-two"');
+  assert.ok(estimateAt >= 0 && estimateAt < scenariosAt && scenariosAt < plannerAt && plannerAt < splitAt);
+  assert.match(html, new RegExp("<h2>W-4 planner " + planner.year + "</h2>"));
+  const slice = plannerSlice(html);
+  const base = plannerCell(doc, "current", false);
+  assert.match(slice, /data-planner-cell="current\|false"/);
+  assert.ok(slice.includes(plainMoney(base.net_per_check)));
+  assert.ok(slice.includes(plainMoney(base.withholding_per_check)));
+  assert.match(slice, /data-planner-inferred="1">Based on your pay stubs; update when the real W-4 is in\./);
+  assert.doesNotMatch(slice, /data-planner="extra"/);
+  const w4 = slice.split('id="tax-planner-w4"')[1].split("</select>")[0];
+  const values = Array.from(w4.matchAll(/value="([^"]+)"/g)).map(function (m) { return m[1]; });
+  assert.deepEqual(values, ["current", "mfj", "mfj_plus", "single"]);
+  assert.match(w4, /value="current" selected/);
+  assert.match(w4, />Married \+ extra per check</);
+  assert.doesNotMatch(w4, /mfj_plus_/);
+  const adopt = slice.split('id="tax-planner-adoption"')[1].split("</select>")[0];
+  assert.match(adopt, /value="false" selected>No adoption</);
+  assert.match(adopt, /value="true">Adoption credit</);
+  assert.match(slice, /<tr class="on" data-planner-row="current">/);
+  assert.equal((slice.match(/<tr class="on"/g) || []).length, 1);
+  assert.equal((slice.match(/data-planner-row="/g) || []).length, planner.w4_options.length);
+  assert.match(slice, /<details class="tax-planner-notes"/);
+  assert.doesNotMatch(slice, /<details class="tax-planner-notes"[^>]*\sopen/);
+  assert.match(slice, /<summary>Assumptions and sources<\/summary>/);
+  assert.ok(slice.includes(planner.assumptions[0]));
+  assert.ok(slice.includes(planner.sources[0]));
+  assert.match(slice, /tax-planner-years/);
+  assert.ok(slice.includes("expires after " + base.adoption_carryforward.expires_after));
+  assert.doesNotMatch(slice, />Energy</);
+  assertCleanGlue(html, "planner default");
+});
+
+test("each planner select shows that cell and the extra list only for plus", function () {
+  const ctx = boot();
+  const doc = loadTaxes();
+  plannerOf(doc).cells.forEach(function (cell) {
+    const html = ctx.paydeskHtml("taxes", doc, { planner: { w4: cell.w4, adoption: cell.adoption } });
+    const slice = plannerSlice(html);
+    const plus = String(cell.w4).indexOf("mfj_plus_") === 0;
+    assert.match(slice, new RegExp('data-planner-cell="' + cell.w4 + "\\|" + (cell.adoption ? "true" : "false") + '"'));
+    const pay = slice.split('data-planner-pay="1"')[1].split("</div>")[0];
+    assert.ok(pay.includes(plainMoney(cell.net_per_check)), cell.w4);
+    const monthly = slice.split('data-planner-monthly="1"')[1].split("</div>")[0];
+    assert.ok(monthly.includes(signedMoney(cell.monthly_change)), cell.w4);
+    if (cell.monthly_change < 0) assert.match(monthly, /tone-stop/);
+    else if (cell.monthly_change > 0) assert.match(monthly, /tone-go/);
+    else assert.match(monthly, /tone-flat/);
+    const fed = slice.split('data-planner-federal="1"')[1].split("</tr>")[0];
+    assert.ok(fed.includes(signedMoney(cell.federal_refund_or_owed)), cell.w4);
+    if (cell.federal_refund_or_owed > 0) assert.match(fed, /class="num tone-go"/);
+    else if (cell.federal_refund_or_owed < 0) assert.match(fed, /class="num tone-stop"/);
+    else assert.match(fed, /class="num tone-flat"/);
+    const spare = slice.split('data-planner-spare="1"')[1].split("</div>")[0];
+    const after = spare.split("<p")[0];
+    const now = spare.split("tax-planner-now")[1] || "";
+    assert.ok(after.includes(plainMoney(cell.budget_spare_after)), cell.w4);
+    assert.ok(now.includes(plainMoney(cell.budget_spare_now)), cell.w4);
+    if (cell.budget_spare_after < 0) assert.match(after, /tone-stop/);
+    else assert.doesNotMatch(after, /tone-stop/);
+    if (cell.budget_spare_now < 0) assert.match(now, /tone-stop/);
+    else assert.doesNotMatch(now, /tone-stop/);
+    if (cell.inferred === true) {
+      assert.match(slice, /data-planner-inferred="1">Based on your pay stubs; update when the real W-4 is in\./);
+    } else {
+      assert.doesNotMatch(slice, /data-planner-inferred/);
+      assert.doesNotMatch(slice, /Based on your pay stubs/);
+    }
+    if (plus) {
+      assert.match(slice, /data-planner="extra"/);
+      const extra = Number(String(cell.w4).slice("mfj_plus_".length));
+      const extraSel = slice.split('id="tax-planner-extra"')[1].split("</select>")[0];
+      assert.match(extraSel, new RegExp('value="' + extra + '" selected'));
+      plannerOf(doc).extra_amounts.forEach(function (n) {
+        const body = String(Math.abs(Math.round(Number(n)))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        assert.ok(extraSel.includes("$" + body));
+      });
+    } else {
+      assert.doesNotMatch(slice, /data-planner="extra"/);
+      assert.doesNotMatch(slice, /id="tax-planner-extra"/);
+    }
+    const energy = cell.energy_carryforward;
+    if (energy && Number(energy.amount) !== 0) {
+      assert.match(slice, />Energy</);
+      assert.ok(slice.includes(plainMoney(energy.amount)));
+      if (energy.expires) assert.ok(slice.includes("expires " + energy.expires));
+    } else {
+      assert.doesNotMatch(slice, />Energy</);
+    }
+    assert.match(slice, new RegExp('<tr class="on" data-planner-row="' + cell.w4 + '">'));
+    assert.equal((slice.match(/<tr class="on"/g) || []).length, 1);
+  });
+});
+
+test("planner labels are escaped and a saved choice is restored", async function () {
+  const ctx = boot();
+  const doc = loadTaxes();
+  const planner = plannerOf(doc);
+  planner.w4_options[0].label = "A & B <C>";
+  planner.adoption_options[1].label = 'Yes "credit"';
+  planner.assumptions = ["D < E"];
+  const marked = ctx.paydeskHtml("taxes", doc, { planner: { w4: "current", adoption: true } });
+  const slice = plannerSlice(marked);
+  assert.match(slice, />A &amp; B &lt;C&gt;</);
+  assert.match(slice, /Yes &quot;credit&quot;/);
+  assert.match(slice, /D &lt; E/);
+  assert.doesNotMatch(slice, />A & B <C></);
+  const fresh = boot();
+  const store = {
+    data: {},
+    getItem: function (key) { return Object.prototype.hasOwnProperty.call(this.data, key) ? this.data[key] : null; },
+    setItem: function (key, value) { this.data[key] = String(value); }
+  };
+  fresh.localStorage = store;
+  const picked = plannerCell(loadTaxes(), "single", true);
+  store.data.murphyPilotTaxPlanner = JSON.stringify({ w4: picked.w4, adoption: true });
+  const restored = fresh.paydeskHtml("taxes", loadTaxes(), {});
+  assert.match(plannerSlice(restored), /data-planner-cell="single\|true"/);
+  assert.ok(plannerSlice(restored).includes(plainMoney(picked.net_per_check)));
+  assert.equal(store.data.murphyPilotTaxPlanner, JSON.stringify({ w4: picked.w4, adoption: true }));
+  const listeners = {};
+  const root = {
+    innerHTML: "",
+    addEventListener: function (type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+    contains: function () { return true; }
+  };
+  const live = boot();
+  const liveDoc = loadTaxes();
+  live.localStorage = {
+    data: {},
+    getItem: function (key) { return Object.prototype.hasOwnProperty.call(this.data, key) ? this.data[key] : null; },
+    setItem: function (key, value) { this.data[key] = String(value); }
+  };
+  live.document.getElementById = function (id) { return id === "taxDesk" ? root : null; };
+  await live.paydeskLoad("taxes", function () { return Promise.resolve(jsonResponse(200, liveDoc)); });
+  live.paydeskStart();
+  await Promise.resolve();
+  assert.match(root.innerHTML, /data-planner-cell="current\|false"/);
+  assert.equal(live.localStorage.data.murphyPilotTaxPlanner, undefined);
+  function pick(which, value) {
+    listeners.change.forEach(function (fn) {
+      fn({
+        target: {
+          value: String(value),
+          getAttribute: function (name) { return name === "data-planner" ? which : null; }
+        }
+      });
+    });
+  }
+  pick("w4", "mfj_plus");
+  assert.match(root.innerHTML, /id="tax-planner-extra"/);
+  const firstExtra = liveDoc.estimate.planner.extra_amounts[0];
+  assert.match(root.innerHTML, new RegExp('data-planner-cell="mfj_plus_' + firstExtra + '\\|false"'));
+  const secondExtra = liveDoc.estimate.planner.extra_amounts[1];
+  pick("extra", secondExtra);
+  assert.match(root.innerHTML, new RegExp('data-planner-cell="mfj_plus_' + secondExtra + '\\|false"'));
+  assert.doesNotMatch(root.innerHTML, /data-planner-inferred/);
+  pick("adoption", "true");
+  assert.match(root.innerHTML, new RegExp('data-planner-cell="mfj_plus_' + secondExtra + '\\|true"'));
+  const saved = JSON.parse(live.localStorage.data.murphyPilotTaxPlanner);
+  assert.equal(saved.w4, "mfj_plus");
+  assert.equal(saved.extra, secondExtra);
+  assert.equal(saved.adoption, true);
+  pick("w4", "mfj");
+  assert.doesNotMatch(root.innerHTML, /id="tax-planner-extra"/);
+  assert.match(root.innerHTML, /data-planner-cell="mfj\|true"/);
+});
+
+test("planner selects fill one column at 390 without page overflow", async function () {
+  const playwrightDir = "/tmp/pw-eq/node_modules";
+  module.paths.unshift(playwrightDir);
+  const { chromium } = require("playwright");
+  const ctx = boot();
+  const doc = loadTaxes();
+  const extra = doc.estimate.planner.extra_amounts[0];
+  const inner = ctx.paydeskHtml("taxes", doc, { planner: { w4: "mfj_plus", extra: extra, adoption: false } });
+  const file = path.join(os.tmpdir(), "tax-planner-390.html");
+  const pageHtml = "<!DOCTYPE html><html><head><meta charset=\"utf-8\">" +
+    '<link rel="stylesheet" href="file://' + root + '/house/house.css">' +
+    '</head><body><main class="desk paydesk" id="taxDesk">' + inner + "</main></body></html>";
+  fs.writeFileSync(file, pageHtml);
+  const browser = await chromium.launch({ executablePath: "/usr/bin/google-chrome", headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto("file://" + file);
+    const report = await page.evaluate(function () {
+      var vw = window.innerWidth;
+      var card = document.querySelector('[data-card="planner"]');
+      var scroller = document.querySelector("[data-planner-compare]");
+      var selects = card.querySelectorAll("select");
+      var bad = [];
+      var docEl = document.documentElement;
+      if (docEl.scrollWidth > docEl.clientWidth + 1) bad.push("document " + docEl.scrollWidth + ">" + docEl.clientWidth);
+      var nodes = document.querySelectorAll("body *");
+      var i;
+      for (i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        if (el.closest && el.closest("[data-planner-compare]") && el !== scroller) continue;
+        var st = getComputedStyle(el);
+        if (st.display === "none" || st.visibility === "hidden") continue;
+        var r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1) continue;
+        if (r.right > vw + 1.5 || r.left < -1) {
+          bad.push(String(el.className || el.tagName).slice(0, 60) + " right=" + Math.round(r.right));
+          if (bad.length > 8) break;
+        }
+      }
+      var box = card.getBoundingClientRect();
+      var widths = [];
+      var prevBottom = 0;
+      selects.forEach(function (sel, idx) {
+        var rect = sel.getBoundingClientRect();
+        widths.push({ w: Math.round(rect.width), h: Math.round(rect.height), card: Math.round(box.width) });
+        if (rect.width < box.width - 36) bad.push("select narrow " + Math.round(rect.width) + "/" + Math.round(box.width));
+        if (rect.height < 44) bad.push("select short " + Math.round(rect.height));
+        if (idx > 0 && rect.top < prevBottom - 1) bad.push("selects side by side");
+        prevBottom = rect.bottom;
+      });
+      var cols = getComputedStyle(card.querySelector(".tax-planner-fields")).gridTemplateColumns;
+      if (cols.split(" ").length !== 1) bad.push("columns " + cols);
+      return { vw: vw, bad: bad, widths: widths, cols: cols, selects: selects.length };
+    });
+    assert.equal(report.vw, 390);
+    assert.equal(report.selects, 3);
+    assert.deepEqual(report.bad, []);
+  } finally {
+    await browser.close();
+  }
 });
 
 test("banking menu links Pay and Taxes on absolute paths", function () {

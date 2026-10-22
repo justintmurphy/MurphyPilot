@@ -686,7 +686,164 @@
         "marginal_bracket_pct": 22,
         "extra_per_check_to_break_even": 0
       }
-    ]
+    ],
+    "planner": {
+      "year": 2026,
+      "status": "sample",
+      "w4_options": [
+        { "id": "current", "label": "Current", "inferred": true },
+        { "id": "mfj", "label": "Married filing jointly", "inferred": false },
+        { "id": "mfj_plus_40", "label": "Married plus forty", "inferred": false },
+        { "id": "mfj_plus_80", "label": "Married plus eighty", "inferred": false },
+        { "id": "single", "label": "Single", "inferred": false }
+      ],
+      "adoption_options": [
+        { "id": false, "label": "No adoption" },
+        { "id": true, "label": "Adoption credit" }
+      ],
+      "extra_amounts": [40, 80],
+      "cells": [
+        {
+          "w4": "current",
+          "adoption": false,
+          "inferred": true,
+          "withholding_per_check": 10,
+          "net_per_check": 20,
+          "monthly_change": 2,
+          "federal_refund_or_owed": 6,
+          "adoption_carryforward": {
+            "amount": 1,
+            "expires_after": "sample-year",
+            "projection_2028_2031": [
+              { "year": 2028, "adoption_used": 1, "adoption_left": 3 },
+              { "year": 2031, "adoption_used": 2, "adoption_left": 1 }
+            ]
+          },
+          "energy_carryforward": { "amount": 0, "expires": "sample-energy" },
+          "budget_spare_now": 4,
+          "budget_spare_after": 8
+        },
+        {
+          "w4": "current",
+          "adoption": true,
+          "inferred": false,
+          "withholding_per_check": 11,
+          "net_per_check": 21,
+          "monthly_change": 3,
+          "federal_refund_or_owed": 7,
+          "adoption_carryforward": { "amount": 3, "expires_after": "sample-year", "projection_2028_2031": [] },
+          "energy_carryforward": { "amount": 0, "expires": "sample-energy" },
+          "budget_spare_now": 4,
+          "budget_spare_after": 9
+        },
+        {
+          "w4": "mfj",
+          "adoption": false,
+          "inferred": false,
+          "withholding_per_check": 12,
+          "net_per_check": 22,
+          "monthly_change": -3,
+          "federal_refund_or_owed": 5,
+          "adoption_carryforward": { "amount": 0, "expires_after": "sample-year", "projection_2028_2031": [] },
+          "energy_carryforward": { "amount": 0, "expires": "" },
+          "budget_spare_now": 1,
+          "budget_spare_after": -5
+        },
+        {
+          "w4": "mfj",
+          "adoption": true,
+          "inferred": false,
+          "withholding_per_check": 13,
+          "net_per_check": 23,
+          "monthly_change": 1,
+          "federal_refund_or_owed": 4,
+          "adoption_carryforward": { "amount": 3, "expires_after": "sample-year", "projection_2028_2031": [] },
+          "energy_carryforward": { "amount": 0, "expires": "" },
+          "budget_spare_now": 1,
+          "budget_spare_after": 2
+        },
+        {
+          "w4": "mfj_plus_40",
+          "adoption": false,
+          "inferred": false,
+          "withholding_per_check": 14,
+          "net_per_check": 24,
+          "monthly_change": -4,
+          "federal_refund_or_owed": 8,
+          "adoption_carryforward": { "amount": 0, "expires_after": "sample-year", "projection_2028_2031": [] },
+          "energy_carryforward": { "amount": 0, "expires": "" },
+          "budget_spare_now": -2,
+          "budget_spare_after": -6
+        },
+        {
+          "w4": "mfj_plus_40",
+          "adoption": true,
+          "inferred": false,
+          "withholding_per_check": 15,
+          "net_per_check": 25,
+          "monthly_change": 1,
+          "federal_refund_or_owed": 3,
+          "adoption_carryforward": { "amount": 3, "expires_after": "sample-year", "projection_2028_2031": [] },
+          "energy_carryforward": { "amount": 0, "expires": "" },
+          "budget_spare_now": 1,
+          "budget_spare_after": 2
+        },
+        {
+          "w4": "mfj_plus_80",
+          "adoption": false,
+          "inferred": false,
+          "withholding_per_check": 16,
+          "net_per_check": 26,
+          "monthly_change": 5,
+          "federal_refund_or_owed": -9,
+          "adoption_carryforward": { "amount": 0, "expires_after": "sample-year", "projection_2028_2031": [] },
+          "energy_carryforward": { "amount": 2, "expires": "sample-energy" },
+          "budget_spare_now": 3,
+          "budget_spare_after": 7
+        },
+        {
+          "w4": "mfj_plus_80",
+          "adoption": true,
+          "inferred": false,
+          "withholding_per_check": 17,
+          "net_per_check": 27,
+          "monthly_change": 1,
+          "federal_refund_or_owed": 2,
+          "adoption_carryforward": { "amount": 3, "expires_after": "sample-year", "projection_2028_2031": [] },
+          "energy_carryforward": { "amount": 0, "expires": "" },
+          "budget_spare_now": 1,
+          "budget_spare_after": 2
+        },
+        {
+          "w4": "single",
+          "adoption": false,
+          "inferred": false,
+          "withholding_per_check": 18,
+          "net_per_check": 28,
+          "monthly_change": 1,
+          "federal_refund_or_owed": 4,
+          "adoption_carryforward": { "amount": 0, "expires_after": "sample-year", "projection_2028_2031": [] },
+          "energy_carryforward": { "amount": 0, "expires": "" },
+          "budget_spare_now": 1,
+          "budget_spare_after": 2
+        },
+        {
+          "w4": "single",
+          "adoption": true,
+          "inferred": false,
+          "withholding_per_check": 19,
+          "net_per_check": 29,
+          "monthly_change": -1,
+          "federal_refund_or_owed": -2,
+          "adoption_carryforward": { "amount": 3, "expires_after": "sample-year", "projection_2028_2031": [] },
+          "energy_carryforward": { "amount": 0, "expires": "" },
+          "budget_spare_now": 1,
+          "budget_spare_after": 2
+        }
+      ],
+      "assumptions": ["Sample assumption"],
+      "sources": ["Sample source"]
+    }
   },
   "flags": [
     {
