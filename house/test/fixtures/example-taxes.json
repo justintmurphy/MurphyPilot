@@ -690,6 +690,10 @@
     "planner": {
       "year": 2026,
       "status": "sample",
+      "basis": {
+        "year": 2026,
+        "energy_carryforward_used": 6
+      },
       "w4_options": [
         { "id": "current", "label": "Current", "inferred": true },
         { "id": "mfj", "label": "Married filing jointly", "inferred": false },
@@ -719,7 +723,7 @@
               { "year": 2031, "adoption_used": 2, "adoption_left": 1 }
             ]
           },
-          "energy_carryforward": { "amount": 0, "expires": "sample-energy" },
+          "energy_carryforward": { "amount": 0, "expires": "" },
           "budget_spare_now": 4,
           "budget_spare_after": 8
         },

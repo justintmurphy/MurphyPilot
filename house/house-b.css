@@ -770,26 +770,52 @@ button.book-chip.on {
   min-height: 44px;
   box-sizing: border-box;
 }
-.tax-planner-stats {
+.tax-planner-headlines {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 14px;
+  margin-top: 16px;
+}
+.tax-planner-headlines span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ink-soft);
 }
 .tax-planner-pay b,
-.tax-planner-stats b {
-  display: block;
-  font-variant-numeric: tabular-nums;
-}
-.tax-planner-pay b {
-  font-size: 28px;
-  line-height: 1.05;
-}
-.tax-planner-now {
+.tax-planner-refund b,
+.tax-planner-spare b {
   display: block;
   margin-top: 2px;
-  font-size: 12px;
+  font-size: 32px;
+  line-height: 1.05;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.tax-planner-details {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+  font-size: 13px;
+  line-height: 1.45;
   color: var(--ink-soft);
+}
+.tax-planner-details p {
+  margin: 0 0 6px;
+}
+.tax-planner-details b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tax-planner-credits {
+  margin-top: 8px;
+}
+.tax-planner-credits > .sym {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 .tax-planner-years {
   margin: 4px 0 8px;
@@ -813,22 +839,16 @@ button.book-chip.on {
   display: flex;
   align-items: center;
 }
-@media (max-width: 480px) {
-  .tax-planner-fields,
-  .tax-planner-stats {
-    grid-template-columns: 1fr;
-  }
-}
 @media (min-width: 481px) {
   .tax-planner-fields {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0 12px;
   }
-  .tax-planner-stats {
-    grid-template-columns: 1fr 1fr;
-  }
-  .tax-planner-pay {
-    grid-column: 1 / -1;
+}
+@media (min-width: 720px) {
+  .tax-planner-headlines {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px 18px;
   }
 }
 

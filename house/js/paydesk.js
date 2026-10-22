@@ -1034,12 +1034,47 @@ function plannerReadStore() {
 function plannerWriteStore(sel) {
   try {
     if (typeof localStorage === "undefined" || !localStorage.setItem) return;
-    localStorage.setItem(PLANNER_KEY, JSON.stringify({
+    var saved = {
       w4: sel.w4,
       extra: sel.extra,
       adoption: sel.adoption === true
-    }));
+    };
+    if (sel.year != null && sel.year !== "") saved.year = String(sel.year);
+    localStorage.setItem(PLANNER_KEY, JSON.stringify(saved));
   } catch (eWrite) {}
+}
+
+function plannerYearEntries(planner) {
+  var rows = planner && planner.years;
+  if (!Array.isArray(rows) || !rows.length) return null;
+  var out = [];
+  var i;
+  for (i = 0; i < rows.length; i++) {
+    if (rows[i] && typeof rows[i] === "object" && !Array.isArray(rows[i])) out.push(rows[i]);
+  }
+  if (!out.length) return null;
+  out.sort(function (a, b) {
+    var ay = Number(a.year);
+    var by = Number(b.year);
+    var aOk = isFinite(ay);
+    var bOk = isFinite(by);
+    if (aOk && bOk && ay !== by) return ay - by;
+    if (aOk !== bOk) return aOk ? -1 : 1;
+    return String(a.year == null ? "" : a.year).localeCompare(String(b.year == null ? "" : b.year));
+  });
+  return out;
+}
+
+function plannerForYear(planner, raw) {
+  var entries = plannerYearEntries(planner);
+  if (!entries) return { entries: null, entry: planner };
+  var want = raw && raw.year != null ? String(raw.year) : "";
+  var entry = entries[0];
+  var i;
+  for (i = 0; i < entries.length; i++) {
+    if (String(entries[i].year) === want) { entry = entries[i]; break; }
+  }
+  return { entries: entries, entry: entry };
 }
 
 function plannerChoices(planner) {
@@ -1169,95 +1204,180 @@ function plannerFindCell(planner, w4Id, adoption) {
   return null;
 }
 
+function plannerGrouped(n) {
+  return String(Math.round(Math.abs(Number(n)))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function plannerDollars(n) {
+  if (n == null || n === "" || !isFinite(Number(n))) return { text: "\u2014", tone: "tone-flat" };
+  var v = Number(n);
+  var body = plannerGrouped(v);
+  if (v < 0 && Math.round(Math.abs(v)) !== 0) return { text: "\u2212$" + body, tone: "tone-stop" };
+  return { text: "$" + body, tone: "" };
+}
+
+function plannerChange(n) {
+  if (n == null || n === "" || !isFinite(Number(n))) return { text: "\u2014", tone: "tone-flat" };
+  var v = Number(n);
+  var whole = Math.round(Math.abs(v));
+  var body = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  if (v < 0 && whole !== 0) return { text: "\u2212$" + body, tone: "tone-stop" };
+  if (v > 0 && whole !== 0) return { text: "+$" + body, tone: "tone-go" };
+  return { text: "$0", tone: "tone-flat" };
+}
+
+function plannerMoneyHtml(m) {
+  return "<b" + (m.tone ? ' class="' + m.tone + '"' : "") + ">" + m.text + "</b>";
+}
+
+function plannerMoneyTd(n, signed) {
+  if (n == null || n === "" || !isFinite(Number(n))) return dashTd();
+  var m = signed ? plannerChange(n) : plannerDollars(n);
+  return '<td class="num' + (m.tone ? " " + m.tone : "") + '">' + m.text + "</td>";
+}
+
 function plannerExtraText(n) {
   var v = Number(n);
   if (!isFinite(v)) return "";
-  if (Math.abs(v - Math.round(v)) < 1e-9) {
-    var whole = Math.round(v);
-    var body = String(Math.abs(whole)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    return (whole < 0 ? "\u2212$" : "$") + body;
+  return plannerDollars(v).text;
+}
+
+function plannerSelect(id, label, which, optionsHtml, extra) {
+  return '<div class="tax-planner-field"><label for="' + id + '">' + esc(label) + '</label><select id="' + id + '" data-planner="' + which + '">' + optionsHtml + "</select>" + (extra || "") + "</div>";
+}
+
+function plannerAdoption(adopt) {
+  if (typeof adopt === "number" || (typeof adopt === "string" && adopt !== "" && isFinite(Number(adopt)))) {
+    return { amount: Number(adopt), expires: "", carried: null, used: null, projection: [] };
   }
-  return moneyText(v, "plain").text;
+  if (adopt && typeof adopt === "object" && !Array.isArray(adopt)) {
+    var amount = adopt.amount;
+    if (amount == null || amount === "" || !isFinite(Number(amount))) amount = 0;
+    return {
+      amount: amount,
+      expires: adopt.expires_after == null || adopt.expires_after === "" ? "" : String(adopt.expires_after),
+      carried: adopt.carried_in,
+      used: adopt.used,
+      projection: adopt.projection_2028_2031 || []
+    };
+  }
+  return { amount: 0, expires: "", carried: null, used: null, projection: [] };
 }
 
-function plannerSpare(n) {
-  var m = moneyText(n, "plain");
-  var tone = m.tone;
-  if (isFinite(Number(n)) && Number(n) < 0) tone = "tone-stop";
-  return { text: m.text, tone: tone };
-}
-
-function plannerSpareTd(n) {
-  if (n == null || n === "" || !isFinite(Number(n))) return dashTd();
-  var m = plannerSpare(n);
-  return '<td class="num ' + m.tone + '">' + m.text + "</td>";
-}
-
-function plannerSelect(id, label, which, optionsHtml) {
-  return '<div class="tax-planner-field"><label for="' + id + '">' + esc(label) + '</label><select id="' + id + '" data-planner="' + which + '">' + optionsHtml + "</select></div>";
+function plannerAdoptDetail(view) {
+  var bits = [];
+  if (view.carried != null && view.carried !== "" && isFinite(Number(view.carried))) {
+    bits.push("<span>carried in</span> " + plannerMoneyHtml(plannerDollars(view.carried)));
+  }
+  if (view.used != null && view.used !== "" && isFinite(Number(view.used))) {
+    bits.push("<span>used</span> " + plannerMoneyHtml(plannerDollars(view.used)));
+  }
+  if (!bits.length) return "";
+  return ' <span data-planner-adoption-detail="1">' + bits.join(" ") + "</span>";
 }
 
 function plannerOption(value, label, selected) {
   return '<option value="' + esc(value) + '"' + (selected ? " selected" : "") + ">" + esc(label) + "</option>";
 }
 
-function plannerStat(label, n, mode) {
-  var m = moneyText(n, mode);
-  return '<div><span>' + esc(label) + '</span> <b class="' + m.tone + '">' + m.text + "</b></div>";
+function plannerBasisEnergy(basis) {
+  if (!basis || typeof basis !== "object" || Array.isArray(basis)) return null;
+  var year = basis.return_year != null ? basis.return_year : basis.year;
+  var credits = basis.credits && typeof basis.credits === "object" ? basis.credits : null;
+  var amount = basis.energy_carryforward_used;
+  if (amount == null && credits) amount = credits.energy_carryforward_used;
+  if (amount == null) amount = basis.energy;
+  if (amount == null) {
+    var keys = Object.keys(basis);
+    var i, key, val;
+    for (i = 0; i < keys.length; i++) {
+      key = keys[i];
+      if (key.indexOf("energy") < 0) continue;
+      val = basis[key];
+      if (isFinite(Number(val))) { amount = val; break; }
+      if (val && typeof val === "object") {
+        if (val.year != null) year = val.year;
+        val = val.amount != null ? val.amount : val.used;
+        if (isFinite(Number(val))) { amount = val; break; }
+      }
+    }
+  }
+  if (amount && typeof amount === "object") {
+    if (amount.year != null) year = amount.year;
+    amount = amount.amount != null ? amount.amount : amount.used;
+  }
+  if (amount == null || amount === "" || !isFinite(Number(amount))) return null;
+  return { year: year == null || year === "" ? "" : String(year), amount: Number(amount) };
 }
 
-function plannerCredits(cell) {
-  if (!cell) return "";
+function plannerEnergyNote(energy, basis, remaining) {
+  var when = energy && energy.expires != null ? String(energy.expires).trim() : "";
+  if (when) return ' <span>expires ' + esc(when) + "</span>";
+  var left = energy && energy.amount != null && energy.amount !== "" && isFinite(Number(energy.amount)) ? Number(energy.amount) : 0;
+  if (left !== 0) return "";
+  var used = plannerBasisEnergy(basis);
+  if (!used && remaining != null && remaining !== "" && isFinite(Number(remaining)) && Number(remaining) > 0) {
+    used = { year: "2026", amount: Number(remaining) };
+  }
+  if (!used || !(Number(used.amount) > 0)) return "";
+  var money = plannerDollars(used.amount);
+  var year = used.year || "2026";
+  return " <span>Used up on the " + esc(year) + " return (" + money.text + ")</span>";
+}
+
+function plannerCredits(cell, basis, remaining) {
   var parts = [];
-  var adopt = cell.adoption_carryforward;
-  if (adopt && typeof adopt === "object") {
-    var amt = plannerSpare(adopt.amount);
-    var expires = adopt.expires_after == null ? "" : String(adopt.expires_after);
-    parts.push('<p><span>Adoption</span> <b class="' + amt.tone + '">' + amt.text + "</b>" +
-      (expires ? ' <span>expires after ' + esc(expires) + "</span>" : "") + "</p>");
-    var years = adopt.projection_2028_2031 || [];
+  var adoptView = plannerAdoption(cell && cell.adoption_carryforward);
+  var amt = plannerDollars(adoptView.amount);
+  parts.push('<p data-planner-adoption="1"><span>Adoption left</span> ' + plannerMoneyHtml(amt) +
+    (adoptView.expires ? ' <span>expires after ' + esc(adoptView.expires) + "</span>" : "") +
+    plannerAdoptDetail(adoptView) + "</p>");
+  if (adoptView.projection.length) {
+    var years = adoptView.projection;
     if (years.length) {
       parts.push('<ul class="tax-planner-years">' + years.map(function (row) {
         if (!row) return "";
-        var used = moneyText(row.adoption_used, "plain");
-        var left = moneyText(row.adoption_left, "plain");
-        return "<li><span>" + esc(row.year) + '</span> <span>used</span> <b class="' + used.tone + '">' + used.text +
-          '</b> <span>left</span> <b class="' + left.tone + '">' + left.text + "</b></li>";
+        var used = plannerDollars(row.adoption_used);
+        var left = plannerDollars(row.adoption_left);
+        return "<li><span>" + esc(row.year) + "</span> <span>used</span> " + plannerMoneyHtml(used) +
+          " <span>left</span> " + plannerMoneyHtml(left) + "</li>";
       }).join("") + "</ul>");
     }
   }
-  var energy = cell.energy_carryforward;
-  if (energy && typeof energy === "object" && isFinite(Number(energy.amount)) && Number(energy.amount) !== 0) {
-    var en = plannerSpare(energy.amount);
-    var when = energy.expires == null ? "" : String(energy.expires);
-    parts.push('<p><span>Energy</span> <b class="' + en.tone + '">' + en.text + "</b>" +
-      (when ? ' <span>expires ' + esc(when) + "</span>" : "") + "</p>");
-  }
-  if (!parts.length) return "";
+  var energy = cell && cell.energy_carryforward;
+  var energyObj = energy && typeof energy === "object" ? energy : null;
+  var en = plannerDollars(energyObj ? energyObj.amount : 0);
+  parts.push('<p data-planner-energy="1"><span>Energy credit left</span> ' + plannerMoneyHtml(en) +
+    plannerEnergyNote(energyObj, basis, remaining) + "</p>");
   return '<div class="tax-planner-credits" data-planner-credits="1"><span class="sym">Credits carried forward</span>' +
     parts.join("") + "</div>";
 }
 
-function plannerResult(cell, w4Id, adoption) {
+function plannerFigure(cls, attr, label, money) {
+  return '<div class="' + cls + '" ' + attr + "><span>" + esc(label) + "</span> " + plannerMoneyHtml(money) + "</div>";
+}
+
+function plannerDetail(attr, label, money) {
+  return "<p " + attr + "><span>" + esc(label) + "</span> " + plannerMoneyHtml(money) + "</p>";
+}
+
+function plannerResult(cell, w4Id, adoption, basis, remaining) {
   var key = esc(w4Id) + "|" + (adoption ? "true" : "false");
-  var pay = moneyText(cell && cell.net_per_check, "plain");
-  var spare = plannerSpare(cell && cell.budget_spare_after);
-  var now = plannerSpare(cell && cell.budget_spare_now);
-  var federal = '<table class="book"><tbody><tr data-planner-federal="1"><td><span class="sym">Federal</span></td>' +
-    moneyTd(cell && cell.federal_refund_or_owed, "signed") + "</tr></tbody></table>";
   var inferred = cell && cell.inferred === true
     ? '<p class="hint" data-planner-inferred="1">Based on your pay stubs; update when the real W-4 is in.</p>'
     : "";
   return '<div class="tax-planner-result" data-planner-cell="' + key + '">' +
-    '<div class="tax-planner-stats">' +
-    plannerStat("Withheld per check", cell && cell.withholding_per_check, "plain") +
-    '<div class="tax-planner-pay" data-planner-pay="1"><span>Pay per check</span> <b class="' + pay.tone + '">' + pay.text + "</b></div>" +
-    '<div data-planner-monthly="1">' + plannerStat("Monthly change vs today", cell && cell.monthly_change, "signed") + "</div>" +
+    '<div class="tax-planner-headlines">' +
+    plannerFigure("tax-planner-pay", 'data-planner-pay="1"', "Pay per check", plannerDollars(cell && cell.net_per_check)) +
+    plannerFigure("tax-planner-refund", 'data-planner-federal="1"', "Refund or owed", plannerChange(cell && cell.federal_refund_or_owed)) +
+    plannerFigure("tax-planner-spare", 'data-planner-spare="1"', "Spare per month after", plannerDollars(cell && cell.budget_spare_after)) +
     "</div>" +
-    federal +
-    '<div class="tax-planner-spare" data-planner-spare="1"><span>Budget spare after</span> <b class="' + spare.tone + '">' + spare.text +
-    '</b><p class="tax-planner-now">now <b class="' + now.tone + '">' + now.text + "</b></p></div>" +
-    plannerCredits(cell) +
+    '<div class="tax-planner-details">' +
+    plannerDetail('data-planner-withholding="1"', "Withholding per check", plannerDollars(cell && cell.withholding_per_check)) +
+    plannerDetail('data-planner-monthly="1"', "Monthly change", plannerChange(cell && cell.monthly_change)) +
+    '<p class="tax-planner-now"><span>Spare now</span> ' + plannerMoneyHtml(plannerDollars(cell && cell.budget_spare_now)) + "</p>" +
+    plannerCredits(cell, basis, remaining) +
+    "</div>" +
     inferred +
     "</div>";
 }
@@ -1268,10 +1388,10 @@ function plannerCompare(planner, adoption, selectedId) {
     if (!row || row.id == null) return "";
     var cell = plannerFindCell(planner, row.id, adoption);
     var on = String(row.id) === String(selectedId) ? ' class="on"' : "";
-    var per = cell ? moneyTd(cell.net_per_check, "plain") : dashTd();
-    var monthly = cell ? moneyTd(cell.monthly_change, "signed") : dashTd();
-    var refund = cell ? moneyTd(cell.federal_refund_or_owed, "signed") : dashTd();
-    var spare = plannerSpareTd(cell ? cell.budget_spare_after : null);
+    var per = cell ? plannerMoneyTd(cell.net_per_check, false) : dashTd();
+    var monthly = cell ? plannerMoneyTd(cell.monthly_change, true) : dashTd();
+    var refund = cell ? plannerMoneyTd(cell.federal_refund_or_owed, true) : dashTd();
+    var spare = cell ? plannerMoneyTd(cell.budget_spare_after, false) : dashTd();
     return "<tr" + on + ' data-planner-row="' + esc(row.id) + '"><td><span class="sym">' + esc(row.label || row.id) +
       "</span></td>" + per + monthly + refund + spare + "</tr>";
   }).join("");
@@ -1298,9 +1418,16 @@ function plannerNotes(planner) {
 }
 
 function plannerCard(doc, state) {
-  var planner = doc && doc.estimate && doc.estimate.planner;
-  if (!planner || typeof planner !== "object" || Array.isArray(planner)) return "";
+  var rootPlanner = doc && doc.estimate && doc.estimate.planner;
+  if (!rootPlanner || typeof rootPlanner !== "object" || Array.isArray(rootPlanner)) return "";
+  var raw = state && state.planner ? state.planner : plannerReadStore();
+  var picked = plannerForYear(rootPlanner, raw);
+  var planner = picked.entry;
   var sel = plannerSelection(planner, state);
+  if (picked.entries) {
+    sel.year = planner.year == null ? "" : String(planner.year);
+    if (state) state.planner = sel;
+  }
   var w4Id = plannerResolveId(planner, sel);
   var cell = plannerFindCell(planner, w4Id, sel.adoption);
   var choices = plannerChoices(planner);
@@ -1319,11 +1446,22 @@ function plannerCard(doc, state) {
     return plannerOption(row.id ? "true" : "false", row.label, row.id === sel.adoption);
   }).join("");
   fields += plannerSelect("tax-planner-adoption", "Adoption", "adoption", adoptHtml);
+  var yearHtml = "";
+  if (picked.entries) {
+    var estimateTag = planner.estimate === true ? '<span data-planner-estimate="1">Estimate</span>' : "";
+    yearHtml = plannerSelect("tax-planner-year", "Year", "year", picked.entries.map(function (row) {
+      var y = row.year == null ? "" : String(row.year);
+      var text = row.estimate === true ? y + " Estimate" : y;
+      return plannerOption(y, text, y === sel.year);
+    }).join(""), estimateTag);
+  }
   var title = "W-4 planner";
-  if (planner.year != null && planner.year !== "") title += " " + planner.year;
+  var scope = '<p class="hint" data-planner-scope="1">For 2027 W-4 and 2027 taxes. 2026 withholding isn\'t changing.</p>';
   return card(title, "planner",
+    scope +
+    yearHtml +
     '<div class="tax-planner-fields">' + fields + "</div>" +
-    plannerResult(cell, w4Id, sel.adoption) +
+    plannerResult(cell, w4Id, sel.adoption, planner.basis, doc && doc.credits ? doc.credits.energy_carryforward_remaining : null) +
     plannerCompare(planner, sel.adoption, w4Id) +
     plannerNotes(planner));
 }
@@ -1503,11 +1641,15 @@ function bind(root, kind) {
       var doc = mem[kind];
       var planner = doc && doc.estimate && doc.estimate.planner;
       var state = root._paydeskState;
-      var cur = plannerNormalize(planner, state.planner || plannerReadStore() || {});
+      var remembered = state.planner || plannerReadStore() || {};
+      var picked = plannerForYear(planner, remembered);
+      if (plannerWhich === "year") picked = plannerForYear(planner, { year: sel.value });
+      var cur = plannerNormalize(picked.entry, remembered);
       if (plannerWhich === "w4") cur.w4 = sel.value;
       else if (plannerWhich === "extra") cur.extra = Number(sel.value);
       else if (plannerWhich === "adoption") cur.adoption = sel.value === "true";
-      cur = plannerNormalize(planner, cur);
+      cur = plannerNormalize(picked.entry, cur);
+      if (picked.entries) cur.year = picked.entry.year == null ? "" : String(picked.entry.year);
       state.planner = cur;
       plannerWriteStore(cur);
       if (doc) paint(root, kind, { ok: true, doc: doc });
