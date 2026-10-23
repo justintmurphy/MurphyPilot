@@ -1043,7 +1043,7 @@ function plannerWriteStore(sel) {
     if (sel.scenarios) {
       if (sel.raise != null && isFinite(Number(sel.raise))) saved.raise = Number(sel.raise);
       saved.loan401k = sel.loan401k === true;
-      saved.onemain = sel.onemain === true;
+      saved.personal_loan = sel.personal_loan === true;
     }
     localStorage.setItem(PLANNER_KEY, JSON.stringify(saved));
   } catch (eWrite) {}
@@ -1459,11 +1459,32 @@ function plannerPctLabel(n) {
   return String(v) + "%";
 }
 
+function plannerEndsLabel(ends) {
+  if (ends == null) return "";
+  var text = String(ends).trim();
+  var match = /^(\d{4})-(\d{2})(?:-\d{2})?(?:$|T)/.exec(text);
+  if (!match) return "";
+  var month = Number(match[2]);
+  if (month < 1 || month > 12) return "";
+  var names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return names[month - 1] + " " + match[1];
+}
+
 function plannerEndsNote(ends, estimate) {
-  if (ends == null || String(ends).trim() === "") return "";
-  var note = esc(String(ends).trim());
+  var note = plannerEndsLabel(ends);
+  if (!note) return "";
+  note = esc(note);
   if (estimate === true) note += " (est.)";
   return '<p class="tax-planner-scenario-note" data-planner-ends="1">' + note + "</p>";
+}
+
+function plannerRaisedChecks(raise) {
+  var month = Number(raise && raise.effective_month);
+  var checks = Number(raise && raise.checks_per_year);
+  if (!isFinite(month) || !isFinite(checks) || checks <= 0) return 0;
+  if (month < 1) month = 1;
+  if (month > 12) month = 12;
+  return (12 - month + 1) * (checks / 12);
 }
 
 function plannerYearBalance(loan, year) {
@@ -1507,31 +1528,35 @@ function plannerApplyScenarios(cell, scenarios, choice) {
   if (!isFinite(refund)) refund = 0;
   var withhold = Number(cell.withholding_per_check);
   if (!isFinite(withhold)) withhold = 0;
+  var monthly = Number(cell.monthly_change);
+  if (!isFinite(monthly)) monthly = 0;
   var changed = false;
+  var perCheckUp = 0;
   var raise = scenarios.raise;
   if (raise && typeof raise === "object" && !Array.isArray(raise) && choice.raise != null && isFinite(Number(choice.raise))) {
-    var nonFed = Number(raise.non_federal_rate);
-    var fedRate = Number(raise.federal_rate);
-    if (!isFinite(nonFed)) nonFed = 0;
+    var ded = Number(raise.deduction_rate);
+    var fedRate = Number(raise.federal_marginal_rate);
+    var base = Number(raise.base_gross_per_check);
+    if (!isFinite(ded)) ded = 0;
     if (!isFinite(fedRate)) fedRate = 0;
-    var dollars = (net + withhold) * (Number(choice.raise) / 100);
+    if (!isFinite(base)) base = 0;
+    var r = Number(choice.raise) / 100;
     var federalWithheld = withhold > 0;
-    var netUp = dollars * (1 - nonFed - (federalWithheld ? fedRate : 0));
-    net += netUp;
-    spare += netUp * PLANNER_CHECKS_PER_MONTH;
-    if (!federalWithheld) refund -= fedRate * dollars * PLANNER_CHECKS_PER_MONTH * 12;
+    perCheckUp += base * r * (1 - ded - (federalWithheld ? fedRate : 0));
+    if (!federalWithheld) refund -= fedRate * base * r * plannerRaisedChecks(raise);
     changed = true;
   }
   var loan = scenarios.loan_401k;
   if (choice.loan401k === true && loan && isFinite(Number(loan.per_check)) && !plannerLoanPaidOff(loan, choice.year)) {
-    var per = Number(loan.per_check);
-    net += per;
-    spare += per * PLANNER_CHECKS_PER_MONTH;
+    perCheckUp += Number(loan.per_check);
     changed = true;
   }
-  var one = scenarios.onemain;
-  if (choice.onemain === true && one && isFinite(Number(one.monthly)) && !plannerLoanPaidOff(one, choice.year)) {
-    spare += Number(one.monthly);
+  net += perCheckUp;
+  monthly += perCheckUp * PLANNER_CHECKS_PER_MONTH;
+  spare += perCheckUp * PLANNER_CHECKS_PER_MONTH;
+  var personal = scenarios.personal_loan;
+  if (choice.personal_loan === true && personal && isFinite(Number(personal.monthly)) && !plannerLoanPaidOff(personal, choice.year)) {
+    spare += Number(personal.monthly);
     changed = true;
   }
   if (!changed) return cell;
@@ -1542,16 +1567,17 @@ function plannerApplyScenarios(cell, scenarios, choice) {
   copy.net_per_check = net;
   copy.budget_spare_after = spare;
   copy.federal_refund_or_owed = refund;
+  copy.monthly_change = monthly;
   return copy;
 }
 
 function plannerScenarioChoices(scenarios, raw) {
-  var choice = { raise: null, loan401k: false, onemain: false, scenarios: false };
+  var choice = { raise: null, loan401k: false, personal_loan: false, scenarios: false };
   if (!scenarios) return choice;
   choice.scenarios = true;
   choice.raise = plannerClampPct(scenarios.raise, raw && raw.raise);
   choice.loan401k = !!(raw && (raw.loan401k === true || raw.loan_401k === true));
-  choice.onemain = !!(raw && raw.onemain === true);
+  choice.personal_loan = !!(raw && raw.personal_loan === true);
   return choice;
 }
 
@@ -1573,13 +1599,13 @@ function plannerScenarioHtml(scenarios, choice) {
       plannerBalanceLine(loan, year) +
       plannerEndsNote(loan.ends, loan.estimate === true) + "</div>");
   }
-  var one = scenarios.onemain;
-  if (one && typeof one === "object" && !Array.isArray(one)) {
-    parts.push('<div class="tax-planner-choice" data-planner-choice="onemain">' +
-      plannerSelect("tax-planner-onemain", "Pay off personal loan", "onemain",
-        plannerPayoffOptions(choice.onemain === true, plannerLoanPaidOff(one, year))) +
-      plannerBalanceLine(one, year) +
-      plannerEndsNote(one.ends, false) + "</div>");
+  var personal = scenarios.personal_loan;
+  if (personal && typeof personal === "object" && !Array.isArray(personal)) {
+    parts.push('<div class="tax-planner-choice" data-planner-choice="personal_loan">' +
+      plannerSelect("tax-planner-personal-loan", "Pay off personal loan", "personal_loan",
+        plannerPayoffOptions(choice.personal_loan === true, plannerLoanPaidOff(personal, year))) +
+      plannerBalanceLine(personal, year) +
+      plannerEndsNote(personal.ends, false) + "</div>");
   }
   if (!parts.length) return "";
   return '<div class="tax-planner-scenarios" data-planner-scenarios="1">' + parts.join("") + "</div>";
@@ -1602,7 +1628,7 @@ function plannerCard(doc, state) {
     scene.year = planner.year == null || planner.year === "" ? "" : String(planner.year);
     sel.raise = scene.raise;
     sel.loan401k = scene.loan401k;
-    sel.onemain = scene.onemain;
+    sel.personal_loan = scene.personal_loan;
     sel.scenarios = true;
     if (state) state.planner = sel;
   }
@@ -1794,7 +1820,7 @@ function plannerControlChanged(root, kind, sel) {
   if (scene.scenarios) {
     cur.raise = plannerWhich === "raise" ? plannerClampPct(scenarios.raise, sel.value) : scene.raise;
     cur.loan401k = plannerWhich === "loan401k" ? sel.value === "true" : scene.loan401k;
-    cur.onemain = plannerWhich === "onemain" ? sel.value === "true" : scene.onemain;
+    cur.personal_loan = plannerWhich === "personal_loan" ? sel.value === "true" : scene.personal_loan;
     cur.scenarios = true;
   }
   state.planner = cur;
