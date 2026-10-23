@@ -1425,12 +1425,9 @@ function plannerNotes(planner) {
 
 var PLANNER_CHECKS_PER_MONTH = 2;
 
-function plannerScenarioBag(root, entry) {
-  function ok(value) {
-    return !!(value && typeof value === "object" && !Array.isArray(value));
-  }
-  if (ok(entry && entry.scenarios)) return entry.scenarios;
-  if (ok(root && root.scenarios)) return root.scenarios;
+function plannerScenarioBag(root) {
+  var value = root && root.scenarios;
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
   return null;
 }
 
@@ -1462,9 +1459,11 @@ function plannerPctLabel(n) {
   return String(v) + "%";
 }
 
-function plannerEndsNote(ends) {
+function plannerEndsNote(ends, estimate) {
   if (ends == null || String(ends).trim() === "") return "";
-  return '<p class="tax-planner-scenario-note" data-planner-ends="1">' + esc(ends) + "</p>";
+  var note = esc(String(ends).trim());
+  if (estimate === true) note += " (est.)";
+  return '<p class="tax-planner-scenario-note" data-planner-ends="1">' + note + "</p>";
 }
 
 function plannerApplyScenarios(cell, scenarios, choice) {
@@ -1539,14 +1538,14 @@ function plannerScenarioHtml(scenarios, choice) {
     parts.push('<div class="tax-planner-choice" data-planner-choice="loan401k">' +
       plannerSelect("tax-planner-401k", "Pay off 401k loan", "loan401k",
         plannerOption("false", "No", !choice.loan401k) + plannerOption("true", "Yes", choice.loan401k === true)) +
-      plannerEndsNote(loan.ends) + "</div>");
+      plannerEndsNote(loan.ends, loan.estimate === true) + "</div>");
   }
   var one = scenarios.onemain;
   if (one && typeof one === "object" && !Array.isArray(one)) {
     parts.push('<div class="tax-planner-choice" data-planner-choice="onemain">' +
-      plannerSelect("tax-planner-onemain", "Pay off OneMain loan", "onemain",
+      plannerSelect("tax-planner-onemain", "Pay off personal loan", "onemain",
         plannerOption("false", "No", !choice.onemain) + plannerOption("true", "Yes", choice.onemain === true)) +
-      plannerEndsNote(one.ends) + "</div>");
+      plannerEndsNote(one.ends, false) + "</div>");
   }
   if (!parts.length) return "";
   return '<div class="tax-planner-scenarios" data-planner-scenarios="1">' + parts.join("") + "</div>";
@@ -1563,7 +1562,7 @@ function plannerCard(doc, state) {
     sel.year = planner.year == null ? "" : String(planner.year);
     if (state) state.planner = sel;
   }
-  var scenarios = plannerScenarioBag(rootPlanner, planner);
+  var scenarios = plannerScenarioBag(rootPlanner);
   var scene = plannerScenarioChoices(scenarios, raw);
   if (scene.scenarios) {
     sel.raise = scene.raise;
@@ -1755,7 +1754,7 @@ function plannerControlChanged(root, kind, sel) {
   else if (plannerWhich === "adoption") cur.adoption = sel.value === "true";
   cur = plannerNormalize(picked.entry, cur);
   if (picked.entries) cur.year = picked.entry.year == null ? "" : String(picked.entry.year);
-  var scenarios = plannerScenarioBag(planner, picked.entry);
+  var scenarios = plannerScenarioBag(planner);
   var scene = plannerScenarioChoices(scenarios, remembered);
   if (scene.scenarios) {
     cur.raise = plannerWhich === "raise" ? plannerClampPct(scenarios.raise, sel.value) : scene.raise;

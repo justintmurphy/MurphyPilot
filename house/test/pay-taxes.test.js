@@ -798,7 +798,7 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
-    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ag/);
+    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ah/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
   assert.match(html, /\/house\/js\/banking\.js\?v=20261021aa/);
@@ -1327,13 +1327,13 @@ test("planner scenarios adjust pay, refund, and spare", async function () {
   const plainHtml = ctx.paydeskHtml("taxes", loadTaxes(), {});
   assert.equal(crypto.createHash("sha256").update(plainHtml).digest("hex"), "a6885207c95a5ac31cf26c04bdf65a63c8c414ac1ba0a442c5ccc02862d613f3");
   assert.equal(plainHtml.length, 11369);
-  assert.doesNotMatch(plainHtml, /data-planner-scenarios|tax-planner-raise|Pay off 401k loan|Pay off OneMain loan/);
+  assert.doesNotMatch(plainHtml, /data-planner-scenarios|tax-planner-raise|Pay off 401k loan|Pay off personal loan|Pay off OneMain loan/);
   const missing = loadTaxes();
   delete missing.estimate.planner;
   const none = ctx.paydeskHtml("taxes", missing, {});
   assert.equal(crypto.createHash("sha256").update(none).digest("hex"), "946b10d86c6b3575c0ab814102925904200494318e758aff71a64d2b81f13632");
   assert.equal(none.length, 7792);
-  assert.doesNotMatch(read("house/js/paydesk.js"), /sample-401k|sample-onemain/);
+  assert.doesNotMatch(read("house/js/paydesk.js"), /sample-401k|sample-onemain|OneMain|\.account\b/);
 
   function withScenarios(ends) {
     const doc = loadTaxes();
@@ -1346,8 +1346,15 @@ test("planner scenarios adjust pay, refund, and spare", async function () {
     cell.budget_spare_now = 9;
     doc.estimate.planner.scenarios = {
       raise: { default_pct: 0, min: 0, max: 20, step: 5, non_federal_rate: 0.1, federal_rate: 0.2 },
-      loan_401k: { per_check: 15, ends: ends ? "sample-401k" : "" },
-      onemain: { monthly: 25, ends: ends ? "sample-onemain" : null }
+      loan_401k: { per_check: 15, ends: ends ? "sample-401k" : "", estimate: true, balance: null },
+      onemain: {
+        monthly: 25,
+        due_day: 12,
+        paid_from: "sample-paid-from",
+        balance: ends ? 86420 : null,
+        ends: ends ? "sample-onemain" : null,
+        account: "hidden-account-label"
+      }
     };
     return doc;
   }
@@ -1359,11 +1366,15 @@ test("planner scenarios adjust pay, refund, and spare", async function () {
   assert.match(base, /<label for="tax-planner-raise">Raise <span data-planner-raise-pct="1">0%<\/span><\/label>/);
   assert.match(base, /id="tax-planner-raise"[^>]*min="0"[^>]*max="20"[^>]*step="5"[^>]*value="0"/);
   assert.match(base, />Pay off 401k loan</);
-  assert.match(base, />Pay off OneMain loan</);
+  assert.match(base, />Pay off personal loan</);
+  assert.doesNotMatch(base, /OneMain|hidden-account-label|sample-paid-from|86420/);
   assert.match(base, /data-planner-choice="loan401k"[\s\S]*value="false" selected>No/);
   assert.match(base, /data-planner-choice="onemain"[\s\S]*value="false" selected>No/);
-  assert.ok(base.split('data-planner-choice="loan401k"')[1].includes("sample-401k"));
-  assert.ok(base.split('data-planner-choice="onemain"')[1].includes("sample-onemain"));
+  const loanNote = base.split('data-planner-choice="loan401k"')[1].split('data-planner-choice="onemain"')[0];
+  const oneNote = base.split('data-planner-choice="onemain"')[1].split('data-planner-pay')[0];
+  assert.match(loanNote, /sample-401k \(est\.\)/);
+  assert.match(oneNote, /sample-onemain/);
+  assert.doesNotMatch(oneNote, /\(est\.\)/);
   assert.ok(hasMoney(base.split('data-planner-pay="1"')[1].split("</div>")[0], "$400"));
   assert.ok(hasMoney(base.split('data-planner-spare="1"')[1].split("</div>")[0], "$50"));
   assert.doesNotMatch(base, /\$[\d,]+\.\d{2}/);
@@ -1402,7 +1413,60 @@ test("planner scenarios adjust pay, refund, and spare", async function () {
 
   const quietDoc = withScenarios(false);
   const quiet = plannerSlice(ctx.paydeskHtml("taxes", quietDoc, { planner: { raise: 0 } }));
-  assert.doesNotMatch(quiet, /sample-401k|sample-onemain|data-planner-ends/);
+  assert.doesNotMatch(quiet, /sample-401k|sample-onemain|data-planner-ends|\(est\.\)/);
+  const unmarkedDoc = withScenarios(true);
+  unmarkedDoc.estimate.planner.scenarios.loan_401k.estimate = false;
+  const unmarkedLoan = plannerSlice(ctx.paydeskHtml("taxes", unmarkedDoc, {})).split('data-planner-choice="loan401k"')[1].split('data-planner-choice="onemain"')[0];
+  assert.match(unmarkedLoan, /sample-401k</);
+  assert.doesNotMatch(unmarkedLoan, /\(est\.\)/);
+
+  const yearDoc = loadTaxes();
+  const early = JSON.parse(JSON.stringify(yearDoc.estimate.planner));
+  const later = JSON.parse(JSON.stringify(early));
+  later.year = Number(early.year) + 1;
+  function stamp(plan, net) {
+    const cell = plan.cells.find(function (row) { return row && row.w4 === "current" && row.adoption === false; });
+    cell.withholding_per_check = 100;
+    cell.net_per_check = net;
+    cell.budget_spare_after = 50;
+    cell.federal_refund_or_owed = 80;
+    cell.monthly_change = 7;
+    cell.budget_spare_now = 9;
+  }
+  stamp(early, 400);
+  stamp(later, 200);
+  const decoy = {
+    raise: { default_pct: 100, min: 0, max: 100, step: 10, non_federal_rate: 0, federal_rate: 0 },
+    loan_401k: { per_check: 500, ends: "year-level-401k", estimate: false, balance: 111 },
+    onemain: { monthly: 500, ends: "year-level-personal", due_day: 3, paid_from: "year-paid-from", balance: 222, account: "year-account-label" }
+  };
+  early.scenarios = decoy;
+  later.scenarios = decoy;
+  yearDoc.estimate.planner = {
+    years: [later, early],
+    scenarios: {
+      raise: { default_pct: 0, min: 0, max: 20, step: 5, non_federal_rate: 0.1, federal_rate: 0.2 },
+      loan_401k: { per_check: 15, ends: "sample-401k", estimate: true, balance: null },
+      onemain: { monthly: 25, due_day: 12, paid_from: "sample-paid-from", balance: null, ends: "sample-onemain", account: "hidden-account-label" }
+    }
+  };
+  const yearChoice = { w4: "current", adoption: false, raise: 10, loan401k: true, onemain: true };
+  const earlyPick = plannerSlice(ctx.paydeskHtml("taxes", yearDoc, { planner: Object.assign({ year: String(early.year) }, yearChoice) }));
+  assert.ok(hasMoney(earlyPick.split('data-planner-pay="1"')[1].split("</div>")[0], "$450"));
+  assert.ok(hasMoney(earlyPick.split('data-planner-spare="1"')[1].split("</div>")[0], "$175"));
+  assert.match(earlyPick, /sample-401k \(est\.\)/);
+  assert.doesNotMatch(earlyPick, /year-level-401k|year-level-personal|year-paid-from|year-account-label|hidden-account-label|sample-paid-from/);
+  const laterPick = plannerSlice(ctx.paydeskHtml("taxes", yearDoc, { planner: Object.assign({ year: String(later.year) }, yearChoice) }));
+  assert.ok(hasMoney(laterPick.split('data-planner-pay="1"')[1].split("</div>")[0], "$236"));
+  assert.ok(hasMoney(laterPick.split('data-planner-spare="1"')[1].split("</div>")[0], "$147"));
+  assert.match(laterPick, /sample-401k \(est\.\)/);
+  assert.match(laterPick.split('id="tax-planner-year"')[1].split("</select>")[0], new RegExp('value="' + later.year + '" selected>'));
+  const yearOnly = loadTaxes();
+  const wrapped = JSON.parse(JSON.stringify(yearOnly.estimate.planner));
+  wrapped.scenarios = decoy;
+  yearOnly.estimate.planner = { years: [wrapped] };
+  const ignored = plannerSlice(ctx.paydeskHtml("taxes", yearOnly, {}));
+  assert.doesNotMatch(ignored, /data-planner-scenarios|Pay off personal loan|year-level-401k|year-account-label/);
 
   const listeners = {};
   const root = {
