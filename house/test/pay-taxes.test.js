@@ -798,11 +798,11 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
-    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022af/);
+    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022aj/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
   assert.match(html, /\/house\/js\/banking\.js\?v=20261021aa/);
-  assert.match(html, /\/house\/house\.css\?v=20261022ab/);
+  assert.match(html, /\/house\/house\.css\?v=20261022ac/);
     assert.match(html, /list-cap\.js\?v=20261007eh/);
     assert.match(html, /id="clock"/);
     assert.match(html, /id="mp-ticker"/);
@@ -833,7 +833,7 @@ test("pay and taxes number and control rules stay off Investments", function () 
 });
 
 test("house.css and banking.js share one cache bust", function () {
-  const houseVersion = "20261022ab";
+  const houseVersion = "20261022ac";
 
   const bankVersion = "20261021aa";
   const pages = ["index.html", "investments/index.html", "pay/index.html", "taxes/index.html"];
@@ -853,7 +853,7 @@ test("house.css and banking.js share one cache bust", function () {
   });
   assert.deepEqual(Array.from(house), [houseVersion]);
   assert.deepEqual(Array.from(banking), [bankVersion]);
-  assert.match(read("house/house.css"), /house-b\.css\?v=20261022ab/);
+  assert.match(read("house/house.css"), /house-b\.css\?v=20261022ac/);
 
   assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261021aa)/);
 });
@@ -1319,6 +1319,347 @@ test("planner headlines use whole dollars and signed changes", function () {
   const owed = flipped.split('data-planner-federal="1"')[1].split("</div>")[0];
   assert.ok(hasMoney(owed, "\u2212$3"));
   assert.match(owed, /tone-stop/);
+});
+
+test("planner scenarios adjust pay, refund, and spare", async function () {
+  const crypto = require("crypto");
+  const ctx = boot();
+  const plainHtml = ctx.paydeskHtml("taxes", loadTaxes(), {});
+  assert.equal(crypto.createHash("sha256").update(plainHtml).digest("hex"), "a6885207c95a5ac31cf26c04bdf65a63c8c414ac1ba0a442c5ccc02862d613f3");
+  assert.equal(plainHtml.length, 11369);
+  assert.doesNotMatch(plainHtml, new RegExp("data-planner-scenarios|tax-planner-raise|Pay off 401k loan|Pay off personal loan|Pay off " + ["one", "main"].join("") + " loan", "i"));
+  const missing = loadTaxes();
+  delete missing.estimate.planner;
+  const none = ctx.paydeskHtml("taxes", missing, {});
+  assert.equal(crypto.createHash("sha256").update(none).digest("hex"), "946b10d86c6b3575c0ab814102925904200494318e758aff71a64d2b81f13632");
+  assert.equal(none.length, 7792);
+  assert.doesNotMatch(read("house/js/paydesk.js"), new RegExp(["one", "main"].join("") + "|non_federal_rate|federal_rate|sample-401k|\\.account\\b", "i"));
+
+  function withScenarios(ends) {
+    const doc = loadTaxes();
+    const cell = plannerCell(doc, "current", false);
+    cell.withholding_per_check = 100;
+    cell.net_per_check = 400;
+    cell.budget_spare_after = 50;
+    cell.federal_refund_or_owed = 80;
+    cell.monthly_change = 7;
+    cell.budget_spare_now = 9;
+    doc.estimate.planner.scenarios = {
+      raise: {
+        default_pct: 0, min: 0, max: 20, step: 5,
+        deduction_rate: 0.1, federal_marginal_rate: 0.2,
+        base_gross_per_check: 500, effective_month: 3, checks_per_year: 24
+      },
+      loan_401k: { per_check: 15, ends: ends ? "2029-04-15" : "", estimate: true, balance: null },
+      personal_loan: {
+        monthly: 25,
+        due_day: 12,
+        paid_from: "sample-paid-from",
+        balance: ends ? 86420 : null,
+        ends: ends ? "2030-11" : null,
+        account: "hidden-account-label"
+      }
+    };
+    return doc;
+  }
+  const doc = withScenarios(true);
+  const base = plannerSlice(ctx.paydeskHtml("taxes", doc, {}));
+  assert.match(base, /data-planner-scenarios="1"/);
+  assert.ok(base.indexOf("tax-planner-fields") < base.indexOf("data-planner-scenarios"));
+  assert.ok(base.indexOf("data-planner-scenarios") < base.indexOf("data-planner-pay"));
+  assert.match(base, /<label for="tax-planner-raise">Raise <span data-planner-raise-pct="1">0%<\/span><\/label>/);
+  assert.match(base, /id="tax-planner-raise"[^>]*min="0"[^>]*max="20"[^>]*step="5"[^>]*value="0"/);
+  assert.match(base, />Pay off 401k loan</);
+  assert.match(base, />Pay off personal loan</);
+  assert.match(base, /id="tax-planner-personal-loan"/);
+  assert.doesNotMatch(base, new RegExp(["one", "main"].join("") + "|hidden-account-label|sample-paid-from|86420|data-planner-balance|Loan balance end of|Paid off|2029-04|2030-11", "i"));
+  assert.match(base, /data-planner-choice="loan401k"[\s\S]*value="false" selected>No/);
+  assert.match(base, /data-planner-choice="personal_loan"[\s\S]*value="false" selected>No/);
+  const loanNote = base.split('data-planner-choice="loan401k"')[1].split('data-planner-choice="personal_loan"')[0];
+  const oneNote = base.split('data-planner-choice="personal_loan"')[1].split('data-planner-pay')[0];
+  assert.match(loanNote, /Apr 2029 \(est\.\)/);
+  assert.match(oneNote, /Nov 2030/);
+  assert.doesNotMatch(oneNote, /\(est\.\)/);
+  assert.ok(hasMoney(base.split('data-planner-pay="1"')[1].split("</div>")[0], "$400"));
+  assert.ok(hasMoney(base.split('data-planner-spare="1"')[1].split("</div>")[0], "$50"));
+  assert.doesNotMatch(base, /\$[\d,]+\.\d{2}/);
+
+  const raised = plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { w4: "current", adoption: false, raise: 10 } }));
+  assert.match(raised, /data-planner-raise-pct="1">10%</);
+  assert.ok(hasMoney(raised.split('data-planner-pay="1"')[1].split("</div>")[0], "$435"));
+  assert.ok(hasMoney(raised.split('data-planner-spare="1"')[1].split("</div>")[0], "$120"));
+  assert.ok(hasMoney(raised.split('data-planner-federal="1"')[1].split("</div>")[0], "+$80"));
+  assert.ok(hasMoney(raised.split('data-planner-monthly="1"')[1].split("</p>")[0], "+$77"));
+  assert.ok(hasMoney(raised.split("tax-planner-now")[1].split("</p>")[0], "$9"));
+  const row = raised.split('data-planner-row="current"')[1].split("</tr>")[0];
+  assert.ok(hasMoney(row, "$435"));
+  assert.ok(hasMoney(row, "+$77"));
+  assert.ok(hasMoney(row, "$120"));
+  assert.match(plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { raise: 12 } })), /data-planner-raise-pct="1">10%</);
+  assert.ok(hasMoney(plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { raise: 100 } })).split('data-planner-pay="1"')[1].split("</div>")[0], "$470"));
+
+  const only401 = plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { w4: "current", adoption: false, raise: 0, loan401k: true } }));
+  assert.ok(hasMoney(only401.split('data-planner-pay="1"')[1].split("</div>")[0], "$415"));
+  assert.ok(hasMoney(only401.split('data-planner-monthly="1"')[1].split("</p>")[0], "+$37"));
+  assert.ok(hasMoney(only401.split('data-planner-spare="1"')[1].split("</div>")[0], "$80"));
+  const onlyOne = plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { w4: "current", adoption: false, raise: 0, personal_loan: true } }));
+  assert.ok(hasMoney(onlyOne.split('data-planner-pay="1"')[1].split("</div>")[0], "$400"));
+  assert.ok(hasMoney(onlyOne.split('data-planner-monthly="1"')[1].split("</p>")[0], "+$7"));
+  assert.ok(hasMoney(onlyOne.split('data-planner-spare="1"')[1].split("</div>")[0], "$75"));
+  const both = plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { w4: "current", adoption: false, raise: 10, loan401k: true, personal_loan: true } }));
+  assert.ok(hasMoney(both.split('data-planner-pay="1"')[1].split("</div>")[0], "$450"));
+  assert.ok(hasMoney(both.split('data-planner-monthly="1"')[1].split("</p>")[0], "+$107"));
+  assert.ok(hasMoney(both.split('data-planner-spare="1"')[1].split("</div>")[0], "$175"));
+  assert.match(both, /data-planner-choice="loan401k"[\s\S]*value="true" selected>Yes/);
+  assert.match(both, /data-planner-choice="personal_loan"[\s\S]*value="true" selected>Yes/);
+
+  const exemptDoc = withScenarios(true);
+  plannerCell(exemptDoc, "current", false).withholding_per_check = 0;
+  const exempt = plannerSlice(ctx.paydeskHtml("taxes", exemptDoc, { planner: { w4: "current", adoption: false, raise: 10 } }));
+  assert.ok(hasMoney(exempt.split('data-planner-pay="1"')[1].split("</div>")[0], "$445"));
+  assert.ok(hasMoney(exempt.split('data-planner-federal="1"')[1].split("</div>")[0], "\u2212$120"));
+  assert.ok(hasMoney(exempt.split('data-planner-monthly="1"')[1].split("</p>")[0], "+$97"));
+  assert.ok(hasMoney(exempt.split('data-planner-spare="1"')[1].split("</div>")[0], "$140"));
+  exemptDoc.estimate.planner.scenarios.raise.effective_month = 12;
+  const december = plannerSlice(ctx.paydeskHtml("taxes", exemptDoc, { planner: { w4: "current", adoption: false, raise: 10 } }));
+  assert.ok(hasMoney(december.split('data-planner-pay="1"')[1].split("</div>")[0], "$445"));
+  assert.ok(hasMoney(december.split('data-planner-federal="1"')[1].split("</div>")[0], "+$60"));
+
+  const quietDoc = withScenarios(false);
+  const quiet = plannerSlice(ctx.paydeskHtml("taxes", quietDoc, { planner: { raise: 0 } }));
+  assert.doesNotMatch(quiet, /Apr 2029|Nov 2030|data-planner-ends|\(est\.\)/);
+  const unmarkedDoc = withScenarios(true);
+  unmarkedDoc.estimate.planner.scenarios.loan_401k.estimate = false;
+  const unmarkedLoan = plannerSlice(ctx.paydeskHtml("taxes", unmarkedDoc, {})).split('data-planner-choice="loan401k"')[1].split('data-planner-choice="personal_loan"')[0];
+  assert.match(unmarkedLoan, /Apr 2029</);
+  assert.doesNotMatch(unmarkedLoan, /\(est\.\)/);
+
+  const yearDoc = loadTaxes();
+  const early = JSON.parse(JSON.stringify(yearDoc.estimate.planner));
+  const later = JSON.parse(JSON.stringify(early));
+  later.year = Number(early.year) + 1;
+  function stamp(plan, net) {
+    const cell = plan.cells.find(function (row) { return row && row.w4 === "current" && row.adoption === false; });
+    cell.withholding_per_check = 100;
+    cell.net_per_check = net;
+    cell.budget_spare_after = 50;
+    cell.federal_refund_or_owed = 80;
+    cell.monthly_change = 7;
+    cell.budget_spare_now = 9;
+  }
+  stamp(early, 400);
+  stamp(later, 200);
+  const decoy = {
+    raise: {
+      default_pct: 100, min: 0, max: 100, step: 10,
+      deduction_rate: 0, federal_marginal_rate: 0,
+      base_gross_per_check: 9000, effective_month: 1, checks_per_year: 24
+    },
+    loan_401k: { per_check: 500, ends: "2099-01", estimate: false, balance: 111 },
+    personal_loan: { monthly: 500, ends: "2099-08", due_day: 3, paid_from: "year-paid-from", balance: 222, account: "year-account-label" }
+  };
+  early.scenarios = decoy;
+  later.scenarios = decoy;
+  yearDoc.estimate.planner = {
+    years: [later, early],
+    scenarios: {
+      raise: {
+        default_pct: 0, min: 0, max: 20, step: 5,
+        deduction_rate: 0.1, federal_marginal_rate: 0.2,
+        base_gross_per_check: 500, effective_month: 3, checks_per_year: 24
+      },
+      loan_401k: { per_check: 15, ends: "2029-04", estimate: true, balance: null },
+      personal_loan: { monthly: 25, due_day: 12, paid_from: "sample-paid-from", balance: null, ends: "2030-11", account: "hidden-account-label" }
+    }
+  };
+  const yearChoice = { w4: "current", adoption: false, raise: 10, loan401k: true, personal_loan: true };
+  const earlyPick = plannerSlice(ctx.paydeskHtml("taxes", yearDoc, { planner: Object.assign({ year: String(early.year) }, yearChoice) }));
+  assert.ok(hasMoney(earlyPick.split('data-planner-pay="1"')[1].split("</div>")[0], "$450"));
+  assert.ok(hasMoney(earlyPick.split('data-planner-spare="1"')[1].split("</div>")[0], "$175"));
+  assert.match(earlyPick, /Apr 2029 \(est\.\)/);
+  assert.doesNotMatch(earlyPick, /Jan 2099|Aug 2099|year-paid-from|year-account-label|hidden-account-label|sample-paid-from/);
+  const laterPick = plannerSlice(ctx.paydeskHtml("taxes", yearDoc, { planner: Object.assign({ year: String(later.year) }, yearChoice) }));
+  assert.ok(hasMoney(laterPick.split('data-planner-pay="1"')[1].split("</div>")[0], "$250"));
+  assert.ok(hasMoney(laterPick.split('data-planner-monthly="1"')[1].split("</p>")[0], "+$107"));
+  assert.ok(hasMoney(laterPick.split('data-planner-spare="1"')[1].split("</div>")[0], "$175"));
+  assert.match(laterPick, /Apr 2029 \(est\.\)/);
+  assert.match(laterPick.split('id="tax-planner-year"')[1].split("</select>")[0], new RegExp('value="' + later.year + '" selected>'));
+  const yearOnly = loadTaxes();
+  const wrapped = JSON.parse(JSON.stringify(yearOnly.estimate.planner));
+  wrapped.scenarios = decoy;
+  yearOnly.estimate.planner = { years: [wrapped] };
+  const ignored = plannerSlice(ctx.paydeskHtml("taxes", yearOnly, {}));
+  assert.doesNotMatch(ignored, /data-planner-scenarios|Pay off personal loan|Jan 2099|year-account-label/);
+
+  const balanceDoc = loadTaxes();
+  const bEarly = JSON.parse(JSON.stringify(balanceDoc.estimate.planner));
+  const bLater = JSON.parse(JSON.stringify(bEarly));
+  bLater.year = Number(bEarly.year) + 1;
+  stamp(bEarly, 400);
+  stamp(bLater, 200);
+  const by401 = {};
+  const byOne = {};
+  by401[String(bEarly.year)] = 4321;
+  by401[String(bLater.year)] = 0;
+  byOne[String(bEarly.year)] = null;
+  byOne[String(bLater.year)] = 654;
+  balanceDoc.estimate.planner = {
+    years: [bLater, bEarly],
+    scenarios: {
+      raise: {
+        default_pct: 0, min: 0, max: 20, step: 5,
+        deduction_rate: 0.1, federal_marginal_rate: 0.2,
+        base_gross_per_check: 500, effective_month: 3, checks_per_year: 24
+      },
+      loan_401k: {
+        per_check: 15,
+        ends: "2029-04",
+        estimate: true,
+        balance: null,
+        balance_asof: "sample-asof-401k",
+        balance_by_year: by401
+      },
+      personal_loan: {
+        monthly: 25,
+        due_day: 12,
+        paid_from: "sample-paid-from",
+        balance: null,
+        ends: "2030-11",
+        account: "hidden-account-label",
+        balance_asof: "sample-asof-personal",
+        balance_by_year: byOne
+      }
+    }
+  };
+  function choiceBlock(html, which) {
+    const next = which === "loan401k" ? 'data-planner-choice="personal_loan"' : 'data-planner-pay';
+    return html.split('data-planner-choice="' + which + '"')[1].split(next)[0];
+  }
+  const openBal = plannerSlice(ctx.paydeskHtml("taxes", balanceDoc, {
+    planner: { year: String(bEarly.year), w4: "current", adoption: false, raise: 0, loan401k: false, personal_loan: false }
+  }));
+  const open401 = choiceBlock(openBal, "loan401k");
+  const openOne = choiceBlock(openBal, "personal_loan");
+  assert.match(open401, new RegExp("Loan balance end of " + bEarly.year + ": <b>\\$4,321</b>"));
+  assert.match(open401, /value="false" selected>No/);
+  assert.match(open401, /value="true">Yes/);
+  assert.doesNotMatch(open401, /selected>Paid off/);
+  assert.doesNotMatch(openOne, /data-planner-balance|Loan balance end of|Paid off/);
+  assert.doesNotMatch(openBal, /sample-asof-401k|sample-asof-personal|hidden-account-label|\$654/);
+  const yesEarly = plannerSlice(ctx.paydeskHtml("taxes", balanceDoc, {
+    planner: { year: String(bEarly.year), w4: "current", adoption: false, raise: 0, loan401k: true, personal_loan: true }
+  }));
+  assert.match(choiceBlock(yesEarly, "loan401k"), /value="true" selected>Yes/);
+  assert.doesNotMatch(choiceBlock(yesEarly, "personal_loan"), /data-planner-balance/);
+  assert.ok(hasMoney(yesEarly.split('data-planner-pay="1"')[1].split("</div>")[0], "$415"));
+  assert.ok(hasMoney(yesEarly.split('data-planner-spare="1"')[1].split("</div>")[0], "$105"));
+  const yesLater = plannerSlice(ctx.paydeskHtml("taxes", balanceDoc, {
+    planner: { year: String(bLater.year), w4: "current", adoption: false, raise: 0, loan401k: true, personal_loan: true }
+  }));
+  const later401 = choiceBlock(yesLater, "loan401k");
+  const laterOne = choiceBlock(yesLater, "personal_loan");
+  assert.match(later401, /value="true" selected>Paid off/);
+  assert.match(later401, /data-planner-balance="1">Paid off</);
+  assert.doesNotMatch(later401, /selected>Yes/);
+  assert.match(laterOne, new RegExp("Loan balance end of " + bLater.year + ": <b>\\$654</b>"));
+  assert.match(laterOne, /value="true" selected>Yes/);
+  assert.ok(hasMoney(yesLater.split('data-planner-pay="1"')[1].split("</div>")[0], "$200"));
+  assert.ok(hasMoney(yesLater.split('data-planner-spare="1"')[1].split("</div>")[0], "$75"));
+  assert.ok(hasMoney(yesLater.split('data-planner-row="current"')[1].split("</tr>")[0], "$200"));
+  assert.doesNotMatch(yesLater, /sample-asof-401k|sample-asof-personal|hidden-account-label/);
+  const noLater = plannerSlice(ctx.paydeskHtml("taxes", balanceDoc, {
+    planner: { year: String(bLater.year), w4: "current", adoption: false, raise: 0, loan401k: false, personal_loan: false }
+  }));
+  const quiet401 = choiceBlock(noLater, "loan401k");
+  assert.match(quiet401, /value="false" selected>No/);
+  assert.match(quiet401, /value="true">Yes/);
+  assert.match(quiet401, /data-planner-balance="1">Paid off</);
+  assert.doesNotMatch(quiet401, /selected>Paid off/);
+  const single = withScenarios(true);
+  const singleYear = String(single.estimate.planner.year);
+  single.estimate.planner.scenarios.loan_401k.balance_asof = "sample-asof-401k";
+  single.estimate.planner.scenarios.loan_401k.balance_by_year = {};
+  single.estimate.planner.scenarios.loan_401k.balance_by_year[singleYear] = 4321.4;
+  single.estimate.planner.scenarios.personal_loan.balance_by_year = {};
+  single.estimate.planner.scenarios.personal_loan.balance_by_year[singleYear] = null;
+  const singleHtml = plannerSlice(ctx.paydeskHtml("taxes", single, { planner: { w4: "current", adoption: false, raise: 0 } }));
+  assert.match(choiceBlock(singleHtml, "loan401k"), new RegExp("Loan balance end of " + singleYear + ": <b>\\$4,321</b>"));
+  assert.doesNotMatch(choiceBlock(singleHtml, "personal_loan"), /data-planner-balance/);
+  assert.doesNotMatch(singleHtml, /sample-asof-401k/);
+
+  const listeners = {};
+  const root = {
+    innerHTML: "",
+    addEventListener: function (type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+    contains: function () { return true; }
+  };
+  const live = boot();
+  const liveDoc = withScenarios(true);
+  live.localStorage = {
+    data: {},
+    getItem: function (key) { return Object.prototype.hasOwnProperty.call(this.data, key) ? this.data[key] : null; },
+    setItem: function (key, value) { this.data[key] = String(value); }
+  };
+  live.document.getElementById = function (id) { return id === "taxDesk" ? root : null; };
+  await live.paydeskLoad("taxes", function () { return Promise.resolve(jsonResponse(200, liveDoc)); });
+  live.paydeskStart();
+  await Promise.resolve();
+  assert.equal(live.localStorage.data.murphyPilotTaxPlanner, undefined);
+  function pick(which, value) {
+    listeners.change.forEach(function (fn) {
+      fn({
+        target: {
+          value: String(value),
+          getAttribute: function (name) { return name === "data-planner" ? which : null; }
+        }
+      });
+    });
+  }
+  pick("raise", 10);
+  assert.match(root.innerHTML, /data-planner-raise-pct="1">10%</);
+  assert.ok(hasMoney(root.innerHTML.split('data-planner-pay="1"')[1], "$435"));
+  let saved = JSON.parse(live.localStorage.data.murphyPilotTaxPlanner);
+  assert.equal(saved.raise, 10);
+  assert.equal(saved.loan401k, false);
+  assert.equal(saved.personal_loan, false);
+  pick("loan401k", "true");
+  assert.ok(hasMoney(root.innerHTML.split('data-planner-pay="1"')[1], "$450"));
+  pick("personal_loan", "true");
+  assert.ok(hasMoney(root.innerHTML.split('data-planner-spare="1"')[1], "$175"));
+  saved = JSON.parse(live.localStorage.data.murphyPilotTaxPlanner);
+  assert.equal(saved.loan401k, true);
+  assert.equal(saved.personal_loan, true);
+  assert.equal(saved.raise, 10);
+
+  const plainLive = boot();
+  const plainListeners = {};
+  const plainRoot = {
+    innerHTML: "",
+    addEventListener: function (type, fn) { (plainListeners[type] = plainListeners[type] || []).push(fn); },
+    contains: function () { return true; }
+  };
+  plainLive.localStorage = {
+    data: {},
+    getItem: function (key) { return Object.prototype.hasOwnProperty.call(this.data, key) ? this.data[key] : null; },
+    setItem: function (key, value) { this.data[key] = String(value); }
+  };
+  plainLive.document.getElementById = function (id) { return id === "taxDesk" ? plainRoot : null; };
+  await plainLive.paydeskLoad("taxes", function () { return Promise.resolve(jsonResponse(200, loadTaxes())); });
+  plainLive.paydeskStart();
+  await Promise.resolve();
+  plainListeners.change.forEach(function (fn) {
+    fn({
+      target: {
+        value: "mfj",
+        getAttribute: function (name) { return name === "data-planner" ? "w4" : null; }
+      }
+    });
+  });
+  const plainSaved = JSON.parse(plainLive.localStorage.data.murphyPilotTaxPlanner);
+  assert.equal(plainSaved.w4, "mfj");
+  assert.equal(Object.prototype.hasOwnProperty.call(plainSaved, "raise"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(plainSaved, "loan401k"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(plainSaved, "personal_loan"), false);
 });
 
 test("planner selects fill one column at 390 without page overflow", async function () {
