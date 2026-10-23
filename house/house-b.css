@@ -770,6 +770,35 @@ button.book-chip.on {
   min-height: 44px;
   box-sizing: border-box;
 }
+.tax-planner-scenarios {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 12px;
+  min-width: 0;
+}
+.tax-planner-scenario-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+.paydesk .tax-planner-scenarios select,
+.paydesk .tax-planner-raise input[type="range"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.paydesk .tax-planner-raise input[type="range"] {
+  display: block;
+  height: 28px;
+  min-height: 28px;
+  margin: 6px 0 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  accent-color: var(--ink);
+}
 .tax-planner-headlines {
   display: grid;
   grid-template-columns: 1fr;

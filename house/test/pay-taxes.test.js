@@ -798,11 +798,11 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
-    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022af/);
+    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ag/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
   assert.match(html, /\/house\/js\/banking\.js\?v=20261021aa/);
-  assert.match(html, /\/house\/house\.css\?v=20261022ab/);
+  assert.match(html, /\/house\/house\.css\?v=20261022ac/);
     assert.match(html, /list-cap\.js\?v=20261007eh/);
     assert.match(html, /id="clock"/);
     assert.match(html, /id="mp-ticker"/);
@@ -833,7 +833,7 @@ test("pay and taxes number and control rules stay off Investments", function () 
 });
 
 test("house.css and banking.js share one cache bust", function () {
-  const houseVersion = "20261022ab";
+  const houseVersion = "20261022ac";
 
   const bankVersion = "20261021aa";
   const pages = ["index.html", "investments/index.html", "pay/index.html", "taxes/index.html"];
@@ -853,7 +853,7 @@ test("house.css and banking.js share one cache bust", function () {
   });
   assert.deepEqual(Array.from(house), [houseVersion]);
   assert.deepEqual(Array.from(banking), [bankVersion]);
-  assert.match(read("house/house.css"), /house-b\.css\?v=20261022ab/);
+  assert.match(read("house/house.css"), /house-b\.css\?v=20261022ac/);
 
   assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261021aa)/);
 });
@@ -1319,6 +1319,164 @@ test("planner headlines use whole dollars and signed changes", function () {
   const owed = flipped.split('data-planner-federal="1"')[1].split("</div>")[0];
   assert.ok(hasMoney(owed, "\u2212$3"));
   assert.match(owed, /tone-stop/);
+});
+
+test("planner scenarios adjust pay, refund, and spare", async function () {
+  const crypto = require("crypto");
+  const ctx = boot();
+  const plainHtml = ctx.paydeskHtml("taxes", loadTaxes(), {});
+  assert.equal(crypto.createHash("sha256").update(plainHtml).digest("hex"), "a6885207c95a5ac31cf26c04bdf65a63c8c414ac1ba0a442c5ccc02862d613f3");
+  assert.equal(plainHtml.length, 11369);
+  assert.doesNotMatch(plainHtml, /data-planner-scenarios|tax-planner-raise|Pay off 401k loan|Pay off OneMain loan/);
+  const missing = loadTaxes();
+  delete missing.estimate.planner;
+  const none = ctx.paydeskHtml("taxes", missing, {});
+  assert.equal(crypto.createHash("sha256").update(none).digest("hex"), "946b10d86c6b3575c0ab814102925904200494318e758aff71a64d2b81f13632");
+  assert.equal(none.length, 7792);
+  assert.doesNotMatch(read("house/js/paydesk.js"), /sample-401k|sample-onemain/);
+
+  function withScenarios(ends) {
+    const doc = loadTaxes();
+    const cell = plannerCell(doc, "current", false);
+    cell.withholding_per_check = 100;
+    cell.net_per_check = 400;
+    cell.budget_spare_after = 50;
+    cell.federal_refund_or_owed = 80;
+    cell.monthly_change = 7;
+    cell.budget_spare_now = 9;
+    doc.estimate.planner.scenarios = {
+      raise: { default_pct: 0, min: 0, max: 20, step: 5, non_federal_rate: 0.1, federal_rate: 0.2 },
+      loan_401k: { per_check: 15, ends: ends ? "sample-401k" : "" },
+      onemain: { monthly: 25, ends: ends ? "sample-onemain" : null }
+    };
+    return doc;
+  }
+  const doc = withScenarios(true);
+  const base = plannerSlice(ctx.paydeskHtml("taxes", doc, {}));
+  assert.match(base, /data-planner-scenarios="1"/);
+  assert.ok(base.indexOf("tax-planner-fields") < base.indexOf("data-planner-scenarios"));
+  assert.ok(base.indexOf("data-planner-scenarios") < base.indexOf("data-planner-pay"));
+  assert.match(base, /<label for="tax-planner-raise">Raise <span data-planner-raise-pct="1">0%<\/span><\/label>/);
+  assert.match(base, /id="tax-planner-raise"[^>]*min="0"[^>]*max="20"[^>]*step="5"[^>]*value="0"/);
+  assert.match(base, />Pay off 401k loan</);
+  assert.match(base, />Pay off OneMain loan</);
+  assert.match(base, /data-planner-choice="loan401k"[\s\S]*value="false" selected>No/);
+  assert.match(base, /data-planner-choice="onemain"[\s\S]*value="false" selected>No/);
+  assert.ok(base.split('data-planner-choice="loan401k"')[1].includes("sample-401k"));
+  assert.ok(base.split('data-planner-choice="onemain"')[1].includes("sample-onemain"));
+  assert.ok(hasMoney(base.split('data-planner-pay="1"')[1].split("</div>")[0], "$400"));
+  assert.ok(hasMoney(base.split('data-planner-spare="1"')[1].split("</div>")[0], "$50"));
+  assert.doesNotMatch(base, /\$[\d,]+\.\d{2}/);
+
+  const raised = plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { w4: "current", adoption: false, raise: 10 } }));
+  assert.match(raised, /data-planner-raise-pct="1">10%</);
+  assert.ok(hasMoney(raised.split('data-planner-pay="1"')[1].split("</div>")[0], "$435"));
+  assert.ok(hasMoney(raised.split('data-planner-spare="1"')[1].split("</div>")[0], "$120"));
+  assert.ok(hasMoney(raised.split('data-planner-federal="1"')[1].split("</div>")[0], "+$80"));
+  assert.ok(hasMoney(raised.split('data-planner-monthly="1"')[1].split("</p>")[0], "+$7"));
+  assert.ok(hasMoney(raised.split("tax-planner-now")[1].split("</p>")[0], "$9"));
+  const row = raised.split('data-planner-row="current"')[1].split("</tr>")[0];
+  assert.ok(hasMoney(row, "$435"));
+  assert.ok(hasMoney(row, "$120"));
+  assert.match(plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { raise: 12 } })), /data-planner-raise-pct="1">10%</);
+  assert.ok(hasMoney(plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { raise: 100 } })).split('data-planner-pay="1"')[1].split("</div>")[0], "$470"));
+
+  const only401 = plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { w4: "current", adoption: false, raise: 0, loan401k: true } }));
+  assert.ok(hasMoney(only401.split('data-planner-pay="1"')[1].split("</div>")[0], "$415"));
+  assert.ok(hasMoney(only401.split('data-planner-spare="1"')[1].split("</div>")[0], "$80"));
+  const onlyOne = plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { w4: "current", adoption: false, raise: 0, onemain: true } }));
+  assert.ok(hasMoney(onlyOne.split('data-planner-pay="1"')[1].split("</div>")[0], "$400"));
+  assert.ok(hasMoney(onlyOne.split('data-planner-spare="1"')[1].split("</div>")[0], "$75"));
+  const both = plannerSlice(ctx.paydeskHtml("taxes", doc, { planner: { w4: "current", adoption: false, raise: 10, loan401k: true, onemain: true } }));
+  assert.ok(hasMoney(both.split('data-planner-pay="1"')[1].split("</div>")[0], "$450"));
+  assert.ok(hasMoney(both.split('data-planner-spare="1"')[1].split("</div>")[0], "$175"));
+  assert.match(both, /data-planner-choice="loan401k"[\s\S]*value="true" selected>Yes/);
+  assert.match(both, /data-planner-choice="onemain"[\s\S]*value="true" selected>Yes/);
+
+  const exemptDoc = withScenarios(true);
+  plannerCell(exemptDoc, "current", false).withholding_per_check = 0;
+  const exempt = plannerSlice(ctx.paydeskHtml("taxes", exemptDoc, { planner: { w4: "current", adoption: false, raise: 10 } }));
+  assert.ok(hasMoney(exempt.split('data-planner-pay="1"')[1].split("</div>")[0], "$436"));
+  assert.ok(hasMoney(exempt.split('data-planner-federal="1"')[1].split("</div>")[0], "\u2212$112"));
+  assert.ok(hasMoney(exempt.split('data-planner-spare="1"')[1].split("</div>")[0], "$122"));
+
+  const quietDoc = withScenarios(false);
+  const quiet = plannerSlice(ctx.paydeskHtml("taxes", quietDoc, { planner: { raise: 0 } }));
+  assert.doesNotMatch(quiet, /sample-401k|sample-onemain|data-planner-ends/);
+
+  const listeners = {};
+  const root = {
+    innerHTML: "",
+    addEventListener: function (type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+    contains: function () { return true; }
+  };
+  const live = boot();
+  const liveDoc = withScenarios(true);
+  live.localStorage = {
+    data: {},
+    getItem: function (key) { return Object.prototype.hasOwnProperty.call(this.data, key) ? this.data[key] : null; },
+    setItem: function (key, value) { this.data[key] = String(value); }
+  };
+  live.document.getElementById = function (id) { return id === "taxDesk" ? root : null; };
+  await live.paydeskLoad("taxes", function () { return Promise.resolve(jsonResponse(200, liveDoc)); });
+  live.paydeskStart();
+  await Promise.resolve();
+  assert.equal(live.localStorage.data.murphyPilotTaxPlanner, undefined);
+  function pick(which, value) {
+    listeners.change.forEach(function (fn) {
+      fn({
+        target: {
+          value: String(value),
+          getAttribute: function (name) { return name === "data-planner" ? which : null; }
+        }
+      });
+    });
+  }
+  pick("raise", 10);
+  assert.match(root.innerHTML, /data-planner-raise-pct="1">10%</);
+  assert.ok(hasMoney(root.innerHTML.split('data-planner-pay="1"')[1], "$435"));
+  let saved = JSON.parse(live.localStorage.data.murphyPilotTaxPlanner);
+  assert.equal(saved.raise, 10);
+  assert.equal(saved.loan401k, false);
+  assert.equal(saved.onemain, false);
+  pick("loan401k", "true");
+  assert.ok(hasMoney(root.innerHTML.split('data-planner-pay="1"')[1], "$450"));
+  pick("onemain", "true");
+  assert.ok(hasMoney(root.innerHTML.split('data-planner-spare="1"')[1], "$175"));
+  saved = JSON.parse(live.localStorage.data.murphyPilotTaxPlanner);
+  assert.equal(saved.loan401k, true);
+  assert.equal(saved.onemain, true);
+  assert.equal(saved.raise, 10);
+
+  const plainLive = boot();
+  const plainListeners = {};
+  const plainRoot = {
+    innerHTML: "",
+    addEventListener: function (type, fn) { (plainListeners[type] = plainListeners[type] || []).push(fn); },
+    contains: function () { return true; }
+  };
+  plainLive.localStorage = {
+    data: {},
+    getItem: function (key) { return Object.prototype.hasOwnProperty.call(this.data, key) ? this.data[key] : null; },
+    setItem: function (key, value) { this.data[key] = String(value); }
+  };
+  plainLive.document.getElementById = function (id) { return id === "taxDesk" ? plainRoot : null; };
+  await plainLive.paydeskLoad("taxes", function () { return Promise.resolve(jsonResponse(200, loadTaxes())); });
+  plainLive.paydeskStart();
+  await Promise.resolve();
+  plainListeners.change.forEach(function (fn) {
+    fn({
+      target: {
+        value: "mfj",
+        getAttribute: function (name) { return name === "data-planner" ? "w4" : null; }
+      }
+    });
+  });
+  const plainSaved = JSON.parse(plainLive.localStorage.data.murphyPilotTaxPlanner);
+  assert.equal(plainSaved.w4, "mfj");
+  assert.equal(Object.prototype.hasOwnProperty.call(plainSaved, "raise"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(plainSaved, "loan401k"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(plainSaved, "onemain"), false);
 });
 
 test("planner selects fill one column at 390 without page overflow", async function () {
