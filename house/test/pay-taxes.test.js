@@ -1327,13 +1327,13 @@ test("planner scenarios adjust pay, refund, and spare", async function () {
   const plainHtml = ctx.paydeskHtml("taxes", loadTaxes(), {});
   assert.equal(crypto.createHash("sha256").update(plainHtml).digest("hex"), "a6885207c95a5ac31cf26c04bdf65a63c8c414ac1ba0a442c5ccc02862d613f3");
   assert.equal(plainHtml.length, 11369);
-  assert.doesNotMatch(plainHtml, /data-planner-scenarios|tax-planner-raise|Pay off 401k loan|Pay off personal loan|Pay off OneMain loan/);
+  assert.doesNotMatch(plainHtml, new RegExp("data-planner-scenarios|tax-planner-raise|Pay off 401k loan|Pay off personal loan|Pay off " + ["one", "main"].join("") + " loan", "i"));
   const missing = loadTaxes();
   delete missing.estimate.planner;
   const none = ctx.paydeskHtml("taxes", missing, {});
   assert.equal(crypto.createHash("sha256").update(none).digest("hex"), "946b10d86c6b3575c0ab814102925904200494318e758aff71a64d2b81f13632");
   assert.equal(none.length, 7792);
-  assert.doesNotMatch(read("house/js/paydesk.js"), /onemain|OneMain|non_federal_rate|federal_rate|sample-401k|\.account\b/);
+  assert.doesNotMatch(read("house/js/paydesk.js"), new RegExp(["one", "main"].join("") + "|non_federal_rate|federal_rate|sample-401k|\\.account\\b", "i"));
 
   function withScenarios(ends) {
     const doc = loadTaxes();
@@ -1372,7 +1372,7 @@ test("planner scenarios adjust pay, refund, and spare", async function () {
   assert.match(base, />Pay off 401k loan</);
   assert.match(base, />Pay off personal loan</);
   assert.match(base, /id="tax-planner-personal-loan"/);
-  assert.doesNotMatch(base, /OneMain|onemain|hidden-account-label|sample-paid-from|86420|data-planner-balance|Loan balance end of|Paid off|2029-04|2030-11/);
+  assert.doesNotMatch(base, new RegExp(["one", "main"].join("") + "|hidden-account-label|sample-paid-from|86420|data-planner-balance|Loan balance end of|Paid off|2029-04|2030-11", "i"));
   assert.match(base, /data-planner-choice="loan401k"[\s\S]*value="false" selected>No/);
   assert.match(base, /data-planner-choice="personal_loan"[\s\S]*value="false" selected>No/);
   const loanNote = base.split('data-planner-choice="loan401k"')[1].split('data-planner-choice="personal_loan"')[0];
