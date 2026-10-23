@@ -798,7 +798,7 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
-    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ah/);
+    assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022ai/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
   assert.match(html, /\/house\/js\/banking\.js\?v=20261021aa/);
@@ -1367,7 +1367,7 @@ test("planner scenarios adjust pay, refund, and spare", async function () {
   assert.match(base, /id="tax-planner-raise"[^>]*min="0"[^>]*max="20"[^>]*step="5"[^>]*value="0"/);
   assert.match(base, />Pay off 401k loan</);
   assert.match(base, />Pay off personal loan</);
-  assert.doesNotMatch(base, /OneMain|hidden-account-label|sample-paid-from|86420/);
+  assert.doesNotMatch(base, /OneMain|hidden-account-label|sample-paid-from|86420|data-planner-balance|Loan balance end of|Paid off/);
   assert.match(base, /data-planner-choice="loan401k"[\s\S]*value="false" selected>No/);
   assert.match(base, /data-planner-choice="onemain"[\s\S]*value="false" selected>No/);
   const loanNote = base.split('data-planner-choice="loan401k"')[1].split('data-planner-choice="onemain"')[0];
@@ -1467,6 +1467,98 @@ test("planner scenarios adjust pay, refund, and spare", async function () {
   yearOnly.estimate.planner = { years: [wrapped] };
   const ignored = plannerSlice(ctx.paydeskHtml("taxes", yearOnly, {}));
   assert.doesNotMatch(ignored, /data-planner-scenarios|Pay off personal loan|year-level-401k|year-account-label/);
+
+  const balanceDoc = loadTaxes();
+  const bEarly = JSON.parse(JSON.stringify(balanceDoc.estimate.planner));
+  const bLater = JSON.parse(JSON.stringify(bEarly));
+  bLater.year = Number(bEarly.year) + 1;
+  stamp(bEarly, 400);
+  stamp(bLater, 200);
+  const by401 = {};
+  const byOne = {};
+  by401[String(bEarly.year)] = 4321;
+  by401[String(bLater.year)] = 0;
+  byOne[String(bEarly.year)] = null;
+  byOne[String(bLater.year)] = 654;
+  balanceDoc.estimate.planner = {
+    years: [bLater, bEarly],
+    scenarios: {
+      raise: { default_pct: 0, min: 0, max: 20, step: 5, non_federal_rate: 0.1, federal_rate: 0.2 },
+      loan_401k: {
+        per_check: 15,
+        ends: "sample-401k",
+        estimate: true,
+        balance: null,
+        balance_asof: "sample-asof-401k",
+        balance_by_year: by401
+      },
+      onemain: {
+        monthly: 25,
+        due_day: 12,
+        paid_from: "sample-paid-from",
+        balance: null,
+        ends: "sample-onemain",
+        account: "hidden-account-label",
+        balance_asof: "sample-asof-personal",
+        balance_by_year: byOne
+      }
+    }
+  };
+  function choiceBlock(html, which) {
+    const next = which === "loan401k" ? 'data-planner-choice="onemain"' : 'data-planner-pay';
+    return html.split('data-planner-choice="' + which + '"')[1].split(next)[0];
+  }
+  const openBal = plannerSlice(ctx.paydeskHtml("taxes", balanceDoc, {
+    planner: { year: String(bEarly.year), w4: "current", adoption: false, raise: 0, loan401k: false, onemain: false }
+  }));
+  const open401 = choiceBlock(openBal, "loan401k");
+  const openOne = choiceBlock(openBal, "onemain");
+  assert.match(open401, new RegExp("Loan balance end of " + bEarly.year + ": <b>\\$4,321</b>"));
+  assert.match(open401, /value="false" selected>No/);
+  assert.match(open401, /value="true">Yes/);
+  assert.doesNotMatch(open401, /selected>Paid off/);
+  assert.doesNotMatch(openOne, /data-planner-balance|Loan balance end of|Paid off/);
+  assert.doesNotMatch(openBal, /sample-asof-401k|sample-asof-personal|hidden-account-label|\$654/);
+  const yesEarly = plannerSlice(ctx.paydeskHtml("taxes", balanceDoc, {
+    planner: { year: String(bEarly.year), w4: "current", adoption: false, raise: 0, loan401k: true, onemain: true }
+  }));
+  assert.match(choiceBlock(yesEarly, "loan401k"), /value="true" selected>Yes/);
+  assert.doesNotMatch(choiceBlock(yesEarly, "onemain"), /data-planner-balance/);
+  assert.ok(hasMoney(yesEarly.split('data-planner-pay="1"')[1].split("</div>")[0], "$415"));
+  assert.ok(hasMoney(yesEarly.split('data-planner-spare="1"')[1].split("</div>")[0], "$105"));
+  const yesLater = plannerSlice(ctx.paydeskHtml("taxes", balanceDoc, {
+    planner: { year: String(bLater.year), w4: "current", adoption: false, raise: 0, loan401k: true, onemain: true }
+  }));
+  const later401 = choiceBlock(yesLater, "loan401k");
+  const laterOne = choiceBlock(yesLater, "onemain");
+  assert.match(later401, /value="true" selected>Paid off/);
+  assert.match(later401, /data-planner-balance="1">Paid off</);
+  assert.doesNotMatch(later401, /selected>Yes/);
+  assert.match(laterOne, new RegExp("Loan balance end of " + bLater.year + ": <b>\\$654</b>"));
+  assert.match(laterOne, /value="true" selected>Yes/);
+  assert.ok(hasMoney(yesLater.split('data-planner-pay="1"')[1].split("</div>")[0], "$200"));
+  assert.ok(hasMoney(yesLater.split('data-planner-spare="1"')[1].split("</div>")[0], "$75"));
+  assert.ok(hasMoney(yesLater.split('data-planner-row="current"')[1].split("</tr>")[0], "$200"));
+  assert.doesNotMatch(yesLater, /sample-asof-401k|sample-asof-personal|hidden-account-label/);
+  const noLater = plannerSlice(ctx.paydeskHtml("taxes", balanceDoc, {
+    planner: { year: String(bLater.year), w4: "current", adoption: false, raise: 0, loan401k: false, onemain: false }
+  }));
+  const quiet401 = choiceBlock(noLater, "loan401k");
+  assert.match(quiet401, /value="false" selected>No/);
+  assert.match(quiet401, /value="true">Yes/);
+  assert.match(quiet401, /data-planner-balance="1">Paid off</);
+  assert.doesNotMatch(quiet401, /selected>Paid off/);
+  const single = withScenarios(true);
+  const singleYear = String(single.estimate.planner.year);
+  single.estimate.planner.scenarios.loan_401k.balance_asof = "sample-asof-401k";
+  single.estimate.planner.scenarios.loan_401k.balance_by_year = {};
+  single.estimate.planner.scenarios.loan_401k.balance_by_year[singleYear] = 4321.4;
+  single.estimate.planner.scenarios.onemain.balance_by_year = {};
+  single.estimate.planner.scenarios.onemain.balance_by_year[singleYear] = null;
+  const singleHtml = plannerSlice(ctx.paydeskHtml("taxes", single, { planner: { w4: "current", adoption: false, raise: 0 } }));
+  assert.match(choiceBlock(singleHtml, "loan401k"), new RegExp("Loan balance end of " + singleYear + ": <b>\\$4,321</b>"));
+  assert.doesNotMatch(choiceBlock(singleHtml, "onemain"), /data-planner-balance/);
+  assert.doesNotMatch(singleHtml, /sample-asof-401k/);
 
   const listeners = {};
   const root = {

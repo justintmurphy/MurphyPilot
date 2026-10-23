@@ -1466,6 +1466,37 @@ function plannerEndsNote(ends, estimate) {
   return '<p class="tax-planner-scenario-note" data-planner-ends="1">' + note + "</p>";
 }
 
+function plannerYearBalance(loan, year) {
+  if (!loan || year == null || String(year).trim() === "") return null;
+  var bag = loan.balance_by_year;
+  if (!bag || typeof bag !== "object" || Array.isArray(bag)) return null;
+  var key = String(year);
+  if (!Object.prototype.hasOwnProperty.call(bag, key)) return null;
+  var value = bag[key];
+  if (value == null || value === "" || !isFinite(Number(value))) return null;
+  return Number(value);
+}
+
+function plannerLoanPaidOff(loan, year) {
+  var n = plannerYearBalance(loan, year);
+  return n != null && Math.round(Math.abs(n)) === 0;
+}
+
+function plannerBalanceLine(loan, year) {
+  var n = plannerYearBalance(loan, year);
+  if (n == null) return "";
+  if (plannerLoanPaidOff(loan, year)) {
+    return '<p class="tax-planner-scenario-note" data-planner-balance="1">Paid off</p>';
+  }
+  return '<p class="tax-planner-scenario-note" data-planner-balance="1">Loan balance end of ' +
+    esc(String(year)) + ": " + plannerMoneyHtml(plannerDollars(n)) + "</p>";
+}
+
+function plannerPayoffOptions(on, paidOff) {
+  var yes = on === true && paidOff ? "Paid off" : "Yes";
+  return plannerOption("false", "No", on !== true) + plannerOption("true", yes, on === true);
+}
+
 function plannerApplyScenarios(cell, scenarios, choice) {
   if (!cell || !scenarios || !choice) return cell;
   var net = Number(cell.net_per_check);
@@ -1492,14 +1523,14 @@ function plannerApplyScenarios(cell, scenarios, choice) {
     changed = true;
   }
   var loan = scenarios.loan_401k;
-  if (choice.loan401k === true && loan && isFinite(Number(loan.per_check))) {
+  if (choice.loan401k === true && loan && isFinite(Number(loan.per_check)) && !plannerLoanPaidOff(loan, choice.year)) {
     var per = Number(loan.per_check);
     net += per;
     spare += per * PLANNER_CHECKS_PER_MONTH;
     changed = true;
   }
   var one = scenarios.onemain;
-  if (choice.onemain === true && one && isFinite(Number(one.monthly))) {
+  if (choice.onemain === true && one && isFinite(Number(one.monthly)) && !plannerLoanPaidOff(one, choice.year)) {
     spare += Number(one.monthly);
     changed = true;
   }
@@ -1533,18 +1564,21 @@ function plannerScenarioHtml(scenarios, choice) {
       esc(plannerPctLabel(choice.raise)) + '</span></label><input id="tax-planner-raise" type="range" data-planner="raise" min="' +
       esc(raise.min) + '" max="' + esc(raise.max) + '" step="' + esc(raise.step) + '" value="' + esc(choice.raise) + '"></div>');
   }
+  var year = choice.year;
   var loan = scenarios.loan_401k;
   if (loan && typeof loan === "object" && !Array.isArray(loan)) {
     parts.push('<div class="tax-planner-choice" data-planner-choice="loan401k">' +
       plannerSelect("tax-planner-401k", "Pay off 401k loan", "loan401k",
-        plannerOption("false", "No", !choice.loan401k) + plannerOption("true", "Yes", choice.loan401k === true)) +
+        plannerPayoffOptions(choice.loan401k === true, plannerLoanPaidOff(loan, year))) +
+      plannerBalanceLine(loan, year) +
       plannerEndsNote(loan.ends, loan.estimate === true) + "</div>");
   }
   var one = scenarios.onemain;
   if (one && typeof one === "object" && !Array.isArray(one)) {
     parts.push('<div class="tax-planner-choice" data-planner-choice="onemain">' +
       plannerSelect("tax-planner-onemain", "Pay off personal loan", "onemain",
-        plannerOption("false", "No", !choice.onemain) + plannerOption("true", "Yes", choice.onemain === true)) +
+        plannerPayoffOptions(choice.onemain === true, plannerLoanPaidOff(one, year))) +
+      plannerBalanceLine(one, year) +
       plannerEndsNote(one.ends, false) + "</div>");
   }
   if (!parts.length) return "";
@@ -1565,6 +1599,7 @@ function plannerCard(doc, state) {
   var scenarios = plannerScenarioBag(rootPlanner);
   var scene = plannerScenarioChoices(scenarios, raw);
   if (scene.scenarios) {
+    scene.year = planner.year == null || planner.year === "" ? "" : String(planner.year);
     sel.raise = scene.raise;
     sel.loan401k = scene.loan401k;
     sel.onemain = scene.onemain;
@@ -1573,7 +1608,7 @@ function plannerCard(doc, state) {
   }
   var w4Id = plannerResolveId(planner, sel);
   var cell = plannerFindCell(planner, w4Id, sel.adoption);
-  var view = plannerApplyScenarios(cell, scenarios, scene.scenarios ? sel : null);
+  var view = plannerApplyScenarios(cell, scenarios, scene.scenarios ? scene : null);
   var choices = plannerChoices(planner);
   var w4Html = choices.map(function (row) {
     return plannerOption(row.id, row.label, row.id === sel.w4);
@@ -1607,7 +1642,7 @@ function plannerCard(doc, state) {
     '<div class="tax-planner-fields">' + fields + "</div>" +
     plannerScenarioHtml(scenarios, scene) +
     plannerResult(view, w4Id, sel.adoption, planner.basis, doc && doc.credits ? doc.credits.energy_carryforward_remaining : null) +
-    plannerCompare(planner, sel.adoption, w4Id, scenarios, scene.scenarios ? sel : null) +
+    plannerCompare(planner, sel.adoption, w4Id, scenarios, scene.scenarios ? scene : null) +
     plannerNotes(planner));
 }
 
