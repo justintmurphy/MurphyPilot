@@ -153,6 +153,8 @@ async function main() {
   fs.writeFileSync(mobile, pageHtml(docWith(0)));
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto("file://" + mobile);
+  const fold = page.locator("[data-bank-bills-fold]");
+  if (await fold.count()) await fold.locator("summary").click();
   await page.locator('[data-bank-plain-cats] [data-bank-cat-row="groceries"]').waitFor();
   await page.locator("[data-bank-hero]").waitFor();
   const before = await heroFacts(page);

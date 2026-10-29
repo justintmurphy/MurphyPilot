@@ -2965,6 +2965,72 @@ table.book.bank-bill-table button.bank-bill-row .mix-leg-name {
   gap: 8px;
 }
 
+ul.bank-bill-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bank-bill-grid > li {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.bank-bill-pie {
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 4px;
+  color: var(--ink);
+}
+
+.bank-bill-pie svg {
+  width: 64px;
+  height: 64px;
+  display: block;
+}
+
+.bank-bill-tile:has(.bank-bill-pie) {
+  text-align: center;
+}
+
+.bank-bill-amt {
+  display: block;
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-bill-amt > span {
+  color: var(--ink-soft);
+}
+
+.bank-bills-fold .bank-tier-summary {
+  position: relative;
+  margin: 0;
+}
+
+.bank-bills-fold .bank-tier-summary > h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.bank-bills-fold .bank-tier-summary > .card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 4px 0 0;
+  overflow: visible;
+}
+
 @media (min-width: 900px) {
   .bank-bill-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
