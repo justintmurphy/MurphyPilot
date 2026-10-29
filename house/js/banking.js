@@ -57,11 +57,11 @@
    A bill shows the next due date and the expected amount. A category shows what is left of this month's budget.
    Planned, spent this month, and left or over sit with that. A short print says how many months it actually has.
    Tap outside, Esc, or the X closes it. The paid check stays its own control and does not open the sheet.
-   tip fk — Bills is a compact grid of cards.
+   tip fk — Bills is a collapsed panel directly under the month-so-far chart. It starts closed. A tap opens it.
+   Inside, each bill is a small pie of spent against planned. A bill group keeps its heading.
    Each group header shows Spent, Planned, and Left, plus one thin bar.
-   At 900px and up the tiles are three columns. On a phone they are two.
-   A tile shows the name and a small balance scale of spent against planned.
-   That scale uses the same beam as the income scale at the top of Bills. It turns red when spent is over planned, and shows a check when the bill is paid.
+   At 900px and up the pies are three columns. On a phone they are two. A list past ten rows scrolls.
+   A pie turns red when spent is over planned, and shows a check when the bill is paid.
    The top scale is monthly income against the budget. It tips toward the heavier side and turns red when the budget is over income. The center reads Left or Short.
    A pay_periods move is drawn on the one Next Pay card whose window contains its move_by date.
    The pending note uses the print total when that field is present. Otherwise it sums pending rows on every account.
@@ -17032,6 +17032,83 @@ function bankScaleHtml(spec) {
     "</div>";
 }
 
+function bankDonutPath(cx, cy, r0, r1, a0, a1) {
+  var da = a1 - a0;
+  if (!(da > 0.0001)) return "";
+  function pt(r, a) {
+    return [(cx + r * Math.cos(a)).toFixed(2), (cy + r * Math.sin(a)).toFixed(2)];
+  }
+  if (da >= Math.PI * 2 - 0.001) {
+    return "M " + (cx + r1).toFixed(2) + " " + cy.toFixed(2) +
+      " A " + r1 + " " + r1 + " 0 1 1 " + (cx - r1).toFixed(2) + " " + cy.toFixed(2) +
+      " A " + r1 + " " + r1 + " 0 1 1 " + (cx + r1).toFixed(2) + " " + cy.toFixed(2) +
+      " M " + (cx + r0).toFixed(2) + " " + cy.toFixed(2) +
+      " A " + r0 + " " + r0 + " 0 1 0 " + (cx - r0).toFixed(2) + " " + cy.toFixed(2) +
+      " A " + r0 + " " + r0 + " 0 1 0 " + (cx + r0).toFixed(2) + " " + cy.toFixed(2);
+  }
+  var large = da > Math.PI ? 1 : 0;
+  var p0 = pt(r1, a0);
+  var p1 = pt(r1, a1);
+  var p2 = pt(r0, a1);
+  var p3 = pt(r0, a0);
+  return "M " + p0[0] + " " + p0[1] + " A " + r1 + " " + r1 + " 0 " + large + " 1 " + p1[0] + " " + p1[1] +
+    " L " + p2[0] + " " + p2[1] + " A " + r0 + " " + r0 + " 0 " + large + " 0 " + p3[0] + " " + p3[1] + " Z";
+}
+
+/* One small donut per bill: spent against that bill's plan. */
+function bankBillPieHtml(spent, plan, paid) {
+  var spentN = Math.max(0, bankNum(spent) || 0);
+  var planN = Math.max(0, bankNum(plan) || 0);
+  var ratio = planN > 0.004 ? spentN / planN : (spentN > 0.004 ? 1 : 0);
+  var over = planN > 0.004 ? spentN > planN + 0.004 : spentN > 0.004;
+  var tone = over ? "stop" : (ratio >= 0.75 && planN > 0.004 ? "warn" : (ratio > 0.004 ? "go" : ""));
+  var fill = tone ? bankVsColor(tone) : "var(--rule)";
+  var track = "var(--rule)";
+  var cx = 32;
+  var cy = 32;
+  var r1 = 30;
+  var r0 = 18;
+  var a0 = -Math.PI / 2;
+  var clamped = ratio < 0 ? 0 : (ratio > 1 ? 1 : ratio);
+  var paths = "";
+  if (clamped <= 0.001) {
+    paths = '<path fill-rule="evenodd" fill="' + track + '" d="' + bankDonutPath(cx, cy, r0, r1, a0, a0 + Math.PI * 2) + '"></path>';
+  } else if (clamped >= 0.999) {
+    paths = '<path fill-rule="evenodd" fill="' + fill + '" d="' + bankDonutPath(cx, cy, r0, r1, a0, a0 + Math.PI * 2) + '"></path>';
+  } else {
+    var a1 = a0 + clamped * Math.PI * 2;
+    paths = '<path fill="' + track + '" d="' + bankDonutPath(cx, cy, r0, r1, a1, a0 + Math.PI * 2) + '"></path>' +
+      '<path fill="' + fill + '" d="' + bankDonutPath(cx, cy, r0, r1, a0, a1) + '"></path>';
+  }
+  var pct = Math.round(ratio * 100);
+  if (pct > 999) pct = 999;
+  if (pct < 0) pct = 0;
+  var hole = paid
+    ? '<text x="32" y="37" text-anchor="middle" font-size="16" font-weight="700" fill="currentColor">\u2713</text>'
+    : '<text x="32" y="36" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">' + pct + "%</text>";
+  return '<div class="bank-bill-pie" data-bank-bill-pie="1" data-tone="' + (tone || "flat") + '" data-pct="' + pct + '">' +
+    '<svg viewBox="0 0 64 64" aria-hidden="true">' + paths + hole + "</svg></div>";
+}
+
+function bankBillPieGrid(inner, count, label) {
+  var grid = '<ul class="bank-bill-grid">' + (inner || "") + "</ul>";
+  if (!(count > 10)) return grid;
+  return bankCapList(grid, count, label || "Bills");
+}
+
+function bankBillsFoldHtml(inner) {
+  var body = String(inner || "");
+  var openTag = "<section class=\"bank-tier-summary\">";
+  var closeTag = "</section>";
+  if (body.indexOf(openTag) === 0 && body.lastIndexOf(closeTag) === body.length - closeTag.length) {
+    body = '<div class="bank-tier-summary">' + body.slice(openTag.length, body.length - closeTag.length) + "</div>";
+  }
+  return '<details class="fills-more bank-bills-fold" data-bank-bills-fold="1"><summary><span class="fills-sum">Bills</span> ' +
+    '<span class="fills-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
+    '<span class="fills-dot">\u00b7 </span><span class="fills-lab-show">Show</span> <span class="fills-lab-hide">Hide</span></span></summary>' +
+    body + "</details>";
+}
+
 function bankSpentScaleHtml(spent, plan, paid) {
   var spentN = bankNum(spent) || 0;
   var planN = bankNum(plan) || 0;
@@ -18234,10 +18311,11 @@ function bankDatedPlanGroupsHtml(snap, opts, month) {
       var money = phrase ? "" : (" <b>" + bankEsc(bankMoney(amount)) + "</b>");
       var tileKey = "";
       try { tileKey = bankBillControlKey(row); } catch (eKey) { tileKey = bankBillKey(row.name); }
-      return '<button type="button" class="bank-bill-tile" data-bank-tile="bill" data-bank-tile-key="' + bankEsc(tileKey) +
+      return "<li>" + '<button type="button" class="bank-bill-tile" data-bank-tile="bill" data-bank-tile-key="' + bankEsc(tileKey) +
         '" data-bank-bill-line="1" data-bank-bill-cat="' + bankEsc(id) + '" data-bank-bill-status="' + status +
         '" data-plan="' + bankRoundCents(amount || 0) + '" data-spent="' + bankRoundCents(spentN) + '">' +
-        '<span class="mix-leg-name">' + bankEsc(face) + "</span>" + sub + money + "</button>";
+        bankBillPieHtml(spentN, amount, paid) +
+        '<span class="mix-leg-name">' + bankEsc(face) + "</span>" + sub + money + "</button></li>";
     }).join("");
     var plan = budget == null ? bankRoundCents(itemSum) : bankRoundCents(budget);
     try { spent = bankMonthCategorySpent(snap, month, id); } catch (eActual) { spent = bankRoundCents(spent); }
@@ -18252,7 +18330,7 @@ function bankDatedPlanGroupsHtml(snap, opts, month) {
     return '<div class="bank-bill-block" data-bank-bill-group="' + bankEsc(id) + '" data-bank-group-budget="' + plan +
       '" data-plan="' + plan + '" data-spent="' + spent + '" data-actual="' + actual + '" data-above="' + overN + '"><h3>' + bankEsc(label) + "</h3>" +
       bankBillFigsHtml(spent, plan, actual, dueDate) + bankGroupBarHtml(spent, plan) +
-      '<div class="bank-bill-grid">' + tiles + "</div></div>";
+      bankBillPieGrid(tiles, list.length, label) + "</div>";
   }).join("");
 }
 
@@ -18335,26 +18413,28 @@ function bankBillGroupsHtml(snap, opts, month) {
       if (cover) extra = '<span class="sub" data-bank-covered="1">' + bankEsc(bankBillPaidCaption(b, month)) + "</span>";
       else if (awaiting) extra = ' <span class="sub" data-bank-awaiting="1">Marked paid, awaiting bank</span>';
       else if (overdue) extra = '<span class="sub" data-bank-overdue="1">Overdue</span>';
-      return '<button type="button" class="bank-bill-tile" data-bank-tile="bill" data-bank-tile-key="' +
+      return "<li>" + '<button type="button" class="bank-bill-tile" data-bank-tile="bill" data-bank-tile-key="' +
         bankEsc(tileKey) + '" aria-haspopup="dialog" data-bank-bill-line="1" data-bank-bill-group-id="' + bankEsc(source) +
         '" data-bank-bill-paid="' + (paid ? "1" : "0") + '" data-bank-overdue="' + (overdue ? "1" : "0") +
         '" data-plan="' + bankRoundCents(planN) +
         '" data-spent="' + bankRoundCents(spentN) + '">' +
+        bankBillPieHtml(spentN, planN, paid) +
         '<span class="mix-leg-name">' + bankEsc(name) + "</span>" +
         extra +
+        '<p class="bank-bill-amt"><span>Planned</span> <b>' + bankEsc(bankMoney(planN)) + "</b></p>" +
         '<span class="bank-tile-aff" aria-hidden="true"></span>' +
-        bankSpentScaleHtml(spentN, planN, paid) +
-        "</button>";
+        "</button></li>";
     }).join("");
     var flexHtml = flexRows.map(function (item) {
       var label = bankBillDisplayName(item.name, item.display_label);
       var meta = bankOneTimeLabel(item);
       var amt = bankNum(item.amount);
       if (amt != null) plan += amt;
-      return '<div class="bank-bill-tile" data-bank-one-time="1" data-bank-flexible="1" data-bank-late="0" data-bank-overdue="0">' +
+      return '<li><div class="bank-bill-tile" data-bank-one-time="1" data-bank-flexible="1" data-bank-late="0" data-bank-overdue="0">' +
+        bankBillPieHtml(0, amt, false) +
         '<span class="mix-leg-name">' + bankEsc(label) + "</span>" +
         (meta ? '<span class="sub">' + bankEsc(meta) + "</span>" : "") +
-        "<b>" + bankEsc(bankBillAmount(amt)) + "</b></div>";
+        " <b>" + bankEsc(bankBillAmount(amt)) + "</b></div></li>";
     }).join("");
     plan = bankRoundCents(plan);
     spent = bankRoundCents(spent);
@@ -18362,7 +18442,7 @@ function bankBillGroupsHtml(snap, opts, month) {
       "<h3>" + bankEsc(g.name) + "</h3>" +
       bankBillFigsHtml(spent, plan) +
       bankGroupBarHtml(spent, plan) +
-      '<div class="bank-bill-grid">' + lines + flexHtml + "</div></div>";
+      bankBillPieGrid(lines + flexHtml, rows.length + flexRows.length, g.name) + "</div>";
   });
   var datedHtml = "";
   if (bankCategoriesActive(snap)) {
@@ -21329,6 +21409,7 @@ function bankCardBarsHtml(card, snap, opts) {
       if (reserveNote) monthNote += '<p class="hint" data-bank-reserve-note="1">' + bankEsc(reserveNote) + "</p>";
     }
     rows.push(bankStackBarHtml("spend", "actual", spendKey, spendLabel, spendSummary, spendModel, "", spendAttrs) + monthNote);
+    if (opts && opts.billsFold) rows.push(opts.billsFold);
   }
   if (!rows.length) return "";
   return '<div class="bank-card-bars" data-bank-card-bars="1">' + rows.join("") + "</div>";
@@ -21426,15 +21507,22 @@ function bankSharedLayout(snap, opts, mode, month) {
   var ledgerOpts = Object.assign({}, opts, { listTitle: listTitle, past: past, flows: flows });
   var ledger = bankRenderDueList(planView, ledgerOpts, mode, month, missing);
   var incomeOpts = Object.assign({}, opts, { edits: past ? null : opts.edits });
+  var tierBody = bankTierSummaryHtml(snap, opts, mode, month, planView, actuals, missing, shot);
+  var billsFold = "";
+  if (mode === "plan" && bankCategoriesActive(snap) && tierBody) {
+    billsFold = bankBillsFoldHtml(tierBody);
+    tierBody = "";
+  }
   var parts = [];
   if (mode !== "historical") {
-    var hero = mode === "plan" ? bankHeroHtml(snap, Object.assign({}, opts, { month: month }), flows) : "";
+    var heroOpts = Object.assign({}, opts, { month: month, billsFold: billsFold });
+    var hero = mode === "plan" ? bankHeroHtml(snap, heroOpts, flows) : "";
     parts.push(bankPart("next", mode, (hero || "") + bankRenderNextPay(snap, opts, mode)));
   }
   parts.push(bankPart("calendar", mode, bankRenderCalendar(planView, opts, mode, month, missing)));
   var funding = bankPart("funding", mode, bankFundingHtml(past ? planView : snap, fundOpts, ledger));
   var income = bankPart("income", mode, bankIncomeListHtml(null, month, planView, incomeOpts));
-  var tiers = bankPart("tiers", mode, bankTierSummaryHtml(snap, opts, mode, month, planView, actuals, missing, shot));
+  var tiers = bankPart("tiers", mode, tierBody);
   if (mode === "plan") {
     var fit = bankPart("fit", mode, bankBudgetFitHtml(snap, opts, month));
     var mtd = bankPart("mtd", mode, bankMonthToDateCard(snap, opts, month));

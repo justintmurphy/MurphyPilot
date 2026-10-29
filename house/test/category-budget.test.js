@@ -1628,8 +1628,17 @@ test("bill names stay whole and categories are spending lines", function () {
     assert.ok(found.indexOf(row[0]) >= 0, row[0]);
     assert.match(table, new RegExp("<h3>" + row[3].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "</h3>"));
     assert.match(table, new RegExp('data-bank-bill-group="' + row[2] + '"'));
-    assert.match(table, /data-bank-scale="spent"/);
+    assert.match(table, /data-bank-bill-pie="1"/);
     assert.match(table, /class="bank-bill-grid"/);
+    assert.match(html, /<details class="fills-more bank-bills-fold" data-bank-bills-fold="1">/);
+    assert.doesNotMatch(html, /<details class="fills-more bank-bills-fold"[^>]*\sopen/);
+    const spendAt = html.indexOf('data-bank-bar="spend"');
+    const foldAt = html.indexOf('data-bank-bills-fold="1"');
+    assert.ok(spendAt >= 0 && foldAt > spendAt);
+    assert.match(html.slice(spendAt, foldAt), />October so far</);
+    assert.equal((html.match(/data-bank-bill-groups="1"/g) || []).length, 1);
+    assert.ok(html.indexOf('data-bank-part="calendar"') < html.indexOf('data-bank-part="tiers"'));
+    assert.ok(html.indexOf('data-bank-part="tiers"') < html.indexOf('data-bank-part="more"'));
   });
   assert.doesNotMatch(table, /mix-leg-name">[A-Za-z]\.<\/span>/);
   const cats = card.slice(card.indexOf("<h3>Categories</h3>"));
