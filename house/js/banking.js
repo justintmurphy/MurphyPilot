@@ -15776,7 +15776,11 @@ function bankCategoryMonthLive(snap, monthKey) {
   var key = bankMonthKey(monthKey);
   if (!key) return true;
   var cur = snap && snap.current && snap.current.month ? bankMonthKey(snap.current.month) : "";
-  if (cur) return key === cur;
+  if (cur && key === cur) return true;
+  var bm = null;
+  try { bm = bankBudgetMonth(snap); } catch (e) { bm = null; }
+  if (bm && bm.month && bankMonthKey(bm.month) === key) return true;
+  if (cur) return false;
   return true;
 }
 
@@ -15824,7 +15828,16 @@ function bankCategoryFiguresWork(snap, monthKey) {
   var live = bankCategoryMonthLive(snap, key);
   var monthRows = bankSpendRowsForMonth(snap, cats, key, live ? "budget" : "historical");
   var bag = live ? bankCategoryFigureBag(snap) : { plan: null, spent: null };
-  if (live && bankBudgetMonthApplies(snap, key)) bag = { plan: bag.plan, spent: null };
+  /* A budget window scans its own days when it is the calendar month.
+     When the cycle label is ahead of current.month, the print's tiers_mtd is that cycle's spent.
+     A bag tagged to another month stays out, so the window scan still wins. */
+  if (live && bankBudgetMonthApplies(snap, key)) {
+    var cal = snap && snap.current && snap.current.month ? bankMonthKey(snap.current.month) : "";
+    var mtd = snap && snap.budget && snap.budget.tiers_mtd;
+    var tagged = mtd && typeof mtd === "object" && !Array.isArray(mtd) ? bankMonthKey(mtd.month) : "";
+    var keepPrinted = !!(cal && cal !== key && (!tagged || tagged === key));
+    if (!keepPrinted) bag = { plan: bag.plan, spent: null };
+  }
   var scan = live ? bankSpendScan(snap, key, cats) : { totals: {} };
   var pastSpent = null;
   if (!live && key) {

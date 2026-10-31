@@ -910,3 +910,43 @@ test("spare carries each month's leftover and drops scheduled pay from extra", f
   assert.equal(published.carried, 12);
   assert.equal(published.left, 72);
 });
+
+test("a budget cycle ahead of the calendar month stays live for November so far", function () {
+  const ctx = boot();
+  const mtdSpent = 18;
+  const snap = {
+    asof: "2026-10-31T12:00:00-04:00",
+    accounts: [],
+    current: { month: "2026-10", edits_tx: [], recent_tx: [] },
+    history: { months: [] },
+    budget: {
+      budget_month: { label: "2026-11", start: "2026-10-30", end: "2026-11-29" },
+      tiers_mtd: { month: "2026-11", by_category: { groceries: { spent: mtdSpent } } },
+      bills: [],
+      subscriptions: []
+    },
+    tier_doc: {
+      categories: [
+        { id: "groceries", name: "Groceries", tier: "needs", budget: 40, merged_into: "" }
+      ],
+      category_rules: {},
+      category_tx: {}
+    }
+  };
+  const opts = { tab: "budget", now: "2026-10-31T16:00:00-04:00" };
+  assert.equal(ctx.bankBudgetMonth(snap).month, "2026-11");
+  assert.equal(ctx.bankCategoryMonthLive(snap, "2026-11"), true);
+  assert.equal(ctx.bankCategoryMonthLive(snap, "2026-09"), false);
+  assert.equal(ctx.bankSpendBarMonth(snap, opts), "2026-11");
+  const spent = ctx.bankSpendingSpent(snap, "2026-11");
+  assert.ok(spent > 0);
+  assert.equal(spent, mtdSpent);
+  assert.equal(ctx.bankSpendingSpent(snap, "2026-09"), 0);
+  const page = ctx.bankPageHtml(snap, opts);
+  const spendAt = page.indexOf('data-bank-bar="spend"');
+  assert.ok(spendAt >= 0);
+  const spend = page.slice(spendAt, spendAt + 1800);
+  assert.match(spend, /data-bank-bar-month="2026-11"/);
+  assert.match(spend, />November so far</);
+  assert.match(spend, /data-bank-spend-spent="18"/);
+});
