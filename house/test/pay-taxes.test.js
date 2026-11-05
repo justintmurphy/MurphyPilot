@@ -795,7 +795,7 @@ test("list cap is position relative and pages bust caches together", function ()
   assert.equal((css.match(/position:\s*relative/g) || []).length, 1);
   ["pay/index.html", "taxes/index.html"].forEach(function (rel) {
     const html = read(rel);
-    assert.match(html, /\/js\/nav\.js\?v=20261007ep/);
+    assert.match(html, /\/js\/nav\.js\?v=20261105aa/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
     assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022aj/);
@@ -809,7 +809,7 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.doesNotMatch(html, /class="theme-switch"/);
     assert.doesNotMatch(html, /Agentic \/ AI WWIII only/);
   });
-  assert.match(read("investments/index.html"), /\/js\/nav\.js\?v=20261007ep/);
+  assert.match(read("investments/index.html"), /\/js\/nav\.js\?v=20261105aa/);
   assert.match(read("js/nav.js"), /function tickClock/);
   assert.doesNotMatch(read("house/js/banking.js"), /function bankTickClock/);
 });

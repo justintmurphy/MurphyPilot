@@ -199,7 +199,7 @@ test("fresh profile fills SS, salary, and totals from the file", function () {
   assert.equal(ctx.retRemoteInit().credentials, "same-origin");
   assert.equal(ctx.retRemoteInit().cache, "no-store");
   const indexHtml = fs.readFileSync(path.join(root, "investments/index.html"), "utf8");
-  assert.match(indexHtml, /\/house\/js\/board-b\.js\?v=20261007ei/);
+  assert.match(indexHtml, /\/house\/js\/board-b\.js\?v=20261105aa/);
 });
 
 test("slider touch does not pin salary, so a later file salary shows without Reset", function () {
@@ -1124,16 +1124,21 @@ test("a missing or repaid loan adds nothing and is not stored", function () {
   assert.equal(ctx.retLoanLine(), "");
   assert.equal(ctx.retView(state).mid.today, plain);
   ctx.RET_SAVED.loan = null;
-  seed(ctx, { loan: { balance: 50, payment: 10 }, retireAge: 64, _edited: ["loan", "retireAge"] });
+  seed(ctx, { loan: { balance: 50, payment: 10 }, loans: [{ balance: 40, payment: 10 }], retireAge: 64, _edited: ["loan", "loans", "retireAge"] });
   const loaded = ctx.retLoad();
   assert.equal(loaded.retireAge, 64);
   const blob = stored(ctx);
   assert.equal(Object.prototype.hasOwnProperty.call(blob, "loan"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(blob, "loans"), false);
   assert.deepEqual(blob._edited, ["retireAge"]);
   state.loan = { balance: 50 };
+  state.loans = [{ balance: 40 }];
   ctx.retSave(state);
   const again = stored(ctx);
-  if (again) assert.equal(Object.prototype.hasOwnProperty.call(again, "loan"), false);
+  if (again) {
+    assert.equal(Object.prototype.hasOwnProperty.call(again, "loan"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(again, "loans"), false);
+  }
 });
 
 test("total line says stocks plus 401k plus Social Security", function () {
@@ -1632,6 +1637,260 @@ test("nest egg line splits savings and loan while the loan contributes", functio
   assert.equal(card.els["nest-split"].hidden, true);
 });
 
+test("two loans amortize interest into the nest egg and stay off the deferral cap", function () {
+  const ctx = boot();
+  useFile(ctx, fileA());
+  ctx.snap = {
+    robinhood: { equity: 10000, label: "Robinhood" },
+    accounts: {},
+    combined: { cashflow_30d: { owner_deposits: 100 } }
+  };
+  ctx.RET_TAX = ctx.retParseTax(taxRules());
+  const today = ctx.retTodayNy();
+  const ymd = today.year + "-" + String(today.month).padStart(2, "0") + "-" + String(today.day).padStart(2, "0");
+  const asof = ctx.retYmdMs(2026, 1, 15);
+  const loanA = ctx.retParseLoan({
+    id: "A",
+    type: "General",
+    balance: 1000,
+    payment: 100,
+    payments_per_year: 12,
+    asof: "2026-01-15",
+    rate_pct: 12,
+    issue_date: "2024-06-01",
+    payoff_quote: 1010
+  });
+  assert.ok(loanA);
+  assert.equal(loanA.ratePct, 12);
+  const opened = ctx.retLoanStatus(loanA, asof);
+  assert.ok(opened);
+  assert.ok(Math.abs(opened.schedule[0].interest - 10) < 1e-6);
+  assert.ok(Math.abs(opened.schedule[0].principal - 90) < 1e-6);
+  assert.ok(Math.abs(opened.schedule[0].remainingAfter - 910) < 1e-6);
+  assert.ok(Math.abs(opened.schedule[0].amount - 100) < 1e-6);
+  assert.equal(opened.paymentsLeft, opened.schedule.length);
+  assert.ok(opened.interestLeft > 50 && opened.interestLeft < 70);
+
+  const dated = ctx.retParseLoan({
+    id: "A",
+    balance: 1000,
+    payment: 100,
+    payments_per_year: 12,
+    asof: ymd,
+    rate_pct: 12
+  });
+  ctx.RET_SAVED.loans = [dated];
+  ctx.RET_SAVED.loan = { balance: 5, payment: 1, perYear: 12, asofMs: dated.asofMs };
+  const oneCredit = ctx.retLoanFuture(0.1, 0, 0);
+  assert.ok(Math.abs(oneCredit.nominal - 100) < 0.001);
+  assert.ok(Math.abs(oneCredit.today - 100) < 0.001);
+
+  const loanB = ctx.retParseLoan({
+    id: "B",
+    balance: 500,
+    payment: 50,
+    payments_per_year: 12,
+    asof: ymd,
+    rate_pct: 0
+  });
+  const legacyB = ctx.retParseLoan({
+    balance: 500,
+    payment: 50,
+    payments_per_year: 12,
+    asof: ymd
+  });
+  const bStatus = ctx.retLoanStatus(loanB, loanB.asofMs);
+  const legacyStatus = ctx.retLoanStatus(legacyB, legacyB.asofMs);
+  assert.equal(bStatus.remaining, 500);
+  assert.equal(bStatus.interestLeft, 0);
+  assert.equal(bStatus.slots, legacyStatus.slots);
+  assert.equal(bStatus.paymentsLeft, legacyStatus.paymentsLeft);
+
+  ctx.RET_SAVED.loans = [dated];
+  const futA = ctx.retLoanFuture(30, 0, 0).nominal;
+  ctx.RET_SAVED.loans = [loanB];
+  const futB = ctx.retLoanFuture(30, 0, 0).nominal;
+  ctx.RET_SAVED.loans = [dated, loanB];
+  const futBoth = ctx.retLoanFuture(30, 0, 0).nominal;
+  assert.ok(futA > 1000 && futA < 1200);
+  assert.ok(Math.abs(futB - 500) < 0.001);
+  assert.ok(Math.abs(futBoth - (futA + futB)) < 0.05);
+
+  const state = ctx.retLoad();
+  state.retireAge = 67;
+  state.nominalPct = 0;
+  state.inflPct = 0;
+  state.extra401kPct = 2;
+  function nestGap(match) {
+    state.matchPct = match;
+    ctx.RET_SAVED.loans = null;
+    ctx.RET_SAVED.loan = null;
+    const plain = ctx.retView(state).mid.today;
+    ctx.RET_SAVED.loans = [dated, loanB];
+    const withLoans = ctx.retView(state).mid.today;
+    return withLoans - plain;
+  }
+  const unmatched = nestGap(0);
+  const matched = nestGap(20);
+  assert.ok(Math.abs(unmatched - futBoth) < 1);
+  assert.ok(Math.abs(unmatched - matched) < 0.05);
+  assert.ok(unmatched < futBoth + 100);
+  const view = ctx.retView(state);
+  const cap = ctx.retDeferralLimit(state.birthYear, ctx.retTodayNy().year, state);
+  const costWith = ctx.retExtra401k(state, view).cost;
+  ctx.RET_SAVED.loans = null;
+  const costWithout = ctx.retExtra401k(state, view).cost;
+  assert.equal(ctx.retDeferralLimit(state.birthYear, ctx.retTodayNy().year, state), cap);
+  assert.ok(Math.abs(costWith - costWithout) < 0.001);
+  ctx.RET_SAVED.loans = [dated, loanB];
+  const line = ctx.retLoanLine();
+  assert.equal(line.split("Loan repay").length - 1, 1);
+  assert.match(line, /^Loan repay: /);
+  assert.doesNotMatch(line, /%|APR|\bA\b|\bB\b/);
+  const card = textCard();
+  ctx.retFill(card, state);
+  assert.equal(card.els["loan-line"].hidden, false);
+  assert.equal(card.els["loan-line"].textContent, line);
+  const shown = ctx.retView(state).mid.monthlyShown;
+  assert.equal(card.els["save-split"].textContent, ctx.money(shown) + " savings + " + ctx.money(150) + " loan repay");
+
+  const onlyLoan = ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: {
+      nominal_return_pct: 5,
+      loan: { balance: 240, payment: 100, payments_per_year: 12, asof: ymd }
+    },
+    updated_at: "t"
+  });
+  assert.equal(onlyLoan, true);
+  assert.ok(ctx.RET_SAVED.loan);
+  assert.equal(ctx.RET_SAVED.loans, null);
+  assert.ok(ctx.retLoanActive());
+
+  const bothRemote = {
+    nominal_return_pct: 5,
+    loan: { balance: 9, payment: 1, payments_per_year: 12, asof: ymd },
+    loans: [
+      { id: "A", balance: 1000, payment: 100, payments_per_year: 12, asof: ymd, rate_pct: 12 },
+      { id: "skip", balance: 1000, payment: 1, payments_per_year: 12, asof: ymd, rate_pct: 50 }
+    ]
+  };
+  assert.equal(ctx.retIngestRemote({
+    schema: "retirement-inputs/v1",
+    inputs: bothRemote,
+    updated_at: "t"
+  }), true);
+  assert.equal(ctx.RET_SAVED.loans.length, 2);
+  assert.equal(ctx.RET_SAVED.loan, null);
+  assert.equal(ctx.retLoansActive().length, 1);
+  assert.equal(ctx.retLoanStatus(ctx.RET_SAVED.loans[1], ctx.RET_SAVED.loans[1].asofMs), null);
+  ctx.retNoteKvPatch({ salary: 80 }, { inputs: { salary: 80 } });
+  assert.equal(ctx.RET_SAVED.loans.length, 2);
+  assert.equal(ctx.retLoad().salary, 80);
+
+  const shifted = ctx.retParseLoan({
+    balance: 1000,
+    payment: 100,
+    payments_per_year: 12,
+    asof: "2026-01-15",
+    rate_pct: 12,
+    first_payment: "2026-03-01"
+  });
+  const waiting = ctx.retLoanStatus(shifted, ctx.retYmdMs(2026, 2, 1));
+  assert.equal(waiting.nPaid, 0);
+  assert.equal(waiting.remaining, 1000);
+  assert.equal(waiting.schedule[0].ms, shifted.firstMs);
+  const paidFirst = ctx.retLoanStatus(shifted, shifted.firstMs);
+  assert.equal(paidFirst.nPaid, 1);
+  assert.ok(Math.abs(paidFirst.remaining - 910) < 0.001);
+
+  const now = asof;
+  const pageInputs = {
+    loans: [
+      {
+        id: "A",
+        type: "General",
+        balance: 1000,
+        payment: 100,
+        payments_per_year: 12,
+        asof: "2026-01-15",
+        rate_pct: 12,
+        issue_date: "2024-06-01",
+        payoff_quote: 1010,
+        first_payment: "2026-02-15"
+      },
+      {
+        id: "B",
+        balance: 500,
+        payment: 20,
+        payments_per_year: 12,
+        asof: "2026-01-15",
+        rate_pct: 6,
+        type: "Home"
+      }
+    ]
+  };
+  const page = ctx.retLoansPageHtml(pageInputs, now);
+  assert.match(page, /data-loan-id="A"/);
+  assert.match(page, /Loan A/);
+  assert.match(page, />General</);
+  assert.match(page, /Jun 1, 2024/);
+  assert.match(page, /Principal as of Jan 15, 2026/);
+  assert.match(page, /\$1,000\.00/);
+  assert.match(page, /\$100\.00/);
+  assert.match(page, />Monthly</);
+  assert.match(page, />12%</);
+  assert.match(page, /\$1,010\.00/);
+  assert.match(page, /back into the 401k/);
+  assert.match(page, /principal \$1,000\.00 · interest /);
+  assert.match(page, /<td>2026<\/td><td>/);
+  assert.match(page, /data-loans-total="1"/);
+  assert.match(page, /Monthly cost/);
+  assert.doesNotMatch(page, /Voya|Fidelity|Chase|employer|lender/);
+  const slow = ctx.retLoanStatus(ctx.retParseLoan(pageInputs.loans[1]), now);
+  const years = ctx.retLoanYearEnds(slow);
+  assert.equal(years[0].year, 2026);
+  assert.ok(years[years.length - 1].year > 2026);
+  assert.equal(years[years.length - 1].balance, 0);
+  assert.ok(years[0].balance > 0 && years[0].balance < 500);
+  assert.match(page, /\$120\.00/);
+
+  assert.match(ctx.retLoansPageHtml(null, now), /data-loans-empty="1"/);
+  assert.match(ctx.retLoansPageHtml({ loans: [] }, now), /data-loans-empty="1"/);
+  assert.match(ctx.retLoansPageHtml({
+    loan: { balance: 240, payment: 100, payments_per_year: 12, asof: "2026-01-15" }
+  }, now), /Loan 1/);
+  assert.match(ctx.retLoansPageHtml({
+    loans: [{ balance: 100, payment: 100, payments_per_year: 12, asof: "2020-01-01" }],
+    loan: { balance: 1000, payment: 100, payments_per_year: 12, asof: "2026-01-15", rate_pct: 12 }
+  }, now), /data-loans-empty="1"/);
+
+  const root = { innerHTML: "" };
+  ctx.document.getElementById = function (id) { return id === "loanDesk" ? root : null; };
+  let asked = null;
+  ctx.fetch = function (url, init) {
+    asked = { url: url, init: init };
+    return Promise.resolve({
+      ok: true,
+      json: function () {
+        return Promise.resolve({
+          schema: "retirement-inputs/v1",
+          inputs: pageInputs,
+          updated_at: "t"
+        });
+      }
+    });
+  };
+  ctx.retLoansPageBoot();
+  return flushMicro().then(function () {
+    assert.equal(asked.url, "/data/retirement.json");
+    assert.equal(asked.init.credentials, "same-origin");
+    assert.equal(asked.init.cache, "no-store");
+    assert.match(root.innerHTML, /data-loan-id="A"/);
+    assert.match(root.innerHTML, /data-loans-total="1"/);
+  });
+});
+
 /* Nearest 0.1, ties up — the step a range paints (2.35 → 2.4, 2.34 → 2.3, 0.04 → 0).
    Above-cap values still floor to the cap step. */
 function paintExtra(ctx, state) {
@@ -1959,6 +2218,7 @@ test("out of range inputs are clamped before save", function () {
   assert.equal(patch.salary_year, 2026);
   assert.equal(Object.prototype.hasOwnProperty.call(patch, "retireAge"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(patch, "loan"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(patch, "loans"), false);
 });
 
 test("bad_value errors show which field is out of range", async function () {
@@ -2053,7 +2313,7 @@ test("defaults and the public retirement file have no personal fields", function
   assert.equal(file.raise_pct, 2);
   assert.equal(file.nominal_return_pct, 5);
   assert.equal(file.inflation_pct, 2.5);
-  ["salary", "salary_year", "ssa62", "ssa67", "ssa70", "birth_ym", "state", "filing", "partb_people", "emp_pct", "match_pct", "loan"].forEach(function (k) {
+  ["salary", "salary_year", "ssa62", "ssa67", "ssa70", "birth_ym", "state", "filing", "partb_people", "emp_pct", "match_pct", "loan", "loans"].forEach(function (k) {
     assert.equal(Object.prototype.hasOwnProperty.call(file, k), false, k);
   });
 });

@@ -1442,7 +1442,7 @@ function invMountTicker() {
   var RET_KV_ALLOW = {
     version: 1, ssa62: 1, ssa67: 1, ssa70: 1, salary: 1, salary_year: 1,
     raise_pct: 1, emp_pct: 1, match_pct: 1, filing: 1, partb_people: 1,
-    birth_ym: 1, state: 1, nominal_return_pct: 1, inflation_pct: 1, loan: 1
+    birth_ym: 1, state: 1, nominal_return_pct: 1, inflation_pct: 1, loan: 1, loans: 1
   };
 
   function retFinite(n) {
@@ -1700,18 +1700,20 @@ function invMountTicker() {
     }
     return dirty;
   }
-  /* The loan lives only in the file. Drop any copy a browser tried to keep. */
+  /* Loan rows live only in the saved inputs. Drop any copy a browser tried to keep. */
   function retStripLoan(store) {
     if (!store || typeof store !== "object") return false;
     var dirty = false;
-    if (Object.prototype.hasOwnProperty.call(store, "loan")) {
-      delete store.loan;
-      dirty = true;
-    }
+    ["loan", "loans"].forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(store, key)) {
+        delete store[key];
+        dirty = true;
+      }
+    });
     if (Array.isArray(store._edited)) {
       var next = [];
       store._edited.forEach(function (k) {
-        if (k === "loan") dirty = true;
+        if (k === "loan" || k === "loans") dirty = true;
         else next.push(k);
       });
       if (next.length !== store._edited.length) store._edited = next;
@@ -1960,14 +1962,19 @@ function invMountTicker() {
     if (Math.round(salaryYear) !== salaryYear) return null;
     if (raise == null || ee == null || match == null || nominalPct == null || inflPct == null) return null;
     if (!filing || partb == null || !born) return null;
-    return {
+    var saved = {
       nominalPct: nominalPct, inflPct: inflPct, raisePct: raise, eePct: ee, matchPct: match,
       salary: salary, salaryYear: salaryYear,
       ss62: s62, ss67: s67, ss70: s70,
       birthMonth: born.birthMonth, birthYear: born.birthYear,
       filing: filing, partBPeople: partb,
-      loan: retParseLoan(o.loan)
+      loan: null,
+      loans: null
     };
+    var fileLoans = retLoansFromInputs(o);
+    if (Array.isArray(o.loans) && o.loans.length) saved.loans = fileLoans.length ? fileLoans : null;
+    else saved.loan = retParseLoan(o.loan);
+    return saved;
   }
   function retYmdMs(y, m, d) {
     return Date.UTC(y, m - 1, d, 12, 0, 0);
@@ -1986,17 +1993,70 @@ function invMountTicker() {
     var t = retTodayNy();
     return retYmdMs(t.year, t.month, t.day);
   }
-  /* A bad or missing loan is ignored. The rest of the file still applies. */
+  /* A bad or missing loan is ignored. The rest of the file still applies.
+     rate_pct is a nominal APR percent. A missing or invalid rate keeps the
+     principal-only path. first_payment, when set, is the date of payment 1. */
+  function retLoanRate(raw) {
+    if (raw == null || raw === "") return null;
+    var n = raw;
+    if (typeof n === "string" && String(n).trim() !== "") n = Number(n);
+    if (typeof n !== "number" || !isFinite(n) || n < 0 || n > 100) return null;
+    return n;
+  }
+  function retLoanId(raw) {
+    var s = String(raw == null ? "" : raw).trim();
+    if (!s || s.length > 16 || !/^[A-Za-z0-9_-]+$/.test(s)) return "";
+    return s;
+  }
+  function retLoanType(raw) {
+    var s = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+    if (!s || s.length > 40 || /[<>]/.test(s)) return "";
+    return s;
+  }
   function retParseLoan(o) {
     if (!o || typeof o !== "object" || Array.isArray(o)) return null;
     var balance = retNonNeg(o.balance);
     var payment = retNonNeg(o.payment);
     var per = o.payments_per_year;
     if (typeof per === "string" && String(per).trim() !== "") per = Number(per);
-    if (typeof per !== "number" || !isFinite(per) || per < 1 || Math.round(per) !== per) return null;
+    if (typeof per !== "number" || !isFinite(per) || per < 1 || per > 52 || Math.round(per) !== per) return null;
     var asofMs = retParseYmd(o.asof);
     if (balance == null || !(balance > 0) || payment == null || !(payment > 0) || asofMs == null) return null;
-    return { balance: balance, payment: payment, perYear: per, asofMs: asofMs };
+    var ratePct = null;
+    if (Object.prototype.hasOwnProperty.call(o, "rate_pct")) ratePct = retLoanRate(o.rate_pct);
+    var firstMs = null;
+    if (o.first_payment != null && String(o.first_payment).trim() !== "") firstMs = retParseYmd(o.first_payment);
+    var quote = null;
+    if (Object.prototype.hasOwnProperty.call(o, "payoff_quote")) {
+      var q = retNonNeg(o.payoff_quote);
+      if (q != null && q > 0) quote = q;
+    }
+    var issueMs = null;
+    if (o.issue_date != null && String(o.issue_date).trim() !== "") issueMs = retParseYmd(o.issue_date);
+    return {
+      balance: balance, payment: payment, perYear: per, asofMs: asofMs,
+      ratePct: ratePct, firstMs: firstMs, id: retLoanId(o.id), type: retLoanType(o.type),
+      issueMs: issueMs, payoffQuote: quote
+    };
+  }
+  function retParseLoans(arr) {
+    if (!Array.isArray(arr)) return [];
+    var out = [];
+    arr.forEach(function (item) {
+      var loan = retParseLoan(item);
+      if (loan) out.push(loan);
+    });
+    return out;
+  }
+  /* A non-empty loans array wins. Otherwise the legacy single loan is one row. */
+  function retLoansFromInputs(o) {
+    if (!o || typeof o !== "object" || Array.isArray(o)) return [];
+    if (Array.isArray(o.loans) && o.loans.length) return retParseLoans(o.loans);
+    if (o.loan && typeof o.loan === "object" && !Array.isArray(o.loan)) {
+      var one = retParseLoan(o.loan);
+      return one ? [one] : [];
+    }
+    return [];
   }
   function retNonNeg(n) {
     if (typeof n === "string" && String(n).trim() !== "") n = Number(n);
@@ -2347,7 +2407,7 @@ function invMountTicker() {
       salary: null, salaryYear: null,
       ss62: null, ss67: null, ss70: null,
       birthMonth: null, birthYear: null,
-      filing: null, partBPeople: null, loan: null, state: null,
+      filing: null, partBPeople: null, loan: null, loans: null, state: null,
       has: has
     };
     function keep(dest, val) {
@@ -2406,7 +2466,10 @@ function invMountTicker() {
       var st = String(o.state == null ? "" : o.state).trim().toUpperCase();
       if (/^[A-Z]{2}$/.test(st)) keep("state", st);
     }
-    if (Object.prototype.hasOwnProperty.call(o, "loan") && o.loan && typeof o.loan === "object") {
+    if (Array.isArray(o.loans) && o.loans.length) {
+      var loans = retParseLoans(o.loans);
+      if (loans.length) keep("loans", loans);
+    } else if (Object.prototype.hasOwnProperty.call(o, "loan") && o.loan && typeof o.loan === "object") {
       var loan = retParseLoan(o.loan);
       if (loan && loan.perYear >= 1 && loan.perYear <= 52) keep("loan", loan);
     }
@@ -2972,54 +3035,195 @@ function invMountTicker() {
     };
   }
   var RET_YEAR_MS = 365.2425 * 86400000;
-  /* Payments fall every 1/payments_per_year from asof. Ones on or before
-     today are already in the balance. A zero remainder means it is repaid. */
+  /* Payment i (1-based) is at asof + i/payments_per_year, unless first_payment
+     is set: then it is first_payment + (i-1)/payments_per_year. Dates on or
+     before asof are already inside the snapshot balance. */
+  function retLoanUsesRate(loan) {
+    return !!(loan && loan.ratePct != null && loan.ratePct > 0);
+  }
+  function retLoanPayMs(loan, i) {
+    if (loan.firstMs != null) return loan.firstMs + ((i - 1) / loan.perYear) * RET_YEAR_MS;
+    return loan.asofMs + (i / loan.perYear) * RET_YEAR_MS;
+  }
+  function retLoanFirstIndex(loan) {
+    var i = 1;
+    while (i < 10000 && retLoanPayMs(loan, i) <= loan.asofMs + 1e-6) i++;
+    return i;
+  }
+  /* With a rate, each row is interest then principal. The credited amount is
+     the full payment, or the smaller final payoff. A payment that does not
+     cover interest is invalid (null) so the walk cannot run forever.
+     Without a rate, rows stay principal-only, matching the legacy slots. */
+  function retLoanSchedule(loan) {
+    if (!loan) return null;
+    var start = retLoanFirstIndex(loan);
+    if (!(start > 0) || start >= 10000) return null;
+    if (!retLoanUsesRate(loan)) {
+      var slots = Math.ceil(loan.balance / loan.payment - 1e-9);
+      if (!(slots > 0) || slots > 10000) return null;
+      var rows = [];
+      var left = loan.balance;
+      var n;
+      for (n = 1; n <= slots; n++) {
+        var amt = n === slots ? left : loan.payment;
+        if (!(amt > 0)) return null;
+        left = left - amt;
+        if (left < 0 && left > -1e-6) left = 0;
+        var idx = start + n - 1;
+        rows.push({
+          i: idx, amount: amt, principal: amt, interest: 0,
+          ms: retLoanPayMs(loan, idx), remainingAfter: left
+        });
+      }
+      return rows;
+    }
+    var r = (loan.ratePct / 100) / loan.perYear;
+    if (!(r > 0) || !isFinite(r)) return null;
+    var remaining = loan.balance;
+    var out = [];
+    var step = 0;
+    while (remaining > 1e-8 && step < 10000) {
+      step++;
+      var interest = remaining * r;
+      if (!(loan.payment > interest)) return null;
+      var principal;
+      var amount;
+      if (loan.payment + 1e-8 >= remaining + interest) {
+        principal = remaining;
+        amount = remaining + interest;
+        remaining = 0;
+      } else {
+        principal = loan.payment - interest;
+        amount = loan.payment;
+        remaining = remaining - principal;
+        if (!(remaining > 1e-8)) remaining = 0;
+      }
+      var at = start + step - 1;
+      out.push({
+        i: at, amount: amount, principal: principal, interest: interest,
+        ms: retLoanPayMs(loan, at), remainingAfter: remaining
+      });
+    }
+    if (remaining > 1e-6 || !out.length) return null;
+    return out;
+  }
+  /* Payments on or before nowMs are already reflected. A remainder of a
+     half-cent or less means the loan is repaid and adds nothing. */
   function retLoanStatus(loan, nowMs) {
     if (!loan || nowMs == null || !isFinite(nowMs)) return null;
-    var elapsed = (nowMs - loan.asofMs) / RET_YEAR_MS;
-    if (!isFinite(elapsed)) return null;
-    var nPaid = elapsed > 0 ? Math.floor(elapsed * loan.perYear + 1e-9) : 0;
-    if (nPaid < 0) nPaid = 0;
-    var remaining = loan.balance - nPaid * loan.payment;
+    var sched = retLoanSchedule(loan);
+    if (!sched || !sched.length) return null;
+    var legacyTiming = !retLoanUsesRate(loan) && loan.firstMs == null;
+    var nPaid = 0;
+    if (legacyTiming) {
+      var elapsed = (nowMs - loan.asofMs) / RET_YEAR_MS;
+      if (!isFinite(elapsed)) return null;
+      nPaid = elapsed > 0 ? Math.floor(elapsed * loan.perYear + 1e-9) : 0;
+      if (nPaid < 0) nPaid = 0;
+      if (nPaid > sched.length) nPaid = sched.length;
+    } else {
+      var k;
+      for (k = 0; k < sched.length; k++) {
+        if (sched[k].ms <= nowMs + 1e-6) nPaid++;
+        else break;
+      }
+    }
+    var remaining = nPaid > 0 ? sched[nPaid - 1].remainingAfter : loan.balance;
     if (!(remaining > 0.005)) return null;
-    var slots = Math.ceil(loan.balance / loan.payment - 1e-9);
-    if (!(slots > nPaid)) return null;
-    var lastAmt = loan.balance - (slots - 1) * loan.payment;
-    if (!(lastAmt > 0)) return null;
+    var last = sched[sched.length - 1];
+    if (!(last.amount > 0)) return null;
+    var due = 0;
+    var interestLeft = 0;
+    var j;
+    for (j = nPaid; j < sched.length; j++) {
+      due += sched[j].amount;
+      interestLeft += sched[j].interest;
+    }
+    var payoffMs = legacyTiming
+      ? loan.asofMs + (sched.length / loan.perYear) * RET_YEAR_MS
+      : last.ms;
     return {
       remaining: remaining,
-      payoffMs: loan.asofMs + (slots / loan.perYear) * RET_YEAR_MS,
+      payoffMs: payoffMs,
       nPaid: nPaid,
-      slots: slots,
-      lastAmt: lastAmt,
+      slots: sched.length,
+      lastAmt: last.amount,
       payment: loan.payment,
       perYear: loan.perYear,
       asofMs: loan.asofMs,
       nowMs: nowMs,
-      balance: loan.balance
+      balance: loan.balance,
+      schedule: sched,
+      ratePct: loan.ratePct,
+      interestLeft: interestLeft,
+      remainingDue: due,
+      paymentsLeft: sched.length - nPaid,
+      id: loan.id || "",
+      type: loan.type || "",
+      issueMs: loan.issueMs || null,
+      payoffQuote: loan.payoffQuote == null ? null : loan.payoffQuote,
+      firstMs: loan.firstMs || null
     };
   }
-  function retLoanActive() {
-    if (!RET_SAVED || !RET_SAVED.loan) return null;
-    return retLoanStatus(RET_SAVED.loan, retTodayMs());
+  function retSavedLoanList() {
+    if (!RET_SAVED) return [];
+    if (Array.isArray(RET_SAVED.loans) && RET_SAVED.loans.length) return RET_SAVED.loans;
+    if (RET_SAVED.loan) return [RET_SAVED.loan];
+    return [];
   }
-  /* Principal only, on the payment date, through the horizon. No match. */
+  function retLoansActive() {
+    var now = retTodayMs();
+    var out = [];
+    retSavedLoanList().forEach(function (loan) {
+      var st = retLoanStatus(loan, now);
+      if (st) out.push(st);
+    });
+    return out;
+  }
+  function retLoanCombine(list) {
+    var remaining = 0;
+    var payoffMs = 0;
+    var i;
+    for (i = 0; i < list.length; i++) {
+      remaining += Number(list[i].remaining) || 0;
+      if (list[i].payoffMs > payoffMs) payoffMs = list[i].payoffMs;
+    }
+    return { remaining: remaining, payoffMs: payoffMs, parts: list };
+  }
+  function retLoanActive() {
+    var list = retLoansActive();
+    if (!list.length) return null;
+    if (list.length === 1) return list[0];
+    return retLoanCombine(list);
+  }
+  /* Full payment (principal + interest) on each future pay date, then the
+     portfolio nominal return. No match. Outstanding principal is not added. */
   function retLoanFuture(years, nominal, infl) {
-    var model = retLoanActive();
-    if (!model || !(years > 0)) return { nominal: 0, today: 0 };
-    var R = nominal;
-    var growth = 1 + R;
+    var list = retLoansActive();
+    if (!list.length || !(years > 0)) return { nominal: 0, today: 0 };
+    var growth = 1 + nominal;
     if (!(growth > 0) || !isFinite(growth)) return { nominal: 0, today: 0 };
+    var events = [];
+    list.forEach(function (model) {
+      var i;
+      for (i = model.nPaid; i < model.schedule.length; i++) {
+        var row = model.schedule[i];
+        var legacyTiming = !(model.ratePct > 0) && model.firstMs == null;
+        var t = legacyTiming
+          ? (model.asofMs - model.nowMs) / RET_YEAR_MS + row.i / model.perYear
+          : (row.ms - model.nowMs) / RET_YEAR_MS;
+        if (!(t > 0) || t > years) continue;
+        if (!(row.amount > 0)) continue;
+        events.push({ t: t, amt: row.amount });
+      }
+    });
+    events.sort(function (a, b) { return a.t - b.t; });
     var bal = 0;
     var prev = 0;
-    var i;
-    for (i = model.nPaid + 1; i <= model.slots; i++) {
-      var t = (model.asofMs - model.nowMs) / RET_YEAR_MS + i / model.perYear;
-      if (!(t > 0) || t > years) continue;
-      var amt = i === model.slots ? model.lastAmt : model.payment;
-      if (!(amt > 0)) continue;
-      bal = bal * Math.pow(growth, t - prev) + amt;
-      prev = t;
+    var e;
+    for (e = 0; e < events.length; e++) {
+      bal = bal * Math.pow(growth, events[e].t - prev) + events[e].amt;
+      prev = events[e].t;
       if (!isFinite(bal)) return { nominal: 0, today: 0 };
     }
     bal = bal * Math.pow(growth, years - prev);
@@ -3035,13 +3239,26 @@ function invMountTicker() {
     if (empty.nominal != null) empty.nominal += add.nominal;
     return empty;
   }
-  /* Monthly principal: payment times payments per year, spread over 12.
-     Never more than the balance still left. */
+  /* Monthly equivalent: payment times payments per year, spread over 12.
+     Each loan is capped by the principal plus interest still due. */
   function retLoanMonthPay(model) {
-    if (!model || !(Number(model.perYear) > 0) || !retFinite(model.payment)) return null;
+    if (!model) return null;
+    if (model.parts && model.parts.length) {
+      var sum = 0;
+      var any = false;
+      model.parts.forEach(function (part) {
+        var one = retLoanMonthPay(part);
+        if (one == null) return;
+        any = true;
+        sum += one;
+      });
+      return any && isFinite(sum) ? sum : null;
+    }
+    if (!(Number(model.perYear) > 0) || !retFinite(model.payment)) return null;
     var mo = Number(model.payment) * Number(model.perYear) / 12;
     if (!isFinite(mo)) return null;
-    if (retFinite(model.remaining) && mo > Number(model.remaining)) mo = Number(model.remaining);
+    var cap = retFinite(model.remainingDue) ? Number(model.remainingDue) : (retFinite(model.remaining) ? Number(model.remaining) : null);
+    if (cap != null && mo > cap) mo = cap;
     return mo;
   }
   function retSaveSplitText(monthlyShown, model) {
@@ -3071,6 +3288,159 @@ function invMountTicker() {
   function retLoanLine() {
     return retLoanCopy(retLoanActive());
   }
+  function retLoansEsc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+  function retLoansMoney(n) {
+    if (typeof money === "function") return money(n);
+    var v = Number(n);
+    if (!isFinite(v)) return "\u2014";
+    var abs = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (v < 0 ? "-$" : "$") + abs;
+  }
+  function retLoansDate(ms) {
+    if (ms == null || !isFinite(Number(ms))) return "\u2014";
+    var d = new Date(ms);
+    var names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    var month = names[d.getUTCMonth()];
+    if (!month) return "\u2014";
+    return month + " " + d.getUTCDate() + ", " + d.getUTCFullYear();
+  }
+  function retLoansFreq(per) {
+    if (per === 12) return "Monthly";
+    if (per === 24) return "Semi-monthly";
+    if (per === 26) return "Every two weeks";
+    if (per === 52) return "Weekly";
+    return String(per) + " times a year";
+  }
+  function retLoansPct(rate) {
+    if (rate == null || !isFinite(Number(rate))) return "\u2014";
+    var n = Number(rate);
+    var text = Math.abs(n - Math.round(n)) < 1e-6
+      ? String(Math.round(n))
+      : String(Math.round(n * 100) / 100);
+    return text + "%";
+  }
+  function retLoanYearEnds(status) {
+    if (!status) return [];
+    var payoff = new Date(status.payoffMs);
+    var endYear = payoff.getUTCFullYear();
+    var start = 2026;
+    if (endYear < start) start = endYear;
+    if (endYear - start > 40) endYear = start + 40;
+    var rows = [];
+    var y;
+    for (y = start; y <= endYear; y++) {
+      var cutoff = retYmdMs(y, 12, 31);
+      if (cutoff + 1e-6 < status.asofMs) {
+        rows.push({ year: y, balance: null });
+        continue;
+      }
+      var bal = status.balance;
+      var i;
+      for (i = 0; i < status.schedule.length; i++) {
+        if (status.schedule[i].ms <= cutoff + 1e-6) bal = status.schedule[i].remainingAfter;
+      }
+      if (!(bal > 0.005)) bal = 0;
+      rows.push({ year: y, balance: bal });
+    }
+    return rows;
+  }
+  function retLoansPageModels(inputs, nowMs) {
+    var list = retLoansFromInputs(inputs);
+    var out = [];
+    list.forEach(function (loan) {
+      var st = retLoanStatus(loan, nowMs);
+      if (st) out.push(st);
+    });
+    return out;
+  }
+  function retLoansPageHtml(inputs, nowMs) {
+    var models = retLoansPageModels(inputs, nowMs);
+    var head = "<h2>401k Loans</h2>" +
+      '<p class="hint">Interest you repay goes back into the 401k. These payments are not matched and do not count toward the deferral cap. Outstanding principal is not added on top of the balance.</p>';
+    if (!models.length) {
+      return head + '<p class="hint" data-loans-empty="1">No 401k loans on this account.</p>';
+    }
+    var month = 0;
+    var pays = 0;
+    var principal = 0;
+    var interest = 0;
+    var html = head;
+    models.forEach(function (st, idx) {
+      var label = st.id ? ("Loan " + st.id) : ("Loan " + String(idx + 1));
+      var mo = retLoanMonthPay(st);
+      if (mo != null) month += mo;
+      pays += st.paymentsLeft;
+      principal += st.remaining;
+      interest += st.interestLeft;
+      var years = retLoanYearEnds(st);
+      var yearRows = years.map(function (row) {
+        var bal = row.balance == null ? "\u2014" : retLoansMoney(row.balance);
+        return "<tr><td>" + row.year + "</td><td>" + bal + "</td></tr>";
+      }).join("");
+      html += '<article class="card" data-loan-id="' + retLoansEsc(st.id || String(idx + 1)) + '">' +
+        "<h2>" + retLoansEsc(label) + "</h2>" +
+        '<div class="kpi">' +
+        "<div><span>Type</span><b>" + retLoansEsc(st.type || "\u2014") + "</b></div>" +
+        "<div><span>Issue date</span><b>" + retLoansEsc(retLoansDate(st.issueMs)) + "</b></div>" +
+        "<div><span>Principal as of " + retLoansEsc(retLoansDate(st.asofMs)) + "</span><b>" + retLoansMoney(st.balance) + "</b></div>" +
+        "<div><span>Payment per check</span><b>" + retLoansMoney(st.payment) + "</b></div>" +
+        "<div><span>Frequency</span><b>" + retLoansEsc(retLoansFreq(st.perYear)) + "</b></div>" +
+        "<div><span>APR</span><b>" + retLoansEsc(retLoansPct(st.ratePct)) + "</b></div>" +
+        "<div><span>Payoff quote</span><b>" + (st.payoffQuote == null ? "\u2014" : retLoansMoney(st.payoffQuote)) + "</b></div>" +
+        "<div><span>Projected payoff</span><b>" + retLoansEsc(retLoansDate(st.payoffMs)) + "</b></div>" +
+        "<div><span>Payments left</span><b>" + String(st.paymentsLeft) + "</b></div>" +
+        "<div><span>Principal left</span><b>" + retLoansMoney(st.remaining) + "</b></div>" +
+        "<div><span>Interest left</span><b>" + retLoansMoney(st.interestLeft) + "</b><i>back into the 401k</i></div>" +
+        "</div>" +
+        '<p class="hint">Split: principal ' + retLoansMoney(st.remaining) + " \u00b7 interest " + retLoansMoney(st.interestLeft) + "</p>" +
+        '<table class="book"><thead><tr><th>Year-end</th><th>Principal left</th></tr></thead><tbody>' +
+        yearRows + "</tbody></table></article>";
+    });
+    html += '<article class="card" data-loans-total="1"><h2>All loans</h2><div class="kpi">' +
+      "<div><span>Monthly cost</span><b>" + retLoansMoney(month) + "</b></div>" +
+      "<div><span>Payments left</span><b>" + String(pays) + "</b></div>" +
+      "<div><span>Principal left</span><b>" + retLoansMoney(principal) + "</b></div>" +
+      "<div><span>Interest left</span><b>" + retLoansMoney(interest) + "</b></div>" +
+      "</div></article>";
+    return html;
+  }
+  function retLoansPageNav() {
+    if (typeof MPNav === "undefined" || !MPNav || typeof MPNav.setItems !== "function") return;
+    MPNav.setItems("investments", [
+      { id: "combined", label: "Overview", href: "/investments/#house" }
+    ], "loans");
+  }
+  function retLoansPageBoot() {
+    retLoansPageNav();
+    var root = document.getElementById("loanDesk");
+    if (!root) return;
+    function show(html) { root.innerHTML = html; }
+    try {
+      fetch(retDataUrl(), retRemoteInit()).then(function (r) {
+        if (!r || !r.ok) throw new Error("status");
+        return r.json();
+      }).then(function (body) {
+        if (!body || body.schema !== "retirement-inputs/v1" || !Object.prototype.hasOwnProperty.call(body, "inputs")) {
+          show('<h2>401k Loans</h2><p class="hint">Saved inputs unavailable.</p>');
+          return;
+        }
+        show(retLoansPageHtml(body.inputs, retTodayMs()));
+      }).catch(function () {
+        show('<h2>401k Loans</h2><p class="hint">Saved inputs unavailable.</p>');
+      });
+    } catch (eBoot) {
+      show('<h2>401k Loans</h2><p class="hint">Saved inputs unavailable.</p>');
+    }
+  }
+  function retLoansPageOn() {
+    try {
+      return !!(document.body && document.body.getAttribute && document.body.getAttribute("data-page") === "loans");
+    } catch (ePage) { return false; }
+  }
   /* Growth % is nominal, before inflation.
      No salary: level deposits compound at that rate.
      Salary set: the same rate. Each year salary grows by the raise first,
@@ -3083,7 +3453,7 @@ function invMountTicker() {
      itself stops at the slider max, floored to the 0.1 step. Below that max it
      snaps to the nearest 0.1. Employer match uses pay up to the IRS compensation
      limit when tax-rules.json has one.
-     Loan principal is added on its own dates, with no match and outside the deferral cap. */
+     Loan payments (principal and interest) are added on their pay dates, with no match and outside the deferral cap. Outstanding principal is not added to the balance. */
   /* The range step. Above the cap, floor to this — the cap itself is already
      floored, so the stored extra cannot sit past a step the slider can show.
      Below the cap, retExtraStepSnap uses the nearest step. */
@@ -4326,7 +4696,7 @@ function invMountTicker() {
       }
     }
     var btn = e.target.closest("[data-tab]");
-    if (btn) {
+    if (btn && typeof setHash === "function" && typeof paint === "function") {
       overlayOpen = false;
       tab = btn.getAttribute("data-tab");
       closeDeskMenu();
@@ -4415,6 +4785,9 @@ function invMountTicker() {
     if (typeof paint === "function" && snap) paint();
   });
 
+  if (retLoansPageOn()) {
+    retLoansPageBoot();
+  } else {
   retHydratePending();
   retConsumeRetHash();
   retFetchSaved();
@@ -4436,6 +4809,7 @@ function invMountTicker() {
     if (mixMql.addEventListener) mixMql.addEventListener("change", onMixMql);
     else if (mixMql.addListener) mixMql.addListener(onMixMql);
   } catch (eMql) {}
+  }
   function paintPrintAge() {
     var clock, el, asof, info;
     try { clock = document.getElementById("clock"); } catch (e) { return; }
@@ -4458,7 +4832,9 @@ function invMountTicker() {
       else el.classList.remove("asof-stale");
     }
   }
+  if (!retLoansPageOn()) {
   try { window.mpPaintPrintAge = paintPrintAge; } catch (eAge) {}
   paintPrintAge();
   setInterval(function () { if (typeof load === "function") load(); }, 5 * 60 * 1000);
   invMountTicker();
+  }

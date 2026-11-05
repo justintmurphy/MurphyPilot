@@ -470,5 +470,5 @@ test("board-b does not interval the shared clock", function () {
   assert.match(src, /className = "d"/);
   assert.equal((nav.match(/setInterval\(tickClock/g) || []).length, 1);
   assert.match(nav, /mpPaintPrintAge/);
-  assert.match(read("investments/index.html"), /board-b\.js\?v=20261007ei/);
+  assert.match(read("investments/index.html"), /board-b\.js\?v=20261105aa/);
 });

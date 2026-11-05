@@ -98,14 +98,26 @@
   function bankingActive() {
     return bankingPathId() || bankingHashId(location.hash) || BANKING_DEFAULT;
   }
+  function investPathId() {
+    var path = String(location.pathname || "/").replace(/\/index\.html$/, "");
+    if (path.length > 1 && path.charAt(path.length - 1) === "/") path = path.slice(0, -1);
+    if (path === "/investments/loans") return "loans";
+    return "";
+  }
   function itemsHtml() {
     var s = NAV.sections[section];
-    var on = section === "banking" ? bankingActive() : invActive;
-    return s.items.map(function (it) {
+    var items = s.items.slice();
+    if (section === "investments") {
+      items = items.filter(function (it) { return it.id !== "loans"; });
+      items.push({ id: "loans", label: "401k Loans", href: "/investments/loans/" });
+    }
+    var on = section === "banking" ? bankingActive() : (investPathId() || invActive);
+    return items.map(function (it) {
       var a = it.id === on ? ' class="on" aria-current="page"' : "";
-      return section === "banking"
-        ? '<a href="' + it.href + '" data-nav-item="' + esc(it.id) + '"' + a + ">" + esc(it.label) + "</a>"
-        : '<button type="button" data-tab="' + esc(it.id) + '" data-nav-item="' + esc(it.id) + '"' + a + ">" + esc(it.label) + "</button>";
+      if (it.href) {
+        return '<a href="' + esc(it.href) + '" data-nav-item="' + esc(it.id) + '"' + a + ">" + esc(it.label) + "</a>";
+      }
+      return '<button type="button" data-tab="' + esc(it.id) + '" data-nav-item="' + esc(it.id) + '"' + a + ">" + esc(it.label) + "</button>";
     }).join("");
   }
   var PICK_KEY = "murphyPilotThemePick";
@@ -286,7 +298,9 @@
     setItems: function (sec, items, activeId) {
       if (sec !== "investments") return;
       NAV.sections.investments.items = (items || []).map(function (i) {
-        return { id: String(i.id), label: String(i.label) };
+        var item = { id: String(i.id), label: String(i.label) };
+        if (i.href) item.href = String(i.href);
+        return item;
       });
       invActive = activeId || null;
       if (mount()) repaint();

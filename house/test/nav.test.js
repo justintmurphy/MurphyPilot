@@ -371,6 +371,9 @@ test("top nav is two buttons and the open menu matches the section", function ()
   assert.match(tabs, /data-tab="robinhood"[^>]*class="on"/);
   assert.match(tabs, /data-tab="fidelity"/);
   assert.match(tabs, /data-tab="voya"/);
+  assert.match(tabs, /href="\/investments\/loans\/"[^>]*data-nav-item="loans"/);
+  assert.match(tabs, />401k Loans</);
+  assert.doesNotMatch(tabs, /data-nav-item="loans"[^>]*class="on"/);
   assert.doesNotMatch(tabs, /Budget|Current|Historical|Edits|href="\/#/);
   assert.match(inv.elements.main._after, /href="\/Murphy_Pilot_Manual\.html"/);
   assert.match(inv.elements.main._after, /href="\/Murphy_Pilot_Setup\.html"/);
@@ -515,6 +518,16 @@ test("the banking menu marks the current page for each hash", function () {
   assert.equal(marked(live).join(","), "");
   const fromInv = bootNav({ pathname: "/investments/", hash: "#historical=2026-08" });
   assert.deepEqual(fromInv.replaced, ["/#historical=2026-08"]);
+
+  const loans = bootNav({ pathname: "/investments/loans/" });
+  assert.equal(loans.replaced.length, 0);
+  assert.equal(loans.MPNav.section, "investments");
+  assert.match(loans.elements.tabs.innerHTML, /href="\/investments\/loans\/"[^>]*data-nav-item="loans"[^>]*class="on"/);
+  const loansHtml = read("investments/loans/index.html");
+  assert.match(loansHtml, /data-page="loans"/);
+  assert.match(loansHtml, /id="loanDesk"/);
+  assert.match(loansHtml, /\/house\/js\/board-b\.js\?v=20261105aa/);
+  assert.doesNotMatch(loansHtml, /Voya|Fidelity|Chase|lender/);
 });
 
 test("each page has one empty ticker slot under the header", function () {
@@ -620,7 +633,7 @@ test("nav source stays free of figures and institution names", function () {
 test("touched assets use the ei cache bust", function () {
   const bank = read("index.html");
   const inv = read("investments/index.html");
-  assert.match(bank, /\/js\/nav\.js\?v=20261007ep/);
+  assert.match(bank, /\/js\/nav\.js\?v=20261105aa/);
   assert.match(bank, /\/house\/house\.css\?v=20261022ac/);
   assert.match(bank, /\/house\/js\/banking\.js\?v=20261102aa/);
 
@@ -630,11 +643,11 @@ test("touched assets use the ei cache bust", function () {
   assert.match(bank, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(bank, /Murphy Pilot House/);
   assert.doesNotMatch(bank, /section-nav/);
-  assert.match(inv, /\/js\/nav\.js\?v=20261007ep/);
+  assert.match(inv, /\/js\/nav\.js\?v=20261105aa/);
   assert.match(inv, /list-cap\.js\?v=20261007eh/);
   assert.match(inv, /list-cap\.css\?v=20261007eh/);
   assert.match(inv, /\/house\/house\.css\?v=20261022ac/);
-  assert.match(inv, /\/house\/js\/board-b\.js\?v=20261007ei/);
+  assert.match(inv, /\/house\/js\/board-b\.js\?v=20261105aa/);
   assert.match(inv, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(inv, /Murphy Pilot House/);
   assert.match(inv, /\/house\/js\/board-c\.js\?v=20261007ei/);
@@ -684,11 +697,11 @@ test("each asset path has one cache bust across html pages", function () {
     }
   });
   assert.ok(seen.has("js/nav.js"));
-  assert.equal(seen.get("js/nav.js").ver, "20261007ep");
+  assert.equal(seen.get("js/nav.js").ver, "20261105aa");
   assert.equal(seen.get("house/js/ticker.js").ver, "20261007ei");
   assert.equal(seen.get("house/ticker.css").ver, "20261007ei");
   assert.equal(seen.get("house/js/board-a.js").ver, "20261007ei");
-  assert.equal(seen.get("house/js/board-b.js").ver, "20261007ei");
+  assert.equal(seen.get("house/js/board-b.js").ver, "20261105aa");
   assert.equal(seen.get("house/js/board-c.js").ver, "20261007ei");
   assert.equal(seen.get("house/js/board-d.js").ver, "20261007ei");
   assert.equal(seen.get("house/js/board-e.js").ver, "20261007ei");
