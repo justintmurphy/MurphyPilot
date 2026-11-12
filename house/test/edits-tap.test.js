@@ -118,10 +118,15 @@ test("a search redraw keeps the row handler, and the open key stays the raw tx_k
   assert.equal(ctx.bankTxOpenKey(row), grocer);
   const opened = ctx.bankTxResultsHtml(data, { txQuery: "grocer", txOpen: grocer });
   assert.match(opened, /<button type="button" class="bank-tx-hit" data-bank-tx-open="2026-10-08\|acct-check\|12\.34\|Neighborhood Grocer"/);
-  assert.match(opened, /data-bank-tx-sheet/);
-  assert.match(opened, /class="book-chip on" data-bank-tx-scope="one"/);
-  assert.match(opened, /data-bank-tx-key="2026-10-08\|acct-check\|12\.34\|Neighborhood Grocer"/);
+  assert.doesNotMatch(opened, /data-bank-tx-sheet/);
   assert.match(opened, /Change \u203a/);
+  const page = ctx.bankPageHtml(data, { tab: "edits", txQuery: "grocer", txOpen: grocer });
+  assert.match(page, /data-bank-tx-sheet/);
+  assert.match(page, /class="book-chip on" data-bank-tx-scope="one"/);
+  assert.match(page, /data-bank-tx-key="2026-10-08\|acct-check\|12\.34\|Neighborhood Grocer"/);
+  const resultsAt = page.indexOf("data-bank-find-results");
+  const results = page.slice(resultsAt, page.indexOf("</section>", resultsAt));
+  assert.doesNotMatch(results, /data-bank-tx-sheet/);
   const oneOff = ctx.bankTxResultsHtml(data, { txQuery: "One Off" });
   assert.match(oneOff, /data-bank-tx-open="2026-10-06\|acct-check\|9\|One Off Shop"/);
   const quiet = ctx.bankTxResultsHtml(data, { txQuery: "" });
@@ -140,10 +145,15 @@ test("a search redraw keeps the row handler, and the open key stays the raw tx_k
   assert.match(payroll, /Not a purchase/);
   assert.doesNotMatch(payroll, /data-bank-tx-open/);
   const moveKey = "2026-10-04|acct-check|12.34|Inside Move";
-  const sheet = ctx.bankTxResultsHtml(data, { txOpen: moveKey });
+  const movePage = ctx.bankPageHtml(data, { tab: "edits", txOpen: moveKey, txQuery: "payroll" });
+  const sheet = movePage.slice(movePage.indexOf("data-bank-tx-sheet"));
   assert.match(sheet, /Not counted as spending now/);
   assert.match(sheet, /value="not-purchase" selected/);
   assert.match(sheet, /Just this one/);
+  assert.match(sheet, /tap Save/);
+  const moveResults = movePage.slice(movePage.indexOf("data-bank-find-results"), movePage.indexOf("</section>", movePage.indexOf("data-bank-find-results")));
+  assert.doesNotMatch(moveResults, /Inside Move/);
+  assert.doesNotMatch(moveResults, /data-bank-tx-sheet/);
 
   const slot = {
     innerHTML: "",
@@ -183,5 +193,66 @@ test("a search redraw keeps the row handler, and the open key stays the raw tx_k
   assert.match(slot.innerHTML, /Neighborhood Grocer/);
   ctx.bankPaintTxResults(root);
   assert.equal(slot.listeners.click, handler);
-  assert.match(slot.innerHTML, /data-bank-tx-sheet/);
+  assert.doesNotMatch(slot.innerHTML, /data-bank-tx-sheet/);
+  assert.match(root.innerHTML, /data-bank-tx-sheet/);
+});
+
+test("a category tap and an uncategorized tap open the page sheet when search does not list the row", function () {
+  const ctx = boot();
+  const data = snap(ctx);
+  data.current.edits_tx.push({
+    date: "2026-10-03", amount: 12.34, flow: "outflow", desc: "Odd Purchase",
+    category: null, category_basis: "spend", tx_id: "tx-1003",
+    tx_key: "odd-purchase", last4: "2222"
+  });
+  const grocer = "2026-10-08|acct-check|12.34|Neighborhood Grocer";
+  const html = ctx.bankPageHtml(data, {
+    tab: "edits",
+    now: "2026-10-16T16:00:00Z",
+    catOpen: "groceries",
+    catMonth: "2026-10",
+    txOpen: grocer,
+    txQuery: "no-such-shop"
+  });
+  const catAt = html.indexOf('data-bank-cat-save="groceries"');
+  const txAt = html.indexOf('data-bank-tx-sheet="1"');
+  assert.ok(catAt >= 0 && txAt > catAt);
+  const between = html.slice(catAt, txAt);
+  assert.match(between, /<\/div><\/div>/);
+  assert.equal(between.indexOf("data-bank-tx-sheet"), -1);
+  const catPop = html.slice(html.indexOf('<div class="books-overlay on sheet-bottom" data-bank-cat-pop="1">'), txAt);
+  assert.doesNotMatch(catPop, /data-bank-tx-sheet/);
+  assert.match(catPop, /Neighborhood Grocer/);
+  const foundAt = html.indexOf("data-bank-find-results");
+  const found = html.slice(foundAt, html.indexOf("</section>", foundAt));
+  assert.doesNotMatch(found, /Neighborhood Grocer/);
+  assert.doesNotMatch(found, /data-bank-tx-sheet/);
+  const sheet = html.slice(txAt);
+  assert.match(sheet, /Neighborhood Grocer/);
+  assert.match(sheet, /tap Save/);
+  assert.match(sheet, /data-bank-tx-save="1"/);
+  assert.match(sheet, /z-index:46/);
+
+  const uncat = ctx.bankPageHtml(data, {
+    tab: "edits",
+    now: "2026-10-16T16:00:00Z",
+    uncatOpen: true,
+    txOpen: "odd-purchase",
+    txQuery: "grocer"
+  });
+  const listAt = uncat.indexOf('data-bank-uncat-list="1"');
+  const list = uncat.slice(listAt, uncat.indexOf("</ul>", listAt));
+  assert.match(list, /data-bank-cat-item-open="odd-purchase"/);
+  assert.match(list, /Odd Purchase/);
+  assert.doesNotMatch(list, /data-bank-tx-sheet/);
+  const uncatFoundAt = uncat.indexOf("data-bank-find-results");
+  const uncatFound = uncat.slice(uncatFoundAt, uncat.indexOf("</section>", uncatFoundAt));
+  assert.match(uncatFound, /Neighborhood Grocer/);
+  assert.doesNotMatch(uncatFound, /Odd Purchase/);
+  assert.doesNotMatch(uncatFound, /data-bank-tx-sheet/);
+  const uncatSheet = uncat.slice(uncat.indexOf('data-bank-tx-sheet="1"'));
+  assert.match(uncatSheet, /Odd Purchase/);
+  assert.match(uncatSheet, /aria-label="Category"/);
+  assert.match(uncatSheet, /data-bank-tx-save="1"/);
+  assert.match(uncatSheet, /tap Save/);
 });

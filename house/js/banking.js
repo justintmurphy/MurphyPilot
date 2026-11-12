@@ -17518,7 +17518,9 @@ function bankSpendPopupHtml(snap, opts) {
   else if (model.left != null) leftText = bankMoney(model.left);
   var showBar = !!(model.showBudget && (model.budget > 0 || model.spent > 0.004));
   var pctText = !showBar || model.pct == null ? (model.spent > 0 && !(model.budget > 0) ? "Over" : "\u2014") : (model.pct > 999 ? "999%+" : (Math.round(model.pct) + "%"));
-  var err = opts.catError ? '<p class="hint tone-stop" role="status">' + bankEsc(opts.catError) + "</p>" : '<p class="hint">Monthly budget for this category.</p>';
+  var err = opts.catError && !opts.txOpen
+    ? '<p class="hint tone-stop" role="status">' + bankEsc(opts.catError) + "</p>"
+    : '<p class="hint">Monthly budget for this category.</p>';
   function monthRow(key, amount) {
     if (!key) return "";
     return '<tr data-cat-fig="' + bankEsc(key) + '"><td>' + bankEsc(bankSpendMonthName(key)) + '</td><td class="num">' +
@@ -17554,14 +17556,6 @@ function bankSpendPopupHtml(snap, opts) {
   var itemHtml = items.length
     ? bankCapList('<ul data-bank-cat-items="1">' + list + "</ul>", items.length, model.name)
     : '<p class="hint">No items this month.</p>';
-  var sheet = "";
-  if (opts.txOpen) {
-    items.forEach(function (raw) {
-      var key = "";
-      try { key = bankTxOpenKey(raw); } catch (e) { key = ""; }
-      if (String(key) === String(opts.txOpen)) sheet = bankTxSheetHtml(snap, raw, opts);
-    });
-  }
   return '<div class="books-overlay on sheet-bottom" data-bank-cat-pop="1">' +
     '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="' + bankEsc(model.name) + '">' +
     '<div class="books-head"><h2>' + bankEsc(model.name) + "</h2>" +
@@ -17572,8 +17566,7 @@ function bankSpendPopupHtml(snap, opts) {
     '<label>Group <select data-bank-cat-tier="' + bankEsc(model.id) + '" aria-label="Group">' + bankSpendTierOptions(tierVal) + "</select></label> " +
     '<label>Monthly budget <input data-bank-cat-budget="' + bankEsc(model.id) + '" inputmode="decimal" aria-label="Monthly budget" value="' +
     bankEsc(shownBudget) + '"></label> ' + budgetWarn +
-    '<button type="button" class="act" data-bank-cat-save="' + bankEsc(model.id) + '">Save</button>' +
-    sheet + "</div></div>";
+    '<button type="button" class="act" data-bank-cat-save="' + bankEsc(model.id) + '">Save</button></div></div>';
 }
 
 function bankGroupPopupHtml(snap, opts) {
@@ -23114,7 +23107,8 @@ function bankTxOpenKey(raw) {
 
 function bankTxSheetHint(category) {
   var noun = "pur" + "ch" + "ase";
-  return category ? ("Pick a category for this " + noun + ".") : ("Pick a group for this " + noun + ".");
+  var lead = category ? ("Pick a category for this " + noun + ".") : ("Pick a group for this " + noun + ".");
+  return lead + " Then tap Save.";
 }
 
 function bankOffSpendLabel() {
@@ -23200,18 +23194,58 @@ function bankTxSheetHtml(snap, raw, opts) {
     : '<select data-bank-tx-pick="' + bankEsc(saveKey) + '" data-bank-tx-merchant="' + bankEsc(merchant) + '" aria-label="Tier">' +
       bankSpendTierOptions(current) + "</select>";
   var hint = bankTxSheetHint(catsOn);
-  if (offSpend && !savedId) hint = "Not counted as spending now";
+  if (offSpend && !savedId) hint = "Not counted as spending now. Pick a category, then tap Save.";
   var scope = opts.txScope === "merchant" ? "merchant" : "one";
-  return '<div class="books-overlay on sheet-bottom" data-bank-cat-pop="1" data-bank-tx-sheet="1">' +
+  var err = opts.catError
+    ? '<p class="hint tone-stop" role="status" data-bank-tx-error="1">' + bankEsc(opts.catError) + "</p>"
+    : "";
+  return '<div class="books-overlay on sheet-bottom" data-bank-cat-pop="1" data-bank-tx-sheet="1" style="z-index:46">' +
     '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="' + bankEsc(face) + '">' +
     '<div class="books-head"><h2>' + bankEsc(face) + "</h2>" +
     '<button type="button" class="book-chip" data-bank-cat-close="1">Close</button></div>' +
     '<p class="hint">' + hint + "</p>" +
+    err +
     (rawDetail ? '<p class="hint" data-bank-tx-raw="1">' + bankEsc(rawDetail) + "</p>" : "") +
     picker +
     bankTxScopeHtml(scope, keyOk) +
     '<button type="button" class="act" data-bank-tx-save="1" data-bank-tx-key="' + bankEsc(saveKey) + '" data-bank-tx-merchant="' +
     bankEsc(catsOn ? ruleKey : merchant) + '">Save</button></div></div>';
+}
+
+/* The purchase sheet sits on the page, not inside a scrolling category sheet or the search list.
+   txOpen is matched with bankTxOpenKey so a search filter cannot hide the row. */
+function bankTxOpenPools(snap) {
+  var pools = [];
+  try { pools.push(bankTxRows(snap) || []); } catch (e) { pools.push([]); }
+  try { pools.push(bankSpendTxRows(snap) || []); } catch (e2) {}
+  try { pools.push(bankUncatItems(snap) || []); } catch (e3) {}
+  return pools;
+}
+
+function bankTxOpenRow(snap, key) {
+  var want = String(key || "");
+  if (!want) return null;
+  var pools = bankTxOpenPools(snap);
+  var p;
+  var i;
+  for (p = 0; p < pools.length; p++) {
+    var rows = pools[p] || [];
+    for (i = 0; i < rows.length; i++) {
+      var open = "";
+      try { open = bankTxOpenKey(rows[i]); } catch (e) { open = ""; }
+      if (open && String(open) === want) return rows[i];
+    }
+  }
+  return null;
+}
+
+function bankTxPageSheetHtml(snap, opts) {
+  opts = opts || {};
+  if (!opts.txOpen) return "";
+  var raw = null;
+  try { raw = bankTxOpenRow(snap, opts.txOpen); } catch (e) { raw = null; }
+  if (!raw) return "";
+  return bankTxSheetHtml(snap, raw, opts);
 }
 
 function bankTxResultsHtml(snap, opts) {
@@ -23224,7 +23258,6 @@ function bankTxResultsHtml(snap, opts) {
   var order = opts.txOrder === "asc" ? "asc" : (opts.txOrder === "amount" ? "amount" : "desc");
   var rows = bankTxSearchRows(snap, { q: q, tier: tier, account: account, month: month, category: category, order: order });
   var note = bankTxMovesOn(snap) && opts.txNote ? '<p class="bank-tx-note">' + bankEsc(opts.txNote) + "</p>" : "";
-  var sheet = "";
   var list = rows.map(function (raw) {
     var when = bankShortDate(raw.date) || raw.date || "";
     var last = "";
@@ -23234,7 +23267,6 @@ function bankTxResultsHtml(snap, opts) {
     var locked = bankTxSearchLocked(snap, raw);
     var chip = bankTxResultChip(snap, raw);
     var meta = [when, last].filter(Boolean).join(" \u00b7 ");
-    if (!locked && opts.txOpen && String(opts.txOpen) === String(openKey)) sheet = bankTxSheetHtml(snap, raw, opts);
     var change = locked ? "" : ' <span class="bank-tx-change">Change \u203a</span>';
     var body = '<span class="bank-tx-line"><span data-bank-item-name="1">' + bankEsc(name) + "</span>" + bankTxTagsHtml(raw) + " " +
       bankTxAmountHtml(raw) + "</span> " +
@@ -23250,7 +23282,7 @@ function bankTxResultsHtml(snap, opts) {
   var body = rows.length
     ? bankCapList('<ul class="bank-tx-results" data-bank-cat-items="1">' + list + "</ul>", rows.length, "Transactions")
     : '<p class="hint">No matching transactions.</p>';
-  return note + body + sheet;
+  return note + body;
 }
 
 function bankTxSearchHtml(snap, opts) {
@@ -23857,7 +23889,8 @@ function bankPageHtml(snap, opts) {
     bankGroupPopupHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
     bankSpendPopupHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
     bankDetailPopupHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
-    bankCancelSheetHtml(snap || {}, Object.assign({ tab: tab }, opts));
+    bankCancelSheetHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
+    bankTxPageSheetHtml(snap || {}, Object.assign({ tab: tab }, opts));
   } finally {
     bankMemo.sigHold = held;
     if (!held) bankMemo.sigSnap = null;
@@ -26195,7 +26228,7 @@ function bankMount(root, data, opts) {
       if (bankCategoriesActive(root._bank.data)) {
         var catNode = sheet && sheet.querySelector ? sheet.querySelector("[data-bank-tx-cat]") : null;
         var catRaw = catNode && catNode.value != null ? String(catNode.value) : "";
-        if (!catRaw) return;
+        if (!catRaw) return bankSpendFail(root, "bad_category_ref");
         var catPick = catRaw === bankOffSpendValue() ? null : catRaw;
         root._bank.txUndo = null;
         if (txScope === "one") return bankSpendSaveTx(root, txSaveKey, catPick);
