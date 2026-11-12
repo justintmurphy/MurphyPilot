@@ -1,16 +1,16 @@
 {
-  "asof": "2026-11-11T16:18:50-05:00",
+  "asof": "2026-11-12T16:17:07-05:00",
   "account": "agentic",
   "tip": "ba+bb+bc+be+bg+bh+bi+bj",
-  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted. Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=AI WWIII. Wed 16:07 slot Site data House/pilot refresh (~16:20 ET, Wed close); RH regular-session last quotes; Yahoo indexes (Wed close vs Tue close); no new fills; KEEP cashflow on house.",
-  "equity": 595.59,
-  "equity_value": 592.15,
+  "note": "Tip be: fills[].pnl from RH get_pnl_trade_history matched on symbol+side+qty+ts; buys/unknown remain null; company_url omitted. Tip bb: combined invested_pct=(equity_value+crypto_value)/equity. Tip bc: auto_grok=Grok, joint=Deep Seek, agentic=AI WWIII. Thu 16:07 slot Site data House/pilot refresh (~16:20 ET, Thu close); RH regular-session last quotes; Yahoo indexes (Thu close vs Wed close); 19 new fills; KEEP cashflow on house.",
+  "equity": 589.52,
+  "equity_value": 586.91,
   "crypto_value": 0.0,
-  "cash": 3.44,
-  "buying_power": 3.44,
+  "cash": 2.61,
+  "buying_power": 2.61,
   "pending_deposits": 0,
   "open_orders": 0,
-  "invested_pct": 99.42,
+  "invested_pct": 99.56,
   "names": [
     {
       "symbol": "NVDA",
@@ -18,23 +18,11 @@
       "kind": "equity",
       "qty": 0.204368,
       "avg_cost": 216.33,
-      "last": 173.85,
-      "value": 35.5294,
+      "last": 166.04,
+      "value": 33.9333,
       "cost": 44.2109,
-      "unrealized_pnl": -8.6816,
-      "unrealized_pnl_pct": -19.64
-    },
-    {
-      "symbol": "BCRX",
-      "name": "BioCryst",
-      "kind": "equity",
-      "qty": 5.383403,
-      "avg_cost": 8.26,
-      "last": 7.655,
-      "value": 41.2099,
-      "cost": 44.4669,
-      "unrealized_pnl": -3.257,
-      "unrealized_pnl_pct": -7.32
+      "unrealized_pnl": -10.2777,
+      "unrealized_pnl_pct": -23.25
     },
     {
       "symbol": "MP",
@@ -42,23 +30,23 @@
       "kind": "equity",
       "qty": 0.476397,
       "avg_cost": 40.24,
-      "last": 36.72,
-      "value": 17.4933,
+      "last": 37.48,
+      "value": 17.8554,
       "cost": 19.1702,
-      "unrealized_pnl": -1.6769,
-      "unrealized_pnl_pct": -8.75
+      "unrealized_pnl": -1.3149,
+      "unrealized_pnl_pct": -6.86
     },
     {
-      "symbol": "PAM",
-      "name": "Pampa Energia",
+      "symbol": "XE",
+      "name": "XEnergy",
       "kind": "equity",
-      "qty": 0.627802,
-      "avg_cost": 75.39,
-      "last": 63.535,
-      "value": 39.8874,
-      "cost": 47.33,
-      "unrealized_pnl": -7.4426,
-      "unrealized_pnl_pct": -15.72
+      "qty": 3.226997,
+      "avg_cost": 11.1,
+      "last": 11.25,
+      "value": 36.3037,
+      "cost": 35.8197,
+      "unrealized_pnl": 0.484,
+      "unrealized_pnl_pct": 1.35
     },
     {
       "symbol": "IONS",
@@ -66,11 +54,11 @@
       "kind": "equity",
       "qty": 0.906971,
       "avg_cost": 44.18,
-      "last": 28.31,
-      "value": 25.6763,
+      "last": 27.3,
+      "value": 24.7603,
       "cost": 40.07,
-      "unrealized_pnl": -14.3936,
-      "unrealized_pnl_pct": -35.92
+      "unrealized_pnl": -15.3097,
+      "unrealized_pnl_pct": -38.21
     },
     {
       "symbol": "AVGO",
@@ -78,35 +66,11 @@
       "kind": "equity",
       "qty": 0.101097,
       "avg_cost": 350.26,
-      "last": 345.45,
-      "value": 34.924,
+      "last": 364.41,
+      "value": 36.8408,
       "cost": 35.4102,
-      "unrealized_pnl": -0.4863,
-      "unrealized_pnl_pct": -1.37
-    },
-    {
-      "symbol": "AMTM",
-      "name": "Amentum",
-      "kind": "equity",
-      "qty": 1.595799,
-      "avg_cost": 21.43,
-      "last": 22.74,
-      "value": 36.2885,
-      "cost": 34.198,
-      "unrealized_pnl": 2.0905,
-      "unrealized_pnl_pct": 6.11
-    },
-    {
-      "symbol": "NRG",
-      "name": "NRG Energy",
-      "kind": "equity",
-      "qty": 0.331805,
-      "avg_cost": 96.71,
-      "last": 97.52,
-      "value": 32.3576,
-      "cost": 32.0889,
-      "unrealized_pnl": 0.2688,
-      "unrealized_pnl_pct": 0.84
+      "unrealized_pnl": 1.4305,
+      "unrealized_pnl_pct": 4.04
     },
     {
       "symbol": "HAPN",
@@ -114,11 +78,11 @@
       "kind": "equity",
       "qty": 2.12987,
       "avg_cost": 14.25,
-      "last": 15.72,
-      "value": 33.4816,
+      "last": 15.265,
+      "value": 32.5125,
       "cost": 30.3506,
-      "unrealized_pnl": 3.1309,
-      "unrealized_pnl_pct": 10.32
+      "unrealized_pnl": 2.1618,
+      "unrealized_pnl_pct": 7.12
     },
     {
       "symbol": "GIL",
@@ -126,11 +90,11 @@
       "kind": "equity",
       "qty": 0.756249,
       "avg_cost": 39.41,
-      "last": 35.795,
-      "value": 27.0699,
+      "last": 34.8,
+      "value": 26.3175,
       "cost": 29.8038,
-      "unrealized_pnl": -2.7338,
-      "unrealized_pnl_pct": -9.17
+      "unrealized_pnl": -3.4863,
+      "unrealized_pnl_pct": -11.7
     },
     {
       "symbol": "KGS",
@@ -138,11 +102,11 @@
       "kind": "equity",
       "qty": 0.602643,
       "avg_cost": 48.42,
-      "last": 43.86,
-      "value": 26.4319,
+      "last": 44.4,
+      "value": 26.7573,
       "cost": 29.18,
-      "unrealized_pnl": -2.7481,
-      "unrealized_pnl_pct": -9.42
+      "unrealized_pnl": -2.4226,
+      "unrealized_pnl_pct": -8.3
     },
     {
       "symbol": "CDE",
@@ -150,11 +114,11 @@
       "kind": "equity",
       "qty": 1.941113,
       "avg_cost": 14.1,
-      "last": 15.0301,
-      "value": 29.1751,
+      "last": 14.315,
+      "value": 27.787,
       "cost": 27.3697,
-      "unrealized_pnl": 1.8054,
-      "unrealized_pnl_pct": 6.6
+      "unrealized_pnl": 0.4173,
+      "unrealized_pnl_pct": 1.52
     },
     {
       "symbol": "GENI",
@@ -162,23 +126,11 @@
       "kind": "equity",
       "qty": 3.677008,
       "avg_cost": 6.29,
-      "last": 6.385,
-      "value": 23.4777,
+      "last": 6.105,
+      "value": 22.4481,
       "cost": 23.1284,
-      "unrealized_pnl": 0.3493,
-      "unrealized_pnl_pct": 1.51
-    },
-    {
-      "symbol": "NESR",
-      "name": "National Energy Services",
-      "kind": "equity",
-      "qty": 1.003663,
-      "avg_cost": 21.84,
-      "last": 21.96,
-      "value": 22.0404,
-      "cost": 21.92,
-      "unrealized_pnl": 0.1204,
-      "unrealized_pnl_pct": 0.55
+      "unrealized_pnl": -0.6802,
+      "unrealized_pnl_pct": -2.94
     },
     {
       "symbol": "ATAT",
@@ -186,11 +138,11 @@
       "kind": "equity",
       "qty": 1.25193,
       "avg_cost": 31.66,
-      "last": 37.63,
-      "value": 47.1101,
+      "last": 36.9,
+      "value": 46.1962,
       "cost": 39.6361,
-      "unrealized_pnl": 7.474,
-      "unrealized_pnl_pct": 18.86
+      "unrealized_pnl": 6.5601,
+      "unrealized_pnl_pct": 16.55
     },
     {
       "symbol": "GOOG",
@@ -198,11 +150,11 @@
       "kind": "equity",
       "qty": 0.11783,
       "avg_cost": 281.42,
-      "last": 290.67,
-      "value": 34.2496,
+      "last": 295.4,
+      "value": 34.807,
       "cost": 33.1597,
-      "unrealized_pnl": 1.0899,
-      "unrealized_pnl_pct": 3.29
+      "unrealized_pnl": 1.6473,
+      "unrealized_pnl_pct": 4.97
     },
     {
       "symbol": "XYL",
@@ -210,11 +162,11 @@
       "kind": "equity",
       "qty": 0.357995,
       "avg_cost": 88.8,
-      "last": 95.11,
-      "value": 34.0489,
+      "last": 94.05,
+      "value": 33.6694,
       "cost": 31.79,
-      "unrealized_pnl": 2.2589,
-      "unrealized_pnl_pct": 7.11
+      "unrealized_pnl": 1.8795,
+      "unrealized_pnl_pct": 5.91
     },
     {
       "symbol": "WDC",
@@ -222,11 +174,11 @@
       "kind": "equity",
       "qty": 0.079812,
       "avg_cost": 391.92,
-      "last": 312.98,
-      "value": 24.9796,
+      "last": 311.33,
+      "value": 24.8479,
       "cost": 31.2799,
-      "unrealized_pnl": -6.3004,
-      "unrealized_pnl_pct": -20.14
+      "unrealized_pnl": -6.432,
+      "unrealized_pnl_pct": -20.56
     },
     {
       "symbol": "NVT",
@@ -234,28 +186,247 @@
       "kind": "equity",
       "qty": 0.224889,
       "avg_cost": 138.47,
-      "last": 116.7398,
-      "value": 26.2535,
+      "last": 115.63,
+      "value": 26.0039,
       "cost": 31.1404,
-      "unrealized_pnl": -4.8869,
-      "unrealized_pnl_pct": -15.69
+      "unrealized_pnl": -5.1365,
+      "unrealized_pnl_pct": -16.49
+    },
+    {
+      "symbol": "ICHR",
+      "name": "ICHR",
+      "kind": "equity",
+      "qty": 0.989662,
+      "avg_cost": 36.76,
+      "last": 37.09,
+      "value": 36.7066,
+      "cost": 36.38,
+      "unrealized_pnl": 0.3266,
+      "unrealized_pnl_pct": 0.9
+    },
+    {
+      "symbol": "INTR",
+      "name": "INTR",
+      "kind": "equity",
+      "qty": 9.097871,
+      "avg_cost": 3.92,
+      "last": 3.965,
+      "value": 36.0731,
+      "cost": 35.6637,
+      "unrealized_pnl": 0.4094,
+      "unrealized_pnl_pct": 1.15
+    },
+    {
+      "symbol": "GPCR",
+      "name": "GPCR",
+      "kind": "equity",
+      "qty": 1.665346,
+      "avg_cost": 20.2,
+      "last": 19.77,
+      "value": 32.9239,
+      "cost": 33.64,
+      "unrealized_pnl": -0.7161,
+      "unrealized_pnl_pct": -2.13
+    },
+    {
+      "symbol": "URGN",
+      "name": "URGN",
+      "kind": "equity",
+      "qty": 1.113781,
+      "avg_cost": 25.8,
+      "last": 26.39,
+      "value": 29.3927,
+      "cost": 28.7355,
+      "unrealized_pnl": 0.6571,
+      "unrealized_pnl_pct": 2.29
     }
   ],
   "asset_mix": {
-    "equity": 592.15,
+    "equity": 586.91,
     "crypto": 0.0,
     "options": 0.0,
-    "cash": 3.44
+    "cash": 2.61
   },
   "realized_pnl": {
-    "day": 0.0,
-    "week": 0.0,
-    "month": -15.76
+    "day": -10.6,
+    "week": -10.6,
+    "month": -26.36
   },
-  "unrealized_pnl": -34.0191,
+  "unrealized_pnl": -29.8024,
   "slots": 19,
   "label": "AI WWIII",
   "fills": [
+    {
+      "ts": "2026-11-12T09:59:41-05:00",
+      "symbol": "URGN",
+      "side": "buy",
+      "qty": 1.113781,
+      "price": 25.795,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-11-12T09:59:28-05:00",
+      "symbol": "GPCR",
+      "side": "buy",
+      "qty": 1.665346,
+      "price": 20.2,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-11-12T09:59:16-05:00",
+      "symbol": "INTR",
+      "side": "buy",
+      "qty": 9.097871,
+      "price": 3.9174,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-11-12T09:59:04-05:00",
+      "symbol": "XE",
+      "side": "buy",
+      "qty": 3.226997,
+      "price": 11.1001,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-11-12T09:58:51-05:00",
+      "symbol": "ICHR",
+      "side": "buy",
+      "qty": 0.989662,
+      "price": 36.76,
+      "pnl": null,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-11-12T09:48:30-05:00",
+      "symbol": "NESR",
+      "side": "sell",
+      "qty": 1.003663,
+      "price": 21.77,
+      "pnl": -0.07,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-11-12T09:48:19-05:00",
+      "symbol": "AMTM",
+      "side": "sell",
+      "qty": 1.595799,
+      "price": 22.565,
+      "pnl": 1.82,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-11-12T09:48:05-05:00",
+      "symbol": "NRG",
+      "side": "sell",
+      "qty": 0.331805,
+      "price": 97.725,
+      "pnl": 0.33,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-11-12T09:47:49-05:00",
+      "symbol": "PAM",
+      "side": "sell",
+      "qty": 0.627802,
+      "price": 61.37,
+      "pnl": -8.8,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-11-12T09:47:34-05:00",
+      "symbol": "BCRX",
+      "side": "sell",
+      "qty": 5.383403,
+      "price": 7.535,
+      "pnl": -3.88,
+      "account": "agentic"
+    },
+    {
+      "ts": "2026-11-12T09:36:22-05:00",
+      "symbol": "TTMI",
+      "side": "buy",
+      "qty": 0.689311,
+      "price": 75.22,
+      "pnl": null,
+      "account": "auto_grok"
+    },
+    {
+      "ts": "2026-11-12T09:36:09-05:00",
+      "symbol": "SNDK",
+      "side": "buy",
+      "qty": 0.077715,
+      "price": 909.98,
+      "pnl": null,
+      "account": "auto_grok"
+    },
+    {
+      "ts": "2026-11-12T09:35:57-05:00",
+      "symbol": "MOD",
+      "side": "buy",
+      "qty": 0.694535,
+      "price": 103.94,
+      "pnl": null,
+      "account": "auto_grok"
+    },
+    {
+      "ts": "2026-11-12T09:35:45-05:00",
+      "symbol": "IONS",
+      "side": "buy",
+      "qty": 2.755634,
+      "price": 28.175,
+      "pnl": null,
+      "account": "auto_grok"
+    },
+    {
+      "ts": "2026-11-12T09:32:18-05:00",
+      "symbol": "IONS",
+      "side": "buy",
+      "qty": 0.23614,
+      "price": 28.5,
+      "pnl": null,
+      "account": "auto_grok"
+    },
+    {
+      "ts": "2026-11-12T09:32:06-05:00",
+      "symbol": "BSX",
+      "side": "sell",
+      "qty": 1.844415,
+      "price": 45.16,
+      "pnl": 3.76,
+      "account": "auto_grok"
+    },
+    {
+      "ts": "2026-11-12T09:31:57-05:00",
+      "symbol": "ALNY",
+      "side": "sell",
+      "qty": 0.214738,
+      "price": 160.44,
+      "pnl": -18.58,
+      "account": "auto_grok"
+    },
+    {
+      "ts": "2026-11-12T09:31:49-05:00",
+      "symbol": "RTO",
+      "side": "sell",
+      "qty": 3.957936,
+      "price": 23.695,
+      "pnl": 14.74,
+      "account": "auto_grok"
+    },
+    {
+      "ts": "2026-11-12T09:31:39-05:00",
+      "symbol": "PINS",
+      "side": "sell",
+      "qty": 3.693144,
+      "price": 19.01,
+      "pnl": 2.33,
+      "account": "auto_grok"
+    },
     {
       "ts": "2026-10-29T09:53:47-04:00",
       "symbol": "NVT",
