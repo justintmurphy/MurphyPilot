@@ -635,7 +635,7 @@ test("touched assets use the ei cache bust", function () {
   const inv = read("investments/index.html");
   assert.match(bank, /\/js\/nav\.js\?v=20261105aa/);
   assert.match(bank, /\/house\/house\.css\?v=20261022ac/);
-  assert.match(bank, /\/house\/js\/banking\.js\?v=20261102aa/);
+  assert.match(bank, /\/house\/js\/banking\.js\?v=20261112aa/);
 
   assert.match(bank, /\/house\/banking\.css\?v=20261029aa/);
   assert.match(bank, /id="mpNav" class="mp-nav" data-section="banking"/);

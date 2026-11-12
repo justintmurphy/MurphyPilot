@@ -1150,6 +1150,11 @@ test("saving a not-purchase row posts the category and clearing it posts null", 
   root._bank.txOpen = HASH;
   await click("one", "", "inside move");
   assert.equal(calls.filter(function (call) { return call.body && call.body.category_tx; }).length, 0);
+  assert.equal(root._bank.txOpen, HASH);
+  const missed = root.innerHTML.slice(root.innerHTML.indexOf("data-bank-tx-sheet"));
+  assert.match(missed, /data-bank-tx-error="1"/);
+  assert.match(missed, /Choose a category for that rule/);
+  assert.match(missed, /Inside Move/);
   await click("one", "groceries", "inside move");
   const saves = calls.filter(function (call) { return call.body && call.body.category_tx; });
   assert.equal(saves.length, 1);
