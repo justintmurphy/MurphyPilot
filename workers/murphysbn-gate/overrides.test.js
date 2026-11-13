@@ -197,3 +197,27 @@ test("tiers POST remaps a merged id and rejects a deleted id", function () {
   assert.equal(badRule.ok, false);
   assert.equal(badRule.code, "unknown_category");
 });
+
+test("bill_autopay merges true and false, null clears one key, and other posts leave it", function () {
+  const budget = {};
+  const categories = [{ id: "utilities", name: "Utilities", tier: "needs", budget: 10 }];
+  const saved = gate.applyTiersPost({}, {
+    categories: categories,
+    bill_autopay: { power: true, rent: false, stream: "yes" }
+  }, budget);
+  assert.equal(saved.ok, true);
+  assert.equal(saved.doc.bill_autopay.power, true);
+  assert.equal(saved.doc.bill_autopay.rent, false);
+  assert.equal(Object.prototype.hasOwnProperty.call(saved.doc.bill_autopay, "stream"), false);
+  const kept = gate.applyTiersPost(saved.doc, { categories: categories }, budget);
+  assert.equal(kept.doc.bill_autopay.power, true);
+  assert.equal(kept.doc.bill_autopay.rent, false);
+  const cleared = gate.applyTiersPost(kept.doc, {
+    categories: categories,
+    bill_autopay: { power: null }
+  }, budget);
+  assert.equal(Object.prototype.hasOwnProperty.call(cleared.doc.bill_autopay, "power"), false);
+  assert.equal(cleared.doc.bill_autopay.rent, false);
+  const got = gate.applyTiersGet(cleared.doc, budget);
+  assert.equal(got.bill_autopay.rent, false);
+});

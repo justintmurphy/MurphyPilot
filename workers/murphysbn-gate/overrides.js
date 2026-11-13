@@ -12,6 +12,8 @@
    budgets_updated_at[id] is set, including 0, even if the overlay is newer.
    GET returns that saved number on the active row. A missing stamp keeps the overlay.
    POST goes through applyTiersPost: drop merged ids, reject deleted ids.
+   bill_autopay merges per key when the body includes it. true and false stay. null deletes the key.
+   A missing bill_autopay field leaves the stored bag alone.
    category_rules merge per key: overlay wins, and a KV key the overlay lacks stays. */
 
 function part(v) {
@@ -611,6 +613,16 @@ function applyTiersPost(kvDoc, body, budget) {
   }
   mergeBag("category_rules", rules.bag);
   mergeBag("category_tx", tx.bag);
+  if (body.bill_autopay && typeof body.bill_autopay === "object" && !Array.isArray(body.bill_autopay)) {
+    var autoPatch = {};
+    Object.keys(body.bill_autopay).forEach(function (k) {
+      var v = body.bill_autopay[k];
+      if (v === true) autoPatch[k] = true;
+      else if (v === false) autoPatch[k] = false;
+      else if (v == null) autoPatch[k] = null;
+    });
+    mergeBag("bill_autopay", autoPatch);
+  }
   var stamps = {};
   var prior = kv.budgets_updated_at && typeof kv.budgets_updated_at === "object" ? kv.budgets_updated_at : {};
   Object.keys(prior).forEach(function (k) { stamps[k] = prior[k]; });

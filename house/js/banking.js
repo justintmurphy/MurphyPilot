@@ -115,6 +115,9 @@
    A counted:false bill is listed as not counted and left out of totals. Thin snapshots say the month is partial. Null income or left is an em dash.
    tip eb — House Banking.
    A tiers.json bill_status or manual_paid wins over the print. Cancelled and paid-off bills leave the plan from that month on.
+   An Autopay chip marks a bill when autopay is true, unless pay_method is cash_off_bank. A manual pay_method may show a quiet Manual chip. A missing autopay field stays blank.
+   Edits posts bill_autopay true or false to tiers.json. Null clears that key. Justin's value wins over the print on every bill surface. Reset returns the print.
+   The chip tooltip adds the autopay account last-4 only on a row that already shows a last-4.
    Account funding is a compact table: in, out, left, and a short status. The move sentence matches Next pay.
    Other income is a Current segment and a Budget bonus. It is not part of expected income or the plan.
    tip ea — House Banking.
@@ -1622,6 +1625,7 @@ function bankMemoInputSig(snap) {
     bankMemoBagSig(tier.tx_overrides),
     bankMemoBagSig(tier.bill_status),
     bankMemoBagSig(tier.manual_paid),
+    bankMemoBagSig(tier.bill_autopay),
     bankMemoBagSig(snap && snap.category_overrides),
     bankMemoBagSig(budget.tiers && budget.tiers.by_category),
     bankMemoBagSig(budget.tiers_mtd && budget.tiers_mtd.by_category),
@@ -1630,7 +1634,8 @@ function bankMemoInputSig(snap) {
     bankMemoBagSig(overlay && overlay.november_budget),
     bankMemoSnapCatSig(snap),
     bankMemoBoxSig(budget),
-    bankMemoRowSig(budget.bills, ["bill_id", "name", "amount", "status", "status_from", "category", "category_id", "due_day", "typical_day", "counted"]),
+    bankMemoRowSig(budget.bills, ["bill_id", "name", "amount", "status", "status_from", "category", "category_id", "due_day", "typical_day", "counted", "autopay", "pay_method"]),
+    bankMemoRowSig(budget.bills_monthly, ["name", "label", "autopay", "pay_method"]),
     bankMemoRowSig(budget.subscriptions, ["sub_id", "name", "amount", "status", "status_from", "category", "next_date"]),
     bankMemoBagSig(budget.category_merge_ids),
     bankMemoBagSig(budget.category_merges),
@@ -2935,6 +2940,113 @@ function bankApplyManualPaid(row, snap) {
   if (manual.paid_date) paid.paid_date = manual.paid_date;
 }
 
+/* A print autopay flag, filled from bills then bills_monthly. Unknown stays unknown. */
+function bankFillAutopay(row, raw) {
+  if (!row || !raw || typeof raw !== "object") return;
+  if (!row.autopay_known && Object.prototype.hasOwnProperty.call(raw, "autopay")) {
+    if (raw.autopay === true || raw.autopay === false) {
+      row.autopay = raw.autopay === true;
+      row.autopay_known = true;
+    }
+  }
+  if (!row.pay_method && raw.pay_method != null) {
+    var method = String(raw.pay_method).trim().toLowerCase().replace(/[\s-]+/g, "_");
+    if (method === "manual" || method === "cash_off_bank") row.pay_method = method;
+  }
+  if (!row.autopay_account && raw.autopay_account && typeof raw.autopay_account === "object" && !Array.isArray(raw.autopay_account)) {
+    var last4 = bankLast4Digits(raw.autopay_account.last4 != null ? raw.autopay_account.last4 : (raw.autopay_account.suffix || raw.autopay_account.last_4));
+    if (last4 && last4.length === 4) row.autopay_account = { last4: last4 };
+  }
+}
+
+function bankAutopayChoice(value) {
+  if (value === true || value === false) return value;
+  if (value && typeof value === "object" && !Array.isArray(value) && (value.autopay === true || value.autopay === false)) return value.autopay;
+  return null;
+}
+
+/* tiers.json bill_autopay wins over the print. Null in the bag is not a choice. */
+function bankApplyAutopay(bills, snap) {
+  var bag = {};
+  try { bag = bankTierDoc(snap).bill_autopay || {}; } catch (eBag) { bag = {}; }
+  if (!bag || typeof bag !== "object" || Array.isArray(bag)) bag = {};
+  var localKeys = (snap && snap._bankLocalKeys && snap._bankLocalKeys.bill_autopay) || {};
+  (bills || []).forEach(function (b) {
+    if (!b) return;
+    var hit = null;
+    try { hit = bankBagLookupBill(bag, b); } catch (eHit) { hit = null; }
+    var choice = hit ? bankAutopayChoice(hit.value) : null;
+    if (choice === true || choice === false) {
+      b.autopay = choice === true;
+      b.autopay_known = true;
+      b.autopay_source = "tiers";
+      b.autopay_undo = true;
+      b.autopay_local = !!(localKeys[bankNormKey(b.name)] || localKeys[bankBillIdOf(b)] || (hit && localKeys[bankNormKey(hit.key)]));
+    } else {
+      b.autopay_source = b.autopay_known ? "print" : "";
+      b.autopay_undo = false;
+      b.autopay_local = false;
+    }
+  });
+  return bills;
+}
+
+function bankAutopayKind(row) {
+  if (!row) return "";
+  var method = String(row.pay_method || "");
+  if (row.autopay_known && row.autopay === true) {
+    if (method === "cash_off_bank" && row.autopay_source !== "tiers") return "";
+    return "autopay";
+  }
+  if (method === "cash_off_bank") return "";
+  if (method === "manual") return "manual";
+  return "";
+}
+
+function bankAutopayLast4(row) {
+  var acct = row && row.autopay_account;
+  if (!acct || typeof acct !== "object") return "";
+  var digits = bankLast4Digits(acct.last4);
+  if (!digits || digits.length !== 4) return "";
+  return digits;
+}
+
+function bankAutopayChipHtml(row, opts) {
+  var kind = "";
+  try { kind = bankAutopayKind(row); } catch (eKind) { kind = ""; }
+  if (!kind) return "";
+  var label = kind === "autopay" ? "Autopay" : "Manual";
+  var title = label;
+  if (kind === "autopay" && opts && opts.withAccount) {
+    var last4 = bankAutopayLast4(row);
+    if (last4) title = "Autopay " + bankAccountMask(last4);
+  }
+  return '<span class="fresh-chip bank-autopay-chip" data-bank-autopay-tag="' + kind + '" title="' + bankEsc(title) + '">' + label + "</span>";
+}
+
+function bankAutopayAttrKey(row) {
+  var key = "";
+  try { key = bankBillControlKey(row); } catch (eKey) { key = ""; }
+  if (!key && row) key = bankBillKey(row.name);
+  var slug = bankBillSlug(key);
+  return slug || key;
+}
+
+function bankAutopayControlHtml(row) {
+  if (!row || row.kind === "subscription" || (row.sub_id && !row.bill_id)) return "";
+  var key = bankAutopayAttrKey(row);
+  if (!key) return "";
+  var label = bankBillDisplayName(row.name, row.display_label);
+  var on = !!(row.autopay_known && row.autopay === true);
+  var unknown = !row.autopay_known && !row.autopay_undo;
+  var hint = unknown ? ' <span class="hint" data-bank-autopay-unknown="1">unknown</span>' : "";
+  var reset = row.autopay_undo
+    ? ' <button type="button" class="book-chip" data-bank-autopay-reset="' + bankEsc(key) + '" aria-label="Reset autopay to auto for ' + bankEsc(label) + '">Reset</button>'
+    : "";
+  return '<label class="bank-autopay-switch"><input type="checkbox" role="switch" data-bank-autopay="' + bankEsc(key) + '"' + (on ? " checked" : "") +
+    ' aria-label="Autopay for ' + bankEsc(label) + '"> Autopay</label>' + hint + reset;
+}
+
 /* tiers.json wins. Then bill_status_active. Then the print fields on the row. */
 function bankApplyBillStatuses(bills, snap) {
   var budget = (snap && snap.budget) || {};
@@ -3036,7 +3148,7 @@ function bankPreparedBills(snap, dueArg) {
   if (hit) return hit;
   var budget = (snap && snap.budget) || {};
   var bills = bankSurfaceBills(bankNormalizeBills(budget, dueArg), budget);
-  bills = bankStampDueDays(bankApplyBillStatuses(bills, snap), snap);
+  bills = bankStampDueDays(bankApplyAutopay(bankApplyBillStatuses(bills, snap), snap), snap);
   bills = bankAttachCovers(bills, budget);
   bankPrepSave("bills", snap, dueArg, bills);
   return bills;
@@ -3225,6 +3337,7 @@ function bankNormalizeBills(budget, dueMap) {
       bankRememberAliases(row, raw);
     }
     if (!row.alias_keys) bankRememberAliases(row, raw);
+    bankFillAutopay(row, raw);
     if (raw.source === "manual" && day != null) {
       row.source = "manual";
       row.typical_day = day;
@@ -4093,6 +4206,12 @@ function bankDayCells(bills, incomes, calendar, ym) {
       var cell = days[day - 1];
       if (bankListHasChip(cell.bills, b.name)) return;
       cell.bills.push(b.name || "Bill");
+      var autoKind = "";
+      try { autoKind = bankAutopayKind(b); } catch (eAuto) { autoKind = ""; }
+      if (autoKind) {
+        cell.billFlags = cell.billFlags || {};
+        cell.billFlags[b.name || "Bill"] = autoKind;
+      }
       if (b.due_set_by_you) cell.notes = (cell.notes || []).concat(["set by you"]);
       if (mark.note) cell.notes = (cell.notes || []).concat([mark.note]);
     });
@@ -5563,6 +5682,11 @@ function bankCalendarByDay(cells, dim, amounts, faces) {
       var billAmt = amounts && (amounts[name + "@" + due] || amounts[name]);
       if (billAmt) label = label + " " + billAmt;
       dest.bills.push(label);
+      var flag = c.billFlags && c.billFlags[name];
+      if (flag) {
+        dest.billFlags = dest.billFlags || {};
+        dest.billFlags[label] = flag;
+      }
     });
     (c.payroll || []).forEach(function (name) {
       dest.payroll = dest.payroll || [];
@@ -5579,7 +5703,9 @@ function bankDayLabels(c) {
     labels.push({ kind: "pay", name: name, chip: (c.payChips && c.payChips[i]) || "" });
   });
   (c.subs || []).forEach(function (name) { labels.push({ kind: "sub", name: name }); });
-  (c.bills || []).forEach(function (name) { labels.push({ kind: "bill", name: name }); });
+  (c.bills || []).forEach(function (name) {
+    labels.push({ kind: "bill", name: name, auto: (c.billFlags && c.billFlags[name]) || "" });
+  });
   (c.items || []).forEach(function (name) {
     if ((c.bills || []).indexOf(name) >= 0) return;
     labels.push({ kind: "bill", name: name });
@@ -5590,15 +5716,27 @@ function bankDayLabels(c) {
   return labels;
 }
 
-function bankDayLabelHtml(kind, name, extraClass, chip) {
+function bankDayLabelHtml(kind, name, extraClass, chip, autoKind) {
   var esc = bankEsc(name);
   var shown = chip ? bankEsc(chip) : esc;
+  var title = name;
+  if (autoKind === "autopay") title = name + " \u00b7 Autopay";
+  else if (autoKind === "manual") title = name + " \u00b7 Manual";
   var cls = kind === "pay" ? "pay" : (kind === "sub" ? "sub" : "");
   if (chip && kind === "pay") cls = cls ? cls + " pay-named" : "pay-named";
   if (extraClass) cls = cls ? cls + " " + extraClass : extraClass;
   var tag = kind === "pay" || kind === "sub" ? "em" : "span";
   var classAttr = cls ? ' class="' + cls + '"' : "";
-  return "<" + tag + classAttr + ' title="' + esc + '" aria-label="' + esc + '">' + shown + "</" + tag + ">";
+  var mark = "";
+  if (autoKind === "autopay" || autoKind === "manual") {
+    mark = bankAutopayChipHtml({
+      autopay: autoKind === "autopay",
+      autopay_known: autoKind === "autopay",
+      pay_method: autoKind === "manual" ? "manual" : "",
+      autopay_source: "print"
+    });
+  }
+  return "<" + tag + classAttr + ' title="' + bankEsc(title) + '" aria-label="' + bankEsc(title) + '">' + shown + (mark ? " " + mark : "") + "</" + tag + ">";
 }
 
 function bankDayMoreHtml(list, count, wide) {
@@ -5612,7 +5750,11 @@ function bankDayAria(c, ym) {
   var when = ym && ym.month ? BANK_MONTHS[ym.month - 1] + " " + c.day : "Day " + c.day;
   var notes = (c.notes || []).filter(Boolean);
   if (!labels.length && !notes.length) return when;
-  var bits = labels.map(function (lab) { return lab.name; });
+  var bits = labels.map(function (lab) {
+    if (lab.auto === "autopay") return lab.name + " Autopay";
+    if (lab.auto === "manual") return lab.name + " Manual";
+    return lab.name;
+  });
   notes.forEach(function (note) { bits.push(note); });
   return when + ": " + bits.join(", ");
 }
@@ -5632,7 +5774,7 @@ function bankDayCellHtml(c, tabIndex, ym, today) {
   var list = labels.map(function (lab) { return lab.name; }).join(", ");
   var bits = labels.map(function (lab, i) {
     var extra = i === 1 ? "bank-day-second" : (i >= 2 ? "bank-day-rest" : "");
-    return bankDayLabelHtml(lab.kind, lab.name, extra, lab.chip);
+    return bankDayLabelHtml(lab.kind, lab.name, extra, lab.chip, lab.auto);
   }).join(" ");
   var multi = labels.length >= 2;
   var head = "<b>" + c.day + "</b>";
@@ -6135,7 +6277,7 @@ function bankTierDoc(snap) {
     if (feed) return feed;
   }
   var doc = snap && snap.tier_doc;
-  if (doc && typeof doc === "object" && !Array.isArray(doc) && (doc.rules || doc.plans || doc.bill_status || doc.manual_paid || doc.bill_account || doc.bill_due_day || doc.move_buffer != null)) return doc;
+  if (doc && typeof doc === "object" && !Array.isArray(doc) && (doc.rules || doc.plans || doc.bill_status || doc.manual_paid || doc.bill_account || doc.bill_due_day || doc.bill_autopay || doc.move_buffer != null)) return doc;
   var saved = bankFeedTierDoc(snap);
   if (saved) return saved;
   if (!doc || typeof doc !== "object" || Array.isArray(doc)) return { plans: {}, rules: {} };
@@ -8158,6 +8300,7 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
       undated: !due,
       paid: !!paidFlag,
       posted: !!posted,
+      billRef: b,
       actualDiff: posted && planAmt != null && per != null && Math.abs(per - planAmt) > 0.004,
       cancelKey: bankBillControlKey(b),
       setByYou: !!b.due_set_by_you,
@@ -8816,6 +8959,11 @@ function bankCashLedgerHtml(snap, ym, edits, subs, bills, opts) {
     var extras = [];
     if (row.marker) extras.push(row.marker);
     if (row.chip) extras.push(row.chip);
+    if (row.billRef) {
+      var autoChip = "";
+      try { autoChip = bankAutopayChipHtml(row.billRef, { withAccount: !!fromHtml }); } catch (eAuto) { autoChip = ""; }
+      if (autoChip) extras.push(autoChip);
+    }
     if (row.chargedAfter) extras.push(bankChargedFlagHtml());
     var amt = row.closing || row.pending ? '<td class="num"><span class="sub">\u2014</span></td>' : (function () {
       var flow = bankFundSigned(row.amount, row.kind === "in" ? "in" : "out");
@@ -12329,8 +12477,17 @@ function bankMoveBillItemHtml(snap, row) {
   else if (!paid && row.phrase) meta.push(row.phrase);
   var amtText = row.amount == null ? "\u2014" : flow.text;
   var metaHtml = meta.length ? ' <span class="sub">' + bankEsc(meta.join(" \u00b7 ")) + "</span>" : "";
+  var auto = "";
+  try {
+    var autoBill = null;
+    bankPreparedBills(snap, undefined).forEach(function (b) {
+      if (autoBill || !b) return;
+      if (bankNamesMatch(b.name, row.name) || bankBillDisplayName(b.name, b.display_label) === row.name) autoBill = b;
+    });
+    if (autoBill) auto = bankAutopayChipHtml(autoBill, { withAccount: !!(row.accountLabel || fromText) });
+  } catch (eAuto) { auto = ""; }
   return '<li data-bank-bill-paid="' + (paid ? "1" : "0") + '">' + bankMoveBillCheckHtml(row) +
-    '<span class="' + nameCls + '">' + bankEsc(row.name) + '</span> <b class="' + amtCls + '">' +
+    '<span class="' + nameCls + '">' + bankEsc(row.name) + "</span>" + (auto ? " " + auto : "") + ' <b class="' + amtCls + '">' +
     bankEsc(amtText) + "</b>" + metaHtml + "</li>";
 }
 
@@ -12561,7 +12718,8 @@ function bankDayItems(snap, ym, day, edits) {
       category: bankDayCategoryLabel(snap, bill || { name: name }),
       state: bankDayStateText(bill, ym),
       account: bankAccountFace(bill && bill.usual_account),
-      pay: bill ? bankPayCheckState(bill, ym, bankTrustPaidStatus(snap, bill, ym, {}), iso) : null
+      pay: bill ? bankPayCheckState(bill, ym, bankTrustPaidStatus(snap, bill, ym, {}), iso) : null,
+      bill: bill
     });
   });
   (cell.payroll || []).forEach(function (name) {
@@ -12605,8 +12763,10 @@ function bankDayDialogHtml(snap, ym, day, edits) {
     var digits = acct.match(/(\d{4})\s*$/);
     if (digits) last4 = "\u00b7\u00b7" + digits[1];
     var meta = [catName, last4].filter(Boolean).join(" \u00b7 ");
+    var auto = "";
+    try { auto = it.bill ? bankAutopayChipHtml(it.bill, { withAccount: !!last4 }) : ""; } catch (eAuto) { auto = ""; }
     var amt = it.amount ? '<b class="' + (it.flow === "in" ? "tone-go" : "tone-stop") + '">' + bankEsc(it.amount) + "</b>" : "";
-    var inner = '<span class="ret-take"><b data-bank-day-name="1">' + bankEsc(it.name) + "</b>" +
+    var inner = '<span class="ret-take"><b data-bank-day-name="1">' + bankEsc(it.name) + "</b>" + (auto ? " " + auto : "") +
       (meta ? '<i data-bank-day-meta="1">' + bankEsc(meta) + "</i>" : "") + "</span> " + amt;
     var raw = it.raw && it.raw !== it.name ? '<p class="hint" data-bank-tx-raw="1">' + bankEsc(it.raw) + "</p>" : "";
     var face = it.pay ? bankPayTapHtml(it.pay, inner) : '<details class="fills-more"><summary>' + inner + "</summary>" + raw + "</details>";
@@ -15209,7 +15369,9 @@ function bankTierSideHash(snap) {
     if (!bag || typeof bag !== "object" || Array.isArray(bag)) return "";
     return Object.keys(bag).sort().map(function (k) { return k + "=" + String(bag[k]); }).join(",");
   }
-  return [pack(doc.bill_status), pack(doc.manual_paid), pack(doc.tx_overrides), pack(doc.category_rules), pack(doc.category_tx)].join("|");
+  var tier = {};
+  try { tier = bankTierDoc(snap) || {}; } catch (eTier) { tier = {}; }
+  return [pack(doc.bill_status), pack(doc.manual_paid), pack(tier.bill_autopay), pack(doc.tx_overrides), pack(doc.category_rules), pack(doc.category_tx)].join("|");
 }
 
 /* Skip a second paint when the category list and the live bill maps are unchanged. */
@@ -18523,7 +18685,7 @@ function bankDatedPlanGroupsHtml(snap, opts, month) {
         '" data-bank-bill-line="1" data-bank-bill-cat="' + bankEsc(id) + '" data-bank-bill-status="' + status +
         '" data-plan="' + bankRoundCents(amount || 0) + '" data-spent="' + bankRoundCents(spentN) + '">' +
         bankBillPieHtml(spentN, amount, paid) +
-        '<span class="mix-leg-name">' + bankEsc(face) + "</span>" + sub + money + "</button></li>";
+        '<span class="mix-leg-name">' + bankEsc(face) + "</span>" + bankAutopayChipHtml(row) + sub + money + "</button></li>";
     }).join("");
     var loanTiles = "";
     var loanCount = 0;
@@ -18633,7 +18795,7 @@ function bankBillGroupsHtml(snap, opts, month) {
         '" data-plan="' + bankRoundCents(planN) +
         '" data-spent="' + bankRoundCents(spentN) + '">' +
         bankBillPieHtml(spentN, planN, paid) +
-        '<span class="mix-leg-name">' + bankEsc(name) + "</span>" +
+        '<span class="mix-leg-name">' + bankEsc(name) + "</span>" + bankAutopayChipHtml(b) +
         extra +
         '<p class="bank-bill-amt"><span>Planned</span> <b>' + bankEsc(bankMoney(planN)) + "</b></p>" +
         '<span class="bank-tile-aff" aria-hidden="true"></span>' +
@@ -20260,7 +20422,8 @@ function bankCardBills(snap, opts, win) {
         date: due,
         state: state,
         slotLine: slotLine,
-        account: pay ? bankFromLabel(pay) : ""
+        account: pay ? bankFromLabel(pay) : "",
+        bill: row.sub_id && !row.bill_id ? null : row
       });
     });
   });
@@ -20814,7 +20977,9 @@ function bankBudgetPanelsHtml(snap, opts) {
   }).join("");
   var paidRows = card.bills.filter(function (row) { return row.state === "paid"; });
   var paidHtml = paidRows.length ? '<ul class="bank-edit-list" data-bank-paid-list="1">' + paidRows.map(function (row) {
-    return "<li><span>" + bankEsc(row.name) + "</span> <b>" + bankEsc(bankMoney(row.amount)) + "</b></li>";
+    var auto = "";
+    try { auto = row.bill ? bankAutopayChipHtml(row.bill) : ""; } catch (eAuto) { auto = ""; }
+    return "<li><span>" + bankEsc(row.name) + "</span>" + (auto ? " " + auto : "") + " <b>" + bankEsc(bankMoney(row.amount)) + "</b></li>";
   }).join("") + "</ul>" : '<p class="bank-empty">Nothing paid in this window yet.</p>';
   var payHtml = card.deposits.length ? '<ul class="bank-edit-list" data-bank-pay-list="1">' + card.deposits.map(function (ev) {
     var word = ev.landedFlag ? "Landed" : "Not yet";
@@ -20837,7 +21002,10 @@ function bankBudgetPanelsHtml(snap, opts) {
   }).join("") + "</ul>" : "";
   var billHtml = card.bills.length ? '<ul class="bank-edit-list" data-bank-bill-list="1">' + card.bills.map(function (row) {
     var word = row.state === "paid" ? "Paid" : "Unpaid";
-    return '<li data-bank-bill-row="1" data-state="' + row.state + '"><span>' + bankEsc(row.name) + "</span> <b>" +
+    var auto = "";
+    try { auto = row.bill ? bankAutopayChipHtml(row.bill) : ""; } catch (eAuto) { auto = ""; }
+    return '<li data-bank-bill-row="1" data-state="' + row.state + '"><span>' + bankEsc(row.name) + "</span>" +
+      (auto ? " " + auto : "") + " <b>" +
       bankEsc(bankMoney(row.amount)) + "</b> <i>" + bankEsc(bankShortDate(row.date) || row.date) + "</i> <em>" +
       bankEsc(row.slotLine || word) + "</em></li>";
   }).join("") + "</ul>" : '<p class="bank-empty">No bills in this window.</p>';
@@ -22031,7 +22199,7 @@ function bankBillStatusControls(b, ym, confirm) {
   var printLocked = b.status_source === "print" && !!bankBillStatus(b) && !b.status_undo;
   if (printLocked) {
     var badge = b.status === "paid_off" ? '<span class="fresh-chips"><span class="fresh-chip">Paid off</span></span>' : "";
-    return '<span class="bank-bill-status"><span class="fresh-chips"><span class="fresh-chip">set by data feed</span></span>' + badge + "</span>";
+    return '<span class="bank-bill-status"><span class="fresh-chips"><span class="fresh-chip">set by data feed</span></span>' + badge + "</span>" + bankAutopayControlHtml(b);
   }
   var from = b.status === "cancelled" && b.status_from ? b.status_from : "";
   var active = !bankBillStatus(b);
@@ -22060,7 +22228,7 @@ function bankBillStatusControls(b, ym, confirm) {
     '" value="' + bankEsc(from) + '" aria-label="Cancelled from for ' + bankEsc(label) + '"></label> ' +
     '<button type="button" class="act" data-bank-status-save="' + bankEsc(key) + '" aria-label="Save ' + bankEsc(ariaName) +
     '">Save</button> ' +
-    paidControl + undo + "</span>" + pending;
+    paidControl + undo + "</span>" + bankAutopayControlHtml(b) + pending;
 }
 
 function bankNextDueIso(row, today) {
@@ -22233,7 +22401,7 @@ function bankEditBillHtml(bills, ym, edits, confirm, snap, opts) {
       ? ' data-bank-cancel-open="1" data-bank-cancel="' + bankEsc(control) + '"'
       : "";
     return "<li" + flag + "><details class=\"fills-more\"" + openAttr + "><summary><span class=\"fills-sum\"><span class=\"bank-merchant\">" + bankEsc(label) +
-      "</span></span> <span class=\"sub\">" + bankEsc(dayText) + "</span>" + bankSetByYouHtml(b) + " <b" + (pending ? ' class="bank-pending"' : "") + ">" +
+      "</span>" + bankAutopayChipHtml(b) + "</span> <span class=\"sub\">" + bankEsc(dayText) + "</span>" + bankSetByYouHtml(b) + " <b" + (pending ? ' class="bank-pending"' : "") + ">" +
       bankEsc(bankBillAmount(shown)) + "</b> <span class=\"sub\">" + statusHtml + "</span> " +
       '<span class="fills-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
       '<span class="fills-lab-show">Show</span> <span class="fills-lab-hide">Hide</span></span></summary>' +
@@ -22290,7 +22458,7 @@ function bankCancelledItemHtml(snap, row, ym, edits, confirm) {
   try { paidCap = bankBillPaidCaption(row, ym); } catch (e3) { paidCap = ""; }
   var dayText = bankDueDayPhrase(row, ym);
   return "<li><details class=\"fills-more\" data-bank-cancel-open=\"1\" data-bank-cancel=\"" + bankEsc(key) + "\"><summary><span class=\"fills-sum\"><span class=\"bank-merchant\">" +
-    bankEsc(label) + "</span></span> " + (dayText ? '<span class="sub">' + bankEsc(dayText) + "</span> " : "") + bankSetByYouHtml(row) + " " +
+    bankEsc(label) + "</span>" + (row.kind === "subscription" ? "" : bankAutopayChipHtml(row)) + "</span> " + (dayText ? '<span class="sub">' + bankEsc(dayText) + "</span> " : "") + bankSetByYouHtml(row) + " " +
     "<b>" + bankEsc(bankBillAmount(amount)) + "</b>" +
     (paidCap ? ' <span class="sub">' + bankMetaHtml(paidCap) + "</span>" : "") + flag +
     ' <span class="fills-affordance"><i class="cf-chev" aria-hidden="true"></i>' +
@@ -23791,6 +23959,7 @@ function bankDetailPopupHtml(snap, opts) {
   return '<div class="books-overlay on bank-detail-pop" data-bank-detail-pop="1" data-bank-detail-kind="' + kind + '" data-bank-detail-key="' + bankEsc(String(open.key)) + '">' +
     '<div class="books-sheet" role="dialog" aria-modal="true" aria-labelledby="bank-detail-title" tabindex="-1">' +
     '<div class="books-head"><h2 id="bank-detail-title">' + bankEsc(name) + "</h2>" +
+    (kind === "bill" ? bankAutopayChipHtml(row) : "") +
     '<button type="button" class="book-chip bank-detail-x" data-bank-detail-close="1" aria-label="Close">\u00d7</button></div>' +
     figsHtml + extra + note + chart + list + "</div></div>";
 }
@@ -24973,6 +25142,7 @@ function bankEnsureTierBags(snap) {
   if (!snap.tier_doc.manual_paid || typeof snap.tier_doc.manual_paid !== "object" || Array.isArray(snap.tier_doc.manual_paid)) snap.tier_doc.manual_paid = {};
   if (!snap.tier_doc.bill_account || typeof snap.tier_doc.bill_account !== "object" || Array.isArray(snap.tier_doc.bill_account)) snap.tier_doc.bill_account = {};
   if (!snap.tier_doc.bill_due_day || typeof snap.tier_doc.bill_due_day !== "object" || Array.isArray(snap.tier_doc.bill_due_day)) snap.tier_doc.bill_due_day = {};
+  if (!snap.tier_doc.bill_autopay || typeof snap.tier_doc.bill_autopay !== "object" || Array.isArray(snap.tier_doc.bill_autopay)) snap.tier_doc.bill_autopay = {};
   return snap.tier_doc;
 }
 
@@ -25122,6 +25292,36 @@ function bankSaveBillAccount(root, key, suffix) {
     root._bank.billAccountSaved = "";
     bankPaint(root);
     return false;
+  });
+}
+
+function bankSaveAutopay(root, key, value) {
+  if (!root || !root._bank || !key) return Promise.resolve(false);
+  if (value !== true && value !== false && value != null) return Promise.resolve(false);
+  var snap = root._bank.data;
+  var posted = bankTierPostBag(snap, key, value, "bill_autopay");
+  var bag = {};
+  try { bag = bankTierDoc(snap).bill_autopay || {}; } catch (eBag) { bag = {}; }
+  var n = 0;
+  var exists = false;
+  Object.keys(bag || {}).forEach(function (k) {
+    if (bag[k] !== true && bag[k] !== false) return;
+    n += 1;
+    if (bankKeysMatch(k, posted.id)) exists = true;
+  });
+  if (value != null && !exists && n >= 200) {
+    root._bank.tierSaveError = "Too many autopay settings. Remove one and try again.";
+    bankPaint(root);
+    return Promise.resolve(false);
+  }
+  return bankPostTierPatch(root, { bill_autopay: posted.bag }, function (next, local) {
+    var doc = bankEnsureTierBags(next);
+    if (!doc) return;
+    Object.keys(posted.bag).forEach(function (k) {
+      if (posted.bag[k] == null) bankWriteTierBag(doc, "bill_autopay", k, null);
+    });
+    bankWriteTierBag(doc, "bill_autopay", posted.id, value);
+    bankMarkLocalKey(next, "bill_autopay", posted.id, !!local && value != null);
   });
 }
 
@@ -25657,7 +25857,7 @@ function bankTierPayloadDoc(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
   var doc = payload.doc && typeof payload.doc === "object" && !Array.isArray(payload.doc) ? payload.doc : payload;
   if (!doc || typeof doc !== "object" || Array.isArray(doc)) return null;
-  if (payload.schema === "banking-tiers/v1" || doc.rules || doc.plans || doc.bill_status || doc.manual_paid || doc.bill_account || doc.bill_due_day || doc.move_buffer != null ||
+  if (payload.schema === "banking-tiers/v1" || doc.rules || doc.plans || doc.bill_status || doc.manual_paid || doc.bill_account || doc.bill_due_day || doc.bill_autopay || doc.move_buffer != null ||
     Object.prototype.hasOwnProperty.call(doc, "tx_overrides") ||
     Object.prototype.hasOwnProperty.call(doc, "categories") ||
     Object.prototype.hasOwnProperty.call(doc, "category_rules") ||
@@ -26467,6 +26667,11 @@ function bankMount(root, data, opts) {
       bankKeepNextCard(paidMonthBtn);
       return bankSaveManualPaid(root, paidKey, paidEntry);
     }
+    var autopayReset = t.closest("[data-bank-autopay-reset]");
+    if (autopayReset && autopayReset.getAttribute && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      return bankSaveAutopay(root, autopayReset.getAttribute("data-bank-autopay-reset"), null);
+    }
     var undoBtn = t.closest("[data-bank-status-undo]");
     if (undoBtn && undoBtn.getAttribute) {
       if (e.preventDefault) e.preventDefault();
@@ -26616,6 +26821,9 @@ function bankMount(root, data, opts) {
     }
     if (el.getAttribute("data-bank-income")) {
       return bankSaveIncomeEdit(root, el.getAttribute("data-bank-income"), el.getAttribute("data-bank-income-field"), el.value);
+    }
+    if (el.getAttribute("data-bank-autopay") != null) {
+      return bankSaveAutopay(root, el.getAttribute("data-bank-autopay"), !!el.checked);
     }
     if (el.getAttribute("data-bank-due")) {
       var rawDay = el.value;
