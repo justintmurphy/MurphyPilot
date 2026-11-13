@@ -8,9 +8,12 @@
    GET /data/banking/tiers.json should return applyTiersGet(kvDoc, snapshot.budget)
    and must not write the KV tiers doc. Names, tiers, merges, and deletes come from
    the snapshot (box_categories, category_merge_ids, category_deleted_ids), never
-   from a whole-doc timestamp. A budget Justin saved wins for that category when
-   budgets_updated_at[id] is set, including 0, even if the overlay is newer.
-   GET returns that saved number on the active row. A missing stamp keeps the overlay.
+   from a whole-doc timestamp. A KV category that is not deleted or merged stays
+   on that list after the structural rows. Past 30 active rows, structural rows
+   stay and the extra KV rows are left off. A budget Justin saved wins for that
+   category when budgets_updated_at[id] is set, including 0, even if the overlay
+   is newer. GET returns that saved number on the active row. A missing stamp
+   keeps the overlay.
    POST goes through applyTiersPost: drop merged ids, reject deleted ids.
    bill_autopay merges per key when the body includes it. true and false stay. null deletes the key.
    A missing bill_autopay field leaves the stored bag alone.
@@ -521,6 +524,39 @@ function activeCategoryRows(rows) {
   return (rows || []).filter(function (row) { return row && !row.merged_into; });
 }
 
+function kvCategoryKept(row, spec) {
+  if (!row) return false;
+  if (row.merged_into) return false;
+  if (!spec) return true;
+  if (spec.deleted[row.id] || spec.deleted[row.name]) return false;
+  if (spec.merges[row.id] || spec.merges[row.name]) return false;
+  return true;
+}
+
+/* Structural rows stay in order. KV-only rows that are still active fill the rest, up to SPEND_MAX. */
+function unionKvCategories(rows, kvCategories, spec) {
+  var seen = {};
+  var activeCount = 0;
+  var out = [];
+  (rows || []).forEach(function (row) {
+    if (!row || !row.id || seen[row.id]) return;
+    seen[row.id] = true;
+    out.push(row);
+    if (!row.merged_into) activeCount += 1;
+  });
+  var room = SPEND_MAX - activeCount;
+  if (room < 0) room = 0;
+  (kvCategories || []).forEach(function (raw) {
+    if (room <= 0) return;
+    var row = normalizeSpendRow(raw);
+    if (!row || seen[row.id] || !kvCategoryKept(row, spec)) return;
+    seen[row.id] = true;
+    out.push(row);
+    room -= 1;
+  });
+  return out;
+}
+
 function applyCategoryBudgets(rows, kv, overlay) {
   var overlayById = rowsById(overlay ? overlayCategoryRows(overlay) : null);
   var kvById = rowsById(kv && kv.categories);
@@ -538,23 +574,25 @@ function applyCategoryBudgets(rows, kv, overlay) {
   return rows;
 }
 
-/* Tiers GET. Does not write KV. Active rows only, so a later save stays under the cap. */
+var SPEND_MAX = 30;
+
+/* Tiers GET. Does not write KV. Structural rows first, then KV rows that are still active.
+   Active rows only. The union stops at SPEND_MAX so a later save stays under the cap. */
 function applyTiersGet(kvDoc, budget) {
   var kv = kvDoc && typeof kvDoc === "object" && !Array.isArray(kvDoc) ? kvDoc : {};
   var overlay = tiersOverlay(budget);
   var doc = {};
   Object.keys(kv).forEach(function (k) { doc[k] = kv[k]; });
+  var spec = categoryMergeSpec(budget);
   var structural = boxStructuralRows(budget) || overlayCategoryRows(overlay) || kv.categories || null;
   if (Array.isArray(structural)) {
-    doc.categories = activeCategoryRows(applyCategoryBudgets(cleanCategoryRows(structural, budget, true), kv, overlay));
+    var cleaned = cleanCategoryRows(structural, budget, true);
+    doc.categories = activeCategoryRows(applyCategoryBudgets(unionKvCategories(cleaned, kv.categories, spec), kv, overlay));
   }
-  var spec = categoryMergeSpec(budget);
   doc.category_rules = remapRuleValues(mergeRuleBag(kv.category_rules, overlay ? overlayRuleBag(overlay, "category_rules") : null, overlay), spec, doc.categories || []);
   doc.category_tx = remapRuleValues(mergeRuleBag(kv.category_tx, overlay ? overlayRuleBag(overlay, "category_tx") : null, overlay), spec, doc.categories || []);
   return doc;
 }
-
-var SPEND_MAX = 30;
 
 /* Tiers POST. Strip merged ids, reject deleted ids, keep per-category budget stamps. */
 function applyTiersPost(kvDoc, body, budget) {

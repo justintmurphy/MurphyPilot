@@ -14774,6 +14774,8 @@ function bankTierLineSpent(snap, row, month, mode, edits, todayIso) {
    Budgets in this file are 0. Real amounts stay in Worker KV.
    tip fz — names, tiers, merges, and deletes come from the snapshot
    (box_categories, category_merge_ids, category_deleted_ids), never from a doc timestamp.
+   A KV category that is not deleted or merged stays on that list after the structural rows.
+   Past 30 active rows, structural rows stay and the extra KV rows are left off.
    A budget the seat saves wins for that category, via budgets_updated_at, including 0.
    The stamp wins over november_budget guides and over a newer snapshot budget.
    A missing stamp keeps the overlay, then the snapshot. november_budget is the
@@ -15319,7 +15321,42 @@ function bankApplyCategoryBudgets(rows, snap, monthKey) {
   return rows;
 }
 
-/* Read model. Structure is the snapshot. A later budget save wins for that category only. */
+function bankKvCategoryKept(row, spec) {
+  if (!row) return false;
+  if (row.merged_into) return false;
+  if (!spec) return true;
+  if (spec.deleted[row.id] || spec.deleted[row.name]) return false;
+  if (spec.merges[row.id] || spec.merges[row.name]) return false;
+  return true;
+}
+
+/* Structural rows stay in order. KV-only rows that are still active fill the rest, up to the cap. */
+function bankUnionKvCategories(rows, kvCategories, spec) {
+  var seen = {};
+  var activeCount = 0;
+  var out = [];
+  (rows || []).forEach(function (row) {
+    if (!row || !row.id || seen[row.id]) return;
+    seen[row.id] = true;
+    out.push(row);
+    if (!row.merged_into) activeCount += 1;
+  });
+  var room = BANK_SPEND_MAX - activeCount;
+  if (room < 0) room = 0;
+  (kvCategories || []).forEach(function (raw) {
+    if (room <= 0) return;
+    var row = null;
+    try { row = bankSpendNormalizeRow(raw); } catch (eRow) { row = null; }
+    if (!row || seen[row.id] || !bankKvCategoryKept(row, spec)) return;
+    seen[row.id] = true;
+    out.push(row);
+    room -= 1;
+  });
+  return out;
+}
+
+/* Read model. Structure is the snapshot. KV categories that are still active join the list.
+   A later budget save wins for that category only. */
 function bankEffectiveCategoryDoc(snap, monthKey) {
   var key = bankMemoCatKey(snap, monthKey);
   var hit = bankMemoRead("docs", key);
@@ -15340,8 +15377,9 @@ function bankEffectiveCategoryDocWork(snap, monthKey) {
   var base = {};
   if (kv) Object.keys(kv).forEach(function (k) { base[k] = kv[k]; });
   if (!Array.isArray(structural)) return kv;
-  base.categories = bankApplyCategoryBudgets(bankCleanCategoryRows(structural, snap, true, null), snap, monthKey);
   var spec = bankCategoryMergeSpec(snap);
+  var cleaned = bankCleanCategoryRows(structural, snap, true, null);
+  base.categories = bankApplyCategoryBudgets(bankUnionKvCategories(cleaned, kv && kv.categories, spec), snap, monthKey);
   var rules = bankMergeRuleBag(kv && kv.category_rules, overlay ? bankOverlayRuleBag(overlay, "category_rules") : null, overlay);
   var tx = bankMergeRuleBag(kv && kv.category_tx, overlay ? bankOverlayRuleBag(overlay, "category_tx") : null, overlay);
   base.category_rules = bankRemapRuleValues(rules, spec, base.categories);
@@ -18102,6 +18140,7 @@ function bankSpendApply(snap, body) {
   snap._tiersPending = false;
   snap._tiersGetFailed = false;
   try { bankWriteTiersDoc(snap.tier_doc); } catch (eCache) {}
+  bankInvalidateCaches();
 }
 
 function bankSpendFail(root, code, draft) {
