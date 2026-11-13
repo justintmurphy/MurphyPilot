@@ -202,6 +202,46 @@ test("starter ids match the slug rule and stay unique", function () {
   assert.equal(ctx.bankSpendIdOk("h:abcd"), false);
 });
 
+test("an edits category stays on the pickers when the box list does not have it", async function () {
+  const ctx = boot();
+  const snap = bare(ctx);
+  const box = [
+    { id: "groceries", name: "Groceries", tier: "needs", budget: 10, merged_into: "" },
+    { id: "dining", name: "Dining", tier: "wants", budget: 4, merged_into: "" }
+  ];
+  snap.budget.box_categories = box;
+  snap.tier_doc.categories = box.map(function (row) {
+    return { id: row.id, name: row.name, tier: row.tier, budget: row.budget, merged_into: "" };
+  });
+  const before = ctx.bankSpendVisible(ctx.bankSpendCategories(snap)).map(function (row) { return row.id; });
+  assert.equal(before.indexOf("security"), -1);
+  ctx.bankSpendApply(snap, {
+    categories: box.concat([{ id: "security", name: "Security", tier: "needs", budget: 6, merged_into: "" }]),
+    updated_at: "2026-11-13T18:00:00Z"
+  });
+  const visible = ctx.bankSpendVisible(ctx.bankSpendCategories(snap)).map(function (row) { return row.id; });
+  assert.ok(visible.indexOf("groceries") >= 0);
+  assert.ok(visible.indexOf("dining") >= 0);
+  assert.ok(visible.indexOf("security") >= 0);
+  const tx = { date: "2026-11-02", amount: 8, flow: "outflow", desc: "Sample Store", category: "Gifts" };
+  const picker = ctx.bankSpendCatSelectHtml(snap, tx, { all: true });
+  assert.match(picker, /value="security"/);
+  assert.match(picker, />Security</);
+  const bill = ctx.bankSpendItemCatHtml(snap, { name: "Sample bill", bill_id: "sample-bill", amount: 15, category: "Gifts" }, "Sample bill");
+  assert.match(bill, /value="security"/);
+  assert.match(bill, />Security</);
+  const el = desk(snap);
+  const calls = watch(ctx);
+  assert.equal(await ctx.bankSpendSaveBudget(el, "groceries", "11"), true);
+  const ids = calls[0].body.categories.map(function (row) { return row.id; });
+  assert.ok(ids.indexOf("security") >= 0);
+  assert.ok(ids.indexOf("groceries") >= 0);
+  assert.ok(ids.indexOf("dining") >= 0);
+  const posted = calls[0].body.categories.filter(function (row) { return row.id === "security"; })[0];
+  assert.equal(posted.name, "Security");
+  assert.equal(posted.budget, 6);
+});
+
 test("a budget save posts the full category list with numeric budgets", async function () {
   const ctx = boot();
   const snap = bare(ctx);
@@ -1321,7 +1361,8 @@ test("tiers overlay cleans the category list and keeps redacted rules", function
   snap.tier_doc.categories.push({ id: "tv", name: "TV", tier: "wants", budget: 4, merged_into: "" });
   const saved = ctx.bankSpendCategories(snap);
   const savedIds = ctx.bankSpendVisible(saved).map(function (row) { return row.id; });
-  assert.equal(savedIds.indexOf("tv"), -1);
+  assert.ok(savedIds.indexOf("tv") >= 0);
+  assert.equal(ctx.bankSpendById(saved, "tv").budget, 4);
   assert.ok(savedIds.indexOf("pets") >= 0);
   assert.equal(ctx.bankSpendById(saved, "groceries").budget, 1);
   assert.equal(ctx.bankSpendById(saved, "shopping").name, "General Shopping");
@@ -1451,14 +1492,16 @@ test("mount, tiers GET, and refetch keep one category set and one After budgets 
   await root._bank.prune;
   assert.equal(paints, 2);
   assert.doesNotMatch(root.innerHTML, /data-bank-fit-pending/);
-  assert.equal(signature(root._bank.data), first);
-  assert.equal(afterLine(root._bank.data), firstLine);
-  assert.equal(signature(root._bank.data).indexOf("cameras"), -1);
+  const settled = signature(root._bank.data);
+  assert.equal(settled, "groceries:40,dining:12,pets:0,cameras:9");
+  assert.equal(settled.indexOf("tv"), -1);
+  const settledLine = afterLine(root._bank.data);
+  assert.match(settledLine, /After budgets/);
   assert.equal(await ctx.bankRefetch(root, { silent: true, force: true }), true);
   assert.equal(root._bank.data._tiersFromGet, true);
   assert.equal(root._bank.data.tier_doc.updated_at, "2026-10-16T18:00:00Z");
-  assert.equal(signature(root._bank.data), first);
-  assert.equal(afterLine(root._bank.data), firstLine);
+  assert.equal(signature(root._bank.data), settled);
+  assert.equal(afterLine(root._bank.data), settledLine);
   assert.equal(paints, 2);
 });
 

@@ -123,7 +123,8 @@ test("tiers GET applies the merge map and keeps redacted rules", function () {
   newer.categories.push({ id: "tv", name: "TV", tier: "wants", budget: 4 });
   const kept = gate.applyTiersGet(newer, budget);
   const keptIds = kept.categories.map(function (row) { return row.id; });
-  assert.equal(keptIds.indexOf("tv"), -1);
+  assert.ok(keptIds.indexOf("tv") >= 0);
+  assert.equal(kept.categories.filter(function (row) { return row.id === "tv"; })[0].budget, 4);
   assert.ok(keptIds.indexOf("pets") >= 0);
   assert.equal(kept.categories.filter(function (row) { return row.id === "groceries"; })[0].budget, 1);
   assert.equal(kept.categories.filter(function (row) { return row.id === "shopping"; })[0].budget, 2);
@@ -155,8 +156,53 @@ test("tiers GET returns the active rows when merged rows are on the overlay", fu
   };
   const kv = { updated_at: "2026-10-16T18:00:00Z", categories: [{ id: "tv", name: "TV", tier: "wants", budget: 9 }] };
   const doc = gate.applyTiersGet(kv, budget);
-  assert.equal(doc.categories.length, 26);
-  assert.equal(doc.categories.some(function (row) { return row.merged_into || row.id === "gone" || row.id === "tv"; }), false);
+  assert.equal(doc.categories.length, 27);
+  assert.equal(doc.categories.some(function (row) { return row.merged_into || row.id === "gone"; }), false);
+  assert.equal(doc.categories.some(function (row) { return row.id === "tv" && row.budget === 9; }), true);
+});
+
+test("tiers GET keeps a KV category the box list does not have", function () {
+  const box = [
+    { id: "groceries", name: "Groceries", tier: "needs", budget: 10 },
+    { id: "dining", name: "Dining", tier: "wants", budget: 4 }
+  ];
+  const budget = {
+    box_categories: { categories: box },
+    category_deleted_ids: ["archive"],
+    category_merge_ids: { "old-shop": "dining" }
+  };
+  const kv = {
+    updated_at: "2026-11-13T18:00:00Z",
+    categories: [
+      { id: "groceries", name: "Groceries", tier: "needs", budget: 10 },
+      { id: "dining", name: "Dining", tier: "wants", budget: 4 },
+      { id: "security", name: "Security", tier: "needs", budget: 6 },
+      { id: "archive", name: "Archive", tier: "wants", budget: 1 },
+      { id: "old-shop", name: "Old Shop", tier: "wants", budget: 2 },
+      { id: "folded", name: "Folded", tier: "wants", budget: 2, merged_into: "dining" }
+    ]
+  };
+  const before = JSON.stringify(kv);
+  const doc = gate.applyTiersGet(kv, budget);
+  assert.equal(JSON.stringify(kv), before);
+  const ids = doc.categories.map(function (row) { return row.id; });
+  assert.deepEqual(ids, ["groceries", "dining", "security"]);
+  assert.equal(doc.categories[2].name, "Security");
+  assert.equal(doc.categories[2].budget, 6);
+  assert.equal(doc.categories.some(function (row) { return row.merged_into; }), false);
+
+  const full = [];
+  for (let i = 0; i < 29; i++) full.push({ id: "c" + i, name: "Cat " + i, tier: "wants", budget: 1 });
+  const capped = gate.applyTiersGet({
+    categories: full.concat([
+      { id: "security", name: "Security", tier: "needs", budget: 6 },
+      { id: "patio", name: "Patio", tier: "wants", budget: 3 }
+    ])
+  }, { box_categories: { categories: full } });
+  const cappedIds = capped.categories.map(function (row) { return row.id; });
+  assert.equal(cappedIds.length, 30);
+  assert.equal(cappedIds[29], "security");
+  assert.equal(cappedIds.indexOf("patio"), -1);
 });
 
 test("tiers POST remaps a merged id and rejects a deleted id", function () {
