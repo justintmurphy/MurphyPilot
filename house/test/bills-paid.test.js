@@ -160,6 +160,68 @@ test("an edits amount wins over this cycle's printed amount", function () {
   assert.equal(saved.due, 7);
 });
 
+test("water and sewer count the full charge only in a due month", function () {
+  const ctx = boot();
+  const base = snap([
+    bill({
+      name: "Town water",
+      display_label: "Town water",
+      bill_id: "town-water",
+      amount: 30,
+      monthly_amount: 30,
+      quarterly_amount: 90,
+      cadence: "quarterly",
+      next_due: "2026-11-12",
+      typical_day: 4
+    }),
+    bill({
+      name: "Town sewer",
+      display_label: "Town sewer",
+      bill_id: "town-sewer",
+      amount: 20,
+      monthly_amount: 20,
+      quarterly_amount: 60,
+      cadence: "quarterly",
+      paid_date: "2026-09-12",
+      typical_day: 9
+    }),
+    bill({
+      name: "Pond water",
+      display_label: "Pond water",
+      bill_id: "pond-water",
+      amount: 15,
+      monthly_amount: 15,
+      quarterly_amount: 45,
+      cadence: "quarterly"
+    })
+  ]);
+  const water = ctx.bankViewBills(base).filter(function (b) { return b.bill_id === "town-water"; })[0];
+  const sewer = ctx.bankViewBills(base).filter(function (b) { return b.bill_id === "town-sewer"; })[0];
+  const drain = ctx.bankViewBills(base).filter(function (b) { return b.bill_id === "pond-water"; })[0];
+  assert.equal(ctx.bankBillMonthPlan(water, "2026-11"), 90);
+  assert.equal(ctx.bankBillMonthPlan(water, "2026-12"), null);
+  assert.equal(ctx.bankBillLineAmount(water, "2026-11", { bills: { "Town water": { amount: 44 } } }), 44);
+  assert.equal(ctx.bankTriMonthAnchor(sewer), "2026-12-12");
+  assert.equal(ctx.bankBillMonthPlan(sewer, "2026-11"), null);
+  assert.equal(ctx.bankBillMonthPlan(sewer, "2026-12"), 60);
+  assert.equal(ctx.bankTriMonthAnchor(drain), "");
+  assert.equal(ctx.bankBillMonthPlan(drain, "2026-11"), null);
+  const html = ctx.bankBillGroupsHtml(base, {}, "2026-11");
+  const waterTile = tile(html, "Town water");
+  assert.match(waterTile, /\$0\.00 of \$90\.00 due|\$90\.00 paid of \$90\.00/);
+  assert.match(waterTile, /Due Nov 12/);
+  const sewerTile = tile(html, "Town sewer");
+  assert.match(sewerTile, /data-bank-off-cycle="1"/);
+  assert.match(sewerTile, /Next due Dec 12/);
+  assert.match(sewerTile, /data-bank-cycle-amt="0"/);
+  const rows = ctx.bankPeriodBillRows(base, {}, "2026-12-01", "2027-01-01");
+  assert.equal(rows.filter(function (r) { return r.billKey === "town-water"; }).length, 0);
+  const sewerRows = rows.filter(function (r) { return r.billKey === "town-sewer"; });
+  assert.equal(sewerRows.length, 1);
+  assert.equal(sewerRows[0].due, "2026-12-12");
+  assert.equal(sewerRows[0].amount, 60);
+});
+
 test("the ring fills from matched payments, not a planned status", function () {
   const ctx = boot();
   const base = snap([
