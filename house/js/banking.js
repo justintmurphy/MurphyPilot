@@ -45,11 +45,12 @@
    A computed transfer that covers the bills in a pay period is due on the deposit date. Its move-by date is that deposit, not each bill's due date.
    A printed pay_periods move still uses the move_by date on the print.
    tip fm — A quarterly bill shows quarterly_amount and next_due on the calendar, Next Pay, the Bills list, and Edits.
+   Water and Sewer count that full charge only in a due month (next_due, cycle_due, a schedule date, or the last paid date plus three months, then every three months). Other months add nothing, and the tile shows the next due date.
    It is overdue once next_due plus grace_days (default 5) is past and the bill is still unpaid.
-   monthly_amount stays on set-aside and plan math only.
+   monthly_amount stays on other set-aside and plan math only.
    budget.confirmed_covers marks that bill covered for the named month, with its note, and leaves it out of that month's remaining-to-pay and moves.
    budget.one_time_bills are flexible rows in Bills: amount, suggested pay date, and account. They are never late, and Next Pay includes them on the suggested date.
-   A saved edit under murphyHouseBanking does not replace quarterly_amount or next_due. Saved amounts for Water, Sewer, Trash, and Garbage are cleared.
+   A saved edit under murphyHouseBanking does not replace quarterly_amount or next_due, except a Water or Sewer amount, which wins. Saved amounts for Trash and Garbage are cleared.
    tip fl — Each tile in the Bills section opens a detail sheet.
    A phone gets a bottom sheet. A wide screen gets a centered modal.
    The sheet lists matched transactions for the last three months, newest first, with a month total and a three-month bar.
@@ -1959,6 +1960,37 @@ function bankHasDueMap(snap) {
     typeof budget.dueday_overrides === "object" && !Array.isArray(budget.dueday_overrides));
 }
 
+/* Grace date printed on an account_funding row. Absent when the print has no projected_date. */
+function bankFundingProjectedDate(budget, name) {
+  var key = bankBillKey(name);
+  if (!key || !budget) return "";
+  var raw = budget.account_funding;
+  var accounts = [];
+  if (Array.isArray(raw)) accounts = raw;
+  else if (raw && typeof raw === "object") {
+    Object.keys(raw).forEach(function (k) { accounts.push(raw[k]); });
+  }
+  var found = "";
+  accounts.forEach(function (acct) {
+    if (found || !acct || typeof acct !== "object") return;
+    var lists = [];
+    if (Array.isArray(acct.rows)) lists.push(acct.rows);
+    ["events", "items", "lines", "outs", "outflows"].forEach(function (k) {
+      if (Array.isArray(acct[k])) lists.push(acct[k]);
+    });
+    lists.forEach(function (list) {
+      list.forEach(function (item) {
+        if (found || !item || typeof item !== "object") return;
+        var nm = item.name || item.label || item.bill || "";
+        if (bankBillKey(nm) !== key) return;
+        var when = bankDayKey(item.projected_date || item.projectedDate || "");
+        if (when) found = when;
+      });
+    });
+  });
+  return found;
+}
+
 /* KV kinds stay must_pay and elective. The tier picker says Required, Needs, and Wants. */
 function bankMustPayKind(raw) {
   var s = String(raw == null ? "" : raw).trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -3225,6 +3257,7 @@ function bankNormalizeBills(budget, dueMap) {
     var nextDue = bankDayKey(bankCopyDate(raw.next_due || raw.nextDue || ""));
     var cycleDue = bankDayKey(bankCopyDate(raw.cycle_due || raw.cycleDue || ""));
     var cycleAmount = bankNum(raw.cycle_amount != null ? raw.cycle_amount : raw.cycleAmount);
+    var projectedDate = bankDayKey(bankCopyDate(raw.projected_date || raw.projectedDate || ""));
     var graceDays = bankNum(raw.grace_days != null ? raw.grace_days : raw.graceDays);
     var times = bankNum(raw.times_per_month);
     var kind = raw.kind == null ? "" : String(raw.kind).trim();
@@ -3266,6 +3299,7 @@ function bankNormalizeBills(budget, dueMap) {
         next_due: nextDue,
         cycle_due: cycleDue,
         cycle_amount: cycleAmount,
+        projected_date: projectedDate,
         grace_days: graceDays,
         email_overlay: raw.email_overlay || null,
         email_confirmations: raw.email_confirmations || null,
@@ -3315,6 +3349,7 @@ function bankNormalizeBills(budget, dueMap) {
       if (!row.next_due && nextDue) row.next_due = nextDue;
       if (!row.cycle_due && cycleDue) row.cycle_due = cycleDue;
       if (row.cycle_amount == null && cycleAmount != null) row.cycle_amount = cycleAmount;
+      if (!row.projected_date && projectedDate) row.projected_date = projectedDate;
       if (row.grace_days == null && graceDays != null) row.grace_days = graceDays;
       if (!row.email_overlay && raw.email_overlay) row.email_overlay = raw.email_overlay;
       if (!row.email_confirmations && raw.email_confirmations) row.email_confirmations = raw.email_confirmations;
@@ -3386,10 +3421,20 @@ function bankNormalizeBills(budget, dueMap) {
         baseSource = "bills";
       }
     }
-    function put(day, source) {
-      row.typical_day = day;
-      row.due_day = day;
+    function put(day, source, eom) {
+      row.typical_day = eom ? null : day;
+      row.due_day = eom ? null : day;
       row.source = source;
+      if (source === "user") {
+        row.due_set_by_you = true;
+        row.typical_days = eom ? ["last"] : [day];
+        row.due_last = !!eom;
+        row.projected_date = "";
+      } else if (!row.projected_date) {
+        var stamped = "";
+        try { stamped = bankFundingProjectedDate(budget, row.name); } catch (eProj) { stamped = ""; }
+        if (stamped) row.projected_date = stamped;
+      }
       return row;
     }
     /* A set-aside has no due day. A retired name ignores a saved due day. */
@@ -3405,12 +3450,14 @@ function bankNormalizeBills(budget, dueMap) {
         });
       }
       if (entry) {
+        if (bankIsEomToken(entry.value)) return put(null, "user", true);
         var chosen = bankDay(entry.value);
         if (chosen != null) return put(chosen, "user");
         return put(baseDay, baseSource);
       }
       return put(baseDay, baseSource);
     }
+    if (feedSource === "user" && bankIsEomToken(feedDay)) return put(null, "user", true);
     if (feedSource === "user" && bankDay(feedDay) != null) return put(bankDay(feedDay), "user");
     return put(baseDay, baseSource);
   });
@@ -5616,7 +5663,10 @@ function bankBillCalendarAmounts(bills, ym, edits, snap) {
   (bills || []).forEach(function (b) {
     if (!b) return;
     var name = b.name || "Bill";
-    if (bankIsQuarterly(b) && bankNum(b.quarterly_amount) != null) {
+    if (bankIsTriMonthUtility(b)) {
+      var tri = bankTriMonthCharge(b, ym, edits);
+      if (tri > 0) map[name] = bankMoney(tri);
+    } else if (bankIsQuarterly(b) && bankNum(b.quarterly_amount) != null) {
       map[name] = bankMoney(b.quarterly_amount);
     } else if (bankIsTwiceBill(b) || b.effective_from || b.override_amount != null || bankUserBillAmount(edits, b) != null) {
       var shown = bankIsTwiceBill(b) ? bankBillLineAmount(b, ym, edits) : bankBillShownAmount(b, ym, edits);
@@ -6572,6 +6622,22 @@ function bankDedupeForName(budget, name) {
   return sum;
 }
 
+function bankTriMonthPrintedAdjust(snap, ym, edits, tier) {
+  var ctx = null;
+  try { ctx = bankKindContext(snap); } catch (eCtx) { ctx = null; }
+  var bills = [];
+  try { bills = bankPreparedBills(snap, undefined); } catch (eBills) { bills = []; }
+  var sum = 0;
+  bills.forEach(function (b) {
+    if (!bankIsTriMonthUtility(b) || bankBillRetired(b, ym)) return;
+    if (tier && bankResolveTier(b.name, snap, ctx, b) !== tier) return;
+    var spread = bankNum(b.monthly_amount);
+    if (spread == null) return;
+    sum += (bankTriMonthCharge(b, ym, edits) || 0) - spread;
+  });
+  return bankRoundCents(sum);
+}
+
 function bankPlanNumbers(snap, ym, edits) {
   var budget = (snap && snap.budget) || {};
   var tiers = (budget.tiers && typeof budget.tiers === "object") ? budget.tiers : {};
@@ -6592,7 +6658,7 @@ function bankPlanNumbers(snap, ym, edits) {
       var summed = bankSumTierRows(snap, key, ym, edits);
       return summed == null ? 0 : summed;
     }
-    return Math.max(0, base + (delta[key] || 0));
+    return Math.max(0, base + (delta[key] || 0) + bankTriMonthPrintedAdjust(snap, ym, edits, key));
   }
   var requiredPrinted = frozen && bankNum(tiers.required_total) != null ? tiers.required_total : (tiers.required_plan != null ? tiers.required_plan : tiers.required_total);
   var required = part("required", requiredPrinted);
@@ -7980,17 +8046,18 @@ function bankPeriodBillRows(snap, opts, start, end) {
     if (months.indexOf(slice.ym) < 0) months.push(slice.ym);
   });
   var ctx = bankKindContext(snap);
+  var dueArg = bankHasDueMap(snap) ? bankDueMap(snap) : undefined;
   var paidByMonth = {};
   function paidAmounts(month) {
     if (!paidByMonth[month]) {
-      var bills = bankPreparedBills(snap, undefined).filter(function (b) {
+      var bills = bankPreparedBills(snap, dueArg).filter(function (b) {
         return b && !bankBillRetired(b, month);
       });
       paidByMonth[month] = bankPaidMonthAmounts(snap, bills, month, opts);
     }
     return paidByMonth[month];
   }
-  bankPreparedBills(snap, undefined).forEach(function (b) {
+  bankPreparedBills(snap, dueArg).forEach(function (b) {
     if (!b || (!bankIsQuarterly(b) && (b.set_aside || bankIsSetAside(b)) && !b.due_set_by_you)) return;
     months.forEach(function (month) {
       if (bankBillRetired(b, month)) return;
@@ -8010,7 +8077,7 @@ function bankPeriodBillRows(snap, opts, start, end) {
       days.forEach(function (day) {
         var due = bankDateKey(ym.year, ym.month, day);
         if (!due || due < start || due >= end) return;
-        var amount = bankIsQuarterly(b) && bankNum(b.quarterly_amount) != null ? bankNum(b.quarterly_amount) : bankBillAmountForMonth(b, month);
+        var amount = bankIsTriMonthUtility(b) ? bankTriMonthCharge(b, month, opts && opts.edits) : (bankIsQuarterly(b) && bankNum(b.quarterly_amount) != null ? bankNum(b.quarterly_amount) : bankBillAmountForMonth(b, month));
         if (!bankIsQuarterly(b) && bankIsTwiceBill(b) && !b.due_set_by_you) {
           var plan = bankBillMonthPlan(b, month, opts && opts.edits);
           var times = bankBillTimes(b) || days.length || 1;
@@ -8076,6 +8143,8 @@ function bankPeriodBillRows(snap, opts, start, end) {
         if (!covered && !awaiting && b.due_set_by_you) phrase += " · set by you";
         rows.push({
           name: bankBillDisplayName(b.name, b.display_label),
+          billKey: b.bill_id ? String(b.bill_id) : bankBillKey(b.name),
+          twice: !!(bankIsTwiceBill(b) && !b.due_set_by_you && String(b.source || "") !== "user"),
           due: due,
           amount: amount,
           paid: dayPaid,
@@ -8182,7 +8251,27 @@ function bankPeriodBillRows(snap, opts, start, end) {
     if (a.due !== b.due) return a.due < b.due ? -1 : 1;
     return String(a.name).localeCompare(String(b.name));
   });
-  return rows;
+  var kept = [];
+  var seen = {};
+  rows.forEach(function (row) {
+    if (!row || !row.billKey) {
+      kept.push(row);
+      return;
+    }
+    var id = row.twice ? row.billKey + "|" + row.due : row.billKey;
+    var prev = seen[id];
+    if (!prev) {
+      seen[id] = row;
+      kept.push(row);
+      return;
+    }
+    if (row.setByYou && !prev.setByYou) {
+      var at = kept.indexOf(prev);
+      if (at >= 0) kept[at] = row;
+      seen[id] = row;
+    }
+  });
+  return kept;
 }
 
 function bankPostedOutAmount(snap, bill, ym) {
@@ -12963,25 +13052,49 @@ function bankCycleDueDay(row, ym) {
 
 function bankBillDueMarks(row, ym) {
   if (!row || bankBillRetired(row, ym)) return [];
-  var cycleDay = bankCycleDueDay(row, ym);
-  if (cycleDay != null) {
-    var cycleNote = row.cancelled_later ? "cancelled later" : "";
-    return [{ day: cycleDay, note: cycleNote }];
+  if (bankIsTriMonthUtility(row)) {
+    var cycleDate = bankTriMonthDateInMonth(row, ym);
+    if (!cycleDate) return [];
+    var cycleDay = bankDay(String(cycleDate).slice(8, 10));
+    if (cycleDay == null) return [];
+    return [{ day: cycleDay, note: row.cancelled_later ? "cancelled later" : "" }];
   }
-  if (bankIsQuarterly(row)) {
-    var due = bankQuarterlyDue(row);
-    if (!due) return [];
-    var month = ym && ym.year ? bankYm(ym.year, ym.month) : bankMonthKey(ym);
-    if (month && bankMonthKey(due) !== month) return [];
-    var qDay = bankDay(String(due).slice(8, 10));
-    if (qDay == null) return [];
-    var qNote = row.cancelled_later ? "cancelled later" : "";
-    return [{ day: qDay, note: qNote }];
+  var userOwns = !!(row.due_set_by_you || String(row.source || "") === "user");
+  var monthKey = ym && ym.year ? bankYm(ym.year, ym.month) : bankMonthKey(ym);
+  if (!userOwns) {
+    var projected = bankDayKey(row.projected_date);
+    if (projected && monthKey && bankMonthKey(projected) === monthKey) {
+      var projectedDay = bankDay(String(projected).slice(8, 10));
+      if (projectedDay != null) {
+        var projectedNote = row.cancelled_later ? "cancelled later" : "";
+        return [{ day: projectedDay, note: projectedNote }];
+      }
+    }
+    var cycleDay = bankCycleDueDay(row, ym);
+    if (cycleDay != null) {
+      var cycleNote = row.cancelled_later ? "cancelled later" : "";
+      return [{ day: cycleDay, note: cycleNote }];
+    }
+    if (bankIsQuarterly(row)) {
+      var due = bankQuarterlyDue(row);
+      if (!due) return [];
+      if (monthKey && bankMonthKey(due) !== monthKey) return [];
+      var qDay = bankDay(String(due).slice(8, 10));
+      if (qDay == null) return [];
+      var qNote = row.cancelled_later ? "cancelled later" : "";
+      return [{ day: qDay, note: qNote }];
+    }
   }
-  if ((row.set_aside || row.unscheduled || bankIsSetAside(row)) && !row.due_set_by_you) return [];
-  var scheduledDays = !row.due_set_by_you ? (bankBillScheduleDays(row, ym) || []) : [];
-  var tokens = (row.typical_days && row.typical_days.length) ? row.typical_days : [];
-  if (!tokens.length && row.typical_day != null) tokens = [row.typical_day];
+  if ((row.set_aside || row.unscheduled || bankIsSetAside(row)) && !userOwns) return [];
+  var scheduledDays = userOwns ? [] : (bankBillScheduleDays(row, ym) || []);
+  var tokens = [];
+  if (userOwns) {
+    if (row.typical_days && row.typical_days.length) tokens = row.typical_days.slice();
+    else if (row.typical_day != null) tokens = [row.typical_day];
+  } else {
+    tokens = (row.typical_days && row.typical_days.length) ? row.typical_days : [];
+    if (!tokens.length && row.typical_day != null) tokens = [row.typical_day];
+  }
   var out = [];
   tokens.forEach(function (token) {
     var eom = bankIsEomToken(token);
@@ -12995,18 +13108,20 @@ function bankBillDueMarks(row, ym) {
     if (row.cancelled_later) note = note ? note + " · cancelled later" : "cancelled later";
     out.push({ day: clamped.day, note: note });
   });
-  scheduledDays.forEach(function (day) {
-    var seen = false;
-    out.forEach(function (mark) { if (mark.day === day) seen = true; });
-    if (!seen) out.push({ day: day, note: "" });
-  });
-  var slotDays = [];
-  try { slotDays = bankBillSlotDays(row, ym); } catch (eSlots) { slotDays = []; }
-  slotDays.forEach(function (day) {
-    var seen = false;
-    out.forEach(function (mark) { if (mark.day === day) seen = true; });
-    if (!seen) out.push({ day: day, note: "" });
-  });
+  if (!userOwns) {
+    scheduledDays.forEach(function (day) {
+      var seen = false;
+      out.forEach(function (mark) { if (mark.day === day) seen = true; });
+      if (!seen) out.push({ day: day, note: "" });
+    });
+    var slotDays = [];
+    try { slotDays = bankBillSlotDays(row, ym); } catch (eSlots) { slotDays = []; }
+    slotDays.forEach(function (day) {
+      var seen = false;
+      out.forEach(function (mark) { if (mark.day === day) seen = true; });
+      if (!seen) out.push({ day: day, note: "" });
+    });
+  }
   return out;
 }
 
@@ -13040,6 +13155,132 @@ function bankIsQuarterly(row) {
   return cad === "quarterly";
 }
 
+/* Water and Sewer are one charge every three months, not a monthly slice. */
+function bankIsTriMonthUtility(row) {
+  if (!row || typeof row === "string") return false;
+  if (!/\b(?:water|sewer)\b/i.test(String(row.name || ""))) return false;
+  if (bankIsQuarterly(row)) return true;
+  if (bankNum(row.quarterly_amount) != null) return true;
+  var cad = String(row.cadence || "").toLowerCase();
+  return cad.indexOf("quarter") >= 0 || cad.indexOf("3_month") >= 0 || cad === "trimonthly";
+}
+
+function bankAddMonths(iso, count) {
+  var m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "";
+  var year = Number(m[1]);
+  var month = Number(m[2]) - 1 + count;
+  var day = Number(m[3]);
+  year += Math.floor(month / 12);
+  month = ((month % 12) + 12) % 12;
+  var dim = bankMonthDim(year, month + 1);
+  if (day > dim) day = dim;
+  return bankDateKey(year, month + 1, day) || "";
+}
+
+function bankMonthSpan(fromKey, toKey) {
+  var a = bankParseYm(fromKey);
+  var b = bankParseYm(toKey);
+  if (!a || !b) return null;
+  return (b.year - a.year) * 12 + (b.month - a.month);
+}
+
+function bankTriMonthPaidDate(row) {
+  var best = "";
+  function take(v) {
+    var d = "";
+    try { d = bankDayKey(bankCopyDate(v) || v || ""); } catch (e) { d = bankDayKey(v); }
+    if (d && (!best || d > best)) best = d;
+  }
+  if (!row) return "";
+  take(row.paid_date);
+  if (row.paid_current_month) take(row.paid_current_month.paid_date);
+  var items = Array.isArray(row.schedule) ? row.schedule : [];
+  items.forEach(function (item) {
+    if (!item) return;
+    var status = String(item.status || "").toLowerCase();
+    if (status === "paid" || status === "paid_late" || item.paid === true) take(item.paid_date || item.date);
+  });
+  return best;
+}
+
+/* next_due, cycle_due, a schedule date, or the last paid date plus three months. */
+function bankTriMonthAnchor(row) {
+  if (!row) return "";
+  var next = bankDayKey(row.next_due);
+  if (next) return next;
+  var cycle = bankDayKey(row.cycle_due);
+  if (cycle) return cycle;
+  var sched = "";
+  (Array.isArray(row.schedule) ? row.schedule : []).forEach(function (item) {
+    var when = "";
+    try { when = bankItemIso(item) || bankDayKey(item && (item.date || item.due)); } catch (e) { when = ""; }
+    if (when && (!sched || when > sched)) sched = when;
+  });
+  if (sched) return sched;
+  var paid = bankTriMonthPaidDate(row);
+  return paid ? bankAddMonths(paid, 3) : "";
+}
+
+function bankTriMonthDueInMonth(row, ym) {
+  var anchor = bankTriMonthAnchor(row);
+  if (!anchor) return false;
+  var month = ym && ym.year ? bankYm(ym.year, ym.month) : bankMonthKey(ym);
+  var span = bankMonthSpan(bankMonthKey(anchor), month);
+  return span != null && span % 3 === 0;
+}
+
+function bankTriMonthDateInMonth(row, ym) {
+  if (!bankTriMonthDueInMonth(row, ym)) return "";
+  var anchor = bankTriMonthAnchor(row);
+  var month = ym && ym.year ? bankYm(ym.year, ym.month) : bankMonthKey(ym);
+  var p = bankParseYm(month);
+  if (!p) return "";
+  var dim = bankMonthDim(p.year, p.month);
+  var day = bankDay(String(anchor).slice(8, 10));
+  if (row.due_set_by_you || String(row.source || "") === "user") {
+    var token = row.typical_days && row.typical_days.length ? row.typical_days[0] : row.typical_day;
+    if (bankIsEomToken(token)) day = dim;
+    else if (bankDay(token) != null) day = bankDay(token);
+  }
+  if (day == null) return "";
+  if (day > dim) day = dim;
+  return bankDateKey(p.year, p.month, day) || "";
+}
+
+function bankTriMonthNextDue(row, ym) {
+  var anchor = bankTriMonthAnchor(row);
+  if (!anchor) return "";
+  var month = ym && ym.year ? bankYm(ym.year, ym.month) : bankMonthKey(ym);
+  if (!month) return anchor;
+  var cursor = month;
+  var guard = 0;
+  while (cursor && guard < 36) {
+    var hit = bankTriMonthDateInMonth(row, cursor);
+    if (hit) return hit;
+    cursor = bankShiftYm(cursor, 1);
+    guard += 1;
+  }
+  return anchor;
+}
+
+function bankTriMonthFull(row, edits) {
+  var user = null;
+  try { user = bankUserBillAmount(edits, row); } catch (e) { user = null; }
+  if (user != null) return user;
+  var q = bankNum(row && row.quarterly_amount);
+  if (q != null) return q;
+  var cycle = bankNum(row && row.cycle_amount);
+  if (cycle != null) return cycle;
+  return bankNum(row && row.amount);
+}
+
+function bankTriMonthCharge(row, ym, edits) {
+  if (!bankTriMonthDueInMonth(row, ym)) return 0;
+  var full = bankTriMonthFull(row, edits);
+  return full == null ? 0 : full;
+}
+
 function bankQuarterlyDue(row) {
   return bankDayKey(row && row.next_due) || "";
 }
@@ -13056,8 +13297,10 @@ function bankUtilityAmountName(name) {
 
 function bankAmountEditLocked(row) {
   if (!row) return false;
+  if (bankIsTriMonthUtility(row)) return false;
   if (bankIsQuarterly(row)) return true;
   var name = typeof row === "string" ? row : row.name;
+  if (/\b(?:water|sewer)\b/i.test(String(name || "")) && typeof row !== "string") return false;
   return bankUtilityAmountName(name);
 }
 
@@ -13191,6 +13434,10 @@ function bankCoveredMove(snap, move) {
    A quarterly bill's plan figure is monthly_amount. The charge on screen is quarterly_amount. */
 function bankBillMonthPlan(row, ym, edits) {
   if (!row) return null;
+  if (bankIsTriMonthUtility(row)) {
+    var charge = bankTriMonthCharge(row, ym, edits);
+    return charge > 0 ? charge : null;
+  }
   if (bankIsQuarterly(row)) return bankNum(row.monthly_amount);
   if (!bankIsTwiceBill(row)) return bankBillAmountForMonth(row, ym);
   var useNew = bankBillUseNew(row, ym);
@@ -13210,8 +13457,22 @@ function bankBillMonthPlan(row, ym, edits) {
    No effective_from means amount. No prev_amount falls back to amount.
    A print override is the new amount and is not used before effective_from.
    This is the per-occurrence figure. Twice-monthly plans use bankBillMonthPlan. */
+function bankCycleAmountInMonth(row, ym) {
+  if (!row) return null;
+  var n = bankNum(row.cycle_amount);
+  if (n == null) return null;
+  var due = bankDayKey(row.cycle_due);
+  if (!due) return null;
+  var month = ym && ym.year ? bankYm(ym.year, ym.month) : bankMonthKey(ym);
+  if (!month || bankMonthKey(due) !== month) return null;
+  return n;
+}
+
 function bankBillAmountForMonth(row, ym) {
   if (!row) return null;
+  if (bankIsTriMonthUtility(row)) return bankTriMonthCharge(row, ym, null);
+  var cycle = bankCycleAmountInMonth(row, ym);
+  if (cycle != null) return cycle;
   if (bankIsQuarterly(row) && bankNum(row.quarterly_amount) != null) return bankNum(row.quarterly_amount);
   var amount = bankNum(row.amount);
   var override = bankNum(row.override_amount);
@@ -13249,9 +13510,12 @@ function bankUserBillAmount(edits, row) {
 }
 
 function bankBillShownAmount(row, ym, edits) {
-  if (bankIsQuarterly(row) && bankNum(row.quarterly_amount) != null) return bankNum(row.quarterly_amount);
+  if (bankIsTriMonthUtility(row)) return bankTriMonthCharge(row, ym, edits);
   var user = bankUserBillAmount(edits, row);
   if (user != null) return user;
+  var cycle = bankCycleAmountInMonth(row, ym);
+  if (cycle != null) return cycle;
+  if (bankIsQuarterly(row) && bankNum(row.quarterly_amount) != null) return bankNum(row.quarterly_amount);
   if (row && (row.effective_from || row.override_amount != null)) return bankBillAmountForMonth(row, ym);
   var typical = bankNum(row && row.typical_amount);
   if (typical != null) return typical;
@@ -13653,9 +13917,12 @@ function bankBillNotesHtml(row, ym) {
 }
 
 function bankBillLineAmount(row, ym, edits) {
-  if (bankIsQuarterly(row) && bankNum(row.quarterly_amount) != null) return bankNum(row.quarterly_amount);
+  if (bankIsTriMonthUtility(row)) return bankTriMonthCharge(row, ym, edits);
   var user = bankUserBillAmount(edits, row);
   if (user != null) return user;
+  var cycle = bankCycleAmountInMonth(row, ym);
+  if (cycle != null) return cycle;
+  if (bankIsQuarterly(row) && bankNum(row.quarterly_amount) != null) return bankNum(row.quarterly_amount);
   if (row && (bankIsTwiceBill(row) || String(row.amount_basis || "") === "per_occurrence")) {
     if (row.effective_from || row.override_amount != null) return bankBillAmountForMonth(row, ym);
     return bankNum(row.amount);
@@ -17350,7 +17617,175 @@ function bankDonutPath(cx, cy, r0, r1, a0, a1) {
     " L " + p2[0] + " " + p2[1] + " A " + r0 + " " + r0 + " 0 " + large + " 0 " + p3[0] + " " + p3[1] + " Z";
 }
 
-/* One small donut per bill: spent against that bill's plan. */
+/* Drafts in the viewed month that carry an amount. Two or more are this cycle's due. */
+function bankBillMonthDrafts(row, month) {
+  var key = "";
+  try { key = (month && month.year) ? bankYm(month.year, month.month) : (bankMonthKey(month) || ""); } catch (eKey) { key = ""; }
+  var ym = null;
+  try { ym = bankParseYm(key); } catch (eYm) { ym = null; }
+  function collect(list, fromSlot) {
+    var out = [];
+    (list || []).forEach(function (item) {
+      if (!item || typeof item !== "object") return;
+      if (!fromSlot && row && row.bill_id && item.bill_id && String(item.bill_id) !== String(row.bill_id)) return;
+      var when = "";
+      try { when = bankItemIso(item) || ""; } catch (eWhen) { when = ""; }
+      if (!when && fromSlot && ym) {
+        var dayNum = bankDay(item.day != null ? item.day : item.due_day);
+        if (dayNum != null) when = bankDateKey(ym.year, ym.month, dayNum) || "";
+      }
+      if (key && when && bankMonthKey(when) !== key) return;
+      if (key && !when) return;
+      var n = bankNum(item.amount);
+      if (n == null) return;
+      var status = String(item.status || "").toLowerCase();
+      out.push({
+        amount: Math.abs(n),
+        paid: status === "paid" || status === "paid_late" || item.paid === true,
+        paidOn: item.paid_date || ""
+      });
+    });
+    return out;
+  }
+  var drafts = collect(row && row.schedule, false);
+  if (drafts.length >= 2) return drafts;
+  var slots = row && row.paid_current_month && Array.isArray(row.paid_current_month.slots) ? row.paid_current_month.slots : [];
+  var fromSlots = collect(slots, true);
+  if (fromSlots.length >= 2) return fromSlots;
+  return drafts.length ? drafts : fromSlots;
+}
+
+/* Paid fill is matched transaction amounts over what's due. A paid flag with no amount stays empty. */
+function bankBillPaidFacts(snap, row, month, edits) {
+  if (bankIsTriMonthUtility(row) && !bankTriMonthDueInMonth(row, month)) {
+    return {
+      due: 0,
+      paid: 0,
+      matched: false,
+      offCycle: true,
+      nextDue: bankTriMonthNextDue(row, month),
+      upcoming: bankTriMonthFull(row, edits),
+      paidOn: "",
+      paidDates: [],
+      dueOn: "",
+      dueDates: []
+    };
+  }
+  var dueN = null;
+  try { dueN = bankBillLineAmount(row, month, edits); } catch (eDue) { dueN = null; }
+  if (dueN == null) dueN = bankNum(row && row.amount) || 0;
+  var drafts = bankBillMonthDrafts(row, month);
+  if (drafts.length >= 2) {
+    var sum = 0;
+    drafts.forEach(function (d) { sum += d.amount; });
+    dueN = sum;
+  }
+  var paidN = 0;
+  var dates = [];
+  var matched = false;
+  function addPaid(amount, when) {
+    var n = bankNum(amount);
+    if (n == null) return;
+    paidN += Math.abs(n);
+    matched = true;
+    var ymd = "";
+    try { ymd = bankYmdOnly(bankCopyDate(when || "")) || ""; } catch (eW) { ymd = ""; }
+    if (ymd && dates.indexOf(ymd) < 0) dates.push(ymd);
+  }
+  drafts.forEach(function (d) {
+    if (!d.paid) return;
+    addPaid(d.amount, d.paidOn);
+  });
+  if (!matched) {
+    var ym = null;
+    try { ym = bankParseYm(bankMonthKey(month) || month); } catch (eY) { ym = null; }
+    var days = [];
+    try { days = ym ? bankBillDueDays(row, ym) : []; } catch (eD) { days = []; }
+    days.forEach(function (day) {
+      var due = bankDateKey(ym.year, ym.month, day);
+      var item = null;
+      try { item = bankBillOccurrence(row, due); } catch (eItem) { item = null; }
+      var paidWord = "";
+      try { paidWord = bankBillOccurrencePaid(row, due); } catch (ePaid) { paidWord = ""; }
+      if (!item || !paidWord) return;
+      var n = bankNum(item.amount);
+      if (n == null && item.tx_key) {
+        var tx = null;
+        try { tx = bankFindTxByKey(snap, item.tx_key); } catch (eTx) { tx = null; }
+        if (tx) n = bankNum(tx.amount);
+      }
+      if (n == null) return;
+      addPaid(n, item.paid_date || "");
+    });
+  }
+  if (!matched) {
+    var txAmt = null;
+    try { txAmt = bankPaidTxAmount(snap, row); } catch (eAmt) { txAmt = null; }
+    if (txAmt != null) {
+      var bag = (row && (row.paid_current_month || row.manual_paid)) || {};
+      addPaid(txAmt, bag.paid_date || "");
+    }
+  }
+  dates.sort();
+  if (!dates.length && matched) {
+    var fallback = "";
+    try {
+      fallback = bankYmdOnly(bankCopyDate((row && row.paid_current_month && row.paid_current_month.paid_date) || (row && row.paid_date) || "")) || "";
+    } catch (eFall) { fallback = ""; }
+    if (fallback) dates.push(fallback);
+  }
+  var dueDates = [];
+  try {
+    var ym2 = bankParseYm(bankMonthKey(month) || month);
+    var dueDays = ym2 ? bankBillDueDays(row, ym2) : [];
+    dueDays.forEach(function (day) {
+      var iso = bankDateKey(ym2.year, ym2.month, day);
+      if (iso) dueDates.push(iso);
+    });
+  } catch (eDates) { dueDates = []; }
+  return {
+    due: bankRoundCents(dueN || 0),
+    paid: matched ? bankRoundCents(paidN) : 0,
+    matched: matched,
+    paidOn: dates.length ? dates[dates.length - 1] : "",
+    paidDates: dates,
+    dueOn: dueDates.length ? dueDates[0] : "",
+    dueDates: dueDates
+  };
+}
+
+function bankJoinShortDates(list) {
+  var labels = [];
+  (list || []).forEach(function (iso) {
+    var label = bankShortDate(iso) || String(iso || "");
+    if (label && labels.indexOf(label) < 0) labels.push(label);
+  });
+  if (!labels.length) return "";
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return labels[0] + " and " + labels[1];
+  return labels.slice(0, -1).join(", ") + ", and " + labels[labels.length - 1];
+}
+
+function bankBillPaidPhrase(facts) {
+  facts = facts || {};
+  var paid = bankMoney(facts.paid || 0);
+  var due = bankMoney(facts.due || 0);
+  if ((facts.due || 0) > 0.004 && (facts.paid || 0) + 0.004 >= facts.due) return paid + " paid of " + due;
+  return paid + " of " + due + " due";
+}
+
+function bankBillWhenPhrase(facts) {
+  facts = facts || {};
+  var bits = [];
+  var dueList = facts.dueDates && facts.dueDates.length ? facts.dueDates : (facts.dueOn ? [facts.dueOn] : []);
+  var due = bankJoinShortDates(dueList);
+  if (due) bits.push("Due " + due);
+  var paid = bankJoinShortDates(facts.paidDates || []);
+  if (paid) bits.push("Paid " + paid);
+  return bits.join(" \u00b7 ");
+}
+
+/* One small donut per bill: matched payments against what's due this cycle. */
 function bankBillPieHtml(spent, plan, paid) {
   var spentN = Math.max(0, bankNum(spent) || 0);
   var planN = Math.max(0, bankNum(plan) || 0);
@@ -17383,6 +17818,28 @@ function bankBillPieHtml(spent, plan, paid) {
     : '<text x="32" y="36" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">' + pct + "%</text>";
   return '<div class="bank-bill-pie" data-bank-bill-pie="1" data-tone="' + (tone || "flat") + '" data-pct="' + pct + '">' +
     '<svg viewBox="0 0 64 64" aria-hidden="true">' + paths + hole + "</svg></div>";
+}
+
+function bankBillPaidHtml(facts) {
+  facts = facts || { due: 0, paid: 0, matched: false };
+  if (facts.offCycle) {
+    var upcoming = facts.upcoming != null ? bankMoney(facts.upcoming) : "";
+    var next = facts.nextDue ? ("Next due " + (bankShortDate(facts.nextDue) || facts.nextDue)) : "Next due date is not on the snapshot";
+    var label = upcoming ? upcoming + " \u00b7 " + next : next;
+    return '<p class="bank-bill-amt" data-bank-paid-of="1" data-bank-off-cycle="1" data-bank-matched="0" data-bank-cycle-amt="0"><b>' +
+      bankEsc(label) + "</b></p>";
+  }
+  var when = bankBillWhenPhrase(facts);
+  return '<p class="bank-bill-amt" data-bank-paid-of="1" data-bank-matched="' + bankRoundCents(facts.paid || 0) +
+    '" data-bank-cycle-amt="' + bankRoundCents(facts.due || 0) + '"><b>' + bankEsc(bankBillPaidPhrase(facts)) + "</b></p>" +
+    (when ? '<p class="bank-bill-when" data-bank-bill-due="' + bankEsc(facts.dueOn || "") +
+      '" data-bank-bill-paid-on="' + bankEsc(facts.paidOn || "") + '">' + bankEsc(when) + "</p>" : "");
+}
+
+function bankBillPieForFacts(facts) {
+  facts = facts || { due: 0, paid: 0, matched: false };
+  var full = !!(facts.matched && facts.due > 0.004 && facts.paid + 0.004 >= facts.due);
+  return bankBillPieHtml(facts.paid || 0, facts.due || 0, full);
 }
 
 function bankBillPieGrid(inner, count, label) {
@@ -18657,6 +19114,10 @@ function bankPlacePayrollLoans(cells, budget, ym) {
   return cells;
 }
 
+function bankViewBills(snap) {
+  return bankPreparedBills(snap, bankHasDueMap(snap) ? bankDueMap(snap) : undefined);
+}
+
 function bankDatedPlanGroupsHtml(snap, opts, month) {
   opts = opts || {};
   var buckets = {};
@@ -18670,7 +19131,7 @@ function bankDatedPlanGroupsHtml(snap, opts, month) {
   }
   var bills = [];
   var subs = [];
-  try { bills = bankPreparedBills(snap, undefined); } catch (eBills) { bills = []; }
+  try { bills = bankViewBills(snap); } catch (eBills) { bills = []; }
   try { subs = bankPreparedSubs(snap); } catch (eSubs) { subs = []; }
   bills.forEach(add);
   subs.forEach(add);
@@ -18715,16 +19176,18 @@ function bankDatedPlanGroupsHtml(snap, opts, month) {
       spent += spentN;
       var label = bankBillDisplayName(row.name, row.display_label);
       var status = phrase ? "slot" : (paid ? "paid" : "unpaid");
-      var face = phrase || label;
-      var sub = phrase ? "" : (' <span class="sub">' + bankEsc(paid ? "Paid" : "Unpaid") + "</span>");
-      var money = phrase ? "" : (" <b>" + bankEsc(bankMoney(amount)) + "</b>");
+      var facts = { due: amount || 0, paid: 0, matched: false };
+      try { facts = bankBillPaidFacts(snap, row, month, opts.edits); } catch (eFacts) { facts = facts; }
+      var partial = !!(facts.matched && facts.due > 0.004 && facts.paid + 0.004 < facts.due);
+      var sub = phrase ? (' <span class="sub">' + bankEsc(phrase) + "</span>") : (partial ? "" : (' <span class="sub">' + bankEsc(paid ? "Paid" : "Unpaid") + "</span>"));
       var tileKey = "";
       try { tileKey = bankBillControlKey(row); } catch (eKey) { tileKey = bankBillKey(row.name); }
       return "<li>" + '<button type="button" class="bank-bill-tile" data-bank-tile="bill" data-bank-tile-key="' + bankEsc(tileKey) +
         '" data-bank-bill-line="1" data-bank-bill-cat="' + bankEsc(id) + '" data-bank-bill-status="' + status +
-        '" data-plan="' + bankRoundCents(amount || 0) + '" data-spent="' + bankRoundCents(spentN) + '">' +
-        bankBillPieHtml(spentN, amount, paid) +
-        '<span class="mix-leg-name">' + bankEsc(face) + "</span>" + bankAutopayChipHtml(row) + sub + money + "</button></li>";
+        '" data-plan="' + bankRoundCents(facts.due || 0) + '" data-spent="' + bankRoundCents(facts.paid || 0) + '">' +
+        bankBillPieForFacts(facts) +
+        '<span class="mix-leg-name">' + bankEsc(label) + "</span>" + bankAutopayChipHtml(row) + sub +
+        bankBillPaidHtml(facts) + "</button></li>";
     }).join("");
     var loanTiles = "";
     var loanCount = 0;
@@ -18751,7 +19214,7 @@ function bankDatedPlanGroupsHtml(snap, opts, month) {
 
 function bankBillGroupsHtml(snap, opts, month) {
   var bills = [];
-  try { bills = bankPreparedBills(snap, undefined); } catch (e) { bills = []; }
+  try { bills = bankViewBills(snap); } catch (e) { bills = []; }
   opts = opts || {};
   var datedSkip = {};
   if (bankCategoriesActive(snap)) {
@@ -18828,15 +19291,17 @@ function bankBillGroupsHtml(snap, opts, month) {
       if (cover) extra = '<span class="sub" data-bank-covered="1">' + bankEsc(bankBillPaidCaption(b, month)) + "</span>";
       else if (awaiting) extra = ' <span class="sub" data-bank-awaiting="1">Marked paid, awaiting bank</span>';
       else if (overdue) extra = '<span class="sub" data-bank-overdue="1">Overdue</span>';
+      var facts = { due: planN || 0, paid: 0, matched: false };
+      try { facts = bankBillPaidFacts(snap, b, month, opts.edits); } catch (eFacts) { facts = facts; }
       return "<li>" + '<button type="button" class="bank-bill-tile" data-bank-tile="bill" data-bank-tile-key="' +
         bankEsc(tileKey) + '" aria-haspopup="dialog" data-bank-bill-line="1" data-bank-bill-group-id="' + bankEsc(source) +
         '" data-bank-bill-paid="' + (paid ? "1" : "0") + '" data-bank-overdue="' + (overdue ? "1" : "0") +
-        '" data-plan="' + bankRoundCents(planN) +
-        '" data-spent="' + bankRoundCents(spentN) + '">' +
-        bankBillPieHtml(spentN, planN, paid) +
+        '" data-plan="' + bankRoundCents(facts.due || 0) +
+        '" data-spent="' + bankRoundCents(facts.paid || 0) + '">' +
+        bankBillPieForFacts(facts) +
         '<span class="mix-leg-name">' + bankEsc(name) + "</span>" + bankAutopayChipHtml(b) +
         extra +
-        '<p class="bank-bill-amt"><span>Planned</span> <b>' + bankEsc(bankMoney(planN)) + "</b></p>" +
+        bankBillPaidHtml(facts) +
         '<span class="bank-tile-aff" aria-hidden="true"></span>' +
         "</button></li>";
     }).join("");
@@ -18845,11 +19310,12 @@ function bankBillGroupsHtml(snap, opts, month) {
       var meta = bankOneTimeLabel(item);
       var amt = bankNum(item.amount);
       if (amt != null) plan += amt;
+      var once = { due: amt || 0, paid: 0, matched: false, dueDates: item.suggested_date ? [item.suggested_date] : [], paidDates: [] };
       return '<li><div class="bank-bill-tile" data-bank-one-time="1" data-bank-flexible="1" data-bank-late="0" data-bank-overdue="0">' +
-        bankBillPieHtml(0, amt, false) +
+        bankBillPieForFacts(once) +
         '<span class="mix-leg-name">' + bankEsc(label) + "</span>" +
         (meta ? '<span class="sub">' + bankEsc(meta) + "</span>" : "") +
-        " <b>" + bankEsc(bankBillAmount(amt)) + "</b></div></li>";
+        bankBillPaidHtml(once) + "</div></li>";
     }).join("");
     plan = bankRoundCents(plan);
     spent = bankRoundCents(spent);
@@ -19710,6 +20176,19 @@ function bankBillIsRequiredRow(snap, row) {
 function bankDueDatesInSpan(row, start, end) {
   var dates = [];
   if (!row || !start || !end) return dates;
+  if (bankIsTriMonthUtility(row)) {
+    var cursor = bankMonthKey(start);
+    var last = bankMonthKey(end);
+    var guard = 0;
+    while (cursor && guard < 8) {
+      var hit = bankTriMonthDateInMonth(row, cursor);
+      if (hit && hit >= start && hit <= end && dates.indexOf(hit) < 0) dates.push(hit);
+      if (cursor === last) break;
+      cursor = bankShiftYm(cursor, 1);
+      guard += 1;
+    }
+    return dates;
+  }
   if (bankIsQuarterly(row)) {
     var quarterly = bankQuarterlyDue(row);
     if (quarterly && quarterly >= start && quarterly <= end) dates.push(quarterly);
@@ -21390,7 +21869,9 @@ function bankStackBillWeights(snap, monthKey) {
     dates = dates.filter(function (iso) { return !bankBillOccurrencePaid(row, iso); });
     if (!dates.length) return;
     var each = null;
-    if (row.set_aside || bankIsSetAside(row)) {
+    if (bankIsTriMonthUtility(row)) {
+      each = bankTriMonthFull(row, null);
+    } else if (row.set_aside || bankIsSetAside(row)) {
       each = bankNum(row.monthly_amount);
       if (each == null) each = bankNum(row.amount);
     } else {
@@ -24038,13 +24519,17 @@ function bankScrubStoredBills(snap) {
   try { store = bankReadStore(); } catch (e) { store = null; }
   if (!store || !store.bills || typeof store.bills !== "object") return store;
   var quarterly = {};
+  var keepSaved = {};
   try {
     bankNormalizeBills((snap && snap.budget) || {}).forEach(function (b) {
-      if (b && bankIsQuarterly(b)) quarterly[bankBillKey(b.name)] = true;
+      if (!b) return;
+      if (bankIsTriMonthUtility(b)) keepSaved[bankBillKey(b.name)] = true;
+      else if (bankIsQuarterly(b)) quarterly[bankBillKey(b.name)] = true;
     });
   } catch (eQ) {}
   var changed = false;
   Object.keys(store.bills).forEach(function (name) {
+    if (keepSaved[bankBillKey(name)]) return;
     var dropDue = !!quarterly[bankBillKey(name)];
     var dropAmount = dropDue || bankUtilityAmountName(name);
     if (!dropAmount && !dropDue) return;
@@ -24127,7 +24612,7 @@ function bankReadStore() {
     if (o.cushionPct != null && o.cushionPct !== "") store.cushionPct = o.cushionPct;
     var changed = false;
     Object.keys(store.bills).forEach(function (name) {
-      if (!bankUtilityAmountName(name)) return;
+      if (!bankUtilityAmountName(name) || /\b(?:water|sewer)\b/i.test(String(name || ""))) return;
       var next = bankScrubBillEntry(store.bills[name], true, false);
       if (next.drop) {
         delete store.bills[name];

@@ -75,42 +75,49 @@ function cardFor(html, iso) {
   return next.slice(next.lastIndexOf('<div class="card"', at), end < 0 ? next.length : end);
 }
 
-test("a quarterly bill uses quarterly_amount and next_due on screen, and monthly_amount in the plan", function () {
+test("water counts its full charge only in a due month, and a saved amount wins", function () {
   const ctx = boot();
   const snap = loadSnap();
   const water = billNamed(ctx, snap, "Water");
   assert.equal(water.cadence, "quarterly");
   assert.equal(water.quarterly_amount, 90);
   assert.equal(water.next_due, "2026-10-20");
-  assert.equal(ctx.bankBillLineAmount(water, "2026-10", { bills: { Water: { amount: 12, typical_day: 4 } } }), 90);
-  assert.equal(ctx.bankBillShownAmount(water, "2026-10", { bills: { Water: { amount: 12 } } }), 90);
-  assert.equal(ctx.bankBillMonthPlan(water, "2026-10"), 30);
-  assert.equal(ctx.bankUserBillAmount({ bills: { Water: { amount: 12 } } }, water), null);
+  const saved = { bills: { Water: { amount: 12, typical_day: 4 } } };
+  assert.equal(ctx.bankBillLineAmount(water, "2026-10", saved), 12);
+  assert.equal(ctx.bankBillShownAmount(water, "2026-10", saved), 12);
+  assert.equal(ctx.bankBillMonthPlan(water, "2026-10"), 90);
+  assert.equal(ctx.bankBillMonthPlan(water, "2026-09"), null);
+  assert.equal(ctx.bankBillMonthPlan(water, "2026-11"), null);
+  assert.equal(ctx.bankBillLineAmount(water, "2026-11", saved), 0);
+  assert.equal(ctx.bankUserBillAmount(saved, water), 12);
   const marks = ctx.bankBillDueMarks(water, { year: 2026, month: 10 });
   assert.equal(JSON.stringify(marks.map(function (m) { return m.day; })), "[20]");
   assert.equal(JSON.stringify(ctx.bankBillDueMarks(water, { year: 2026, month: 9 })), "[]");
+  assert.equal(JSON.stringify(ctx.bankBillDueMarks(water, { year: 2027, month: 1 }).map(function (m) { return m.day; })), "[20]");
   assert.equal(ctx.bankQuarterlyPastGrace(water, "2026-10-13"), false);
 
   const html = ctx.bankPageHtml(snap, Object.assign({}, opts, {
     edits: { bills: { Water: { amount: 12, typical_day: 4 } }, income: {}, moves: {} }
   }));
-  assert.match(html, /title="Water \$90\.00"/);
-  assert.doesNotMatch(html, /title="Water \$30\.00"|title="Water \$12\.00"/);
-  assert.match(html, /<b>20<\/b>[\s\S]{0,500}Water \$90\.00/);
+  assert.match(html, /title="Water \$12\.00"/);
+  assert.doesNotMatch(html, /title="Water \$30\.00"|title="Water \$90\.00"/);
+  assert.match(html, /<b>20<\/b>[\s\S]{0,500}Water \$12\.00/);
   assert.doesNotMatch(html, /<b>4<\/b>[\s\S]{0,200}Water/);
   const edits = ctx.bankPageHtml(snap, Object.assign({}, opts, { tab: "edits", edits: { bills: { Water: { amount: 12, typical_day: 4 } } } }));
   const waterEdit = edits.slice(edits.indexOf(">Water<"));
-  assert.match(waterEdit.slice(0, 800), /\$90\.00/);
+  assert.match(waterEdit.slice(0, 800), /\$12\.00/);
   assert.match(waterEdit.slice(0, 800), /Tue Oct 20/);
-  assert.doesNotMatch(waterEdit.slice(0, 500), /\$12\.00|\$30\.00/);
+  assert.doesNotMatch(waterEdit.slice(0, 500), /\$90\.00|\$30\.00/);
   const card = cardFor(html, "2026-10-15");
   assert.match(card, /Water/);
-  assert.match(card, /\$90\.00/);
-  assert.doesNotMatch(card, /Water[\s\S]{0,80}\$30\.00|Water[\s\S]{0,80}\$12\.00/);
+  assert.match(card, /\$12\.00/);
+  assert.doesNotMatch(card, /Water[\s\S]{0,80}\$30\.00|Water[\s\S]{0,80}\$90\.00/);
   const pies = ctx.bankKindPies(snap, { year: 2026, month: 10 }, null);
   const slice = pies.bills.filter(function (row) { return row.name === "Water"; })[0];
   assert.ok(slice);
-  assert.equal(slice.amount, 30);
+  assert.equal(slice.amount, 90);
+  const off = ctx.bankKindPies(snap, { year: 2026, month: 11 }, null);
+  assert.equal(off.bills.filter(function (row) { return row.name === "Water"; }).length, 0);
 });
 
 test("a quarterly bill is overdue only after next_due plus grace days", function () {
@@ -380,7 +387,7 @@ test("budget_month is the tier and category spent window, and a missing window s
   assert.equal(scanned.groceries.spent, 11);
 });
 
-test("stale local amounts do not override a quarterly snapshot and utility amounts are cleared", function () {
+test("a saved water amount sticks, and trash and garbage amounts are cleared", function () {
   const ctx = boot();
   const snap = loadSnap();
   ctx.bag.murphyHouseBanking = JSON.stringify({
@@ -395,9 +402,9 @@ test("stale local amounts do not override a quarterly snapshot and utility amoun
     moves: { keep: 1 }
   });
   const read = ctx.bankReadStore();
-  assert.equal(read.bills.Water.amount, undefined);
+  assert.equal(read.bills.Water.amount, 12);
   assert.equal(read.bills.Water.typical_day, 4);
-  assert.equal(read.bills.Sewer.amount, undefined);
+  assert.equal(read.bills.Sewer.amount, 8);
   assert.equal(read.bills.Sewer.typical_day, 9);
   assert.equal(read.bills.Trash, undefined);
   assert.equal(read.bills.Garbage, undefined);
@@ -405,14 +412,14 @@ test("stale local amounts do not override a quarterly snapshot and utility amoun
   assert.equal(read.moves.keep, 1);
   ctx.bankPageHtml(snap, opts);
   const stored = JSON.parse(ctx.bag.murphyHouseBanking);
-  assert.equal(stored.bills.Water, undefined);
-  assert.equal(stored.bills.Sewer, undefined);
+  assert.equal(stored.bills.Water.amount, 12);
+  assert.equal(stored.bills.Sewer.amount, 8);
   assert.equal(stored.bills.Trash, undefined);
   assert.equal(stored.bills.Rent.amount, 99);
   assert.equal(stored.bills.Rent.typical_day, 2);
   assert.equal(stored.moves.keep, 1);
   const html = ctx.bankPageHtml(snap, Object.assign({}, opts, { edits: ctx.bankReadStore() }));
-  assert.match(html, /Water \$90\.00/);
-  assert.match(html, /<b>20<\/b>[\s\S]{0,500}Water \$90\.00/);
-  assert.doesNotMatch(html, /Water \$12\.00/);
+  assert.match(html, /Water \$12\.00/);
+  assert.match(html, /<b>20<\/b>[\s\S]{0,500}Water \$12\.00/);
+  assert.doesNotMatch(html, /Water \$90\.00|Water \$30\.00/);
 });
