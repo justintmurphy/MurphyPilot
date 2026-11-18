@@ -1,0 +1,58 @@
+{
+  "_fixture": "Synthetic custodial print for tests. Amounts and suffixes are made up.",
+  "asof": "2026-01-15",
+  "holdings_asof": "2026-01-15",
+  "scanned_at": "2026-01-15T16:00:00-05:00",
+  "source": "Example",
+  "note": "Example print for tests.",
+  "accounts": {
+    "fidelity": {
+      "id": "fidelity",
+      "label": "Example",
+      "equity": 49,
+      "cash": 6,
+      "equity_value": 43,
+      "names": [
+        { "symbol": "SYM1", "name": "Alpha", "kind": "equity", "qty": 2, "value": 10, "cost": 8, "sleeve": "Brokerage", "accounts": ["1111"] },
+        { "symbol": "CASH", "name": "Cash", "kind": "cash", "qty": 1, "value": 4, "cost": 4, "sleeve": "Brokerage", "accounts": ["1111"] },
+        { "symbol": "SYM1", "name": "Alpha", "kind": "equity", "qty": 1, "value": 5, "sleeve": "Personal", "accounts": ["2222"] },
+        { "symbol": "IONX", "name": "Ion example", "kind": "equity", "qty": 1, "value": 3, "cost": 2, "sleeve": "Personal", "accounts": ["2222"] },
+        { "symbol": "CASH", "name": "Cash", "kind": "cash", "qty": 1, "value": 2, "cost": 2, "sleeve": "Personal", "accounts": ["2222"] },
+        { "symbol": "SYM2", "name": "Beta", "kind": "equity", "qty": 3, "value": 12, "cost": 9, "sleeve": "Roth", "accounts": ["3333"] },
+        { "symbol": "SYM3", "name": "Gamma", "kind": "equity", "qty": 1, "value": 8, "cost": 6, "sleeve": "Trad", "accounts": ["4444"] },
+        { "symbol": "SYM4", "name": "Delta", "kind": "equity", "qty": 4, "value": 5, "cost": 4, "sleeve": "RSU", "accounts": ["5555"] }
+      ],
+      "accounts": [
+        { "name": "Brokerage", "suffix": "1111", "sleeve": "Brokerage", "equity": 14, "cash": 4 },
+        { "name": "Personal", "suffix": "2222", "sleeve": "Personal", "equity": 10, "cash": 2 },
+        { "name": "Roth", "suffix": "3333", "sleeve": "Roth", "equity": 12, "cash": 0 },
+        { "name": "Trad", "suffix": "4444", "sleeve": "Trad", "equity": 8, "cash": 0 },
+        { "name": "RSU", "suffix": "5555", "sleeve": "RSU", "equity": 5, "cash": 0 }
+      ]
+    },
+    "voya": {
+      "id": "voya",
+      "label": "401k",
+      "equity": 15,
+      "cash": 1,
+      "equity_value": 14,
+      "names": [
+        { "symbol": "V1", "name": "One", "kind": "equity", "qty": 1, "value": 2 },
+        { "symbol": "V2", "name": "Two", "kind": "equity", "qty": 1, "value": 2 },
+        { "symbol": "V3", "name": "Three", "kind": "equity", "qty": 1, "value": 2 },
+        { "symbol": "V4", "name": "Four", "kind": "equity", "qty": 1, "value": 2 },
+        { "symbol": "V5", "name": "Five", "kind": "equity", "qty": 1, "value": 2 },
+        { "symbol": "V6", "name": "Six", "kind": "equity", "qty": 1, "value": 2 },
+        { "symbol": "V7", "name": "Seven", "kind": "equity", "qty": 1, "value": 2 },
+        { "symbol": "VCASH", "name": "Cash", "kind": "cash", "qty": 1, "value": 1 }
+      ]
+    }
+  },
+  "sleeves": {
+    "brokerage_book": { "cash": 4, "equity": 14, "label": "Brokerage" },
+    "personal_book": { "cash": 2, "equity": 10, "label": "Personal" },
+    "roth_book": { "cash": 0, "equity": 12, "label": "Roth IRA" },
+    "trad_book": { "cash": 0, "equity": 8, "label": "Trad" },
+    "rsu_book": { "cash": 0, "equity": 5, "label": "RSU" }
+  }
+}

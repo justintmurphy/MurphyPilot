@@ -1,3 +1,9 @@
+function truthifiFailPhraseFallback(kind, short) {
+  if (kind === "gate") return short ? "locked" : "Investments are locked";
+  if (kind === "missing") return short ? "no print" : "No investments print";
+  if (kind === "unavailable") return short ? "unavailable" : "Truthifi unavailable";
+  return short ? "print broken" : "Truthifi print broken";
+}
 function companySiteUrl(n) {
   if (!n) return "";
   if (n.index) {
@@ -809,10 +815,10 @@ function invMountTicker() {
     if (tfFail) {
       var phrase = (typeof truthifiFailPhrase === "function")
         ? truthifiFailPhrase(tfFail)
-        : (tfFail === "unavailable" ? "Truthifi unavailable" : "Truthifi print broken");
+        : truthifiFailPhraseFallback(tfFail, false);
       shortFail = (typeof truthifiFailShort === "function")
         ? truthifiFailShort(tfFail)
-        : (tfFail === "unavailable" ? "unavailable" : "print broken");
+        : truthifiFailPhraseFallback(tfFail, true);
       pushFreshRow(rows, "", "", phrase, true, true);
       if (snap.truthifiHeld) pushFreshRow(rows, "", "", "last good print", true, true);
     }
@@ -2831,7 +2837,7 @@ function invMountTicker() {
     if (gap) {
       phrase = (typeof truthifiFailPhrase === "function")
         ? truthifiFailPhrase(snap.truthifiFail)
-        : (snap.truthifiFail === "unavailable" ? "Truthifi unavailable" : "Truthifi print broken");
+        : truthifiFailPhraseFallback(snap.truthifiFail, false);
     }
     var list = [];
     var rhEq = retRhEquity();

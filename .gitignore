@@ -1,3 +1,5 @@
 .DS_Store
 Thumbs.db
 *.tmp
+# Custodial investments print. Served behind login at /data/house/truthifi-snapshot.json.
+house/truthifi-snapshot.json

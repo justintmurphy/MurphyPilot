@@ -113,7 +113,7 @@
       <p><b>Custodial feed (2026-09-04 ADOPT)</b></p>
       <ul>
         <li><b>KEEP Truthifi</b> for Fidelity sleeves + Voya 401(k). Automatic, no human download.</li>
-        <li><b>HARD NO:</b> SnapTrade Fidelity reconnect; manual Positions CSV; curiosity re-scans. Bots read <code>house/truthifi-snapshot.json</code> as SOV.</li>
+        <li><b>HARD NO:</b> SnapTrade Fidelity reconnect; manual Positions CSV; curiosity re-scans. Bots read the login-gated print at <code>/data/house/truthifi-snapshot.json</code> as SOV. It is not committed.</li>
         <li><b>Cadence:</b> Fid 2× every weekday (10:00 Fid-only + 16:00 Fid). Voya Tue/Thu dual close only. Mon/Wed/Fri 16:00 Fid-only keeps prior Voya. ≈36 cr/wk ≈144/mo under the 150 cap. Meter gates the next 10:00 if monthly path &gt;~140.</li>
         <li><b>Callables:</b> <code>Agentic fn: truthifi-fidelity</code> (Mon–Fri 10:00); Truthifi Close Scan 16:00 day-rules; <code>Agentic fn: house</code> includes <code>accounts.*.suffix</code> ···last-4 only — never full account numbers.</li>
         <li><b>Proof:</b> asof must move, and holdings completeness — Fid/Voya <code>names[]</code> not empty when that book’s equity &gt; $1. Equity-only shells FAIL.</li>
@@ -144,7 +144,7 @@
         <li>Latest pack email exists and has sections A–F, including a coming-weeks calendar.</li>
         <li>Process Review after SELL polls Gmail for Agentic trade: SELL. KEEP/CHANGE is the picker’s scorecard.</li>
         <li>Desk logo opens the board (zoomed mark fills the badge). Operating Manual and Setup Guide open from Official docs on the desk. PDF copies download from those pages.</li>
-        <li>Truthifi SOV <code>house/truthifi-snapshot.json</code> has Fid and Voya <code>names[]</code> when equity &gt; $1. House prints show ···last-4 suffixes only.</li>
+        <li>The login-gated print at <code>/data/house/truthifi-snapshot.json</code> has Fid and Voya <code>names[]</code> when equity &gt; $1. House prints show ···last-4 suffixes only.</li>
         <li>Proof checks asof freshness and holdings completeness — not chat status.</li>
       </ul>
       <h3>9. Halt</h3>

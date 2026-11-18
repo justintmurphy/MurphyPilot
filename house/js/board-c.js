@@ -697,7 +697,8 @@ cardsHtml = function () {
 };
 function custodialBookCard(id, label, book, tag, tapeKey) {
   var has = book && ((book.names || []).length || (isFinite(Number(book.equity)) && Number(book.equity) > 0.004));
-  if (typeof truthifiSoftEmpty === "function" && truthifiSoftEmpty() && !has) {
+  var gated = snap && (snap.truthifiFail === "gate" || snap.truthifiFail === "missing") && !snap.truthifiHeld;
+  if (gated || (typeof truthifiSoftEmpty === "function" && truthifiSoftEmpty() && !has)) {
     var phrase = truthifiFailPhrase(snap.truthifiFail);
     return '<button type="button" class="acct-mini' + (tab === id ? " on" : "") + '" data-tab="' + id + '"><div class="k">' +
       esc(label) + " · " + esc(tag) + '</div><b>\u2014</b><div class="m"><span class="fresh-chip fresh-flag">' +
@@ -1006,16 +1007,59 @@ paint = function () {
       if (t.indexOf("Live equity") === 0) h.textContent = "Live equity \u00b7 Robinhood + Fidelity";
       if (t.indexOf("Book state") === 0) h.textContent = "Book state \u00b7 all books";
     });
+    if (snap.truthifiFail === "gate" || snap.truthifiFail === "missing") {
+      desk.insertAdjacentHTML("afterbegin", truthifiEmptyHtml(snap.truthifiFail));
+    }
   }
 };
 /* tip bm — Truthifi text→parse. Corrupt JSON keeps last-good or a FLAG, never a silent empty Fid/Voya. */
 var truthifiLastGood = null;
 var TRUTHIFI_LAST_KEY = "murphyTruthifiLastGood";
 function truthifiFailPhrase(kind) {
+  if (kind === "gate") return "Investments are locked";
+  if (kind === "missing") return "No investments print";
   return kind === "unavailable" ? "Truthifi unavailable" : "Truthifi print broken";
 }
 function truthifiFailShort(kind) {
+  if (kind === "gate") return "locked";
+  if (kind === "missing") return "no print";
   return kind === "unavailable" ? "unavailable" : "print broken";
+}
+/* Same cookie and cache rules as GET /data/banking.json. A signed-out gate must be 401, 403, or a redirect. */
+var TRUTHIFI_DATA_URL = "/data/house/truthifi-snapshot.json";
+function truthifiDataUrl() {
+  return TRUTHIFI_DATA_URL + "?v=" + Date.now();
+}
+function truthifiFetchInit() {
+  return {
+    credentials: "include",
+    cache: "no-store",
+    redirect: "manual",
+    headers: { Accept: "application/json", "Cache-Control": "no-cache" }
+  };
+}
+function truthifiIsLockedResponse(res) {
+  if (!res) return false;
+  if (res.type === "opaqueredirect") return true;
+  var n = Number(res.status);
+  return n === 401 || n === 403;
+}
+function truthifiFailFromResponse(res) {
+  if (truthifiIsLockedResponse(res)) return "gate";
+  if (res && Number(res.status) === 404) return "missing";
+  return "unavailable";
+}
+function truthifiEmptyHtml(kind) {
+  var title = "Investments data did not load";
+  var body = "The feed did not answer. This page leaves custodial balances blank.";
+  if (kind === "gate") {
+    title = "Investments are locked";
+    body = "Sign in with the one-time passcode on this site, then reload. Balances stay off this page until the feed answers.";
+  } else if (kind === "missing") {
+    title = "No investments print";
+    body = "The desk did not find the investments print. Nothing is filled in.";
+  }
+  return '<section class="card span" data-invest-gate="' + esc(kind || "error") + '"><h2>' + esc(title) + '</h2><p class="hint" style="margin:0">' + esc(body) + "</p></section>";
 }
 function truthifiSnapshotOk(data) {
   return !!(data && typeof data === "object" && !Array.isArray(data) && data.accounts && typeof data.accounts === "object");
@@ -1027,7 +1071,11 @@ function truthifiHeldNote() {
   return (snap && snap.truthifiHeld) ? " Showing last good Truthifi print." : "";
 }
 function truthifiFailDeskHtml(title) {
-  var phrase = truthifiFailPhrase(snap && snap.truthifiFail);
+  var kind = snap && snap.truthifiFail;
+  if (kind === "gate" || kind === "missing") {
+    return "<h2>Book state · " + esc(title) + "</h2>" + truthifiEmptyHtml(kind);
+  }
+  var phrase = truthifiFailPhrase(kind);
   var chips = (typeof sourceFreshnessChipsHtml === "function") ? sourceFreshnessChipsHtml() : "";
   return "<h2>Book state · " + esc(title) + "</h2>" + chips +
     '<div class="card span"><p class="hint" style="margin:0">' + esc(phrase) +
@@ -1058,11 +1106,21 @@ function takeTruthifiLastGood() {
   if (!truthifiSnapshotOk(src)) return null;
   try { return JSON.parse(JSON.stringify(src)); } catch (e3) { return src; }
 }
+function truthifiParseFail(text) {
+  var body = String(text || "").trim();
+  if (!body) return "missing";
+  var first = body.charAt(0);
+  if (first === "{" || first === "[") return "broken";
+  return "gate";
+}
 function fetchTruthifi(url) {
-  return fetch(url, { cache: "no-store" }).then(function (r) {
-    if (!r || !r.ok) {
-      var httpErr = new Error(r ? String(r.status) : "fetch");
-      httpErr.truthifiFail = "unavailable";
+  var pending;
+  try { pending = fetch(url, truthifiFetchInit()); }
+  catch (eCall) { return Promise.resolve({ ok: false, data: null, fail: "unavailable" }); }
+  return Promise.resolve(pending).then(function (r) {
+    if (!r || r.type === "opaqueredirect" || r.ok !== true) {
+      var httpErr = new Error(r ? String(r.status || r.type || "fetch") : "fetch");
+      httpErr.truthifiFail = truthifiFailFromResponse(r);
       throw httpErr;
     }
     return r.text();
@@ -1072,12 +1130,12 @@ function fetchTruthifi(url) {
       data = JSON.parse(text);
     } catch (parseErr) {
       var err = new Error("parse");
-      err.truthifiFail = "broken";
+      err.truthifiFail = truthifiParseFail(text);
       throw err;
     }
     if (!truthifiSnapshotOk(data)) {
       var shapeErr = new Error("shape");
-      shapeErr.truthifiFail = "broken";
+      shapeErr.truthifiFail = "missing";
       throw shapeErr;
     }
     return { ok: true, data: data, fail: "" };
@@ -1091,7 +1149,7 @@ load = function () {
   Promise.all([
     fetch("/house/house-snapshot.json" + bust, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
     fetch("/pilot-snapshot.json" + bust, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-    fetchTruthifi("/house/truthifi-snapshot.json" + bust)
+    fetchTruthifi(truthifiDataUrl())
   ]).then(function (pair) {
     if (typeof pulseKpisForFetch === "function") pulseKpisForFetch(false);
     var tf = pair[2] || { ok: false, fail: "unavailable", data: null };
@@ -1100,6 +1158,10 @@ load = function () {
     var held = false;
     if (tf.ok && truthifiSnapshotOk(tf.data)) {
       outside = tf.data;
+    } else if (tf.fail === "gate" || tf.fail === "missing") {
+      fail = tf.fail;
+      outside = null;
+      held = false;
     } else {
       fail = tf.fail === "broken" ? "broken" : "unavailable";
       outside = takeTruthifiLastGood();
