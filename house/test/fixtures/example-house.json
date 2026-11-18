@@ -1,0 +1,35 @@
+{
+  "_fixture": "Synthetic house print for tests. Amounts are made up.",
+  "asof": "2026-01-15T15:00:00-05:00",
+  "accounts": {
+    "agentic": {
+      "id": "agentic",
+      "label": "Sample A",
+      "equity": 4,
+      "cash": 1,
+      "names": [{ "symbol": "HA", "name": "Sample", "kind": "equity", "qty": 1, "value": 4, "cost": 1 }]
+    },
+    "individual": {
+      "id": "individual",
+      "label": "Sample B",
+      "equity": 5,
+      "cash": 1,
+      "names": [{ "symbol": "HB", "name": "Sample", "kind": "equity", "qty": 1, "value": 5, "cost": 1 }]
+    },
+    "auto_grok": {
+      "id": "auto_grok",
+      "label": "Sample C",
+      "equity": 6,
+      "cash": 1,
+      "names": [{ "symbol": "HC", "name": "Sample", "kind": "equity", "qty": 1, "value": 6, "cost": 1 }]
+    },
+    "joint": {
+      "id": "joint",
+      "label": "Sample D",
+      "equity": 7,
+      "cash": 1,
+      "names": [{ "symbol": "HD", "name": "Sample", "kind": "equity", "qty": 1, "value": 7, "cost": 1 }]
+    }
+  },
+  "combined": { "equity": 22 }
+}

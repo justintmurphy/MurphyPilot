@@ -35,6 +35,6 @@ Standing how-to-read (Truthifi KEEP / HARD NOs, Fid 2× + Voya Tue/Thu cadence, 
 | `house/index.html` | Redirect to `/investments/` |
 | `house/js/board-*.js` | House board |
 | `house/house-snapshot.json` | Latest House print |
-| `house/truthifi-snapshot.json` | Truthifi custodial SOV (Fid + Voya) |
+| `/data/house/truthifi-snapshot.json` | Custodial investments print, behind login. Not in this repo. |
 
-House is data only. Repo is private. Snapshot jobs write JSON here; Gmail is backup.
+House is data only. Repo is private. House and pilot snapshot jobs still write JSON here; Gmail is backup. The custodial investments print is not written here.

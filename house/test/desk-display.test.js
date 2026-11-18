@@ -279,7 +279,7 @@ test("custodial books, sleeves, and the Truthifi feed use close-print tone witho
 });
 
 function fidelityPrint() {
-  return JSON.parse(fs.readFileSync(path.join(root, "house/truthifi-snapshot.json"), "utf8"));
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "example-truthifi.json"), "utf8"));
 }
 
 function assertEachNameOnce(names, sleeves) {
@@ -730,7 +730,7 @@ test("partial cost labels the excluded rows, keeps mixed sleeves apart, and dash
 });
 
 function housePrint() {
-  return JSON.parse(fs.readFileSync(path.join(root, "house/house-snapshot.json"), "utf8"));
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "example-house.json"), "utf8"));
 }
 
 function sourceLabAttr(rowHtml, attr) {
