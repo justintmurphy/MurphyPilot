@@ -539,7 +539,8 @@ test("the phone bill tile uses the per-slot line", function () {
   const snap = loadSnap(ctx);
   const groups = ctx.bankDatedPlanGroupsHtml(snap, optsFor(), "2026-10");
   const tile = groups.slice(groups.indexOf('data-bank-tile-key="phone"'), groups.indexOf("</button>", groups.indexOf('data-bank-tile-key="phone"')));
-  assert.match(tile, /mix-leg-name">Phone paid \$52\.00 · \$50\.00 due 10\/29</);
+  assert.match(tile, /mix-leg-name">Phone</);
+  assert.match(tile, /Phone paid \$52\.00 · \$50\.00 due 10\/29/);
   assert.equal(tile.indexOf(">Unpaid<"), -1);
   assert.equal(tile.indexOf("<b>$100.00</b>"), -1);
   assert.match(tile, /data-bank-bill-status="slot"/);
