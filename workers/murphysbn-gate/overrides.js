@@ -1,8 +1,11 @@
 "use strict";
 
 /* Canonical override rules for the murphysbn-gate Worker.
-   The live worker is not in this repo. Copy these into applyOverridesToTxRows,
-   the override write handler, and the tiers GET, then deploy murphysbn-gate.
+   The live worker and its Wrangler config are not in this repo. Copy these into
+   applyOverridesToTxRows, the override write handler, and the tiers GET, then
+   deploy murphysbn-gate. Assistant PUT auth is tiers-write.js (secret
+   ASSISTANT_TIERS_WRITE). It wraps the existing fetch handler. It does not
+   replace owner-cookie writes or the publish Bearer.
    Lookup order: tx_id, replaced_alert, legacy date|id|amount|desc, then tx_key.
    A legacy hit is copied onto tx_id. The legacy entry stays.
    GET /data/banking/tiers.json should return applyTiersGet(kvDoc, snapshot.budget)
