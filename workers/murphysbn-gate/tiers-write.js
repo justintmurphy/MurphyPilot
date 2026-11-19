@@ -110,11 +110,109 @@ function audit(result, method, path) {
   }));
 }
 
+var COMPLETION_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+var COMPLETION_ID = /^[A-Za-z0-9][A-Za-z0-9 ._:+\-]{0,79}$/;
+var COMPLETION_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+
+function completionIdOk(id) {
+  return typeof id === "string" && id === id.trim() && COMPLETION_ID.test(id);
+}
+
+function completionEntryOk(entry) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+  if (entry.status !== "complete" && entry.status !== "skipped") return false;
+  if (typeof entry.at !== "string" || !COMPLETION_AT.test(entry.at)) return false;
+  if (entry.by !== "justin" && entry.by !== "assistant") return false;
+  var extra = Object.keys(entry).some(function (key) {
+    return key !== "status" && key !== "at" && key !== "by";
+  });
+  return !extra;
+}
+
+function copyCompletionEntry(entry) {
+  return { status: entry.status, at: entry.at, by: entry.by };
+}
+
+/* Merge a completions patch into a tiers doc.
+   patch is { "YYYY-MM": { "<id>": { status, at, by } | null } }.
+   null deletes that id. A bad month, id, status, at, or by rejects the whole patch.
+   The live GET builder must return doc.completions. The live handleTiersWrite
+   whitelist must accept completions and call applyCompletions(doc, body.completions). */
+function applyCompletions(doc, patch) {
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) return { ok: false, code: "bad_completion" };
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) return { ok: false, code: "bad_completion" };
+  var months = Object.keys(patch);
+  if (months.length > 24) return { ok: false, code: "bad_completion" };
+  var next = {};
+  var prev = doc.completions;
+  if (prev && typeof prev === "object" && !Array.isArray(prev)) {
+    Object.keys(prev).forEach(function (month) {
+      if (!COMPLETION_MONTH.test(month)) return;
+      var bag = prev[month];
+      if (!bag || typeof bag !== "object" || Array.isArray(bag)) return;
+      var copy = {};
+      Object.keys(bag).forEach(function (id) {
+        if (!completionIdOk(id) || !completionEntryOk(bag[id])) return;
+        copy[id] = copyCompletionEntry(bag[id]);
+      });
+      if (Object.keys(copy).length) next[month] = copy;
+    });
+  }
+  var bad = false;
+  months.forEach(function (month) {
+    if (bad) return;
+    if (!COMPLETION_MONTH.test(month)) {
+      bad = true;
+      return;
+    }
+    var bag = patch[month];
+    if (!bag || typeof bag !== "object" || Array.isArray(bag)) {
+      bad = true;
+      return;
+    }
+    var ids = Object.keys(bag);
+    if (ids.length > 40) {
+      bad = true;
+      return;
+    }
+    if (!next[month]) next[month] = {};
+    ids.forEach(function (id) {
+      if (bad) return;
+      if (!completionIdOk(id)) {
+        bad = true;
+        return;
+      }
+      if (bag[id] == null) {
+        delete next[month][id];
+        return;
+      }
+      if (!completionEntryOk(bag[id])) {
+        bad = true;
+        return;
+      }
+      next[month][id] = copyCompletionEntry(bag[id]);
+    });
+    if (next[month] && !Object.keys(next[month]).length) delete next[month];
+  });
+  if (bad) return { ok: false, code: "bad_completion" };
+  var total = 0;
+  Object.keys(next).forEach(function (month) { total += Object.keys(next[month]).length; });
+  if (total > 400) return { ok: false, code: "bad_completion" };
+  var out = {};
+  Object.keys(doc).forEach(function (key) { out[key] = doc[key]; });
+  if (Object.keys(next).length) out.completions = next;
+  else delete out.completions;
+  return { ok: true, doc: out };
+}
+
 function defaultValidate(kv, body, budget) {
   if (!body || typeof body !== "object" || Array.isArray(body) || !Array.isArray(body.categories)) {
     return { ok: false, code: "bad_category" };
   }
-  return overrides.applyTiersPost(kv, body, budget);
+  var result = overrides.applyTiersPost(kv, body, budget);
+  if (!result || result.ok !== true || !result.doc) return result;
+  if (!Object.prototype.hasOwnProperty.call(body, "completions")) return result;
+  return applyCompletions(result.doc, body.completions);
 }
 
 function stamp(doc, hooks) {
@@ -222,5 +320,6 @@ function withAssistantTiersWrite(handler, hooks) {
 module.exports = {
   ASSISTANT_WRITE_SECRET: ASSISTANT_WRITE_SECRET,
   TIERS_PATH: TIERS_PATH,
+  applyCompletions: applyCompletions,
   withAssistantTiersWrite: withAssistantTiersWrite
 };

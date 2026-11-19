@@ -401,3 +401,89 @@ test("a write secret copied from the publish bearer stays read-only", async func
   assert.equal(store.loads, 0);
   assert.deepEqual(gateFetch.seen, ["PUT " + gate.TIERS_PATH]);
 });
+
+const MARK = { status: "complete", at: "2026-11-19T03:00:00.000Z", by: "justin" };
+
+test("applyCompletions merges a month mark and leaves the rest of the doc", function () {
+  const doc = {
+    categories: [{ id: "yard", name: "Yard", tier: "needs", budget: 4 }],
+    completions: {
+      "2026-10": { "pond-fee": { status: "skipped", at: "2026-10-02T00:00:00.000Z", by: "assistant" } }
+    }
+  };
+  const result = gate.applyCompletions(doc, {
+    "2026-11": { "yard-gas": MARK }
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.doc.categories[0].id, "yard");
+  assert.equal(result.doc.completions["2026-10"]["pond-fee"].status, "skipped");
+  assert.deepEqual(result.doc.completions["2026-11"]["yard-gas"], MARK);
+  assert.equal(doc.completions["2026-11"], undefined);
+});
+
+test("applyCompletions deletes one id when the patch value is null", function () {
+  const doc = {
+    completions: {
+      "2026-11": {
+        "yard-gas": MARK,
+        "pond-fee": { status: "skipped", at: "2026-11-02T00:00:00.000Z", by: "justin" }
+      }
+    }
+  };
+  const result = gate.applyCompletions(doc, { "2026-11": { "yard-gas": null } });
+  assert.equal(result.ok, true);
+  assert.equal(result.doc.completions["2026-11"]["yard-gas"], undefined);
+  assert.equal(result.doc.completions["2026-11"]["pond-fee"].status, "skipped");
+  const cleared = gate.applyCompletions(result.doc, { "2026-11": { "pond-fee": null } });
+  assert.equal(cleared.ok, true);
+  assert.equal(Object.prototype.hasOwnProperty.call(cleared.doc, "completions"), false);
+});
+
+test("applyCompletions rejects a bad month, status, id, at, or by", function () {
+  const doc = { completions: { "2026-11": { "yard-gas": MARK } } };
+  const before = JSON.stringify(doc);
+  function reject(patch) {
+    const result = gate.applyCompletions(doc, patch);
+    assert.equal(result.ok, false);
+    assert.equal(result.code, "bad_completion");
+  }
+  reject({ "2026-13": { "yard-gas": MARK } });
+  reject({ "November": { "yard-gas": MARK } });
+  reject({ "2026-11": { "": MARK } });
+  reject({ "2026-11": { "yard gas!": MARK } });
+  reject({ "2026-11": { "yard-gas": { status: "paid", at: MARK.at, by: "justin" } } });
+  reject({ "2026-11": { "yard-gas": { status: "complete", at: "yesterday", by: "justin" } } });
+  reject({ "2026-11": { "yard-gas": { status: "complete", at: MARK.at, by: "owner" } } });
+  reject({ "2026-11": { "yard-gas": { status: "skipped", at: MARK.at, by: "assistant", note: "no" } } });
+  reject(null);
+  reject(["2026-11"]);
+  assert.equal(JSON.stringify(doc), before);
+});
+
+test("an assistant tiers write can store and clear a completion", async function () {
+  const store = seed();
+  const gateFetch = install(store);
+  const saved = await call(gateFetch.handler, "PUT", gate.TIERS_PATH, {
+    headers: { authorization: "Bearer " + WRITE },
+    body: {
+      categories: valid.categories,
+      completions: { "2026-11": { "yard-gas": { status: "skipped", at: NOW, by: "assistant" } } }
+    }
+  });
+  const doc = await bodyOf(saved);
+  assert.equal(saved.status, 200);
+  assert.equal(doc.completions["2026-11"]["yard-gas"].status, "skipped");
+  assert.equal(doc.completions["2026-11"]["yard-gas"].by, "assistant");
+  assert.equal(doc.last_writer, "assistant");
+
+  const cleared = await call(gateFetch.handler, "PUT", gate.TIERS_PATH, {
+    headers: { authorization: "Bearer " + WRITE },
+    body: {
+      categories: valid.categories,
+      completions: { "2026-11": { "yard-gas": null } }
+    }
+  });
+  const next = await bodyOf(cleared);
+  assert.equal(cleared.status, 200);
+  assert.equal(Object.prototype.hasOwnProperty.call(next, "completions"), false);
+});

@@ -3538,3 +3538,26 @@ button.bank-bill-tile:focus-visible {
     padding: 0 2px;
   }
 }
+
+.bank-bill-tile-wrap,
+.bank-cat-actions {
+  min-width: 0;
+}
+
+.bank-month-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.bank-month-actions .book-chip {
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+.bank-bill-tile[data-bank-skipped="1"] .mix-leg-name,
+.sub[data-bank-skipped="1"] {
+  color: var(--ink-soft);
+}
