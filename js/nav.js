@@ -85,7 +85,7 @@
     var h = String(hash || "").replace(/^#/, "");
     if (h === "current" || h === "budget") return "budget";
     if (h === "edits") return "edits";
-    if (h === "historical" || h.indexOf("historical=") === 0) return "historical";
+    if (h === "historical" || h.indexOf("historical=") === 0 || h.indexOf("historical/") === 0) return "historical";
     return "";
   }
   function bankingPathId() {

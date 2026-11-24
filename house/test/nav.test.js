@@ -312,7 +312,7 @@ test("route map sends old House and Banking URLs to their new homes", function (
 });
 
 test("banking hashes stay put and investments hashes stay put", function () {
-  ["", "#budget", "#current", "#historical", "#edits", "#historical=2026-09"].forEach(function (hash) {
+  ["", "#budget", "#current", "#historical", "#edits", "#historical=2026-09", "#historical/2026-09", "#historical/2026"].forEach(function (hash) {
     const ctx = bootNav({ pathname: "/", search: "?ok=1", hash: hash });
     assert.deepEqual(ctx.replaced, []);
     assert.equal(ctx.MPNav.section, "banking");
@@ -489,6 +489,8 @@ test("the banking menu marks the current page for each hash", function () {
     ["#current", "budget"],
     ["#historical", "historical"],
     ["#historical=2026-09", "historical"],
+    ["#historical/2026-09", "historical"],
+    ["#historical/2026", "historical"],
     ["#edits", ""]
   ];
   pages.forEach(function (row) {
@@ -637,17 +639,17 @@ test("nav source stays free of figures and institution names", function () {
 test("touched assets use the ei cache bust", function () {
   const bank = read("index.html");
   const inv = read("investments/index.html");
-  assert.match(bank, /\/js\/nav\.js\?v=20261105aa/);
+  assert.match(bank, /\/js\/nav\.js\?v=20261124aa/);
   assert.match(bank, /\/house\/house\.css\?v=20261022ac/);
-  assert.match(bank, /\/house\/js\/banking\.js\?v=20261113ad/);
+  assert.match(bank, /\/house\/js\/banking\.js\?v=20261124aa/);
 
-  assert.match(bank, /\/house\/banking\.css\?v=20261113ab/);
+  assert.match(bank, /\/house\/banking\.css\?v=20261124aa/);
   assert.match(bank, /id="mpNav" class="mp-nav" data-section="banking"/);
   assert.match(bank, /<a class="brand-block" href="\/">/);
   assert.match(bank, /aria-label="Murphy Pilot"/);
   assert.doesNotMatch(bank, /Murphy Pilot House/);
   assert.doesNotMatch(bank, /section-nav/);
-  assert.match(inv, /\/js\/nav\.js\?v=20261105aa/);
+  assert.match(inv, /\/js\/nav\.js\?v=20261124aa/);
   assert.match(inv, /list-cap\.js\?v=20261007eh/);
   assert.match(inv, /list-cap\.css\?v=20261007eh/);
   assert.match(inv, /\/house\/house\.css\?v=20261022ac/);
@@ -701,7 +703,7 @@ test("each asset path has one cache bust across html pages", function () {
     }
   });
   assert.ok(seen.has("js/nav.js"));
-  assert.equal(seen.get("js/nav.js").ver, "20261105aa");
+  assert.equal(seen.get("js/nav.js").ver, "20261124aa");
   assert.equal(seen.get("house/js/ticker.js").ver, "20261007ei");
   assert.equal(seen.get("house/ticker.css").ver, "20261007ei");
   assert.equal(seen.get("house/js/board-a.js").ver, "20261007ei");
