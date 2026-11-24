@@ -1,4 +1,8 @@
-/* tip fw — Under each Budget card Left number, After budgets is that Left minus the unspent needs and wants already listed.
+/* tip fx — Historical keeps the same Banking pages. #historical/YYYY-MM opens a monthly record.
+   #historical/YYYY opens that year. #historical still opens Historical and, once the record index
+   loads, lands on the last closed month. #historical=YYYY-MM still selects that month.
+   The month list shows a completeness badge and a year chip. Records come from the signed-in feed.
+   tip fw — Under each Budget card Left number, After budgets is that Left minus the unspent needs and wants already listed.
    It does not use Spare left. Red when the result is negative, green when it is positive.
    Adjust budgets opens Edits. A printed category_room on a spend-cash account is the per-account line.
    tip fv — Pay on the Budget card is paychecks and stipends only. Opening cash and every other inflow are Surplus.
@@ -654,12 +658,17 @@ function bankMonthFull(ym) {
 
 function bankParseHash(hash) {
   var h = String(hash || "").replace(/^#/, "");
+  var slashMonth = h.match(/^historical\/(\d{4}-\d{2})$/);
+  if (slashMonth) return { tab: "historical", histMonth: slashMonth[1], histYear: "" };
+  var slashYear = h.match(/^historical\/(\d{4})$/);
+  if (slashYear) return { tab: "historical", histMonth: "", histYear: slashYear[1] };
+  if (h.indexOf("historical/") === 0) return { tab: "historical", histMonth: "", histYear: "" };
   var hist = h.match(/^historical(?:=(\d{4}-\d{2}))?$/);
-  if (hist) return { tab: "historical", histMonth: hist[1] || "" };
+  if (hist) return { tab: "historical", histMonth: hist[1] || "", histYear: "" };
   /* Old Current links open the merged Budget page. */
-  if (h === "current") return { tab: "budget", histMonth: "" };
-  if (h === "budget" || h === "edits") return { tab: h, histMonth: "" };
-  return { tab: "budget", histMonth: "" };
+  if (h === "current") return { tab: "budget", histMonth: "", histYear: "" };
+  if (h === "budget" || h === "edits") return { tab: h, histMonth: "", histYear: "" };
+  return { tab: "budget", histMonth: "", histYear: "" };
 }
 
 function bankResolveTab(hash) {
@@ -4597,6 +4606,9 @@ function bankViewMonth(tab, snap, opts) {
 
 function bankViewTitle(tab, snap, opts) {
   var name = bankViewName(tab);
+  if (tab === "historical" && opts && opts.histYear && /^\d{4}$/.test(String(opts.histYear))) {
+    return name + " \u00b7 " + String(opts.histYear);
+  }
   if (tab === "edits") return name;
   var ym = bankViewMonth(tab, snap, opts);
   var month = ym && ym.year ? bankMonthTitle(ym.year, ym.month) : "";
@@ -5446,6 +5458,11 @@ function bankCurrentHtml(snap, opts) {
 
 function bankHistHtml(snap, opts) {
   opts = opts || {};
+  if (typeof bankRecordsHtml === "function") {
+    var recordHtml = "";
+    try { recordHtml = bankRecordsHtml(snap, opts); } catch (eRec) { recordHtml = ""; }
+    if (recordHtml) return recordHtml;
+  }
   var histKey = bankHistMonthKey(snap, opts);
   if (!histKey || bankMonthInProgress(snap, histKey)) {
     return bankHistChrome(snap, opts) + '<p class="bank-empty">No history in this print.</p>';
@@ -22494,6 +22511,11 @@ function bankMonthInProgress(snap, key) {
 }
 
 function bankHistPickerHtml(snap, opts) {
+  if (opts && opts.recordIndex && typeof bankRecordsPickerHtml === "function") {
+    var recordPick = "";
+    try { recordPick = bankRecordsPickerHtml(snap, opts); } catch (ePick) { recordPick = ""; }
+    if (recordPick) return recordPick;
+  }
   var key = bankHistMonthKey(snap, opts);
   var keys = bankPickerMonths(snap).filter(function (ym) { return !bankMonthInProgress(snap, ym); });
   if (key && !bankMonthInProgress(snap, key) && keys.indexOf(key) < 0) keys.push(key);
@@ -24690,6 +24712,12 @@ function bankPaint(root, paintOpts) {
     menuOpen: !!st.menuOpen,
     openDay: st.openDay || "",
     histMonth: st.histMonth || "",
+    histYear: st.histYear || "",
+    recordIndex: st.recordIndex || null,
+    record: st.record || null,
+    recordError: st.recordError || "",
+    recFilter: st.recFilter || null,
+    recHeat: !!st.recHeat,
     txQuery: st.txQuery || "",
     txTier: st.txTier || "",
     txAcct: st.txAcct || "",
@@ -24726,6 +24754,9 @@ function bankPaint(root, paintOpts) {
   bankScrollLedgerToToday(root);
   bankScrollNextPay(root);
   bankBindTxResults(root);
+  if (st.tab === "historical" && typeof bankRecordsEnsure === "function") {
+    try { bankRecordsEnsure(root); } catch (eRec) {}
+  }
   if (st.reviewCancel && st.tab === "edits" && root.querySelector) {
     var reviewRow = root.querySelector("[data-bank-cancelled]");
     if (reviewRow && reviewRow.scrollIntoView) {
@@ -24944,9 +24975,44 @@ function bankActivateFromHistory() {
   var parsed = bankParseHash(typeof location !== "undefined" ? location.hash : "");
   var tab = parsed.tab;
   var histMonth = parsed.histMonth || "";
-  if (root._bank.tab === tab && (tab !== "historical" || (root._bank.histMonth || "") === histMonth)) return;
+  var histYear = parsed.histYear || "";
+  if (root._bank.tab === tab && (tab !== "historical" || ((root._bank.histMonth || "") === histMonth && (root._bank.histYear || "") === histYear))) return;
+  if (tab === "historical" && ((root._bank.histMonth || "") !== histMonth || (root._bank.histYear || "") !== histYear)) {
+    root._bank.record = null;
+    root._bank.recordKey = "";
+    root._bank.recordLoading = "";
+    root._bank.recordError = "";
+  }
   root._bank.histMonth = histMonth;
+  root._bank.histYear = histYear;
   bankActivate(root, tab, { fromHistory: true });
+}
+
+function bankWriteRecordHash(month, year, replace) {
+  if (bankNavLock) return;
+  try {
+    if (typeof history === "undefined" || typeof location === "undefined") return;
+    var h = "#historical";
+    if (year && /^\d{4}$/.test(String(year))) h = "#historical/" + year;
+    else if (month && /^\d{4}-\d{2}$/.test(String(month))) h = "#historical/" + month;
+    var url = (location.pathname || "") + (location.search || "") + h;
+    var now = (location.pathname || "") + (location.search || "") + (location.hash || "");
+    if (url === now) {
+      bankSyncSectionNav();
+      return;
+    }
+    var state = { bankTab: "historical", histMonth: month || "", histYear: year || "" };
+    bankNavLock = true;
+    try {
+      var write = (replace ? history.replaceState : history.pushState) || history.pushState || history.replaceState;
+      if (write) write.call(history, state, "", url);
+    } finally {
+      bankNavLock = false;
+    }
+    bankSyncSectionNav();
+  } catch (e) {
+    bankNavLock = false;
+  }
 }
 
 function bankWriteHistHash(month) {
@@ -26696,6 +26762,13 @@ function bankMount(root, data, opts) {
     month: opts.month || null,
     planMonth: opts.planMonth || "",
     histMonth: opts.histMonth || (tab === "historical" ? (parsed.histMonth || "") : ""),
+    histYear: opts.histYear || (tab === "historical" ? (parsed.histYear || "") : ""),
+    recordIndex: opts.recordIndex || null,
+    record: opts.record || null,
+    recordKey: opts.recordKey || "",
+    recordError: opts.recordError || "",
+    recFilter: opts.recFilter || null,
+    recHeat: !!opts.recHeat,
     now: opts.now,
     edits: opts.edits || bankReadStore(),
     editsOpen: !!opts.editsOpen,
@@ -26790,6 +26863,28 @@ function bankMount(root, data, opts) {
         root._bank.detailOpen = null;
       }
       bankActivate(root, tabBtn.getAttribute("data-bank-tab"));
+      return;
+    }
+    var yearBtn = t.closest("[data-bank-hist-year]");
+    if (yearBtn && yearBtn.getAttribute && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      root._bank.tab = "historical";
+      root._bank.histYear = String(yearBtn.getAttribute("data-bank-hist-year") || "");
+      root._bank.histMonth = "";
+      root._bank.record = null;
+      root._bank.recordKey = "";
+      root._bank.recordLoading = "";
+      root._bank.recordError = "";
+      if (typeof bankWriteRecordHash === "function") bankWriteRecordHash("", root._bank.histYear);
+      bankPaint(root);
+      return;
+    }
+    var heatBtn = t.closest("[data-bank-rec-heat]");
+    if (heatBtn && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      root._bank.recHeat = !root._bank.recHeat;
+      root._bank.tab = "historical";
+      bankPaint(root);
       return;
     }
     var monthBtn = t.closest("[data-bank-month]");
@@ -27265,10 +27360,27 @@ function bankMount(root, data, opts) {
     }
     if (el.hasAttribute && el.hasAttribute("data-bank-hist-month")) {
       if (!root._bank) return;
+      var nextMonth = bankMonthKey(el.value);
+      if (root._bank.recordIndex && !nextMonth) return;
       root._bank.tab = "historical";
-      root._bank.histMonth = bankMonthKey(el.value);
-      bankWriteHistHash(root._bank.histMonth);
+      root._bank.histYear = "";
+      root._bank.histMonth = nextMonth;
+      if (root._bank.recordIndex) {
+        root._bank.record = null;
+        root._bank.recordKey = "";
+        root._bank.recordLoading = "";
+        root._bank.recordError = "";
+        if (typeof bankWriteRecordHash === "function") bankWriteRecordHash(root._bank.histMonth, "");
+        else bankWriteHistHash(root._bank.histMonth);
+      } else bankWriteHistHash(root._bank.histMonth);
       bankPaint(root);
+      return;
+    }
+    if (el.getAttribute && el.getAttribute("data-bank-rec-filter")) {
+      if (!root._bank) return;
+      if (!root._bank.recFilter) root._bank.recFilter = {};
+      root._bank.recFilter[el.getAttribute("data-bank-rec-filter")] = el.value || "";
+      if (typeof bankRecordsPaintPurchases === "function") bankRecordsPaintPurchases(root);
       return;
     }
     if (el.getAttribute("data-bank-plan-tier")) {
@@ -27393,6 +27505,12 @@ function bankMount(root, data, opts) {
   root.addEventListener("input", function (e) {
     var el = e && e.target;
     if (!el || !el.hasAttribute || !root._bank) return;
+    if (el.hasAttribute("data-bank-rec-q")) {
+      if (!root._bank.recFilter) root._bank.recFilter = {};
+      root._bank.recFilter.q = el.value == null ? "" : String(el.value);
+      if (typeof bankRecordsPaintPurchases === "function") bankRecordsPaintPurchases(root);
+      return;
+    }
     if (el.hasAttribute("data-bank-find")) {
       root._bank.txQuery = el.value == null ? "" : String(el.value);
       root._bank.tab = "edits";

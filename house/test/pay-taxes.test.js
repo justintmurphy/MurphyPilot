@@ -795,13 +795,13 @@ test("list cap is position relative and pages bust caches together", function ()
   assert.equal((css.match(/position:\s*relative/g) || []).length, 1);
   ["pay/index.html", "taxes/index.html"].forEach(function (rel) {
     const html = read(rel);
-    assert.match(html, /\/js\/nav\.js\?v=20261105aa/);
+    assert.match(html, /\/js\/nav\.js\?v=20261124aa/);
     assert.match(html, /\/house\/ticker\.css\?v=20261007ei/);
     assert.match(html, /\/house\/js\/ticker\.js\?v=20261007ei/);
     assert.match(html, /\/house\/js\/paydesk\.js\?v=20261022aj/);
     assert.doesNotMatch(html, /paydesk\.js\?v=20261007em/);
 
-  assert.match(html, /\/house\/js\/banking\.js\?v=20261113ad/);
+  assert.match(html, /\/house\/js\/banking\.js\?v=20261124aa/);
   assert.match(html, /\/house\/house\.css\?v=20261022ac/);
     assert.match(html, /list-cap\.js\?v=20261007eh/);
     assert.match(html, /id="clock"/);
@@ -809,7 +809,7 @@ test("list cap is position relative and pages bust caches together", function ()
     assert.doesNotMatch(html, /class="theme-switch"/);
     assert.doesNotMatch(html, /Agentic \/ AI WWIII only/);
   });
-  assert.match(read("investments/index.html"), /\/js\/nav\.js\?v=20261105aa/);
+  assert.match(read("investments/index.html"), /\/js\/nav\.js\?v=20261124aa/);
   assert.match(read("js/nav.js"), /function tickClock/);
   assert.doesNotMatch(read("house/js/banking.js"), /function bankTickClock/);
 });
@@ -835,7 +835,7 @@ test("pay and taxes number and control rules stay off Investments", function () 
 test("house.css and banking.js share one cache bust", function () {
   const houseVersion = "20261022ac";
 
-  const bankVersion = "20261113ad";
+  const bankVersion = "20261124aa";
   const pages = ["index.html", "investments/index.html", "pay/index.html", "taxes/index.html"];
   const house = new Set();
   const banking = new Set();
@@ -855,7 +855,7 @@ test("house.css and banking.js share one cache bust", function () {
   assert.deepEqual(Array.from(banking), [bankVersion]);
   assert.match(read("house/house.css"), /house-b\.css\?v=20261022ac/);
 
-  assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261113ad)/);
+  assert.doesNotMatch(read("index.html") + read("pay/index.html") + read("taxes/index.html"), /banking\.js\?v=(?!20261124aa)/);
 });
 
 function wholeBody(n) {

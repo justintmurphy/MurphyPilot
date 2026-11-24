@@ -1,0 +1,334 @@
+{
+  "index": {
+    "schema": "banking-record-index/v1",
+    "months": [
+      { "month": "2026-08", "status": "closed", "completeness": "partial" },
+      { "month": "2026-09", "status": "closed", "completeness": "full" },
+      { "month": "2026-10", "status": "in_progress", "completeness": "in_progress" },
+      { "month": "2026-11", "status": "in_progress", "completeness": "aggregates_only" }
+    ],
+    "years": [{ "year": "2026", "status": "provisional_ytd" }]
+  },
+  "month": {
+    "schema": "banking-month-archive/v1",
+    "month": "2026-09",
+    "status": "closed",
+    "completeness": "full",
+    "through_date": "2026-09-30",
+    "generated_at": "2026-10-01T12:00:00Z",
+    "coverage": { "note": "Sample month includes every made-up line." },
+    "budget_basis": { "kind": "edits_saved", "as_of": "2026-09-30" },
+    "start_bal": { "1001": 140, "2002": 80 },
+    "end_bal": { "1001": 183, "2002": 80 },
+    "cycles": [
+      {
+        "start": "2026-09-01",
+        "end": "2026-09-15",
+        "start_bal": 220,
+        "end_bal": 220,
+        "deposit": 40,
+        "income": 52,
+        "outflows": 52,
+        "net": 0,
+        "confidence": "high"
+      },
+      {
+        "start": "2026-09-16",
+        "end": "2026-09-30",
+        "start_bal": 220,
+        "end_bal": 263,
+        "deposit": 40,
+        "income": 60,
+        "outflows": 17,
+        "net": 43,
+        "confidence": "medium"
+      }
+    ],
+    "income": [
+      { "date": "2026-09-10", "desc": "Stipend", "amount": 12, "account_suffix": "2002", "kind": "stipend" },
+      { "date": "2026-09-15", "desc": "Payroll", "amount": 40, "account_suffix": "1001", "kind": "payroll" },
+      { "date": "2026-09-20", "desc": "Sample retirement payment", "amount": 8, "account_suffix": "1001", "kind": "401k_payment" },
+      { "date": "2026-09-25", "desc": "Stipend", "amount": 12, "account_suffix": "2002", "kind": "stipend" },
+      { "date": "2026-09-30", "desc": "Payroll", "amount": 40, "account_suffix": "1001", "kind": "payroll" }
+    ],
+    "transactions": [
+      { "date": "2026-09-03", "desc": "Corner Market", "amount": 18, "account_suffix": "1001", "category": "Groceries", "category_name": "Groceries", "tier": "needs", "one_off": false, "recurring": true },
+      { "date": "2026-09-05", "desc": "Harbor Transit", "amount": 14, "account_suffix": "1001", "category": "Transit", "category_name": "Transit", "tier": "needs", "one_off": true, "recurring": false },
+      { "date": "2026-09-08", "desc": "Pine Cafe", "amount": 9, "account_suffix": "2002", "category": "Dining", "category_name": "Dining", "tier": "wants", "one_off": true, "recurring": false },
+      { "date": "2026-09-12", "desc": "Maple Power", "amount": 11, "account_suffix": "2002", "category": "Utilities", "category_name": "Utilities", "tier": "required", "one_off": false, "recurring": true },
+      { "date": "2026-09-18", "desc": "Paper Subscription", "amount": 6, "account_suffix": "2002", "category": "Subscriptions", "category_name": "Subscriptions", "tier": "wants", "one_off": false, "recurring": true },
+      { "date": "2026-09-22", "desc": "Northwind Books", "amount": 7, "account_suffix": "1001", "category": "Shopping", "category_name": "Shopping", "tier": "wants", "one_off": true, "recurring": false },
+      { "date": "2026-09-28", "desc": "Corner Market", "amount": 4, "account_suffix": "1001", "category": "Groceries", "category_name": "Groceries", "tier": "needs", "one_off": false, "recurring": true }
+    ],
+    "categories": [
+      { "name": "Groceries", "budget": 30, "actual": 22, "actual_operating": 22, "diff": 8, "diff_operating": 8, "vs_prior_month": -2, "avg_prior_3mo": 24, "vs_3mo_avg": -2 },
+      { "name": "Transit", "budget": 10, "actual": 14, "actual_operating": 14, "diff": -4, "diff_operating": -4, "vs_prior_month": 4, "avg_prior_3mo": 10, "vs_3mo_avg": 4 },
+      { "name": "Dining", "budget": 12, "actual": 9, "actual_operating": 9, "diff": 3, "diff_operating": 3, "vs_prior_month": -1, "avg_prior_3mo": 10, "vs_3mo_avg": -1 },
+      { "name": "Utilities", "budget": 15, "actual": 11, "actual_operating": 11, "diff": 4, "diff_operating": 4, "vs_prior_month": 0, "avg_prior_3mo": 11, "vs_3mo_avg": 0 },
+      { "name": "Subscriptions", "budget": 6, "actual": 6, "actual_operating": 6, "diff": 0, "diff_operating": 0, "vs_prior_month": 0, "avg_prior_3mo": 6, "vs_3mo_avg": 0 },
+      { "name": "Shopping", "budget": 8, "actual": 7, "actual_operating": 7, "diff": 1, "diff_operating": 1, "vs_prior_month": 7, "avg_prior_3mo": 4, "vs_3mo_avg": 3 }
+    ],
+    "net_cash_flow": 43,
+    "net_operating": 35,
+    "savings_rate": 0.38,
+    "savings_rate_operating": 0.34,
+    "insights": {
+      "summary": "Sample month closed with more coming in than going out. Groceries stayed under the made-up budget.",
+      "top_merchants": [{ "name": "Corner Market", "amount": 22 }],
+      "account_lows": [{ "account": "1001", "low": 90, "date": "2026-09-12", "below_floor": true, "negative_days": 0 }],
+      "late_bills": [{ "date": "2026-09-04", "desc": "Maple Power" }],
+      "missed_or_skipped_bills": [],
+      "nsf_or_returned": [{ "date": "2026-09-18", "desc": "Sample return" }],
+      "subscriptions": { "total": 1, "new_vs_prior": [], "gone_vs_prior": [] },
+      "one_time_vs_recurring": { "one_time": 30, "recurring": 39 },
+      "tiers": [
+        { "name": "required", "amount": 11 },
+        { "name": "needs", "amount": 36 },
+        { "name": "wants", "amount": 22 }
+      ]
+    },
+    "charts": {
+      "budget_vs_actual": {
+        "categories": ["Groceries", "Transit", "Dining", "Utilities", "Subscriptions", "Shopping"],
+        "series": [
+          { "name": "Budget", "values": [30, 10, 12, 15, 6, 8] },
+          { "name": "Actual", "values": [22, 14, 9, 11, 6, 7] }
+        ]
+      },
+      "daily_balances": {
+        "floor": 100,
+        "markers": ["2026-09-01", "2026-09-16"],
+        "series": [
+          { "account": "1001", "points": [
+            { "date": "2026-09-01", "value": 140 },
+            { "date": "2026-09-05", "value": 120 },
+            { "date": "2026-09-12", "value": 90 },
+            { "date": "2026-09-15", "value": 168 },
+            { "date": "2026-09-22", "value": 150 },
+            { "date": "2026-09-30", "value": 183 }
+          ]},
+          { "account": "2002", "points": [
+            { "date": "2026-09-01", "value": 80 },
+            { "date": "2026-09-05", "value": 74 },
+            { "date": "2026-09-12", "value": 62 },
+            { "date": "2026-09-15", "value": 90 },
+            { "date": "2026-09-22", "value": 84 },
+            { "date": "2026-09-30", "value": 80 }
+          ]}
+        ]
+      },
+      "income_outflow_timeline": {
+        "points": [
+          { "date": "2026-09-05", "in": 0, "out": 32, "net": -32 },
+          { "date": "2026-09-10", "in": 12, "out": 9, "net": 3 },
+          { "date": "2026-09-15", "in": 40, "out": 11, "net": 29 },
+          { "date": "2026-09-25", "in": 20, "out": 6, "net": 14 },
+          { "date": "2026-09-30", "in": 40, "out": 11, "net": 29 }
+        ]
+      },
+      "category_donut": {
+        "center": { "label": "Spent", "amount": 69 },
+        "slices": [
+          { "name": "Groceries", "amount": 22, "pct": 32 },
+          { "name": "Transit", "amount": 14, "pct": 20 },
+          { "name": "Dining", "amount": 9, "pct": 13 },
+          { "name": "Utilities", "amount": 11, "pct": 16 },
+          { "name": "Subscriptions", "amount": 6, "pct": 9 },
+          { "name": "Shopping", "amount": 7, "pct": 10 }
+        ]
+      },
+      "tier_stack": {
+        "segments": [
+          { "name": "required", "amount": 11 },
+          { "name": "needs", "amount": 36 },
+          { "name": "wants", "amount": 22 }
+        ]
+      }
+    }
+  },
+  "partial": {
+    "schema": "banking-month-archive/v1",
+    "month": "2026-08",
+    "status": "closed",
+    "completeness": "partial",
+    "through_date": "2026-08-12",
+    "coverage": { "note": "Sample coverage: daily detail stops on the 12th." },
+    "budget_basis": { "kind": "backfill", "as_of": "2026-08-12" },
+    "start_bal": { "1001": 100 },
+    "end_bal": { "1001": 90 },
+    "cycles": [],
+    "income": [{ "date": "2026-08-10", "desc": "Payroll", "amount": 20, "account_suffix": "1001", "kind": "payroll" }],
+    "transactions": [{ "date": "2026-08-11", "desc": "Corner Market", "amount": 8, "account_suffix": "1001", "category": "Groceries", "category_name": "Groceries", "tier": "needs", "one_off": true }],
+    "categories": [{ "name": "Groceries", "budget": 30, "actual": 8, "actual_operating": 8, "diff": 22, "diff_operating": 22, "vs_prior_month": null, "avg_prior_3mo": null, "vs_3mo_avg": null }],
+    "net_cash_flow": 12,
+    "net_operating": 12,
+    "savings_rate": 0.6,
+    "savings_rate_operating": 0.6,
+    "insights": { "summary": "Partial sample. Later days are not in this record.", "late_bills": [], "nsf_or_returned": [], "tiers": [] },
+    "charts": {
+      "budget_vs_actual": { "categories": ["Groceries"], "series": [{ "name": "Budget", "values": [30] }, { "name": "Actual", "values": [8] }] },
+      "daily_balances": { "available": false },
+      "income_outflow_timeline": { "available": false },
+      "category_donut": { "slices": [{ "name": "Groceries", "amount": 8, "pct": 100 }], "center": "Spent" },
+      "tier_stack": { "available": false }
+    }
+  },
+  "empty": {
+    "schema": "banking-month-archive/v1",
+    "month": "2026-11",
+    "status": "in_progress",
+    "completeness": "aggregates_only",
+    "through_date": "2026-11-02",
+    "coverage": { "note": "Totals only for this sample." },
+    "budget_basis": { "kind": "current_edits_fallback", "as_of": "2026-11-02" },
+    "start_bal": {},
+    "end_bal": {},
+    "cycles": [],
+    "income": [],
+    "transactions": [],
+    "categories": [],
+    "net_cash_flow": null,
+    "net_operating": null,
+    "savings_rate": null,
+    "savings_rate_operating": null,
+    "insights": { "summary": "", "late_bills": [], "nsf_or_returned": [] },
+    "charts": {
+      "budget_vs_actual": { "available": false },
+      "daily_balances": { "available": false },
+      "income_outflow_timeline": { "available": false },
+      "category_donut": { "available": false },
+      "tier_stack": { "available": false }
+    }
+  },
+  "year": {
+    "schema": "banking-year-archive/v1",
+    "year": "2026",
+    "status": "provisional_ytd",
+    "through_date": "2026-09-30",
+    "months_included": ["2026-01", "2026-02", "2026-03", "2026-09"],
+    "completeness_by_month": {
+      "2026-01": "full",
+      "2026-02": "full",
+      "2026-03": "partial",
+      "2026-09": "full"
+    },
+    "income_total": 180,
+    "income_by_source": { "payroll": 120, "stipend": 40, "other": 20 },
+    "income_by_month": { "2026-01": 40, "2026-02": 50, "2026-03": 30, "2026-09": 60 },
+    "outflow_total": 140,
+    "outflows_by_month": { "2026-01": 32, "2026-02": 35, "2026-03": 38, "2026-09": 35 },
+    "net_cash_flow": 40,
+    "net_operating": 32,
+    "savings_rate": 0.22,
+    "savings_rate_operating": 0.18,
+    "categories": [
+      { "name": "Groceries", "budget": 60, "actual": 50, "diff": 10, "monthly": [12, 14, 10, 14] },
+      { "name": "Transit", "budget": 24, "actual": 30, "diff": -6, "monthly": [6, 7, 9, 8] },
+      { "name": "Dining", "budget": 28, "actual": 24, "diff": 4, "monthly": [5, 6, 8, 5] },
+      { "name": "Utilities", "budget": 22, "actual": 20, "diff": 2, "monthly": [5, 5, 5, 5] },
+      { "name": "Subscriptions", "budget": 16, "actual": 16, "diff": 0, "monthly": [4, 3, 6, 3] }
+    ],
+    "cycles_by_month": [],
+    "account_lows": [{ "account": "1001", "low": 90, "date": "2026-09-12", "below_floor": true }],
+    "below_floor_day_count": 3,
+    "negative_day_count": 0,
+    "late_bills_count": 1,
+    "nsf_or_returned_count": 0,
+    "subscription_trend": [],
+    "tiers": [
+      { "name": "required", "amount": 20 },
+      { "name": "needs", "amount": 80 },
+      { "name": "wants", "amount": 40 }
+    ],
+    "best_month": { "month": "2026-02", "net": 15 },
+    "worst_month": { "month": "2026-03", "net": -8 },
+    "year_end_analysis": {
+      "provisional": true,
+      "what_went_right": [
+        "Sample groceries stayed under the made-up budget.",
+        "The sample savings rate was positive in three of the four months."
+      ],
+      "what_went_wrong": [
+        "March sample spending ran ahead of sample income.",
+        "One sample bill was late."
+      ],
+      "habits_for_next_year": [
+        "Check the sample dining budget mid-month.",
+        "Keep a small buffer above the floor line."
+      ]
+    },
+    "charts": {
+      "monthly_in_out_net": {
+        "months": ["2026-01", "2026-02", "2026-03", "2026-09"],
+        "income": [40, 50, 30, 60],
+        "outflow": [32, 35, 38, 35],
+        "line": [8, 15, -8, 25]
+      },
+      "category_trends": {
+        "series": [
+          { "name": "Groceries", "points": [
+            { "month": "2026-01", "value": 12 },
+            { "month": "2026-02", "value": 14 },
+            { "month": "2026-03", "value": 10 },
+            { "month": "2026-09", "value": 14 }
+          ]},
+          { "name": "Transit", "points": [
+            { "month": "2026-01", "value": 6 },
+            { "month": "2026-02", "value": 7 },
+            { "month": "2026-03", "value": 9 },
+            { "month": "2026-09", "value": 8 }
+          ]}
+        ],
+        "alternate": {
+          "months": ["2026-01", "2026-02", "2026-03", "2026-09"],
+          "rows": [
+            { "name": "Groceries", "values": [12, 14, 10, 14] },
+            { "name": "Transit", "values": [6, 7, 9, 8] },
+            { "name": "Dining", "values": [5, 6, 8, 5] }
+          ]
+        }
+      },
+      "savings_rate": {
+        "points": [
+          { "month": "2026-01", "rate": 0.2, "operating_rate": 0.16 },
+          { "month": "2026-02", "rate": 0.3, "operating_rate": 0.24 },
+          { "month": "2026-03", "rate": -0.05, "operating_rate": -0.08 },
+          { "month": "2026-09", "rate": 0.22, "operating_rate": 0.18 }
+        ]
+      },
+      "ytd_budget_vs_actual": {
+        "categories": ["Groceries", "Transit", "Dining", "Utilities", "Subscriptions"],
+        "series": [
+          { "name": "Budget", "values": [60, 24, 28, 22, 16] },
+          { "name": "Actual", "values": [50, 30, 24, 20, 16] }
+        ]
+      },
+      "sankey": {
+        "confidence": "medium",
+        "nodes": [
+          { "id": "pay", "label": "Payroll" },
+          { "id": "stip", "label": "Stipend" },
+          { "id": "other", "label": "Other" },
+          { "id": "in", "label": "Income" },
+          { "id": "groc", "label": "Groceries" },
+          { "id": "tran", "label": "Transit" },
+          { "id": "dine", "label": "Dining" },
+          { "id": "util", "label": "Utilities" },
+          { "id": "subs", "label": "Subscriptions" },
+          { "id": "left", "label": "Left in accounts" }
+        ],
+        "links": [
+          { "source": "pay", "target": "in", "value": 120 },
+          { "source": "stip", "target": "in", "value": 40 },
+          { "source": "other", "target": "in", "value": 20 },
+          { "source": "in", "target": "groc", "value": 50 },
+          { "source": "in", "target": "tran", "value": 30 },
+          { "source": "in", "target": "dine", "value": 24 },
+          { "source": "in", "target": "util", "value": 20 },
+          { "source": "in", "target": "subs", "value": 16 },
+          { "source": "in", "target": "left", "value": 40 }
+        ]
+      }
+    }
+  }
+}
