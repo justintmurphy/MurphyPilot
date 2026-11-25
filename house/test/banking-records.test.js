@@ -137,8 +137,7 @@ test("a month record renders inside Historical in the requested order", function
     "data-bank-rec-cycles",
     "data-bank-rec-income",
     "data-bank-rec-outflows",
-    "data-bank-rec-categories",
-    "data-bank-rec-purchases"
+    "data-bank-rec-categories"
   ];
   let at = -1;
   order.forEach(function (key) {
@@ -164,7 +163,9 @@ test("a month record renders inside Historical in the requested order", function
   assert.match(html, /Budgets from saved edits/);
   assert.match(html, /··1001/);
   assert.match(html, /Corner Market/);
-  assert.match(html, /Search purchases/);
+  assert.match(html, /Search transactions/);
+  assert.match(html, /data-bank-rec-filter="category"/);
+  assert.doesNotMatch(html, /data-bank-rec-purchases|<h3>Purchases<\/h3>/);
   assert.doesNotMatch(html, /\b(?:Chase|Wells|Fidelity|Voya|Robinhood|NFCU|T-Mobile)\b/i);
 });
 
@@ -275,8 +276,10 @@ test("purchase filters narrow the month table", function () {
     record: fx.month,
     recFilter: { category: "Transit" }
   });
-  assert.match(page, /Harbor Transit/);
-  assert.doesNotMatch(page.slice(page.indexOf("data-bank-rec-rows")), /Northwind Books|Pine Cafe/);
+  const list = page.slice(page.indexOf("data-bank-rec-outflows"), page.indexOf("data-bank-rec-categories"));
+  assert.match(list, /Harbor Transit/);
+  assert.doesNotMatch(list, /Northwind Books|Pine Cafe/);
+  assert.doesNotMatch(page, /data-bank-rec-purchases|<h3>Purchases<\/h3>/);
 });
 
 test("opening Historical loads the last closed month from the record feed", async function () {
@@ -360,8 +363,9 @@ test("the year chip, heatmap, and purchase search update the Historical page", a
     hasAttribute: function (name) { return name === "data-bank-rec-q"; }
   };
   el.listeners.input({ target: input });
-  assert.match(el._rows.innerHTML, /Harbor Transit/);
-  assert.doesNotMatch(el._rows.innerHTML, /Northwind Books/);
+  const searched = el.innerHTML.slice(el.innerHTML.indexOf("data-bank-rec-outflows"), el.innerHTML.indexOf("data-bank-rec-categories"));
+  assert.match(searched, /Harbor Transit/);
+  assert.doesNotMatch(searched, /Northwind Books/);
   const tier = {
     value: "wants",
     getAttribute: function (name) { return name === "data-bank-rec-filter" ? "tier" : null; },
@@ -369,8 +373,9 @@ test("the year chip, heatmap, and purchase search update the Historical page", a
   };
   el._bank.recFilter = { q: "" };
   el.listeners.change({ target: tier });
-  assert.match(el._rows.innerHTML, /Pine Cafe/);
-  assert.doesNotMatch(el._rows.innerHTML, /Maple Power/);
+  const tiered = el.innerHTML.slice(el.innerHTML.indexOf("data-bank-rec-outflows"), el.innerHTML.indexOf("data-bank-rec-categories"));
+  assert.match(tiered, /Pine Cafe/);
+  assert.doesNotMatch(tiered, /Maple Power/);
 
   function click(attr, value) {
     const node = {
@@ -411,7 +416,7 @@ test("record files stay free of institutions, account numbers, and dollar litera
   });
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /\/house\/js\/banking-records\.js\?v=/);
-  assert.match(page, /banking-records\.js\?v=20261125aa/);
+  assert.match(page, /banking-records\.js\?v=20261125ab/);
   const nav = fs.readFileSync(path.join(root, "js/nav.js"), "utf8");
   assert.match(nav, /historical\//);
   assert.match(nav, /label: "Historical"/);
@@ -727,4 +732,105 @@ test("year row, money, top categories, colors, ranked list, and empty sections",
   assert.match(quiet, /Income not available/);
   assert.doesNotMatch(quiet, /Not enough detail|Nothing listed|Nothing to plot/);
   assert.doesNotMatch(quiet, /data-bank-rec-chart="category_trends"|data-bank-rec-chart="sankey"|data-bank-rec-analysis/);
+});
+
+test("fit: filters, category columns, top 5, even tiles, signs, and daily ticks", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  assert.match(css, /\.bank-desk \.bank-record \.bank-rec-filters select \{[^}]*max-height:\s*48px/);
+  assert.match(css, /\.bank-desk \.bank-hist-controls select\.bank-hist-select \{[^}]*max-width:\s*none/);
+  assert.match(css, /\.bank-kpi\.bank-rec-kpis \{[^}]*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /@media \(max-width: 899px\) \{[\s\S]*?\.bank-rec-col-wide \{ display: none; \}/);
+  assert.match(css, /\.bank-year-scroll\[data-bank-year-row\] \{[^}]*flex-wrap:\s*nowrap/);
+  assert.match(css, /\.bank-view-title \{[^}]*white-space:\s*nowrap/);
+
+  const month = ctx.bankPageHtml(snap(), {
+    tab: "historical",
+    histMonth: "2026-09",
+    recordIndex: fx.index,
+    record: fx.month
+  });
+  assert.doesNotMatch(month, /<h3>Purchases<\/h3>|data-bank-rec-purchases/);
+  assert.match(month, /data-bank-rec-filter="tier"/);
+  assert.match(month, /data-bank-rec-filter="account"/);
+  assert.match(month, /data-bank-rec-filter="rhythm"/);
+  assert.match(month, /class="bank-rec-col-wide"/);
+  assert.match(month, /<th>Actual<\/th>/);
+  assert.match(month, /<th>Diff<\/th>/);
+
+  const names = [];
+  let i;
+  for (i = 0; i < 12; i++) names.push("Sample " + String.fromCharCode(65 + i));
+  const year = JSON.parse(JSON.stringify(fx.year));
+  year.income_total = 172954.66;
+  year.outflow_total = 80420.5;
+  year.net_cash_flow = 92534.16;
+  year.charts.category_trends.series = names.map(function (name, n) {
+    return { name: name, points: [{ month: "2026-01", value: (n + 1) * 10 }, { month: "2026-02", value: (n + 1) * 4 }] };
+  });
+  delete year.charts.category_trends.alternate;
+  const html = ctx.bankPageHtml(snap(), { tab: "historical", histYear: "2026", recordIndex: fx.index, record: year });
+  const trends = html.slice(html.indexOf('data-bank-rec-chart="category_trends"'), html.indexOf('data-bank-rec-chart="savings_rate"'));
+  const legend = trends.slice(trends.indexOf('class="bank-legend"'));
+  assert.equal((legend.match(/<li>/g) || []).length, 5);
+  assert.match(legend, /Sample L/);
+  assert.doesNotMatch(legend, /Sample A/);
+  const other = JSON.parse(JSON.stringify(year));
+  other.year = "2025";
+  const again = ctx.bankPageHtml(snap(), { tab: "historical", histYear: "2025", recordIndex: fx.index, record: other });
+  function colorOf(page, name) {
+    const at = page.indexOf(">" + name + "<");
+    const prior = page.slice(Math.max(0, at - 80), at);
+    const found = prior.match(/background:(var\(--[^)]+\))/);
+    return found ? found[1] : "";
+  }
+  assert.equal(colorOf(html, "Sample L"), colorOf(again, "Sample L"));
+  assert.ok(colorOf(html, "Sample L"));
+
+  const summary = html.slice(html.indexOf("data-bank-rec-summary"), html.indexOf("data-bank-rec-charts"));
+  const inn = summary.slice(summary.indexOf('data-k="in"'), summary.indexOf('data-k="out"'));
+  const out = summary.slice(summary.indexOf('data-k="out"'), summary.indexOf('data-k="net"'));
+  const net = summary.slice(summary.indexOf('data-k="net"'), summary.indexOf('data-k="net_operating"'));
+  assert.ok(inn.indexOf(ctx.bankMoney(172954.66)) >= 0);
+  assert.equal(inn.indexOf("+"), -1);
+  assert.ok(out.indexOf(ctx.bankMoney(80420.5)) >= 0);
+  assert.equal(out.indexOf("+"), -1);
+  assert.equal(out.indexOf("\u2212"), -1);
+  assert.match(out, /tone-stop/);
+  assert.ok(net.indexOf(ctx.bankMoney(92534.16)) >= 0);
+  assert.equal(net.indexOf("+"), -1);
+  assert.match(net, /tone-go/);
+  const tiles = summary.match(/data-k="/g) || [];
+  assert.equal(tiles.length % 5, 0);
+
+  const dates = [];
+  for (i = 1; i <= 31; i++) dates.push("2026-10-" + String(i).padStart(2, "0"));
+  const ticks = ctx.recTickIndexes(dates);
+  assert.equal(ticks.map(function (at) { return Number(String(dates[at]).slice(8)); }).join(","), "5,10,15,20,25,31");
+  const svg = ctx.recLineSvg({
+    label: "Daily balances",
+    dates: dates,
+    labels: dates.map(function (d) { return ctx.recDayLabel(d).replace(/, \d{4}$/, ""); }),
+    values: dates.map(function (_d, n) { return 100 + n; }),
+    series: [{ name: "Sample", values: dates.map(function (_d, n) { return 100 + n; }), color: "var(--go)" }]
+  });
+  const axis = [];
+  const re = /<text x="([\d.]+)"[^>]*>([^<]+)<\/text>/g;
+  let found;
+  while ((found = re.exec(svg))) axis.push({ x: Number(found[1]), t: found[2] });
+  const days = axis.filter(function (row) { return /^[A-Z][a-z]{2} \d/.test(row.t); });
+  days.sort(function (a, b) { return a.x - b.x; });
+  assert.ok(days.length >= 6);
+  function edges(row, index, count) {
+    var w = String(row.t).length * 6.6;
+    if (index === 0) return { left: row.x, right: row.x + w };
+    if (index === count - 1) return { left: row.x - w, right: row.x };
+    return { left: row.x - w / 2, right: row.x + w / 2 };
+  }
+  for (i = 1; i < days.length; i++) {
+    var prev = edges(days[i - 1], i - 1, days.length);
+    var next = edges(days[i], i, days.length);
+    assert.ok(next.left > prev.right, days[i - 1].t);
+  }
 });

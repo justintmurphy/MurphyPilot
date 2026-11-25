@@ -370,9 +370,12 @@ body.bank-page > header .clock {
 }
 
 .bank-year-scroll[data-bank-year-row] .bank-year-chip {
-  flex: 1 0 6.5rem;
+  flex: 1 1 0;
+  min-width: 0;
   border-radius: 0;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bank-year-scroll[data-bank-year-row] .bank-year-chip:first-child {
@@ -3819,4 +3822,104 @@ button.bank-bill-tile:focus-visible {
 
 @media (min-width: 800px) {
   .bank-rec-cycles { grid-template-columns: 1fr 1fr; }
+}
+
+.bank-desk .bank-hist-controls {
+  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 100%;
+}
+
+.bank-desk .bank-hist-controls .bank-month-pick {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.bank-desk .bank-hist-controls select.bank-hist-select {
+  width: 100%;
+  max-width: none;
+  height: 44px;
+  max-height: 48px;
+  min-height: 0;
+  padding: 4px 28px 4px 10px;
+  font-size: 14px;
+  line-height: 1.2;
+  box-sizing: border-box;
+}
+
+.bank-desk .bank-record .bank-rec-filters {
+  flex-direction: row;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.bank-desk .bank-record .bank-rec-filters input,
+.bank-desk .bank-record .bank-rec-filters select {
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 0;
+  max-height: 48px;
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.bank-desk .bank-record .bank-rec-filters input {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.bank-desk .bank-record .bank-rec-filters select {
+  flex: 1 1 0;
+  width: auto;
+  max-width: none;
+  min-width: 0;
+}
+
+.bank-kpi.bank-rec-kpis {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 899px) {
+  .bank-kpi.bank-rec-kpis { grid-template-columns: 1fr 1fr; }
+  .bank-rec-col-wide { display: none; }
+}
+
+.bank-rec-table-wrap {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+.bank-rec-cats {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.bank-rec-cats th,
+.bank-rec-cats td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-record > *,
+.bank-rec-cycle,
+.bank-rec-cycle p,
+.bank-rec-cycle b {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bank-record .bank-rec-cycle p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.35em;
+  white-space: normal;
+}
+
+.bank-rec-cycle p,
+.bank-rec-cycle b {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

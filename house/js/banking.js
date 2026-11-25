@@ -27486,7 +27486,8 @@ function bankMount(root, data, opts) {
       if (!root._bank) return;
       if (!root._bank.recFilter) root._bank.recFilter = {};
       root._bank.recFilter[el.getAttribute("data-bank-rec-filter")] = el.value || "";
-      if (typeof bankRecordsPaintPurchases === "function") bankRecordsPaintPurchases(root);
+      root._bank.tab = "historical";
+      bankPaint(root);
       return;
     }
     if (el.getAttribute("data-bank-plan-tier")) {
@@ -27611,15 +27612,16 @@ function bankMount(root, data, opts) {
   root.addEventListener("input", function (e) {
     var el = e && e.target;
     if (!el || !el.hasAttribute || !root._bank) return;
-    if (el.hasAttribute("data-bank-rec-q")) {
-      if (!root._bank.recFilter) root._bank.recFilter = {};
-      root._bank.recFilter.q = el.value == null ? "" : String(el.value);
-      if (typeof bankRecordsPaintPurchases === "function") bankRecordsPaintPurchases(root);
-      return;
-    }
-    if (el.hasAttribute("data-bank-rec-list-q")) {
-      if (!root._bank.recListQ) root._bank.recListQ = {};
-      root._bank.recListQ[el.getAttribute("data-bank-rec-list-q") || ""] = el.value == null ? "" : String(el.value);
+    if (el.hasAttribute("data-bank-rec-q") || el.hasAttribute("data-bank-rec-list-q")) {
+      var typed = el.value == null ? "" : String(el.value);
+      if (el.hasAttribute("data-bank-rec-list-q")) {
+        if (!root._bank.recListQ) root._bank.recListQ = {};
+        root._bank.recListQ[el.getAttribute("data-bank-rec-list-q") || ""] = typed;
+      }
+      if (el.hasAttribute("data-bank-rec-q") || el.getAttribute("data-bank-rec-list-q") === "out") {
+        if (!root._bank.recFilter) root._bank.recFilter = {};
+        root._bank.recFilter.q = typed;
+      }
       root._bank.tab = "historical";
       bankPaint(root);
       return;
