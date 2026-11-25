@@ -716,7 +716,7 @@ test("bill calendar is a month grid and month-to-date shows spent and income wit
   assert.match(html, /aria-label="September 2026"/);
   fx.history = { months: [] };
   html = ctx.bankPageHtml(fx, { tab: "budget" });
-  const today = new Date();
+  const today = new ctx.Date();
   const title = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date(today.getFullYear(), today.getMonth(), 1));
   assert.match(html, new RegExp('aria-label="' + title + '"'));
 
@@ -9968,7 +9968,7 @@ test("edits rows stack at 390 and name columns stay at least 120px", async funct
     { date: "2026-10-04", id: "acct-check", desc: "City Fuel", amount: 8, flow: "outflow", category: "Gas", tx_key: "f1" }
   ];
   const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
-  const narrowCss = css.split("@media (max-width: 390px)").pop();
+  const narrowCss = css.split("@media (max-width: 390px)").slice(1).join("\n");
   assert.match(narrowCss, /\.bank-edit-list li \{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
   assert.match(narrowCss, /\.bank-edit-list \.bank-edit-side \{[^}]*margin-left:\s*0;/);
   const pageHtml = ctx.bankPageHtml(fx, { tab: "edits", planMonth: "2026-10", now: "2026-10-16T15:00:00-04:00" })

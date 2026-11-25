@@ -1,0 +1,9 @@
+{
+  // Bundle check only. This is not the live murphysbn-gate worker.
+  // Do not deploy it. CI runs `npx wrangler deploy --dry-run --outdir /tmp/wb`.
+  // nodejs_compat is intentionally unset.
+  "name": "murphysbn-gate-bundle-check",
+  "main": "records.js",
+  "compatibility_date": "2026-11-25",
+  "workers_dev": false
+}

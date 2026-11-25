@@ -367,7 +367,8 @@ test("status errors refuse a bad month, a long note, and a 201st entry", async f
   assert.match(el.innerHTML, /Shorten the note and try again/);
   calls.length = 0;
   await ctx.bankSaveBillStatus(el, "rent", { status: "cancelled", from: "2026-10" });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.filter(Boolean).length, 1);
+  assert.equal(calls.length, 2);
   assert.match(el.innerHTML, /Shorten the note and try again/);
 });
 
