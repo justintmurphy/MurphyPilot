@@ -34,6 +34,7 @@ function boot() {
     },
     removeEventListener: function () {},
     console: console,
+    FAKE_NOW: "2026-10-06T16:00:00.000Z",
     fetch: function () { return Promise.reject(new Error("no fetch")); },
     setInterval: function () { return 0; },
     clearInterval: function () {},
@@ -115,7 +116,7 @@ test("a month record renders inside Historical in the requested order", function
     record: fx.month
   });
   assert.match(html, /data-panel="historical"/);
-  assert.match(html, /class="bank-view-title"[^>]*>Historical · September 2026</);
+  assert.match(html, /class="bank-view-title"[^>]*>Historical · Sep 2026</);
   assert.match(html, /data-bank-record="month"/);
   assert.match(html, /data-completeness="full"/);
   assert.doesNotMatch(html, /class="bank-tabs"|role="tab"/);
@@ -178,8 +179,10 @@ test("partial and totals-only months degrade without inventing detail", function
   });
   assert.match(partial, /data-completeness="partial"/);
   assert.match(partial, /Sample coverage: daily detail stops on the 12th/);
-  assert.match(partial, /data-bank-rec-unavailable="daily_balances"/);
-  assert.match(partial, /data-bank-rec-unavailable="tier_stack"/);
+  assert.doesNotMatch(partial, /data-bank-rec-unavailable|Not enough detail/);
+  assert.doesNotMatch(partial, /data-bank-rec-chart="daily_balances"/);
+  assert.doesNotMatch(partial, /data-bank-rec-chart="tier_stack"/);
+  assert.match(partial, /data-bank-rec-chart="budget_vs_actual"/);
   assert.match(partial, /data-bank-budget-basis="backfill"/);
   const empty = ctx.bankPageHtml(snap(), {
     tab: "historical",
@@ -188,7 +191,7 @@ test("partial and totals-only months degrade without inventing detail", function
     record: fx.empty
   });
   assert.match(empty, /data-completeness="aggregates_only"/);
-  assert.match(empty, /Not enough detail for this chart/);
+  assert.doesNotMatch(empty, /Not enough detail for this chart|Nothing to plot|Nothing listed/);
   assert.match(empty, /Totals only. Purchases are not listed/);
   assert.match(empty, /No summary in this record|Totals only for this sample/);
   const missing = ctx.bankPageHtml(snap(), {
@@ -305,7 +308,7 @@ test("opening Historical loads the last closed month from the record feed", asyn
   await el._bank.recordPromise;
   assert.match(el.innerHTML, /data-bank-record="month"/);
   assert.match(el.innerHTML, /data-record-key="2026-09"/);
-  assert.match(el.innerHTML, /Historical · September 2026/);
+  assert.match(el.innerHTML, /Historical · Sep 2026/);
   assert.ok(calls.length >= 2);
   assert.match(calls[0].url, /^\/data\/banking\/records\/index\.json\?v=/);
   assert.match(calls[1].url, /^\/data\/banking\/months\/2026-09\.json\?v=/);
@@ -408,9 +411,320 @@ test("record files stay free of institutions, account numbers, and dollar litera
   });
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /\/house\/js\/banking-records\.js\?v=/);
-  assert.match(page, /banking-records\.js\?v=20261124aa/);
+  assert.match(page, /banking-records\.js\?v=20261125aa/);
   const nav = fs.readFileSync(path.join(root, "js/nav.js"), "utf8");
   assert.match(nav, /historical\//);
   assert.match(nav, /label: "Historical"/);
   assert.doesNotMatch(nav, /Monthly record|Yearly YTD/);
+});
+
+function liveSnap() {
+  return {
+    asof: "2026-10-06T12:00:00-04:00",
+    budget: {
+      snapshots: {
+        "2026-09": { month: "2026-09", income: { expected: 80 }, tiers: { required_total: 10 }, bills: [] }
+      }
+    },
+    current: { recent_tx: [] },
+    history: { months: [{ month: "2026-09", status: "closed" }] },
+    accounts: []
+  };
+}
+
+function wireHistory(ctx) {
+  const stack = [ctx.location.pathname + (ctx.location.hash || "")];
+  let at = 0;
+  function apply(url) {
+    const text = String(url);
+    const i = text.indexOf("#");
+    ctx.location.hash = i >= 0 ? text.slice(i) : "";
+    stack[at] = text;
+  }
+  ctx.history.replaceState = function (_state, _title, url) { apply(url); };
+  ctx.history.pushState = function (_state, _title, url) {
+    stack.splice(at + 1);
+    stack.push(String(url));
+    at = stack.length - 1;
+    apply(url);
+  };
+  ctx._go = function (delta) {
+    at += delta;
+    apply(stack[at]);
+    (ctx._bankListeners.popstate || []).forEach(function (fn) { fn(); });
+  };
+}
+
+function monthDoc(ym, extra) {
+  const doc = {
+    schema: "banking-month-archive/v1",
+    month: ym,
+    status: "closed",
+    completeness: "partial",
+    income: [{ date: ym + "-02", desc: "Payroll", amount: 20, account_suffix: "1001", kind: "payroll" }],
+    transactions: [{ date: ym + "-03", desc: "Corner Market", amount: 8, account_suffix: "1001", category_name: "Groceries", tier: "needs" }],
+    categories: [],
+    charts: {}
+  };
+  if (extra) Object.keys(extra).forEach(function (key) { doc[key] = extra[key]; });
+  return doc;
+}
+
+test("the route month drives the header, the picker, and the record", async function () {
+  const ctx = boot();
+  assert.equal(ctx.FAKE_NOW, "2026-10-06T16:00:00.000Z");
+  const fx = loadFixture();
+  const live = liveSnap();
+  assert.match(ctx.bankPageHtml(live, { tab: "historical", histMonth: "2026-10" }), /Historical · September 2026/);
+  const routed = ctx.bankPageHtml(live, { tab: "historical", histMonth: "2026-10", recordIndex: fx.index, record: monthDoc("2026-10") });
+  assert.match(routed, /class="bank-view-title"[^>]*>Historical · Oct 2026</);
+  assert.match(routed, /value="2026-10" selected/);
+  assert.match(routed, /data-record-key="2026-10"/);
+  assert.doesNotMatch(routed, /Historical · September 2026/);
+
+  wireHistory(ctx);
+  const calls = [];
+  ctx.fetch = function (url) {
+    calls.push(String(url).split("?")[0]);
+    const u = String(url);
+    if (u.indexOf("/data/banking/records/index.json") === 0) return okJson(fx.index);
+    if (u.indexOf("/data/banking/months/2026-10.json") === 0) return okJson(monthDoc("2026-10"));
+    if (u.indexOf("/data/banking/months/2026-11.json") === 0) return okJson(monthDoc("2026-11"));
+    if (u.indexOf("/data/banking/months/2024-10.json") === 0) return okJson(monthDoc("2024-10"));
+    if (u.indexOf("/data/banking/months/2026-09.json") === 0) return okJson(fx.month);
+    if (u.indexOf("/data/banking/months/2026-08.json") === 0) return okJson(fx.partial);
+    if (u.indexOf("/data/banking/years/2026.json") === 0) return okJson(fx.year);
+    if (u.indexOf("/data/banking/years/2024.json") === 0) return okJson(Object.assign({}, fx.year, { year: "2024", status: "closed" }));
+    return Promise.resolve({ ok: false, status: 404, type: "basic", json: function () { return Promise.resolve(null); } });
+  };
+
+  async function direct(hash, title, key) {
+    ctx.location.hash = hash;
+    const el = mount(ctx, live, { startupCats: true, tierDoc: { rules: {}, plans: {} } });
+    await el._bank.recordPromise;
+    assert.match(el.innerHTML, new RegExp("Historical · " + title), hash);
+    assert.match(el.innerHTML, new RegExp('data-record-key="' + key + '"'), hash);
+    assert.match(ctx.location.hash, new RegExp("#historical/" + key + "$"), hash);
+    return el;
+  }
+  await direct("#historical/2026-10", "Oct 2026", "2026-10");
+  await direct("#historical/2026-11", "Nov 2026", "2026-11");
+  await direct("#historical/2024-10", "Oct 2024", "2024-10");
+  const bare = await direct("#historical", "Sep 2026", "2026-09");
+  assert.equal(ctx.location.hash, "#historical/2026-09");
+
+  ctx.location.hash = "#historical=2026-08";
+  const legacy = mount(ctx, live, { startupCats: true, tierDoc: { rules: {}, plans: {} } });
+  await legacy._bank.recordPromise;
+  assert.equal(ctx.location.hash, "#historical/2026-08");
+  assert.match(legacy.innerHTML, /Historical · Aug 2026/);
+  assert.match(legacy.innerHTML, /value="2026-08" selected/);
+
+  const monthBtn = {
+    value: "2026-10",
+    hasAttribute: function (name) { return name === "data-bank-hist-month"; },
+    getAttribute: function () { return null; }
+  };
+  legacy.listeners.change({ target: monthBtn });
+  await legacy._bank.recordPromise;
+  assert.equal(ctx.location.hash, "#historical/2026-10");
+  assert.match(legacy.innerHTML, /Historical · Oct 2026/);
+  assert.match(legacy.innerHTML, /value="2026-10" selected/);
+
+  ctx._go(-1);
+  await legacy._bank.recordPromise;
+  assert.equal(ctx.location.hash, "#historical/2026-08");
+  assert.match(legacy.innerHTML, /Historical · Aug 2026/);
+  ctx._go(1);
+  await legacy._bank.recordPromise;
+  assert.equal(ctx.location.hash, "#historical/2026-10");
+  assert.match(legacy.innerHTML, /Historical · Oct 2026/);
+
+  ctx.location.hash = "#historical/2026";
+  (ctx._bankListeners.hashchange || []).forEach(function (fn) { fn(); });
+  await legacy._bank.recordPromise;
+  assert.match(legacy.innerHTML, /Historical · 2026/);
+  assert.match(legacy.innerHTML, /data-bank-record="year"/);
+  assert.match(legacy.innerHTML, /data-bank-hist-year="2026"[^>]*aria-pressed="true"|aria-pressed="true"[^>]*data-bank-hist-year="2026"/);
+  assert.equal(bare.innerHTML.indexOf("data-bank-year-row") >= 0, true);
+});
+
+test("Budget and Historical each load banking.json once", async function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  let prints = 0;
+  ctx.fetch = function (url) {
+    const path = String(url).split("?")[0];
+    if (path === "/data/banking.json") {
+      prints += 1;
+      return okJson(snap());
+    }
+    if (path === "/data/banking/records/index.json") return okJson(fx.index);
+    if (path === "/data/banking/months/2026-09.json") return okJson(fx.month);
+    return Promise.resolve({ ok: false, status: 404, type: "basic", json: function () { return Promise.resolve(null); } });
+  };
+  const tick = { hidden: true, innerHTML: "", addEventListener: function () {}, _mpTickerPainted: false };
+  ctx.document.getElementById = function (id) { return id === "mp-ticker" ? tick : null; };
+  ctx.location.hash = "";
+  const budget = { innerHTML: "", addEventListener: function () {}, querySelector: function () { return null; }, querySelectorAll: function () { return []; } };
+  await ctx.bankLoad(budget);
+  ctx.MPTicker.load(tick);
+  await new Promise(function (resolve) { setTimeout(resolve, 20); });
+  assert.equal(prints, 1);
+
+  prints = 0;
+  ctx.bankJsonFlight = null;
+  ctx.location.hash = "#historical";
+  const hist = { innerHTML: "", addEventListener: function () {}, querySelector: function () { return null; }, querySelectorAll: function () { return []; } };
+  const tick2 = { hidden: true, innerHTML: "", addEventListener: function () {}, _mpTickerPainted: false };
+  await ctx.bankLoad(hist);
+  ctx.MPTicker.load(tick2);
+  if (hist._bank && hist._bank.recordPromise) await hist._bank.recordPromise;
+  await new Promise(function (resolve) { setTimeout(resolve, 20); });
+  assert.equal(prints, 1);
+});
+
+test("transactions and income cap at ten, then show all, and search", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const doc = JSON.parse(JSON.stringify(fx.month));
+  const txs = [];
+  let n;
+  for (n = 1; n <= 12; n++) {
+    txs.push({
+      date: "2026-09-" + String(n).padStart(2, "0"),
+      desc: "SAMPLE SHOP " + String(n).padStart(4, "0"),
+      name: "Sample Shop " + n,
+      descriptor: "SAMPLE SHOP " + String(n).padStart(4, "0") + " POS",
+      amount: n,
+      account_suffix: "1001",
+      category_name: n % 2 ? "Groceries" : "Transit",
+      tier: "needs"
+    });
+  }
+  doc.transactions = txs;
+  const html = ctx.bankPageHtml(snap(), {
+    tab: "historical",
+    histMonth: "2026-09",
+    recordIndex: fx.index,
+    record: doc
+  });
+  const out = html.slice(html.indexOf("data-bank-rec-outflows"), html.indexOf("data-bank-rec-categories"));
+  assert.equal((out.match(/data-bank-rec-open="out:/g) || []).length, 10);
+  assert.match(out, /Show all 12/);
+  assert.match(out, /Search transactions/);
+  assert.match(out, /class="bank-chip"/);
+  assert.doesNotMatch(out, /SAMPLE SHOP/);
+  const open = ctx.bankPageHtml(snap(), {
+    tab: "historical",
+    histMonth: "2026-09",
+    recordIndex: fx.index,
+    record: doc,
+    recListOpen: { out: true }
+  });
+  const opened = open.slice(open.indexOf("data-bank-rec-outflows"), open.indexOf("data-bank-rec-categories"));
+  assert.equal((opened.match(/data-bank-rec-open="out:/g) || []).length, 12);
+  const found = ctx.bankPageHtml(snap(), {
+    tab: "historical",
+    histMonth: "2026-09",
+    recordIndex: fx.index,
+    record: doc,
+    recListQ: { out: "shop 12" },
+    recTx: "out:0"
+  });
+  const searched = found.slice(found.indexOf("data-bank-rec-outflows"), found.indexOf("data-bank-rec-sheet"));
+  assert.equal((searched.match(/data-bank-rec-open="out:/g) || []).length, 1);
+  assert.match(found, /data-bank-tx-raw="1"[^>]*>SAMPLE SHOP 0012 POS/);
+  assert.match(html, /data-bank-rec-income/);
+  assert.match(html, /Search income/);
+});
+
+test("year row, money, top categories, colors, ranked list, and empty sections", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const years = ctx.bankRecordsYearHtml(null, { recordIndex: fx.index, histYear: "2026" });
+  assert.equal((years.match(/data-bank-hist-year=/g) || []).length, 4);
+  assert.match(years, /data-bank-year-row/);
+  assert.match(years, /aria-pressed="true"/);
+  assert.doesNotMatch(years, /More/);
+  const row = {
+    clientWidth: 200,
+    scrollWidth: 480,
+    scrollLeft: 0,
+    setAttribute: function (name, value) { row[name] = value; },
+    removeAttribute: function (name) { delete row[name]; },
+    querySelector: function () {
+      return { offsetLeft: 300, offsetWidth: 80 };
+    }
+  };
+  const left = ctx.bankRecordsScrollYear(row);
+  assert.equal(left, 240);
+  assert.equal(row.scrollLeft, 240);
+  assert.equal(row["data-bank-year-more"], "1");
+  const on = row.querySelector();
+  assert.ok(on.offsetLeft >= left && on.offsetLeft + on.offsetWidth <= left + row.clientWidth);
+
+  const moneyDoc = JSON.parse(JSON.stringify(fx.month));
+  moneyDoc.transactions[0].amount = 1234.5;
+  moneyDoc.net_cash_flow = 1234.5;
+  const money = ctx.bankPageHtml(snap(), {
+    tab: "historical",
+    histMonth: "2026-09",
+    recordIndex: fx.index,
+    record: moneyDoc
+  });
+  assert.match(money, /1,234\.50/);
+  assert.match(money, /\$/);
+
+  const year = JSON.parse(JSON.stringify(fx.year));
+  const names = ["Groceries", "Transit", "Dining", "Utilities", "Subscriptions", "Shopping", "Gifts"];
+  year.charts.category_trends.series = names.map(function (name, i) {
+    return { name: name, points: [{ month: "2026-01", value: (i + 1) * 3 }, { month: "2026-02", value: (i + 1) * 2 }] };
+  });
+  delete year.charts.category_trends.alternate;
+  const top = ctx.bankPageHtml(snap(), { tab: "historical", histYear: "2026", recordIndex: fx.index, record: year });
+  const trends = top.slice(top.indexOf('data-bank-rec-chart="category_trends"'), top.indexOf('data-bank-rec-chart="savings_rate"'));
+  assert.match(trends, />All</);
+  assert.match(trends, /Gifts/);
+  assert.doesNotMatch(trends, /Groceries/);
+  const all = ctx.bankPageHtml(snap(), {
+    tab: "historical",
+    histYear: "2026",
+    recordIndex: fx.index,
+    record: year,
+    recTrendsAll: true
+  });
+  const allTrends = all.slice(all.indexOf('data-bank-rec-chart="category_trends"'), all.indexOf('data-bank-rec-chart="savings_rate"'));
+  assert.match(allTrends, /Groceries/);
+  assert.match(allTrends, /Gifts/);
+  const other = JSON.parse(JSON.stringify(year));
+  other.year = "2025";
+  const again = ctx.bankPageHtml(snap(), { tab: "historical", histYear: "2025", recordIndex: fx.index, record: other });
+  function colorOf(html, name) {
+    const at = html.indexOf(">" + name + "<");
+    const prior = html.slice(Math.max(0, at - 80), at);
+    const m = prior.match(/background:(var\(--[^)]+\))/);
+    return m ? m[1] : "";
+  }
+  assert.equal(colorOf(top, "Gifts"), colorOf(again, "Gifts"));
+  assert.ok(colorOf(top, "Gifts"));
+
+  assert.match(top, /data-bank-rec-ranked/);
+  assert.match(top, /bank-rec-flow-wide/);
+  assert.match(top, /aria-label="Income flow"/);
+  const ranked = top.slice(top.indexOf("data-bank-rec-ranked"), top.indexOf("data-bank-rec-ranked") + 500);
+  assert.match(ranked, /Groceries/);
+  const css = fs.readFileSync(path.join(root, "house/banking.css"), "utf8");
+  assert.match(css, /@media \(min-width: 900px\)[\s\S]*\.bank-rec-flow-narrow \{ display: none; \}[\s\S]*\.bank-rec-flow-wide \{ display: block; \}/);
+  assert.match(css, /\.bank-year-scroll\[data-bank-year-row\] \{[^}]*flex-wrap: nowrap/);
+  assert.match(css, /\.bank-view-title \{[^}]*white-space: nowrap/);
+
+  const blankYear = JSON.parse(JSON.stringify(fx.year));
+  blankYear.income_total = null;
+  blankYear.charts = { category_trends: { available: false }, savings_rate: { available: false }, sankey: { available: false }, ytd_budget_vs_actual: { available: false }, monthly_in_out_net: { available: false } };
+  blankYear.year_end_analysis = { what_went_right: [], what_went_wrong: [], habits_for_next_year: [] };
+  const quiet = ctx.bankPageHtml(snap(), { tab: "historical", histYear: "2026", recordIndex: fx.index, record: blankYear });
+  assert.match(quiet, /Income not available/);
+  assert.doesNotMatch(quiet, /Not enough detail|Nothing listed|Nothing to plot/);
+  assert.doesNotMatch(quiet, /data-bank-rec-chart="category_trends"|data-bank-rec-chart="sankey"|data-bank-rec-analysis/);
 });

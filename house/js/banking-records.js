@@ -4,7 +4,22 @@
 
 var BANK_RECORD_INDEX = "/data/banking/records/index.json";
 var REC_COLORS = ["var(--go)", "var(--ink)", "var(--warn)", "var(--stop)", "var(--ink-soft)"];
+/* One color per category name. The same name keeps the same color on every year page. */
+var REC_CAT_COLORS = ["var(--mix-a)", "var(--mix-b)", "var(--mix-c)", "var(--mix-d)", "var(--mix-e)", "var(--mix-f)", "var(--go)", "var(--warn)", "var(--stop)", "var(--ink)", "var(--ink-soft)"];
 var REC_FLOOR = 100;
+var REC_LIST_CAP = 10;
+
+function recCatColor(name) {
+  var s = String(name || "").toLowerCase();
+  var h = 0;
+  var i;
+  for (i = 0; i < s.length; i++) h = ((h * 33) + s.charCodeAt(i)) >>> 0;
+  return REC_CAT_COLORS[h % REC_CAT_COLORS.length];
+}
+
+function recMissingTile(label) {
+  return String(label || "Value") + " not available";
+}
 
 function bankRecordMonthPath(ym) {
   return /^\d{4}-\d{2}$/.test(String(ym || "")) ? "/data/banking/months/" + ym + ".json" : "";
@@ -25,6 +40,31 @@ function bankRecordsDefaultMonth(index) {
     if (row.status === "closed" && (!closed || ym > closed)) closed = ym;
   });
   return closed || any || "";
+}
+
+/* One route value. The records index is the only check. The live snapshot is not a fallback. */
+function bankRecordsRoute(opts, index) {
+  opts = opts || {};
+  var year = /^\d{4}$/.test(String(opts.histYear || "")) ? String(opts.histYear) : "";
+  var month = "";
+  if (!year) {
+    var picked = opts.histMonth && typeof bankMonthKey === "function" ? bankMonthKey(opts.histMonth) : String(opts.histMonth || "");
+    if (/^\d{4}-\d{2}$/.test(String(picked || ""))) month = picked;
+  }
+  if (year) return { month: "", year: year };
+  if (month) return { month: month, year: "" };
+  var hasIndex = index && typeof index === "object" && !Array.isArray(index) && !index.locked;
+  if (hasIndex) return { month: bankRecordsDefaultMonth(index), year: "" };
+  return { month: "", year: "" };
+}
+
+function bankRecordsTitle(opts, index) {
+  var route = bankRecordsRoute(opts, index);
+  if (route.year) return "Historical \u00b7 " + route.year;
+  if (!route.month) return "";
+  var short = recMonthShort(route.month);
+  if (!short) return "";
+  return "Historical \u00b7 " + short + " " + route.month.slice(0, 4);
 }
 
 function recYearList(index) {
@@ -288,16 +328,16 @@ function recSummary(doc) {
   var save = recPct(nums.save);
   var saveOp = recPct(nums.saveOp);
   var cards = [
-    recKpi("in", "In", inn.text, inn.tone),
-    recKpi("out", "Out", out.text, out.tone),
-    recKpi("net", "Net", bankMoney(nums.net), recMoneyTone(nums.net)),
-    recKpi("net_operating", "Net, operating", bankMoney(nums.operating), recMoneyTone(nums.operating)),
-    recKpi("savings", "Savings rate", save.text, save.tone),
-    recKpi("savings_operating", "Savings, operating", saveOp.text, saveOp.tone),
-    recKpi("late", "Late bills", nums.late == null ? "\u2014" : String(nums.late), nums.late > 0 ? "stop" : ""),
-    recKpi("nsf", "Returned", nums.nsf == null ? "\u2014" : String(nums.nsf), nums.nsf > 0 ? "stop" : ""),
-    recKpi("start", "Start cash", bankMoney(nums.start), ""),
-    recKpi("end", "End cash", bankMoney(nums.end), "")
+    recKpi("in", "In", nums.inn == null ? recMissingTile("Income") : inn.text, nums.inn == null ? "" : inn.tone),
+    recKpi("out", "Out", nums.out == null ? recMissingTile("Spending") : out.text, nums.out == null ? "" : out.tone),
+    recKpi("net", "Net", nums.net == null ? recMissingTile("Net") : bankMoney(nums.net), nums.net == null ? "" : recMoneyTone(nums.net)),
+    recKpi("net_operating", "Net, operating", nums.operating == null ? recMissingTile("Net, operating") : bankMoney(nums.operating), nums.operating == null ? "" : recMoneyTone(nums.operating)),
+    recKpi("savings", "Savings rate", nums.save == null ? recMissingTile("Savings rate") : save.text, nums.save == null ? "" : save.tone),
+    recKpi("savings_operating", "Savings, operating", nums.saveOp == null ? recMissingTile("Savings, operating") : saveOp.text, nums.saveOp == null ? "" : saveOp.tone),
+    recKpi("late", "Late bills", nums.late == null ? recMissingTile("Late bills") : String(nums.late), nums.late > 0 ? "stop" : ""),
+    recKpi("nsf", "Returned", nums.nsf == null ? recMissingTile("Returned") : String(nums.nsf), nums.nsf > 0 ? "stop" : ""),
+    recKpi("start", "Start cash", nums.start == null ? recMissingTile("Start cash") : bankMoney(nums.start), ""),
+    recKpi("end", "End cash", nums.end == null ? recMissingTile("End cash") : bankMoney(nums.end), "")
   ].join("");
   return '<div data-bank-rec-summary><p class="bank-rec-summary">' + bankEsc(recAutoSummary(doc, nums)) + "</p>" +
     recThrough(doc) + '<div class="bank-kpi bank-rec-kpis">' + cards + "</div>" + recLows(doc) + "</div>";
@@ -366,8 +406,8 @@ function recGrouped(rows) {
 
 function recBarsSection(kind, title, doc, chart) {
   var built = recBudgetRows(doc, chart);
-  var body = built.off ? recUnavailable(kind) : (built.rows.length ? recGrouped(built.rows) : recNothing());
-  return '<section class="bank-bars" data-bank-rec-chart="' + bankEsc(kind) + '">' + recChartHead(title, doc) + body + "</section>";
+  if (built.off || !built.rows.length) return "";
+  return '<section class="bank-bars" data-bank-rec-chart="' + bankEsc(kind) + '">' + recChartHead(title, doc) + recGrouped(built.rows) + "</section>";
 }
 
 function recExtent(nums) {
@@ -385,13 +425,25 @@ function recExtent(nums) {
 }
 
 function recLabelIndexes(n) {
+  var all = [];
+  var i;
   if (n <= 6) {
-    var all = [];
-    var i;
     for (i = 0; i < n; i++) all.push(i);
     return all;
   }
-  return [0, Math.floor((n - 1) / 2), n - 1];
+  var step = n > 10 ? 2 : 1;
+  for (i = 0; i < n; i += step) all.push(i);
+  if (all[all.length - 1] !== n - 1) all.push(n - 1);
+  return all;
+}
+
+function recAxisText(x, y, text, rotate) {
+  var label = bankEsc(text || "");
+  if (!rotate) {
+    return '<text x="' + x.toFixed(1) + '" y="' + y + '" text-anchor="middle" fill="var(--ink-soft)" font-size="11">' + label + "</text>";
+  }
+  return '<text x="' + x.toFixed(1) + '" y="' + y + '" text-anchor="end" fill="var(--ink-soft)" font-size="10" transform="rotate(-40 ' +
+    x.toFixed(1) + " " + y + ')">' + label + "</text>";
 }
 
 function recLineSvg(spec) {
@@ -402,7 +454,9 @@ function recLineSvg(spec) {
   var left = 44;
   var right = 12;
   var top = 16;
-  var bottom = 28;
+  var rotate = dates.length > 6;
+  var bottom = rotate ? 48 : 28;
+  if (rotate) height = 220;
   var plotW = width - left - right;
   var plotH = height - top - bottom;
   var ext = recExtent(spec.values || []);
@@ -467,8 +521,7 @@ function recLineSvg(spec) {
     }
   });
   recLabelIndexes(dates.length).forEach(function (i) {
-    svg += '<text x="' + xAt(i).toFixed(1) + '" y="' + (height - 8) + '" text-anchor="middle" fill="var(--ink-soft)" font-size="11">' +
-      bankEsc(spec.labels ? spec.labels[i] : dates[i]) + "</text>";
+    svg += recAxisText(xAt(i), height - (rotate ? 6 : 8), spec.labels ? spec.labels[i] : dates[i], rotate);
   });
   svg += "</svg>";
   return svg;
@@ -486,9 +539,7 @@ function recAlign(dates, points, field) {
 function recDailySection(doc) {
   var chart = doc.charts && doc.charts.daily_balances;
   var head = recChartHead("Daily balances", doc);
-  if (chart && chart.available === false) {
-    return '<section class="bank-bars" data-bank-rec-chart="daily_balances">' + head + recUnavailable("daily_balances") + "</section>";
-  }
+  if (chart && chart.available === false) return "";
   var series = chart && Array.isArray(chart.series) ? chart.series : [];
   var dates = [];
   series.forEach(function (row) {
@@ -498,9 +549,7 @@ function recDailySection(doc) {
     });
   });
   dates.sort();
-  if (!dates.length) {
-    return '<section class="bank-bars" data-bank-rec-chart="daily_balances">' + head + recNothing() + "</section>";
-  }
+  if (!dates.length) return "";
   var floor = recFloor(chart);
   var values = [floor];
   var drawn = series.map(function (row, i) {
@@ -525,6 +574,7 @@ function recDailySection(doc) {
     markers: markers,
     series: drawn
   });
+  if (!svg) return "";
   var legend = '<ul class="bank-legend">' + drawn.map(function (row, i) {
     return '<li><i style="background:' + REC_COLORS[i % REC_COLORS.length] + '"></i>' + bankEsc(row.name || "Account") + "</li>";
   }).join("") + '<li><i style="background:var(--warn)"></i>Floor</li></ul>';
@@ -535,11 +585,12 @@ function recColumnSvg(spec) {
   var cols = spec.columns || [];
   if (!cols.length) return "";
   var width = 640;
-  var height = 220;
+  var rotate = cols.length > 6;
+  var height = rotate ? 248 : 220;
   var left = 44;
   var right = 12;
   var top = 16;
-  var bottom = 32;
+  var bottom = rotate ? 56 : 32;
   var up = 0;
   var down = 0;
   cols.forEach(function (col) {
@@ -581,8 +632,10 @@ function recColumnSvg(spec) {
         '" height="' + Math.abs(y2 - zero).toFixed(1) + '" fill="var(--stop)"></rect>';
     }
     if (net != null) netPts.push(x.toFixed(1) + "," + yAt(net).toFixed(1));
-    svg += '<text x="' + x.toFixed(1) + '" y="' + (height - 10) + '" text-anchor="middle" fill="var(--ink-soft)" font-size="11">' +
-      bankEsc(col.label || "") + "</text>";
+  });
+  recLabelIndexes(cols.length).forEach(function (i) {
+    var x = left + step * i + step / 2;
+    svg += recAxisText(x, height - (rotate ? 8 : 10), cols[i].label || "", rotate);
   });
   if (netPts.length > 1) {
     svg += '<polyline fill="none" stroke="var(--ink)" stroke-width="2" points="' + netPts.join(" ") + '"></polyline>';
@@ -601,13 +654,9 @@ function recFlowLegend() {
 function recTimelineSection(doc) {
   var chart = doc.charts && doc.charts.income_outflow_timeline;
   var head = recChartHead("Daily in and out", doc);
-  if (chart && chart.available === false) {
-    return '<section class="bank-bars" data-bank-rec-chart="income_outflow_timeline">' + head + recUnavailable("income_outflow_timeline") + "</section>";
-  }
+  if (chart && chart.available === false) return "";
   var points = chart && Array.isArray(chart.points) ? chart.points : [];
-  if (!points.length) {
-    return '<section class="bank-bars" data-bank-rec-chart="income_outflow_timeline">' + head + recNothing() + "</section>";
-  }
+  if (!points.length) return "";
   var cols = points.map(function (row) {
     var inn = bankNum(row && (row["in"] != null ? row["in"] : row.income));
     var out = bankNum(row && (row.out != null ? row.out : row.outflow));
@@ -616,7 +665,8 @@ function recTimelineSection(doc) {
     return { label: recMonthShort(row.date) + " " + String(row.date || "").slice(8, 10).replace(/^0/, ""), inn: inn, out: out, net: net };
   });
   var svg = recColumnSvg({ label: "Daily income and outflow", columns: cols });
-  return '<section class="bank-bars" data-bank-rec-chart="income_outflow_timeline">' + head + (svg || recNothing()) + recFlowLegend() + "</section>";
+  if (!svg) return "";
+  return '<section class="bank-bars" data-bank-rec-chart="income_outflow_timeline">' + head + svg + recFlowLegend() + "</section>";
 }
 
 function recLegend(items, colorOf) {
@@ -630,9 +680,7 @@ function recLegend(items, colorOf) {
 function recDonutSection(doc) {
   var chart = doc.charts && doc.charts.category_donut;
   var head = recChartHead("Categories", doc);
-  if (chart && chart.available === false) {
-    return '<section class="bank-pie-block" data-bank-rec-chart="category_donut">' + head + recUnavailable("category_donut") + "</section>";
-  }
+  if (chart && chart.available === false) return "";
   var slices = chart && Array.isArray(chart.slices) ? chart.slices.slice() : [];
   if (!slices.length) {
     (doc.categories || []).forEach(function (row) {
@@ -641,9 +689,7 @@ function recDonutSection(doc) {
   }
   var total = 0;
   slices.forEach(function (row) { total += Math.max(0, bankNum(row.amount) || 0); });
-  if (!(total > 0) || typeof bankDonutPath !== "function") {
-    return '<section class="bank-pie-block" data-bank-rec-chart="category_donut">' + head + recNothing() + "</section>";
-  }
+  if (!(total > 0) || typeof bankDonutPath !== "function") return "";
   var cx = 80;
   var cy = 80;
   var angle = -Math.PI / 2;
@@ -671,16 +717,12 @@ function recDonutSection(doc) {
 function recTierSection(doc) {
   var chart = doc.charts && doc.charts.tier_stack;
   var head = recChartHead("Tiers", doc);
-  if (chart && chart.available === false) {
-    return '<section class="bank-bars" data-bank-rec-chart="tier_stack">' + head + recUnavailable("tier_stack") + "</section>";
-  }
+  if (chart && chart.available === false) return "";
   var segments = chart && Array.isArray(chart.segments) ? chart.segments.slice() : [];
   if (!segments.length && doc.insights && Array.isArray(doc.insights.tiers)) segments = doc.insights.tiers.slice();
   var total = 0;
   segments.forEach(function (row) { total += Math.max(0, bankNum(row && row.amount) || 0); });
-  if (!(total > 0)) {
-    return '<section class="bank-bars" data-bank-rec-chart="tier_stack">' + head + recNothing() + "</section>";
-  }
+  if (!(total > 0)) return "";
   var segs = segments.map(function (row) {
     var amt = Math.max(0, bankNum(row.amount) || 0);
     var pct = (amt / total) * 100;
@@ -709,7 +751,8 @@ function recSep() {
 
 function recCycles(doc) {
   var list = Array.isArray(doc.cycles) ? doc.cycles : [];
-  var body = !list.length ? '<p class="bank-empty">No pay cycles in this record.</p>' : '<div class="bank-rec-cycles">' + list.map(function (cycle, i) {
+  if (!list.length) return "";
+  var body = '<div class="bank-rec-cycles">' + list.map(function (cycle, i) {
     var title = recDayLabel(cycle.start) || "Cycle";
     if (cycle.end) title += " \u2013 " + recDayLabel(cycle.end);
     var net = bankNum(cycle.net);
@@ -735,19 +778,121 @@ function recTimeList(rows, kind) {
   }).join("") + "</ol>";
 }
 
-function recIncomeSection(doc) {
-  var rows = (doc.income || []).slice().sort(function (a, b) { return String(a.date || "").localeCompare(String(b.date || "")); });
-  var body = rows.length ? recTimeList(rows, "in") : '<p class="bank-empty">No income lines in this record.</p>';
-  return '<section class="bank-bars" data-bank-rec-income><h3>Income</h3>' + body + "</section>";
+function recFace(row) {
+  row = row || {};
+  var named = row.name_override || row.merchant || row.display_name || row.name;
+  if (named != null && String(named).trim()) return String(named).trim();
+  var raw = String(row.descriptor || row.raw || row.bank_desc || row.description || row.desc || "").replace(/\s+/g, " ").trim();
+  var clean = raw.replace(/\s+\d{3,}\b/g, "").replace(/[*#]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!clean) return "Purchase";
+  return clean.toLowerCase().replace(/\b[a-z]/g, function (ch) { return ch.toUpperCase(); });
 }
 
-function recOutSection(doc) {
-  var rows = (doc.transactions || []).slice().sort(function (a, b) { return String(a.date || "").localeCompare(String(b.date || "")); });
-  var body;
-  if (!rows.length && doc.completeness === "aggregates_only") body = '<p class="bank-empty">Totals only. Outflow lines are not listed.</p>';
-  else if (!rows.length) body = '<p class="bank-empty">No outflow lines in this record.</p>';
-  else body = recTimeList(rows, "out");
-  return '<section class="bank-bars" data-bank-rec-outflows><h3>Outflows</h3>' + body + "</section>";
+function recRawLine(row) {
+  row = row || {};
+  var raw = row.descriptor || row.raw || row.bank_desc || row.description || row.desc || "";
+  return String(raw).replace(/\s+/g, " ").trim();
+}
+
+function recListRows(doc, kind) {
+  var list = kind === "in" ? (doc && doc.income) : (doc && doc.transactions);
+  return Array.isArray(list) ? list.filter(function (row) { return row && typeof row === "object"; }) : [];
+}
+
+function recListFilter(rows, q) {
+  var query = String(q || "").trim().toLowerCase();
+  if (!query) return rows;
+  return rows.filter(function (row) {
+    var cat = String(row.category_name || row.category || row.kind || "");
+    var hay = (recFace(row) + " " + recRawLine(row) + " " + cat + " " + String(row.tier || "")).toLowerCase();
+    return hay.indexOf(query) >= 0;
+  });
+}
+
+function recListHtml(rows, kind, open) {
+  var sorted = rows.slice().sort(function (a, b) {
+    var byDate = String(b.date || "").localeCompare(String(a.date || ""));
+    return byDate || recFace(a).localeCompare(recFace(b));
+  });
+  var total = sorted.length;
+  var shown = open || total <= REC_LIST_CAP ? sorted : sorted.slice(0, REC_LIST_CAP);
+  if (!shown.length) return { html: '<p class="bank-empty">No matching lines.</p>', total: total };
+  var html = "";
+  var day = "";
+  shown.forEach(function (row, i) {
+    var label = recDayLabel(row.date) || "Undated";
+    if (label !== day) {
+      if (day) html += "</ul>";
+      day = label;
+      html += '<p class="bank-rec-asof">' + bankEsc(label) + '</p><ul class="bank-tx-results">';
+    }
+    var chip = kind === "in" ? (recKindLabel(row.kind) || "Income") : (row.category_name || row.category || recTierLabel(row.tier) || "Other");
+    var flow = recFlow(bankNum(row.amount), kind);
+    var tone = flow.tone === "stop" ? "tone-stop" : "tone-go";
+    var at = sorted.indexOf(row);
+    html += '<li><button type="button" class="bank-tx-hit" data-bank-rec-open="' + bankEsc(kind + ":" + at) + '">' +
+      '<span class="bank-tx-line"><span class="bank-merchant">' + bankEsc(recFace(row)) + '</span><span class="bank-chip">' +
+      bankEsc(chip) + '</span><b class="' + tone + '">' + bankEsc(flow.text) + "</b></span></button></li>";
+  });
+  if (day) html += "</ul>";
+  return { html: html, total: total };
+}
+
+function recActivity(doc, kind, opts) {
+  var rows = recListRows(doc, kind);
+  if (!rows.length) return "";
+  opts = opts || {};
+  var q = opts.recListQ && opts.recListQ[kind] ? opts.recListQ[kind] : "";
+  var open = !!(opts.recListOpen && opts.recListOpen[kind]);
+  var filtered = recListFilter(rows, q);
+  var built = recListHtml(filtered, kind, open);
+  var title = kind === "in" ? "Income" : "Transactions";
+  var attr = kind === "in" ? "data-bank-rec-income" : "data-bank-rec-outflows";
+  var more = "";
+  if (built.total > REC_LIST_CAP) {
+    more = '<button type="button" class="act" data-bank-rec-more="' + kind + '">' +
+      (open ? "Show 10" : "Show all " + built.total) + "</button>";
+  }
+  return '<section class="bank-bars" ' + attr + '><h3>' + title + '</h3><div class="bank-rec-filters">' +
+    '<input type="search" data-bank-rec-list-q="' + kind + '" aria-label="Search ' + title.toLowerCase() +
+    '" value="' + bankEsc(q) + '" placeholder="Search ' + title.toLowerCase() + '"></div>' +
+    '<div data-bank-rec-list="' + kind + '">' + built.html + "</div>" + more + "</section>";
+}
+
+function bankRecordsSheet(doc, token, opts) {
+  var parts = String(token || "").split(":");
+  var kind = parts[0];
+  var index = Number(parts[1]);
+  if ((kind !== "in" && kind !== "out") || !(index >= 0)) return "";
+  opts = opts || {};
+  var q = opts.recListQ && opts.recListQ[kind] ? opts.recListQ[kind] : "";
+  var rows = recListFilter(recListRows(doc, kind), q).slice().sort(function (a, b) {
+    var byDate = String(b.date || "").localeCompare(String(a.date || ""));
+    return byDate || recFace(a).localeCompare(recFace(b));
+  });
+  var row = rows[index];
+  if (!row) return "";
+  var face = recFace(row);
+  var raw = recRawLine(row);
+  var flow = recFlow(bankNum(row.amount), kind);
+  var chip = kind === "in" ? (recKindLabel(row.kind) || "Income") : (row.category_name || row.category || recTierLabel(row.tier) || "Other");
+  var meta = [recDayLabel(row.date), chip, recSuffix(row.account_suffix || "")].filter(Boolean).join(" \u00b7 ");
+  var rawHtml = raw && raw !== face ? '<p class="hint" data-bank-tx-raw="1">' + bankEsc(raw) + "</p>" : "";
+  return '<div class="books-overlay on sheet-bottom" data-bank-rec-sheet="1" data-bank-cat-pop="1">' +
+    '<div class="books-sheet" role="dialog" aria-modal="true" aria-label="' + bankEsc(face) + '">' +
+    '<div class="books-head"><h2>' + bankEsc(face) + "</h2>" +
+    '<button type="button" class="book-chip" data-bank-cat-close="1">Close</button></div>' +
+    rawHtml +
+    '<p class="hint">' + bankEsc(meta) + "</p>" +
+    '<p><b class="' + (flow.tone === "stop" ? "tone-stop" : "tone-go") + '">' + bankEsc(flow.text) + "</b></p></div></div>";
+}
+
+function recIncomeSection(doc, opts) {
+  return recActivity(doc, "in", opts);
+}
+
+function recOutSection(doc, opts) {
+  return recActivity(doc, "out", opts);
 }
 
 function recBasis(doc) {
@@ -766,7 +911,7 @@ function recBasis(doc) {
 
 function recCatTable(doc) {
   var rows = Array.isArray(doc.categories) ? doc.categories : [];
-  if (!rows.length) return recBasis(doc) + '<p class="bank-empty">No category totals in this record.</p>';
+  if (!rows.length) return "";
   var body = rows.map(function (row) {
     var budget = bankNum(row.budget);
     var actual = bankNum(row.actual);
@@ -883,9 +1028,10 @@ function recPurchases(doc, filter) {
 }
 
 function recMonthBody(doc, opts) {
-  return recSummary(doc) + recCharts(doc) + recCycles(doc) + recIncomeSection(doc) + recOutSection(doc) +
-    '<section class="bank-bars" data-bank-rec-categories><h3>Categories</h3>' + recCatTable(doc) + "</section>" +
-    recPurchases(doc, opts && opts.recFilter);
+  var cats = recCatTable(doc);
+  var catSection = cats ? '<section class="bank-bars" data-bank-rec-categories><h3>Categories</h3>' + cats + "</section>" : "";
+  return recSummary(doc) + recCharts(doc) + recCycles(doc) + recIncomeSection(doc, opts) + recOutSection(doc, opts) +
+    catSection + recPurchases(doc, opts && opts.recFilter) + bankRecordsSheet(doc, opts && opts.recTx, opts);
 }
 
 function recShell(kind, extra, inner, doc) {
@@ -895,11 +1041,7 @@ function recShell(kind, extra, inner, doc) {
 }
 
 function bankRecordsShownMonth(opts, index) {
-  opts = opts || {};
-  if (opts.histYear && /^\d{4}$/.test(String(opts.histYear))) return "";
-  var picked = opts.histMonth && typeof bankMonthKey === "function" ? bankMonthKey(opts.histMonth) : String(opts.histMonth || "");
-  if (/^\d{4}-\d{2}$/.test(picked)) return picked;
-  return bankRecordsDefaultMonth(index);
+  return bankRecordsRoute(opts, index).month;
 }
 
 function recIsMonth(doc, month) {
@@ -986,7 +1128,8 @@ function recTrendSeries(chart) {
         return at >= 0 ? bankNum(row.values[at]) : null;
       });
     } else values = months.map(function () { return null; });
-    return { name: row.name || "Category", values: values, color: REC_COLORS[i % REC_COLORS.length] };
+    var name = row.name || "Category";
+    return { name: name, values: values, color: recCatColor(name) };
   });
   return { months: months, series: drawn };
 }
@@ -1004,9 +1147,28 @@ function recHeatModel(chart) {
   };
 }
 
+function recTrendSpend(row) {
+  var sum = 0;
+  (row && row.values || []).forEach(function (n) {
+    if (n != null && isFinite(n)) sum += Math.abs(n);
+  });
+  return sum;
+}
+
+function recTopCategories(rows, all) {
+  var ranked = (rows || []).slice().sort(function (a, b) {
+    var d = recTrendSpend(b) - recTrendSpend(a);
+    if (d) return d;
+    return String((a && a.name) || "").localeCompare(String((b && b.name) || ""));
+  });
+  var extra = ranked.length > 5;
+  if (all || !extra) return { rows: ranked, extra: extra };
+  return { rows: ranked.slice(0, 5), extra: true };
+}
+
 function recHeatSvg(model) {
   var months = model.months || [];
-  var rows = (model.rows || []).slice(0, 12);
+  var rows = model.rows || [];
   if (!months.length || !rows.length) return "";
   var left = 120;
   var top = 28;
@@ -1021,10 +1183,11 @@ function recHeatSvg(model) {
       if (n > max) max = n;
     });
   });
+  var rotate = months.length > 6;
+  if (rotate) { top = 42; height = top + cellH * rows.length + 12; }
   var svg = '<svg class="bank-rec-svg" viewBox="0 0 ' + width + " " + height + '" role="img" aria-label="Category heatmap">';
-  months.forEach(function (month, i) {
-    svg += '<text x="' + (left + cellW * i + cellW / 2).toFixed(1) + '" y="16" text-anchor="middle" fill="var(--ink-soft)" font-size="11">' +
-      bankEsc(recMonthShort(month)) + "</text>";
+  recLabelIndexes(months.length).forEach(function (i) {
+    svg += recAxisText(left + cellW * i + cellW / 2, rotate ? 28 : 16, recMonthShort(months[i]), rotate);
   });
   rows.forEach(function (row, r) {
     svg += '<text x="8" y="' + (top + cellH * r + 18) + '" fill="var(--ink)" font-size="11">' + bankEsc(row.name || "") + "</text>";
@@ -1049,13 +1212,9 @@ function recHeatSvg(model) {
 function recSavingsSection(doc) {
   var chart = doc.charts && doc.charts.savings_rate;
   var head = "<h3>Savings rate</h3>";
-  if (chart && chart.available === false) {
-    return '<section class="bank-bars" data-bank-rec-chart="savings_rate">' + head + recUnavailable("savings_rate") + "</section>";
-  }
+  if (chart && chart.available === false) return "";
   var points = chart && Array.isArray(chart.points) ? chart.points : [];
-  if (!points.length) {
-    return '<section class="bank-bars" data-bank-rec-chart="savings_rate">' + head + recNothing() + "</section>";
-  }
+  if (!points.length) return "";
   var months = points.map(function (row) { return row.month || ""; });
   var allIn = points.map(function (row) { return recPct(row.rate).n; });
   var operating = points.map(function (row) { return recPct(row.operating_rate).n; });
@@ -1070,6 +1229,7 @@ function recSavingsSection(doc) {
       { name: "Operating", values: operating, color: "var(--ink-soft)", dash: "5 4", stopBelow: true }
     ]
   });
+  if (!svg) return "";
   var legend = '<ul class="bank-legend"><li><i style="background:var(--ink)"></i>All-in</li><li><i style="background:var(--ink-soft)"></i>Operating</li><li><i style="background:var(--stop)"></i>Below zero</li></ul>';
   return '<section class="bank-bars" data-bank-rec-chart="savings_rate">' + head + svg + legend + "</section>";
 }
@@ -1077,31 +1237,40 @@ function recSavingsSection(doc) {
 function recTrendSection(doc, opts) {
   var chart = doc.charts && doc.charts.category_trends;
   var heatOn = !!(opts && opts.recHeat);
+  var showAll = !!(opts && opts.recTrendsAll);
   var head = "<h3>Category trends</h3>";
-  if (chart && chart.available === false) {
-    return '<section class="bank-bars" data-bank-rec-chart="category_trends">' + head + recUnavailable("category_trends") + "</section>";
-  }
+  if (chart && chart.available === false) return "";
   var trend = recTrendSeries(chart || {});
   var heat = recHeatModel(chart || {});
-  if ((!trend.months.length || !trend.series.length) && !heat) {
-    return '<section class="bank-bars" data-bank-rec-chart="category_trends">' + head + recNothing() + "</section>";
-  }
+  if ((!trend.months.length || !trend.series.length) && !heat) return "";
+  var picked = recTopCategories(trend.series, showAll);
+  var heatRows = heat ? recTopCategories(heat.rows, showAll) : { rows: [], extra: false };
+  var extra = picked.extra || heatRows.extra;
   var button = '<button type="button" class="bank-year-chip" data-bank-rec-heat aria-pressed="' + (heatOn ? "true" : "false") + '">' +
     (heatOn ? "Lines" : "Heatmap") + "</button>";
-  var body;
-  if (heatOn && heat) body = recHeatSvg(heat);
-  else if (trend.months.length) {
+  if (extra) {
+    button += '<button type="button" class="bank-year-chip" data-bank-rec-all aria-pressed="' + (showAll ? "true" : "false") + '">All</button>';
+  }
+  var body = "";
+  if (heatOn && heat && heatRows.rows.length) body = recHeatSvg({ months: heat.months, rows: heatRows.rows });
+  else if (picked.rows.length && trend.months.length) {
     var values = [];
-    trend.series.forEach(function (row) { row.values.forEach(function (n) { if (n != null) values.push(n); }); });
-    body = recLineSvg({
+    picked.rows.forEach(function (row) { (row.values || []).forEach(function (n) { if (n != null) values.push(n); }); });
+    var lines = recLineSvg({
       label: "Category trends",
       dates: trend.months,
       labels: trend.months.map(recMonthShort),
       values: values,
-      series: trend.series
-    }) + recLegend(trend.series.map(function (row) { return { name: row.name }; }));
-  } else body = recHeatSvg(heat);
-  return '<section class="bank-bars" data-bank-rec-chart="category_trends">' + head + button + (body || recNothing()) + "</section>";
+      series: picked.rows
+    });
+    if (lines) {
+      body = lines + recLegend(picked.rows.map(function (row) { return { name: row.name }; }), function (_item, i) {
+        return picked.rows[i].color || recCatColor(picked.rows[i].name);
+      });
+    }
+  } else if (heat && heatRows.rows.length) body = recHeatSvg({ months: heat.months, rows: heatRows.rows });
+  if (!body) return "";
+  return '<section class="bank-bars" data-bank-rec-chart="category_trends">' + head + button + body + "</section>";
 }
 
 function recSankeyModel(doc) {
@@ -1220,12 +1389,57 @@ function recSankeySvg(model) {
   return svg;
 }
 
+function recRankRows(doc) {
+  var model = recSankeyModel(doc);
+  if (!model || model.off) return [];
+  var byId = {};
+  (model.nodes || []).forEach(function (node) {
+    if (node && node.id != null) byId[node.id] = node;
+  });
+  var uses = [];
+  (model.links || []).forEach(function (link) {
+    var source = byId[link.source];
+    var target = byId[link.target];
+    if (!source || !target) return;
+    if (!/^income$/i.test(String(source.label || ""))) return;
+    if (/left in accounts|drawdown/i.test(String(target.label || ""))) return;
+    var n = bankNum(link.value);
+    if (n == null) return;
+    uses.push({ name: target.label || String(target.id), amount: Math.abs(n) });
+  });
+  if (!uses.length) {
+    (doc.categories || []).forEach(function (row) {
+      var n = bankNum(row && row.actual);
+      if (row && row.name && n != null) uses.push({ name: row.name, amount: Math.abs(n) });
+    });
+  }
+  uses.sort(function (a, b) {
+    return b.amount - a.amount || String(a.name).localeCompare(String(b.name));
+  });
+  return uses.slice(0, 10);
+}
+
+function recRankList(rows) {
+  if (!rows.length) return "";
+  var max = 0;
+  rows.forEach(function (row) { if (row.amount > max) max = row.amount; });
+  return '<ol class="bank-rec-flow-narrow" data-bank-rec-ranked>' + rows.map(function (row) {
+    var width = max > 0 ? Math.max(4, Math.min(100, (row.amount / max) * 100)) : 0;
+    return '<li><span class="bank-rec-group-name">' + bankEsc(row.name) + '</span><b>' + bankEsc(bankMoney(row.amount)) +
+      '</b><div class="bank-bar-track"><span class="fill" style="width:' + width.toFixed(1) + '%;background:var(--ink)"></span></div></li>';
+  }).join("") + "</ol>";
+}
+
 function recSankeySection(doc) {
   var model = recSankeyModel(doc);
+  if (!model || model.off) return "";
+  var svg = recSankeySvg(model);
+  var ranked = recRankList(recRankRows(doc));
+  if (!svg && !ranked) return "";
   var note = '<p class="bank-bar-note">Money is fungible. This sketch follows labels, not specific dollars.' +
     (model.confidence ? " Confidence: " + bankEsc(String(model.confidence)) + "." : " Confidence was not set.") + "</p>";
-  var body = model.off ? recUnavailable("sankey") : (recSankeySvg(model) || recNothing());
-  return '<section class="bank-bars" data-bank-rec-chart="sankey"><h3>Where the money went</h3>' + note + body + "</section>";
+  var wide = svg ? '<div class="bank-rec-flow-wide">' + svg + "</div>" : "";
+  return '<section class="bank-bars" data-bank-rec-chart="sankey"><h3>Where the money went</h3>' + note + wide + ranked + "</section>";
 }
 
 function recYearSummary(doc) {
@@ -1257,16 +1471,16 @@ function recYearSummary(doc) {
     if (parts.length) mixLine = '<p class="bank-rec-asof" data-bank-rec-mix>' + bankEsc(parts.join(" · ")) + ".</p>";
   }
   var cards = [
-    recKpi("in", "In", inn.text, inn.tone),
-    recKpi("out", "Out", out.text, out.tone),
-    recKpi("net", "Net", bankMoney(net), recMoneyTone(net)),
-    recKpi("net_operating", "Net, operating", bankMoney(operating), recMoneyTone(operating)),
-    recKpi("savings", "Savings rate", save.text, save.tone),
-    recKpi("savings_operating", "Savings, operating", saveOp.text, saveOp.tone),
-    recKpi("late", "Late bills", doc.late_bills_count == null ? "\u2014" : String(doc.late_bills_count), Number(doc.late_bills_count) > 0 ? "stop" : ""),
-    recKpi("nsf", "Returned", doc.nsf_or_returned_count == null ? "\u2014" : String(doc.nsf_or_returned_count), Number(doc.nsf_or_returned_count) > 0 ? "stop" : ""),
-    recKpi("floor_days", "Days under floor", doc.below_floor_day_count == null ? "\u2014" : String(doc.below_floor_day_count), ""),
-    recKpi("negative_days", "Negative days", doc.negative_day_count == null ? "\u2014" : String(doc.negative_day_count), Number(doc.negative_day_count) > 0 ? "stop" : "")
+    recKpi("in", "In", bankNum(doc.income_total) == null ? recMissingTile("Income") : inn.text, bankNum(doc.income_total) == null ? "" : inn.tone),
+    recKpi("out", "Out", bankNum(doc.outflow_total) == null ? recMissingTile("Spending") : out.text, bankNum(doc.outflow_total) == null ? "" : out.tone),
+    recKpi("net", "Net", net == null ? recMissingTile("Net") : bankMoney(net), net == null ? "" : recMoneyTone(net)),
+    recKpi("net_operating", "Net, operating", operating == null ? recMissingTile("Net, operating") : bankMoney(operating), operating == null ? "" : recMoneyTone(operating)),
+    recKpi("savings", "Savings rate", bankNum(doc.savings_rate) == null ? recMissingTile("Savings rate") : save.text, bankNum(doc.savings_rate) == null ? "" : save.tone),
+    recKpi("savings_operating", "Savings, operating", bankNum(doc.savings_rate_operating) == null ? recMissingTile("Savings, operating") : saveOp.text, bankNum(doc.savings_rate_operating) == null ? "" : saveOp.tone),
+    recKpi("late", "Late bills", doc.late_bills_count == null ? recMissingTile("Late bills") : String(doc.late_bills_count), Number(doc.late_bills_count) > 0 ? "stop" : ""),
+    recKpi("nsf", "Returned", doc.nsf_or_returned_count == null ? recMissingTile("Returned") : String(doc.nsf_or_returned_count), Number(doc.nsf_or_returned_count) > 0 ? "stop" : ""),
+    recKpi("floor_days", "Days under floor", doc.below_floor_day_count == null ? recMissingTile("Days under floor") : String(doc.below_floor_day_count), ""),
+    recKpi("negative_days", "Negative days", doc.negative_day_count == null ? recMissingTile("Negative days") : String(doc.negative_day_count), Number(doc.negative_day_count) > 0 ? "stop" : "")
   ].join("");
   return '<div data-bank-rec-summary><p class="bank-rec-flag" data-bank-rec-status="' + bankEsc(code) + '">' + bankEsc(flag) +
     '</p><p class="bank-rec-summary">' + bankEsc(sentence) + "</p>" + range + mixLine +
@@ -1282,27 +1496,34 @@ function recText(item) {
 
 function recBullets(items) {
   var list = (items || []).map(recText).filter(function (line) { return !!line; });
-  if (!list.length) return '<p class="bank-empty">Nothing listed.</p>';
+  if (!list.length) return "";
   return "<ul>" + list.map(function (line) { return "<li>" + bankEsc(line) + "</li>"; }).join("") + "</ul>";
 }
 
 function recAnalysis(doc) {
   var analysis = doc && doc.year_end_analysis || {};
+  var right = recBullets(analysis.what_went_right);
+  var wrong = recBullets(analysis.what_went_wrong);
+  var habits = recBullets(analysis.habits_for_next_year);
+  if (!right && !wrong && !habits) return "";
   var provisional = doc.status === "provisional_ytd" || analysis.provisional === true;
   var through = recDayLabel(doc.through_date);
   var label = "";
   if (provisional) label = '<p class="bank-rec-flag">Provisional' + (through ? ", through " + bankEsc(through) : "") + ".</p>";
   return '<section class="bank-bars" data-bank-rec-analysis><h3>Year-end analysis</h3>' + label +
-    "<h3>What went right</h3>" + recBullets(analysis.what_went_right) +
-    "<h3>What went wrong</h3>" + recBullets(analysis.what_went_wrong) +
-    "<h3>Habits for next year</h3>" + recBullets(analysis.habits_for_next_year) + "</section>";
+    (right ? "<h3>What went right</h3>" + right : "") +
+    (wrong ? "<h3>What went wrong</h3>" + wrong : "") +
+    (habits ? "<h3>Habits for next year</h3>" + habits : "") + "</section>";
 }
 
 function recYearBody(doc, opts) {
   var flow = recMonthColumns(doc);
-  var flowBody = flow.off ? recUnavailable("monthly_in_out_net") : (recColumnSvg({ label: "Monthly in, out, and net", columns: flow.columns }) || recNothing());
+  var flowSvg = flow.off ? "" : recColumnSvg({ label: "Monthly in, out, and net", columns: flow.columns });
+  var flowSection = flowSvg
+    ? '<section class="bank-bars" data-bank-rec-chart="monthly_in_out_net"><h3>Monthly in, out, and net</h3>' + flowSvg + recFlowLegend() + "</section>"
+    : "";
   return recYearSummary(doc) + '<div class="bank-rec-charts" data-bank-rec-charts>' +
-    '<section class="bank-bars" data-bank-rec-chart="monthly_in_out_net"><h3>Monthly in, out, and net</h3>' + flowBody + recFlowLegend() + "</section>" +
+    flowSection +
     recTrendSection(doc, opts) +
     recSavingsSection(doc) +
     recBarsSection("ytd_budget_vs_actual", "Year budget vs actual", doc, doc.charts && doc.charts.ytd_budget_vs_actual) +
@@ -1355,13 +1576,48 @@ function bankRecordsPickerHtml(snap, opts) {
     if (ym === shown) badge = recBadge(row.completeness);
   });
   if (!options) options = '<option value="">No months</option>';
-  var chips = recYearList(index).map(function (year) {
-    var on = String(opts.histYear || "") === year;
-    return '<button type="button" class="bank-year-chip" data-bank-hist-year="' + bankEsc(year) + '" aria-pressed="' +
-      (on ? "true" : "false") + '" aria-label="Year ' + bankEsc(year) + '">Year ' + bankEsc(year) + "</button>";
-  }).join("");
   return '<div class="bank-hist-controls"><label class="bank-month-pick">Month <select class="bank-hist-select" data-bank-hist-month aria-label="Historical month">' +
-    options + "</select></label>" + badge + chips + "</div>";
+    options + "</select></label>" + badge + "</div>";
+}
+
+function bankRecordsYearHtml(snap, opts) {
+  opts = opts || {};
+  var index = opts.recordIndex;
+  if (!index || index.locked) return "";
+  var years = recYearList(index);
+  if (!years.length) return "";
+  var route = bankRecordsRoute(opts, index);
+  var chips = years.map(function (year) {
+    var on = route.year === year;
+    return '<button type="button" class="bank-year-chip" data-bank-hist-year="' + bankEsc(year) + '" aria-pressed="' +
+      (on ? "true" : "false") + '" aria-label="Year ' + bankEsc(year) + '">' + bankEsc(year) + "</button>";
+  }).join("");
+  return '<div class="bank-year-scroll" data-bank-year-row tabindex="0" role="tablist" aria-label="Historical years">' + chips + "</div>";
+}
+
+function bankRecordsChromeHtml(snap, opts) {
+  return bankRecordsPickerHtml(snap, opts) + bankRecordsYearHtml(snap, opts);
+}
+
+function bankRecordsScrollYear(row) {
+  if (!row || !row.querySelector) return 0;
+  var on = row.querySelector('[aria-pressed="true"]');
+  var view = Number(row.clientWidth) || 0;
+  var left = 0;
+  if (on) {
+    var width = Number(on.offsetWidth) || 0;
+    left = (Number(on.offsetLeft) || 0) - Math.max(0, (view - width) / 2);
+    if (left < 0) left = 0;
+    var max = Math.max(0, (Number(row.scrollWidth) || 0) - view);
+    if (left > max) left = max;
+  }
+  try { row.scrollLeft = left; } catch (eScroll) {}
+  var more = (Number(row.scrollWidth) || 0) > view + 1;
+  if (row.setAttribute) {
+    if (more) row.setAttribute("data-bank-year-more", "1");
+    else row.removeAttribute("data-bank-year-more");
+  }
+  return left;
 }
 
 function bankRecordsPaintPurchases(root) {

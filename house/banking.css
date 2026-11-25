@@ -10,6 +10,8 @@ body.bank-page > header .clock {
 
 .bank-desk {
   margin: 0 auto;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .bank-nav {
@@ -34,7 +36,11 @@ body.bank-page > header .clock {
   letter-spacing: 1.4px;
   text-transform: uppercase;
   color: var(--ink-soft);
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .bank-month-range {
   margin: 2px 0 0;
@@ -341,6 +347,76 @@ body.bank-page > header .clock {
 
 .bank-year-scroll {
   overflow-x: auto;
+}
+
+.bank-year-scroll[data-bank-year-row] {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 12px;
+  scrollbar-width: none;
+}
+
+.bank-year-scroll[data-bank-year-row]::-webkit-scrollbar {
+  height: 0;
+}
+
+.bank-year-scroll[data-bank-year-more="1"] {
+  mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+}
+
+.bank-year-scroll[data-bank-year-row] .bank-year-chip {
+  flex: 1 0 6.5rem;
+  border-radius: 0;
+  white-space: nowrap;
+}
+
+.bank-year-scroll[data-bank-year-row] .bank-year-chip:first-child {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+}
+
+.bank-year-scroll[data-bank-year-row] .bank-year-chip:last-child {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+}
+
+.bank-year-scroll[data-bank-year-row] .bank-year-chip + .bank-year-chip {
+  margin-left: -1px;
+}
+
+.bank-rec-flow-narrow { display: block; }
+.bank-rec-flow-wide { display: none; }
+
+.bank-rec-flow-narrow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bank-rec-flow-narrow li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  margin: 0 0 8px;
+}
+
+.bank-rec-flow-narrow b {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-rec-flow-narrow .bank-bar-track {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 900px) {
+  .bank-rec-flow-narrow { display: none; }
+  .bank-rec-flow-wide { display: block; }
 }
 
 .bank-legend {
@@ -3672,6 +3748,30 @@ button.bank-bill-tile:focus-visible {
   padding: 6px 0;
   border-bottom: 1px solid var(--rule);
   font-size: 13px;
+}
+
+.bank-record .bank-tx-line > .bank-merchant {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.bank-record .bank-tx-line > .bank-chip {
+  flex: 0 1 auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-record .bank-tx-line > b {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .bank-rec-desc {

@@ -248,10 +248,13 @@
   function load(mountEl) {
     if (!mountEl || mountEl._mpTickerPainted) return;
     if (pageSection() !== "banking") return;
-    var creds = { credentials: "same-origin" };
-    fetch("/data/banking.json", creds).then(function (res) {
-      return res && res.ok ? res.json() : null;
-    }).then(function (print) {
+    var creds = { credentials: "include", cache: "no-store", redirect: "manual", headers: { Accept: "application/json", "Cache-Control": "no-cache" } };
+    var pending = typeof root.bankSharedBanking === "function"
+      ? root.bankSharedBanking().then(function (pack) { return pack && pack.data; })
+      : fetch("/data/banking.json", creds).then(function (res) {
+        return res && res.ok ? res.json() : null;
+      });
+    pending.then(function (print) {
       if (mountEl._mpTickerPainted) return null;
       if (!print) {
         mountEl.hidden = true;
@@ -279,7 +282,7 @@
     load(el);
   }
   if (typeof document !== "undefined" && document.getElementById) {
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+    if (document.readyState === "loading" || document.readyState === "interactive") document.addEventListener("DOMContentLoaded", boot);
     else boot();
   }
 })(typeof window !== "undefined" ? window : this);
