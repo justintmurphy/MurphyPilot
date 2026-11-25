@@ -1,6 +1,7 @@
-/* tip fx — Historical keeps the same Banking pages. #historical/YYYY-MM opens a monthly record.
-   #historical/YYYY opens that year. #historical still opens Historical and, once the record index
-   loads, lands on the last closed month. #historical=YYYY-MM still selects that month.
+/* tip fx — Historical keeps the same Banking pages. #historical/YYYY-MM opens that monthly record.
+   #historical/YYYY opens that year. A bare #historical lands on the latest closed month in the
+   records index, not the live snapshot. An old #historical=YYYY-MM link is rewritten to the slash
+   form. The same route value drives the header, the picker, and the page.
    The month list shows a completeness badge and a year chip. Records come from the signed-in feed.
    tip fw — Under each Budget card Left number, After budgets is that Left minus the unspent needs and wants already listed.
    It does not use Spare left. Red when the result is negative, green when it is positive.
@@ -221,6 +222,35 @@ var bankDataStamp = 0;
 function bankDataUrl() {
   bankDataStamp += 1;
   return BANK_DATA_URL + "?v=" + Date.now() + "." + bankDataStamp;
+}
+
+/* One in-flight GET for /data/banking.json. The ticker and the desk share it. */
+var bankJsonFlight = null;
+function bankSharedBanking() {
+  if (bankJsonFlight) return bankJsonFlight;
+  var pending;
+  try { pending = fetch(bankDataUrl(), bankFetchInit()); }
+  catch (eFlight) { return Promise.reject(eFlight); }
+  bankJsonFlight = Promise.resolve(pending).then(function (res) {
+    if (!res || res.ok !== true || res.type === "opaqueredirect") return { res: res, data: null };
+    return Promise.resolve(res.json()).then(function (data) {
+      return { res: res, data: data };
+    }, function () { return { res: res, data: null }; });
+  }, function (err) {
+    bankJsonFlight = null;
+    return Promise.reject(err);
+  });
+  return bankJsonFlight;
+}
+
+function bankSharedResponse(pack) {
+  var res = pack && pack.res;
+  return {
+    ok: !!(res && res.ok === true),
+    status: res && res.status,
+    type: res && res.type,
+    json: function () { return Promise.resolve(pack ? pack.data : null); }
+  };
 }
 var BANK_OVERRIDES_URL = "/data/banking/overrides.json";
 var BANK_DUEDAY_URL = "/data/banking/dueday-overrides.json";
@@ -4606,6 +4636,11 @@ function bankViewMonth(tab, snap, opts) {
 
 function bankViewTitle(tab, snap, opts) {
   var name = bankViewName(tab);
+  if (tab === "historical" && opts && opts.recordIndex && !opts.recordIndex.locked && typeof bankRecordsTitle === "function") {
+    var recTitle = "";
+    try { recTitle = bankRecordsTitle(opts, opts.recordIndex); } catch (eTitle) { recTitle = ""; }
+    if (recTitle) return recTitle;
+  }
   if (tab === "historical" && opts && opts.histYear && /^\d{4}$/.test(String(opts.histYear))) {
     return name + " \u00b7 " + String(opts.histYear);
   }
@@ -4616,7 +4651,8 @@ function bankViewTitle(tab, snap, opts) {
 }
 
 function bankNavHtml(tab, menuOpen, title, snap, opts) {
-  var pick = tab === "historical" ? bankHistPickerHtml(snap, opts) : "";
+  var outside = tab === "historical" && opts && opts.recordIndex && typeof bankRecordsChromeHtml === "function";
+  var pick = tab === "historical" && !outside ? bankHistPickerHtml(snap, opts) : "";
   var range = "";
   if (tab === "budget") {
     try {
@@ -24595,11 +24631,15 @@ function bankPageHtml(snap, opts) {
   else if (tab === "edits") panel = bankEditsPanelHtml(snap || {}, opts);
   else panel = bankCurrentHtml(snap || {}, opts);
   var title = bankViewTitle(tab, snap || {}, opts);
+  var chrome = "";
+  if (tab === "historical" && opts.recordIndex && typeof bankRecordsChromeHtml === "function") {
+    try { chrome = bankRecordsChromeHtml(snap || {}, opts); } catch (eChrome) { chrome = ""; }
+  }
   var notice = "";
   if (opts.tierSaveError && tab !== "edits") {
     notice = '<p class="hint tone-stop" role="status">' + bankEsc(opts.tierSaveError) + "</p>";
   }
-  return bankNavHtml(tab, opts.menuOpen, title, snap || {}, opts) + '<div class="bank-panel" data-panel="' + tab + '" aria-labelledby="bank-view-title">' +
+  return bankNavHtml(tab, opts.menuOpen, title, snap || {}, opts) + chrome + '<div class="bank-panel" data-panel="' + tab + '" aria-labelledby="bank-view-title">' +
     bankCancelToastHtml(opts.cancelToast) + notice + bankTierStaleHtml(snap) + panel + "</div>" +
     bankGroupPopupHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
     bankSpendPopupHtml(snap || {}, Object.assign({ tab: tab }, opts)) +
@@ -24718,6 +24758,10 @@ function bankPaint(root, paintOpts) {
     recordError: st.recordError || "",
     recFilter: st.recFilter || null,
     recHeat: !!st.recHeat,
+    recTrendsAll: !!st.recTrendsAll,
+    recListQ: st.recListQ || null,
+    recListOpen: st.recListOpen || null,
+    recTx: st.recTx || "",
     txQuery: st.txQuery || "",
     txTier: st.txTier || "",
     txAcct: st.txAcct || "",
@@ -24756,6 +24800,18 @@ function bankPaint(root, paintOpts) {
   bankBindTxResults(root);
   if (st.tab === "historical" && typeof bankRecordsEnsure === "function") {
     try { bankRecordsEnsure(root); } catch (eRec) {}
+  }
+  if (st.tab === "historical" && typeof bankRecordsScrollYear === "function" && root.querySelector) {
+    var yearRow = root.querySelector("[data-bank-year-row]");
+    if (yearRow) {
+      try { bankRecordsScrollYear(yearRow); } catch (eYear) {}
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(function () {
+          if (yearRow.isConnected === false) return;
+          try { bankRecordsScrollYear(yearRow); } catch (eYear2) {}
+        });
+      }
+    }
   }
   if (st.reviewCancel && st.tab === "edits" && root.querySelector) {
     var reviewRow = root.querySelector("[data-bank-cancelled]");
@@ -24968,8 +25024,18 @@ function bankWriteTabHistory(tab) {
 }
 
 /* Back, forward, and a hash edit already updated location. Activating again must not push. */
+function bankCanonicalHistHash() {
+  try {
+    if (typeof location === "undefined") return;
+    var legacy = String(location.hash || "").match(/^#historical=(\d{4}-\d{2})$/);
+    if (!legacy) return;
+    bankWriteRecordHash(legacy[1], "", true);
+  } catch (eCanon) {}
+}
+
 function bankActivateFromHistory() {
   if (bankNavLock) return;
+  bankCanonicalHistHash();
   var root = bankNavRoot;
   if (!root || !root._bank) return;
   var parsed = bankParseHash(typeof location !== "undefined" ? location.hash : "");
@@ -24982,6 +25048,7 @@ function bankActivateFromHistory() {
     root._bank.recordKey = "";
     root._bank.recordLoading = "";
     root._bank.recordError = "";
+    root._bank.recTx = "";
   }
   root._bank.histMonth = histMonth;
   root._bank.histYear = histYear;
@@ -25016,10 +25083,14 @@ function bankWriteRecordHash(month, year, replace) {
 }
 
 function bankWriteHistHash(month) {
+  if (typeof bankWriteRecordHash === "function") {
+    bankWriteRecordHash(month || "", "", false);
+    return;
+  }
   if (bankNavLock) return;
   try {
     if (typeof history === "undefined" || typeof location === "undefined") return;
-    var h = month ? "#historical=" + month : "#historical";
+    var h = month ? "#historical/" + month : "#historical";
     var url = (location.pathname || "") + (location.search || "") + h;
     var now = (location.pathname || "") + (location.search || "") + (location.hash || "");
     if (url === now) {
@@ -26753,6 +26824,7 @@ function bankMount(root, data, opts) {
   if (!root) return;
   bankInvalidateCaches();
   opts = opts || {};
+  bankCanonicalHistHash();
   var parsed = bankParseHash(typeof location !== "undefined" ? location.hash : "");
   var tab = opts.tab ? bankResolveTab(opts.tab) : parsed.tab;
   root._bank = {
@@ -26769,6 +26841,10 @@ function bankMount(root, data, opts) {
     recordError: opts.recordError || "",
     recFilter: opts.recFilter || null,
     recHeat: !!opts.recHeat,
+    recTrendsAll: !!opts.recTrendsAll,
+    recListQ: opts.recListQ || null,
+    recListOpen: opts.recListOpen || null,
+    recTx: opts.recTx || "",
     now: opts.now,
     edits: opts.edits || bankReadStore(),
     editsOpen: !!opts.editsOpen,
@@ -26875,6 +26951,7 @@ function bankMount(root, data, opts) {
       root._bank.recordKey = "";
       root._bank.recordLoading = "";
       root._bank.recordError = "";
+      root._bank.recTx = "";
       if (typeof bankWriteRecordHash === "function") bankWriteRecordHash("", root._bank.histYear);
       bankPaint(root);
       return;
@@ -26883,6 +26960,32 @@ function bankMount(root, data, opts) {
     if (heatBtn && root._bank) {
       if (e.preventDefault) e.preventDefault();
       root._bank.recHeat = !root._bank.recHeat;
+      root._bank.tab = "historical";
+      bankPaint(root);
+      return;
+    }
+    var allBtn = t.closest("[data-bank-rec-all]");
+    if (allBtn && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      root._bank.recTrendsAll = !root._bank.recTrendsAll;
+      root._bank.tab = "historical";
+      bankPaint(root);
+      return;
+    }
+    var moreBtn = t.closest("[data-bank-rec-more]");
+    if (moreBtn && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      var moreKind = moreBtn.getAttribute("data-bank-rec-more") || "";
+      if (!root._bank.recListOpen) root._bank.recListOpen = {};
+      root._bank.recListOpen[moreKind] = !root._bank.recListOpen[moreKind];
+      root._bank.tab = "historical";
+      bankPaint(root);
+      return;
+    }
+    var recOpen = t.closest("[data-bank-rec-open]");
+    if (recOpen && root._bank) {
+      if (e.preventDefault) e.preventDefault();
+      root._bank.recTx = recOpen.getAttribute("data-bank-rec-open") || "";
       root._bank.tab = "historical";
       bankPaint(root);
       return;
@@ -26947,6 +27050,7 @@ function bankMount(root, data, opts) {
       root._bank.groupOpen = "";
       root._bank.spendOpen = "";
       root._bank.txOpen = "";
+      root._bank.recTx = "";
       root._bank.catDraft = null;
       root._bank.catError = "";
       bankPaint(root);
@@ -26957,6 +27061,7 @@ function bankMount(root, data, opts) {
       root._bank.groupOpen = "";
       root._bank.spendOpen = "";
       root._bank.txOpen = "";
+      root._bank.recTx = "";
       root._bank.catDraft = null;
       root._bank.catError = "";
       bankPaint(root);
@@ -27370,6 +27475,7 @@ function bankMount(root, data, opts) {
         root._bank.recordKey = "";
         root._bank.recordLoading = "";
         root._bank.recordError = "";
+        root._bank.recTx = "";
         if (typeof bankWriteRecordHash === "function") bankWriteRecordHash(root._bank.histMonth, "");
         else bankWriteHistHash(root._bank.histMonth);
       } else bankWriteHistHash(root._bank.histMonth);
@@ -27380,7 +27486,8 @@ function bankMount(root, data, opts) {
       if (!root._bank) return;
       if (!root._bank.recFilter) root._bank.recFilter = {};
       root._bank.recFilter[el.getAttribute("data-bank-rec-filter")] = el.value || "";
-      if (typeof bankRecordsPaintPurchases === "function") bankRecordsPaintPurchases(root);
+      root._bank.tab = "historical";
+      bankPaint(root);
       return;
     }
     if (el.getAttribute("data-bank-plan-tier")) {
@@ -27505,10 +27612,18 @@ function bankMount(root, data, opts) {
   root.addEventListener("input", function (e) {
     var el = e && e.target;
     if (!el || !el.hasAttribute || !root._bank) return;
-    if (el.hasAttribute("data-bank-rec-q")) {
-      if (!root._bank.recFilter) root._bank.recFilter = {};
-      root._bank.recFilter.q = el.value == null ? "" : String(el.value);
-      if (typeof bankRecordsPaintPurchases === "function") bankRecordsPaintPurchases(root);
+    if (el.hasAttribute("data-bank-rec-q") || el.hasAttribute("data-bank-rec-list-q")) {
+      var typed = el.value == null ? "" : String(el.value);
+      if (el.hasAttribute("data-bank-rec-list-q")) {
+        if (!root._bank.recListQ) root._bank.recListQ = {};
+        root._bank.recListQ[el.getAttribute("data-bank-rec-list-q") || ""] = typed;
+      }
+      if (el.hasAttribute("data-bank-rec-q") || el.getAttribute("data-bank-rec-list-q") === "out") {
+        if (!root._bank.recFilter) root._bank.recFilter = {};
+        root._bank.recFilter.q = typed;
+      }
+      root._bank.tab = "historical";
+      bankPaint(root);
       return;
     }
     if (el.hasAttribute("data-bank-find")) {
@@ -27708,7 +27823,7 @@ function bankSeedCategories(data, payload) {
 
 function bankLoad(root, fetcher) {
   var run = fetcher || function () {
-    return fetch(bankDataUrl(), bankFetchInit());
+    return bankSharedBanking().then(bankSharedResponse);
   };
   return Promise.all([
     Promise.resolve().then(run),

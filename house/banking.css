@@ -10,6 +10,8 @@ body.bank-page > header .clock {
 
 .bank-desk {
   margin: 0 auto;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .bank-nav {
@@ -34,7 +36,11 @@ body.bank-page > header .clock {
   letter-spacing: 1.4px;
   text-transform: uppercase;
   color: var(--ink-soft);
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .bank-month-range {
   margin: 2px 0 0;
@@ -341,6 +347,79 @@ body.bank-page > header .clock {
 
 .bank-year-scroll {
   overflow-x: auto;
+}
+
+.bank-year-scroll[data-bank-year-row] {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 12px;
+  scrollbar-width: none;
+}
+
+.bank-year-scroll[data-bank-year-row]::-webkit-scrollbar {
+  height: 0;
+}
+
+.bank-year-scroll[data-bank-year-more="1"] {
+  mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+}
+
+.bank-year-scroll[data-bank-year-row] .bank-year-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bank-year-scroll[data-bank-year-row] .bank-year-chip:first-child {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+}
+
+.bank-year-scroll[data-bank-year-row] .bank-year-chip:last-child {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+}
+
+.bank-year-scroll[data-bank-year-row] .bank-year-chip + .bank-year-chip {
+  margin-left: -1px;
+}
+
+.bank-rec-flow-narrow { display: block; }
+.bank-rec-flow-wide { display: none; }
+
+.bank-rec-flow-narrow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bank-rec-flow-narrow li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  margin: 0 0 8px;
+}
+
+.bank-rec-flow-narrow b {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-rec-flow-narrow .bank-bar-track {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 900px) {
+  .bank-rec-flow-narrow { display: none; }
+  .bank-rec-flow-wide { display: block; }
 }
 
 .bank-legend {
@@ -1003,7 +1082,9 @@ body.bank-page > header .clock {
   color: var(--ink);
   font-size: 13px;
   font-weight: 600;
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .bank-kind-name {
@@ -3674,6 +3755,30 @@ button.bank-bill-tile:focus-visible {
   font-size: 13px;
 }
 
+.bank-record .bank-tx-line > .bank-merchant {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.bank-record .bank-tx-line > .bank-chip {
+  flex: 0 1 auto;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-record .bank-tx-line > b {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .bank-rec-desc {
   flex: 1 1 8rem;
   min-width: 0;
@@ -3719,4 +3824,104 @@ button.bank-bill-tile:focus-visible {
 
 @media (min-width: 800px) {
   .bank-rec-cycles { grid-template-columns: 1fr 1fr; }
+}
+
+.bank-desk .bank-hist-controls {
+  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 100%;
+}
+
+.bank-desk .bank-hist-controls .bank-month-pick {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.bank-desk .bank-hist-controls select.bank-hist-select {
+  width: 100%;
+  max-width: none;
+  height: 44px;
+  max-height: 48px;
+  min-height: 0;
+  padding: 4px 28px 4px 10px;
+  font-size: 14px;
+  line-height: 1.2;
+  box-sizing: border-box;
+}
+
+.bank-desk .bank-record .bank-rec-filters {
+  flex-direction: row;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.bank-desk .bank-record .bank-rec-filters input,
+.bank-desk .bank-record .bank-rec-filters select {
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 0;
+  max-height: 48px;
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.bank-desk .bank-record .bank-rec-filters input {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.bank-desk .bank-record .bank-rec-filters select {
+  flex: 1 1 0;
+  width: auto;
+  max-width: none;
+  min-width: 0;
+}
+
+.bank-kpi.bank-rec-kpis {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 899px) {
+  .bank-kpi.bank-rec-kpis { grid-template-columns: 1fr 1fr; }
+  .bank-rec-col-wide { display: none; }
+}
+
+.bank-rec-table-wrap {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+.bank-rec-cats {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.bank-rec-cats th,
+.bank-rec-cats td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-record > *,
+.bank-rec-cycle,
+.bank-rec-cycle p,
+.bank-rec-cycle b {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bank-record .bank-rec-cycle p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.35em;
+  white-space: normal;
+}
+
+.bank-rec-cycle p,
+.bank-rec-cycle b {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
