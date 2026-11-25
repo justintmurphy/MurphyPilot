@@ -275,15 +275,35 @@ function recLen(list, fallback) {
   return bankNum(fallback);
 }
 
+/* Rewrite money in a sentence. Years, days, and small counts stay as written. */
+function recFormatProse(text) {
+  return String(text == null ? "" : text).replace(
+    /(^|[^0-9.\s])(\s*)([+\u2212\-])?\$?\s*(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?/g,
+    function (match, pre, gap, sign, intPart, frac, offset, whole) {
+      var digits = String(intPart || "").replace(/,/g, "");
+      var dollar = match.indexOf("$") >= 0;
+      var comma = String(intPart || "").indexOf(",") >= 0;
+      var decimal = !!frac;
+      if (!dollar && !decimal && !comma && digits.length < 5) return match;
+      var after = whole.charAt(offset + match.length);
+      if (!dollar && !decimal && (after === "-" || after === "/")) return match;
+      var n = Number(digits + (frac || ""));
+      if (!isFinite(n)) return match;
+      if (sign === "-" || sign === "\u2212") n = -Math.abs(n);
+      return pre + gap + bankMoney(n);
+    }
+  );
+}
+
 function recAutoSummary(doc, nums) {
   var written = doc && doc.insights && doc.insights.summary;
-  if (written) return String(written);
+  if (written) return recFormatProse(String(written));
   var bits = [];
   if (nums.inn != null) bits.push("In " + bankMoney(nums.inn));
   if (nums.out != null) bits.push("out " + bankMoney(nums.out));
   if (nums.net != null) bits.push("net " + bankMoney(nums.net));
   if (!bits.length) return "No summary in this record.";
-  return bits.join(", ") + ".";
+  return recFormatProse(bits.join(", ") + ".");
 }
 
 function recMonthNums(doc) {
@@ -1556,7 +1576,7 @@ function recYearSummary(doc) {
     var bits = [];
     if (best) bits.push("Best month " + recMonthTitle(best) + (doc.best_month && doc.best_month.net != null ? ", net " + bankMoney(doc.best_month.net) : ""));
     if (worst) bits.push("Worst month " + recMonthTitle(worst) + (doc.worst_month && doc.worst_month.net != null ? ", net " + bankMoney(doc.worst_month.net) : ""));
-    range = '<p class="bank-rec-asof">' + bankEsc(bits.join(". ")) + ".</p>";
+    range = '<p class="bank-rec-asof">' + bankEsc(recFormatProse(bits.join(". "))) + ".</p>";
   }
   var mix = doc.completeness_by_month;
   var mixLine = "";
@@ -1584,10 +1604,12 @@ function recYearSummary(doc) {
 }
 
 function recText(item) {
-  if (item == null) return "";
-  if (typeof item === "string") return item;
-  if (typeof item === "object") return String(item.text || item.note || item.label || item.summary || "");
-  return String(item);
+  var text = "";
+  if (item == null) text = "";
+  else if (typeof item === "string") text = item;
+  else if (typeof item === "object") text = String(item.text || item.note || item.label || item.summary || "");
+  else text = String(item);
+  return recFormatProse(text);
 }
 
 function recBullets(items) {

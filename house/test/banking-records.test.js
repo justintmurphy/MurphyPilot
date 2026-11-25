@@ -416,7 +416,7 @@ test("record files stay free of institutions, account numbers, and dollar litera
   });
   const page = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(page, /\/house\/js\/banking-records\.js\?v=/);
-  assert.match(page, /banking-records\.js\?v=20261125ab/);
+  assert.match(page, /banking-records\.js\?v=20261125ac/);
   const nav = fs.readFileSync(path.join(root, "js/nav.js"), "utf8");
   assert.match(nav, /historical\//);
   assert.match(nav, /label: "Historical"/);
@@ -833,4 +833,37 @@ test("fit: filters, category columns, top 5, even tiles, signs, and daily ticks"
     var next = edges(days[i], i, days.length);
     assert.ok(next.left > prev.right, days[i - 1].t);
   }
+});
+
+test("summary prose uses the tile money format", function () {
+  const ctx = boot();
+  const fx = loadFixture();
+  const month = JSON.parse(JSON.stringify(fx.month));
+  month.insights.summary = "One-time in 12345.5, out +8000.2, net -900.25 through 2026.";
+  const monthHtml = ctx.bankPageHtml(snap(), {
+    tab: "historical",
+    histMonth: "2026-09",
+    recordIndex: fx.index,
+    record: month
+  });
+  const prose = monthHtml.slice(monthHtml.indexOf("bank-rec-summary"), monthHtml.indexOf("data-bank-rec-charts"));
+  assert.ok(prose.indexOf("in " + ctx.bankMoney(12345.5)) >= 0);
+  assert.ok(prose.indexOf(ctx.bankMoney(8000.2)) >= 0);
+  assert.ok(prose.indexOf(ctx.bankMoney(-900.25)) >= 0);
+  assert.equal(prose.indexOf("+"), -1);
+  assert.equal(prose.indexOf("12345.5"), -1);
+  assert.match(prose, /through 2026/);
+  const year = JSON.parse(JSON.stringify(fx.year));
+  year.best_month = { month: "2026-02", net: 12345.5 };
+  year.year_end_analysis.what_went_right = ["One-time in 12345.5 stayed under the made-up plan."];
+  const yearHtml = ctx.bankPageHtml(snap(), {
+    tab: "historical",
+    histYear: "2026",
+    recordIndex: fx.index,
+    record: year
+  });
+  const yearProse = yearHtml.slice(yearHtml.indexOf("data-bank-rec-summary"), yearHtml.indexOf("data-bank-rec-charts"));
+  assert.ok(yearProse.indexOf(", net " + ctx.bankMoney(12345.5)) >= 0);
+  assert.equal(yearProse.indexOf("12345.5"), -1);
+  assert.ok(yearHtml.indexOf("in " + ctx.bankMoney(12345.5)) >= 0);
 });

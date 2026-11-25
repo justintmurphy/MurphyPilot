@@ -1082,7 +1082,9 @@ body.bank-page > header .clock {
   color: var(--ink);
   font-size: 13px;
   font-weight: 600;
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .bank-kind-name {
