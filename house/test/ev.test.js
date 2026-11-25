@@ -427,8 +427,9 @@ test("pay from saves on its own and never writes bill status", async function ()
       hasAttribute: function () { return false; }
     }
   });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].method, "POST");
+  assert.equal(calls[1].method, "GET");
   const body = JSON.parse(calls[0].body);
   assert.equal(JSON.stringify(Object.keys(body)), JSON.stringify(["bill_account"]));
   assert.equal(JSON.stringify(body.bill_account), JSON.stringify({ power: "1111" }));

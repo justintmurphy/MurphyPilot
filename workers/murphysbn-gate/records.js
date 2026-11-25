@@ -1,8 +1,9 @@
 "use strict";
 
 /* Month and year archives for the Historical tab.
-   The live murphysbn-gate worker and its Wrangler config are not in this repo.
-   Wrap the existing fetch handler. Do not deploy this file as its own worker.
+   The live murphysbn-gate worker is not in this repo. wrangler.jsonc is a
+   dry-run bundle check only. Wrap the existing fetch handler. Do not deploy
+   this file as its own worker.
 
    Reads use the same login gate as GET /data/banking.json. This wrapper probes
    that route with the caller's headers and only then reads OTP_KV.
@@ -86,12 +87,6 @@ async function hashesEqual(left, right) {
   if (a.length !== b.length) return false;
   if (crypto.subtle && typeof crypto.subtle.timingSafeEqual === "function") {
     return crypto.subtle.timingSafeEqual(a, b);
-  }
-  if (typeof require === "function") {
-    var nodeCrypto = require("crypto");
-    if (nodeCrypto && typeof nodeCrypto.timingSafeEqual === "function") {
-      return nodeCrypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
-    }
   }
   var diff = 0;
   var i;

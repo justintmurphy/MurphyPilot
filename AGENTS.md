@@ -11,3 +11,7 @@
 - Never commit the banking snapshot, the custodial investments snapshot (`house/truthifi-snapshot.json`), or real figures.
 - No bank brand strings or real figures in public JS.
 - Bump the `?v=` cache tag on every UI change.
+
+## Checks
+- Pull requests must be green on the tests workflow (`.github/workflows/tests.yml`) before merge.
+- Agents must not call a change done without that check passing.

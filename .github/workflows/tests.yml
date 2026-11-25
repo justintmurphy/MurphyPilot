@@ -1,0 +1,75 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install npm dependencies
+        run: |
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            npm ci
+          else
+            echo "No lockfile; skipping npm ci."
+          fi
+
+      - name: Install Chrome and Playwright
+        run: |
+          # A few house tests launch system Chrome through Playwright at this path.
+          if ! command -v google-chrome >/dev/null 2>&1; then
+            wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+            sudo apt-get update
+            sudo dpkg -i /tmp/chrome.deb || sudo apt-get install -fy
+          fi
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --prefix /tmp/pw-eq playwright@1.56.1
+
+      - name: Install UI fonts
+        run: |
+          # Segoe UI is not on ubuntu-latest. DejaVu Sans is wider and the
+          # 390px planner tables then overflow. Alias the families house CSS
+          # asks for onto Noto Sans, Arimo, and Tinos.
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-core fonts-croscore fonts-liberation
+          sudo cp .github/fonts/59-ui-aliases.conf /etc/fonts/conf.d/59-ui-aliases.conf
+          fc-cache -f
+
+      - name: Run JS test suites
+        run: node --test --test-reporter=spec house/test/*.test.js workers/murphysbn-gate/*.test.js
+
+      - name: Bundle the gate worker
+        working-directory: workers/murphysbn-gate
+        env:
+          CI: true
+          WRANGLER_SEND_METRICS: false
+        run: |
+          set +e
+          npx wrangler deploy --dry-run --outdir /tmp/wb > /tmp/wrangler-dry-run.txt 2>&1
+          status=$?
+          cat /tmp/wrangler-dry-run.txt
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          if grep -Eiq 'Build failed|Unexpected external import|nodejs_compat|Could not resolve' /tmp/wrangler-dry-run.txt; then
+            echo "Wrangler dry-run failed while bundling the gate worker."
+            exit "$status"
+          fi
+          if grep -Eiq 'CLOUDFLARE_API_TOKEN|CLOUDFLARE_ACCOUNT_ID|CLOUDFLARE_API_KEY|Could not authenticate|no credentials were found|necessary to set a CLOUDFLARE_API_TOKEN' /tmp/wrangler-dry-run.txt; then
+            echo "Wrangler dry-run needs account credentials that are not available here. Skipping."
+            exit 0
+          fi
+          exit "$status"
