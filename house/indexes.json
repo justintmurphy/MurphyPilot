@@ -1,18 +1,18 @@
 {
-  "asof": "2026-11-26T16:17:46-05:00",
+  "asof": "2026-11-27T16:26:20-05:00",
   "spx": {
     "symbol": "SPX",
     "label": "S&P",
-    "last": 7182.78,
-    "prev": 7201.09,
-    "pct": -0.25
+    "last": 7297.49,
+    "prev": 7182.78,
+    "pct": 1.6
   },
   "ndx": {
     "symbol": "NDX",
     "label": "Nasdaq",
-    "last": 26046.8967,
-    "prev": 26214.17,
-    "pct": -0.64
+    "last": 26726.3882,
+    "prev": 26046.9,
+    "pct": 2.61
   },
-  "source": "RH get_index_quotes SPX/NDX reused Wed 11-25 close as last + Tue 11-24 close as prev/pct (Thanksgiving, last unchanged); RH equity quotes last_trade_price = Wed 4 PM last (unchanged); crypto quotes live; crypto_positions qty+cost_bases live"
+  "source": "RH get_index_quotes SPX/NDX Fri early close as last + Wed 11-25 close as prev/pct; RH equity/crypto quotes (batched, last_trade_price / mark_price); crypto_positions qty+cost_bases live"
 }
